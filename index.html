@@ -304,7 +304,16 @@
     </aside>
   </div>
 
-<script>
+<script type="module">
+  // ─────────────── FIREBASE ──────────────────────────
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+  import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+  import { firebaseConfig } from "./firebase-config.js";
+
+  const fbApp = initializeApp(firebaseConfig);
+  const db = getFirestore(fbApp);
+  const stateDoc = doc(db, "primitivao", "state");
+
   // ─────────────── DADOS ─────────────────────────────
   const TEAMS = [
     { id: 'bane',    name: 'Bane',    short: 'BAN', color: '#1c1612' },
@@ -379,11 +388,15 @@
   }
 
   // ─────────────── ESTADO + STORAGE ──────────────────
+  // Persistência: Firestore (compartilhado em tempo real entre dispositivos)
+  // + localStorage como cache offline / primeiro paint instantâneo.
   const STORAGE_KEY = 'primitivao-state-v2';
 
-  let state = loadState();
+  let state = loadLocal();
+  let lastLocalEdit = 0;
+  let pendingWrite = null;
 
-  function loadState() {
+  function loadLocal() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -393,9 +406,45 @@
     } catch(e) {}
     return { currentRound: 0, rounds: defaultRounds() };
   }
+
   function saveState() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+    scheduleRemoteWrite();
   }
+
+  function scheduleRemoteWrite() {
+    lastLocalEdit = Date.now();
+    if (pendingWrite) clearTimeout(pendingWrite);
+    pendingWrite = setTimeout(async () => {
+      pendingWrite = null;
+      try {
+        // Firestore não aceita arrays de arrays — serializamos como string.
+        await setDoc(stateDoc, { json: JSON.stringify(state), updatedAt: Date.now() });
+      } catch(e) { console.warn('Firestore write failed', e); }
+    }, 400);
+  }
+
+  // Subscreve mudanças remotas e mantém todos os dispositivos sincronizados.
+  onSnapshot(stateDoc, snap => {
+    if (!snap.exists()) {
+      // Documento ainda não existe — faz o seed com o estado atual.
+      setDoc(stateDoc, { json: JSON.stringify(state), updatedAt: Date.now() })
+        .catch(e => console.warn('Firestore seed failed', e));
+      return;
+    }
+    // Ignora snapshots durante edição local pra não atrapalhar quem está digitando.
+    if (Date.now() - lastLocalEdit < 1500) return;
+    try {
+      const data = snap.data();
+      if (!data || typeof data.json !== 'string') return;
+      const remote = JSON.parse(data.json);
+      if (!remote || !Array.isArray(remote.rounds) || remote.rounds.length !== TOTAL_ROUNDS) return;
+      if (JSON.stringify(remote) === JSON.stringify(state)) return;
+      state = remote;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+      renderAll();
+    } catch(e) { console.warn('Firestore parse failed', e); }
+  }, err => console.warn('Firestore subscription failed', err));
 
   // ─────────────── CÁLCULO DA TABELA ─────────────────
   function computeStandings() {
