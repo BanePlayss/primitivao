@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>PRIMITIVÃO 2026 — Identidade</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Wet+Paint&family=Rubik+Glitch&family=Rye&family=Bagel+Fat+One&family=Bungee+Inline&family=Bungee&family=Caveat+Brush&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" />
+  <style>
+    :root {
+      --pv-orange: #d76414;
+      --pv-charcoal: #1c1612;
+      --pv-bone: #f4ead7;
+      --pv-rust: #8b3a14;
+    }
+    html, body { margin: 0; padding: 0; background: #f0eee9; }
+    body { font-family: "Space Grotesk", system-ui, sans-serif; color: var(--pv-charcoal); }
+    /* default cores no canvas — quando user troca via tweaks reescrevemos */
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="brand-system.jsx"></script>
+  <script type="text/babel" src="assets.jsx"></script>
+
+  <script type="text/babel">
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "palette": [
+        "#d76414",
+        "#1c1612",
+        "#f4ead7"
+      ],
+      "displayFont": "Bungee Inline",
+      "showTexture": true,
+      "logoVariant": "principal"
+    }/*EDITMODE-END*/;
+
+    const PALETTES = {
+      orange:  ['#d76414', '#1c1612', '#f4ead7'],
+      red:     ['#a83218', '#1a1410', '#f1e5d0'],
+      blaze:   ['#ff7a1a', '#0f0a08', '#fff0d6'],
+      mono:    ['#1c1612', '#1c1612', '#f4ead7'],
+    };
+    const FONT_OPTS = ['Rubik Wet Paint', 'Rubik Glitch', 'Bagel Fat One', 'Caveat Brush', 'Rye', 'Bungee Inline'];
+
+    function App() {
+      const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      // aplica paleta nas vars CSS
+      React.useEffect(() => {
+        const [o, c, b] = t.palette;
+        document.documentElement.style.setProperty('--pv-orange', o);
+        document.documentElement.style.setProperty('--pv-charcoal', c);
+        document.documentElement.style.setProperty('--pv-bone', b);
+      }, [t.palette]);
+
+      const display = t.displayFont;
+
+      return (
+        <>
+          <DesignCanvas>
+            {/* ─────── LOGO ─────── */}
+            <DCSection id="logo" title="01 · Logo Principal" subtitle="Escudo / crest oficial — 3 versões">
+              <DCArtboard id="logo-cor" label="Versão Colorida" width={520} height={620} style={{ background: 'var(--pv-bone)' }}>
+                <ArtboardCenter>
+                  <LogoPrincipal size={420} palette="cor" display={display} />
+                </ArtboardCenter>
+              </DCArtboard>
+              <DCArtboard id="logo-mono" label="Mono · Preto sobre Osso" width={520} height={620} style={{ background: 'var(--pv-bone)' }}>
+                <ArtboardCenter>
+                  <LogoPrincipal size={420} palette="mono" display={display} />
+                </ArtboardCenter>
+              </DCArtboard>
+              <DCArtboard id="logo-inverso" label="Inversa · Osso sobre Preto" width={520} height={620} style={{ background: 'var(--pv-charcoal)' }}>
+                <ArtboardCenter>
+                  <LogoPrincipal size={420} palette="inverso" display={display} />
+                </ArtboardCenter>
+              </DCArtboard>
+              <DCArtboard id="logo-horizontal" label="Versão Horizontal · Wordmark" width={620} height={300} style={{ background: 'var(--pv-bone)' }}>
+                <ArtboardCenter>
+                  <LogoHorizontal width={500} palette="cor" display={display} />
+                </ArtboardCenter>
+              </DCArtboard>
+            </DCSection>
+
+            {/* ─────── PALETA + TIPOGRAFIA ─────── */}
+            <DCSection id="sistema" title="02 · Sistema Visual" subtitle="Cores, tipografia e iconografia rupestre">
+              <DCArtboard id="paleta" label="Paleta" width={520} height={420} style={{ background: 'var(--pv-bone)' }}>
+                <PaletaSwatches />
+              </DCArtboard>
+              <DCArtboard id="tipo" label="Tipografia" width={520} height={420} style={{ background: 'var(--pv-bone)' }}>
+                <TipoSpec display={display} />
+              </DCArtboard>
+              <DCArtboard id="icones" label="Iconografia" width={520} height={420} style={{ background: 'var(--pv-bone)' }}>
+                <IconeSheet />
+              </DCArtboard>
+            </DCSection>
+
+            {/* ─────── TROFÉU ─────── */}
+            <DCSection id="trofeu" title="03 · Troféu" subtitle="Cálice tribal em osso, máscara coroada">
+              <DCArtboard id="trofeu-1" label="Troféu · Hero" width={500} height={620} style={{
+                background: 'radial-gradient(circle at 50% 35%, rgba(215,100,20,0.25), transparent 60%), var(--pv-charcoal)',
+              }}>
+                <ArtboardCenter>
+                  <TrofeuPrimitivo width={340} height={490} />
+                </ArtboardCenter>
+              </DCArtboard>
+              <DCArtboard id="trofeu-2" label="Troféu · Plain" width={420} height={620} style={{ background: 'var(--pv-bone)' }}>
+                <ArtboardCenter>
+                  <TrofeuPrimitivo width={340} height={490} />
+                </ArtboardCenter>
+              </DCArtboard>
+            </DCSection>
+
+            {/* ─────── 8 TIMES ─────── */}
+            <DCSection id="times" title="04 · Os 8 Guerreiros" subtitle="Crests dos times participantes">
+              <DCArtboard id="times-grid" label="Grid de Times" width={760} height={560} style={{ background: 'var(--pv-bone)' }}>
+                <TimesGrid />
+              </DCArtboard>
+            </DCSection>
+
+            {/* ─────── BANNER + MOCKUP WHATSAPP ─────── */}
+            <DCSection id="whatsapp" title="05 · Banner WhatsApp" subtitle="Avatar do grupo + mockup em uso">
+              <DCArtboard id="banner" label="Avatar do Grupo · 640×640" width={540} height={540}>
+                <BannerWhatsApp width={540} height={540} />
+              </DCArtboard>
+              <DCArtboard id="mockup" label="Mockup · No Grupo" width={360} height={720}>
+                <MockupWhatsApp width={360} height={720} />
+              </DCArtboard>
+            </DCSection>
+
+            {/* ─────── TABELA + CARD ─────── */}
+            <DCSection id="campeonato" title="06 · Operação do Campeonato" subtitle="Classificação e card de jogo da rodada">
+              <DCArtboard id="tabela" label="Classificação" width={540} height={720}>
+                <TabelaClassificacao width={540} height={720} />
+              </DCArtboard>
+              <DCArtboard id="card-1" label="Card · Rodada 8" width={540} height={320}>
+                <CardJogo width={540} height={320} home="bane" away="mohamed" round={8} day="QUI" date="14 MAI" time="21:00" />
+              </DCArtboard>
+              <DCArtboard id="card-2" label="Card · Clássico Tribal" width={540} height={320}>
+                <CardJogo width={540} height={320} home="juca" away="celin" round={9} day="QUI" date="21 MAI" time="21:00" />
+              </DCArtboard>
+            </DCSection>
+
+            {/* ─────── UNIFORMES ─────── */}
+            <DCSection id="uniformes" title="07 · Uniformes Conceito" subtitle="Camisa primitiva por time — referência visual">
+              <DCArtboard id="u1" label="Bane" width={280} height={360}>
+                <Uniforme width={280} height={360} team="bane" />
+              </DCArtboard>
+              <DCArtboard id="u2" label="Mohamed" width={280} height={360}>
+                <Uniforme width={280} height={360} team="mohamed" />
+              </DCArtboard>
+              <DCArtboard id="u3" label="Juca" width={280} height={360}>
+                <Uniforme width={280} height={360} team="juca" />
+              </DCArtboard>
+              <DCArtboard id="u4" label="Celin" width={280} height={360}>
+                <Uniforme width={280} height={360} team="celin" />
+              </DCArtboard>
+              <DCArtboard id="u5" label="Caco" width={280} height={360}>
+                <Uniforme width={280} height={360} team="caco" />
+              </DCArtboard>
+            </DCSection>
+
+            <DCPostIt top={-30} left={60} rotate={-3} width={220}>
+              Pan/zoom no canvas. Clique no nome de qualquer artboard pra abrir em foco. Use o painel <b>Tweaks</b> pra trocar paleta e fonte.
+            </DCPostIt>
+          </DesignCanvas>
+
+          <TweaksPanel title="Primitivão · Tweaks">
+            <TweakSection label="Paleta">
+              <TweakColor label="Cores" value={t.palette}
+                options={[PALETTES.orange, PALETTES.red, PALETTES.blaze, PALETTES.mono]}
+                onChange={(v) => setTweak('palette', v)} />
+            </TweakSection>
+            <TweakSection label="Tipografia">
+              <TweakSelect label="Display" value={t.displayFont}
+                options={FONT_OPTS}
+                onChange={(v) => setTweak('displayFont', v)} />
+            </TweakSection>
+          </TweaksPanel>
+        </>
+      );
+    }
+
+    function ArtboardCenter({ children }) {
+      return <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{children}</div>;
+    }
+
+    function PaletaSwatches() {
+      const swatches = [
+        { name: 'Laranja Brasa', token: '--pv-orange', desc: 'Primária. Cor de chama, escudo e acentos.' },
+        { name: 'Carvão',        token: '--pv-charcoal', desc: 'Estrutura. Pintura rupestre e sombras.' },
+        { name: 'Osso',          token: '--pv-bone', desc: 'Background. Pergaminho seco.' },
+      ];
+      return (
+        <div style={{ padding: 28, height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ fontFamily: '"Bungee Inline", Impact, sans-serif', fontSize: 22, letterSpacing: '0.02em' }}>PALETA</div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.32em', color: 'rgba(28,22,18,0.5)', marginTop: -10 }}>3 CORES · TERRA & FOGO</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
+            {swatches.map((s) => (
+              <div key={s.token} style={{ display: 'flex', gap: 14, alignItems: 'stretch' }}>
+                <div style={{ width: 80, height: 64, background: `var(${s.token})`,
+                              border: '2px solid var(--pv-charcoal)' }} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <div style={{ fontFamily: '"Bungee Inline", Impact, sans-serif', fontSize: 18 }}>{s.name}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.65)', marginTop: 2 }}>{s.desc}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.18em', color: 'rgba(28,22,18,0.45)', marginTop: 4 }}>
+                    var({s.token})
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function TipoSpec({ display }) {
+      return (
+        <div style={{ padding: 28, height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div style={{ fontFamily: '"Bungee Inline", Impact, sans-serif', fontSize: 22, letterSpacing: '0.02em' }}>TIPOGRAFIA</div>
+          <div style={{ borderTop: '2px solid var(--pv-charcoal)', paddingTop: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.32em', color: 'rgba(28,22,18,0.5)' }}>DISPLAY · {display.toUpperCase()}</div>
+            <div style={{ fontFamily: `"${display}", Impact, sans-serif`, fontSize: 56, lineHeight: 0.95, marginTop: 8, color: 'var(--pv-orange)' }}>
+              PRIMITIVÃO
+            </div>
+            <div style={{ fontFamily: `"${display}", Impact, sans-serif`, fontSize: 24, color: 'var(--pv-charcoal)' }}>
+              ABCDÉFGHIJKL · 0123456789
+            </div>
+          </div>
+          <div style={{ borderTop: '1px dashed rgba(28,22,18,0.3)', paddingTop: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.32em', color: 'rgba(28,22,18,0.5)' }}>BODY · SPACE GROTESK</div>
+            <div style={{ fontFamily: '"Space Grotesk", sans-serif', fontSize: 14, lineHeight: 1.5, marginTop: 8 }}>
+              Pontos corridos, ida e volta, dez minutos por jogo. Quem ergue o totem ergue a glória.
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function IconeSheet() {
+      const items = [
+        { name: 'Máscara', node: <MaskaTribal size={70} color="var(--pv-charcoal)" /> },
+        { name: 'Lanças', node: <LancasCruzadas size={80} color="var(--pv-charcoal)" /> },
+        { name: 'Mão Rupestre', node: <MaoRupestre size={62} color="var(--pv-charcoal)" /> },
+        { name: 'Bola', node: <BolaRupestre size={70} color="var(--pv-orange)" /> },
+        { name: 'Chama', node: <ChamaTribal size={48} color="var(--pv-orange)" /> },
+      ];
+      return (
+        <div style={{ padding: 28, height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ fontFamily: '"Bungee Inline", Impact, sans-serif', fontSize: 22, letterSpacing: '0.02em' }}>ICONOGRAFIA</div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.32em', color: 'rgba(28,22,18,0.5)', marginTop: -8 }}>DESENHADAS À MÃO · SVG</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, flex: 1, marginTop: 4 }}>
+            {items.map((it) => (
+              <div key={it.name} style={{
+                background: '#fff', border: '1.5px solid var(--pv-charcoal)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                padding: 12, gap: 8,
+              }}>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{it.node}</div>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', color: 'rgba(28,22,18,0.6)', textTransform: 'uppercase' }}>{it.name}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function TimesGrid() {
+      return (
+        <div style={{ padding: 28, height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <div style={{ fontFamily: '"Bungee Inline", Impact, sans-serif', fontSize: 24, letterSpacing: '0.02em' }}>OS 8 GUERREIROS</div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.32em', color: 'rgba(28,22,18,0.5)', marginTop: 4 }}>
+              CRESTS · ESCUDOS DE TRIBO
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, flex: 1 }}>
+            {TEAMS.map((tm) => (
+              <div key={tm.id} style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between',
+                background: '#fff', border: '1.5px solid var(--pv-charcoal)', padding: '14px 8px 10px', gap: 8,
+              }}>
+                <TeamCrest team={tm} size={84} />
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontFamily: '"Bungee Inline", Impact, sans-serif', fontSize: 13, lineHeight: 1.1 }}>{tm.name}</div>
+                  <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.32em', color: 'var(--pv-orange)', marginTop: 4 }}>{tm.short}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
