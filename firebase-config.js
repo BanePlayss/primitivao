@@ -1,11 +1,9 @@
-// Cole aqui as chaves do seu projeto Firebase.
-// Console → Project settings → General → Your apps → Web app → SDK setup.
-// Estes valores são públicos por design (a segurança vem das Firestore Rules).
+// Firebase config — valores públicos por design (segurança vem das Firestore Rules).
 export const firebaseConfig = {
-  apiKey: "REPLACE_ME",
-  authDomain: "REPLACE_ME.firebaseapp.com",
-  projectId: "REPLACE_ME",
-  storageBucket: "REPLACE_ME.appspot.com",
-  messagingSenderId: "REPLACE_ME",
-  appId: "REPLACE_ME",
+  apiKey: "AIzaSyB4Tu-OIAfBUfzdtY-wF9tSoBwP_36hdRg",
+  authDomain: "primitivao.firebaseapp.com",
+  projectId: "primitivao",
+  storageBucket: "primitivao.firebasestorage.app",
+  messagingSenderId: "279022752580",
+  appId: "1:279022752580:web:e5f467d6e2e83bc6cc7d11",
 };
