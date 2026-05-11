@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>PRIMITIVÃO 2026 — APOSTAS</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Bungee+Inline&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" />
+  <style>
+    :root {
+      --pv-orange:   #d76414;
+      --pv-orange-2: #a84a08;
+      --pv-charcoal: #1c1612;
+      --pv-bone:     #f4ead7;
+      --pv-bone-2:   #e6dbc4;
+      --pv-red:      #8b3a14;
+      --pv-green:    #4d6a2e;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; min-height: 100%; }
+    body {
+      background:
+        radial-gradient(circle at 18% 12%, rgba(215,100,20,0.10), transparent 42%),
+        radial-gradient(circle at 82% 88%, rgba(215,100,20,0.06), transparent 42%),
+        var(--pv-bone);
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      color: var(--pv-charcoal);
+    }
+    .display { font-family: "Bagel Fat One", "Bungee Inline", Impact, sans-serif; font-weight: 400; }
+    .mono    { font-variant-numeric: tabular-nums; }
+    button {
+      font-family: inherit; cursor: pointer;
+    }
+    input, select {
+      font-family: inherit;
+    }
+
+    /* ──── TOP BAR ──── */
+    .topbar {
+      background: var(--pv-charcoal); color: var(--pv-bone);
+      padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 4px solid var(--pv-orange);
+      position: sticky; top: 0; z-index: 50;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      width: 38px; height: 46px; flex-shrink: 0;
+    }
+    .brand-text { line-height: 1; }
+    .brand-text .t1 { font-size: 22px; letter-spacing: 0.02em; }
+    .brand-text .t2 { font-size: 10px; letter-spacing: 0.32em; color: var(--pv-orange); margin-top: 4px; font-weight: 700; }
+
+    .wallet {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .pc-pill {
+      background: var(--pv-orange); color: var(--pv-charcoal);
+      padding: 6px 14px 6px 10px;
+      display: flex; align-items: center; gap: 8px;
+      font-weight: 800;
+    }
+    .pc-coin {
+      width: 24px; height: 24px;
+      background: var(--pv-charcoal); color: var(--pv-orange);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Bagel Fat One", Impact, sans-serif; font-size: 13px;
+      border: 2px solid var(--pv-bone);
+    }
+    .pc-amt { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 20px; line-height: 1; }
+    .pc-unit { font-size: 9px; letter-spacing: 0.2em; font-weight: 800; opacity: 0.7; }
+
+    .nick {
+      color: var(--pv-bone); font-weight: 800;
+      letter-spacing: 0.1em; font-size: 13px;
+    }
+    .nick-tag {
+      display: inline-block;
+      padding: 4px 8px;
+      background: rgba(244,234,215,0.08);
+      border: 1px dashed rgba(244,234,215,0.3);
+      margin-right: 6px;
+    }
+    .logout-btn {
+      background: transparent; color: var(--pv-bone);
+      border: 1.5px solid rgba(244,234,215,0.35);
+      padding: 6px 12px; font-size: 11px; font-weight: 800;
+      letter-spacing: 0.2em;
+    }
+    .logout-btn:hover { background: var(--pv-orange); border-color: var(--pv-orange); color: var(--pv-charcoal); }
+
+    /* ──── LAYOUT ──── */
+    .page {
+      max-width: 1120px; margin: 0 auto; padding: 24px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 20px;
+    }
+    @media (max-width: 880px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--pv-bone);
+      border: 3px solid var(--pv-charcoal);
+      box-shadow: 6px 6px 0 var(--pv-charcoal);
+    }
+    .card-head {
+      padding: 14px 18px;
+      background: var(--pv-charcoal); color: var(--pv-bone);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-head .title {
+      font-family: "Bungee Inline", Impact, sans-serif; font-size: 16px; letter-spacing: 0.06em;
+    }
+    .card-head .sub {
+      font-size: 10px; letter-spacing: 0.3em; color: var(--pv-orange); font-weight: 800;
+    }
+    .card-body { padding: 18px; }
+
+    /* tabs */
+    .tabs {
+      display: flex; gap: 0; margin-bottom: 18px;
+      border-bottom: 3px solid var(--pv-charcoal);
+    }
+    .tab {
+      background: transparent; border: none; padding: 10px 18px;
+      font-weight: 800; letter-spacing: 0.18em; font-size: 12px;
+      color: rgba(28,22,18,0.5);
+      border-bottom: 3px solid transparent;
+      margin-bottom: -3px;
+    }
+    .tab.active {
+      color: var(--pv-charcoal);
+      border-bottom-color: var(--pv-orange);
+      background: rgba(215,100,20,0.08);
+    }
+
+    /* fixtures */
+    .fixture {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      padding: 16px;
+      border: 2px solid var(--pv-charcoal);
+      margin-bottom: 14px;
+      background: var(--pv-bone);
+      position: relative;
+    }
+    .fixture.locked { opacity: 0.6; }
+    .fixture.finished { background: rgba(199,84,24,0.06); }
+    .fixture-top {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 10px; letter-spacing: 0.32em; font-weight: 800;
+      color: rgba(28,22,18,0.6); margin-bottom: 4px;
+    }
+    .fixture-tag {
+      color: var(--pv-orange); font-family: "Bungee Inline", sans-serif; letter-spacing: 0.08em;
+    }
+    .fixture-match {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 14px;
+      padding: 6px 0;
+    }
+    .fixture-team {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .fixture-team.away { flex-direction: row-reverse; text-align: right; }
+    .team-info .nm { font-weight: 800; line-height: 1; font-size: 14px; }
+    .team-info .sh { font-size: 9px; letter-spacing: 0.32em; color: var(--pv-orange); font-weight: 800; margin-top: 4px; }
+    .vs {
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      color: var(--pv-charcoal); font-size: 20px;
+    }
+    .score-show {
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      color: var(--pv-orange); font-size: 30px; line-height: 1;
+      letter-spacing: 0.1em;
+    }
+    .odds-row {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+      margin-top: 6px;
+    }
+    .odd-btn {
+      background: var(--pv-bone-2);
+      border: 2px solid var(--pv-charcoal);
+      padding: 10px 6px;
+      text-align: center;
+      font-weight: 800;
+    }
+    .odd-btn .lab { font-size: 9px; letter-spacing: 0.26em; color: rgba(28,22,18,0.6); }
+    .odd-btn .val { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 22px; color: var(--pv-charcoal); margin-top: 2px; }
+    .odd-btn:hover:not(:disabled) {
+      background: var(--pv-orange); border-color: var(--pv-charcoal);
+    }
+    .odd-btn:hover:not(:disabled) .val { color: var(--pv-bone); }
+    .odd-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .odd-btn.winner {
+      background: var(--pv-orange); border-color: var(--pv-charcoal);
+    }
+    .odd-btn.winner .val { color: var(--pv-bone); }
+
+    /* leaderboard */
+    .lb-row {
+      display: grid; grid-template-columns: 28px 1fr auto; gap: 10px;
+      padding: 10px 4px; align-items: center;
+      border-bottom: 1px dashed rgba(28,22,18,0.18);
+    }
+    .lb-row:last-child { border-bottom: none; }
+    .lb-row.me { background: rgba(215,100,20,0.10); padding: 10px 8px; }
+    .lb-pos {
+      font-family: "Bagel Fat One", Impact, sans-serif; font-size: 18px;
+      color: var(--pv-orange); text-align: center;
+    }
+    .lb-row.top1 .lb-pos { color: var(--pv-orange); }
+    .lb-nick { font-weight: 800; letter-spacing: 0.05em; }
+    .lb-pc {
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      font-size: 16px; color: var(--pv-charcoal);
+    }
+    .lb-pc::after { content: ' PC'; font-size: 9px; letter-spacing: 0.2em; color: rgba(28,22,18,0.6); font-family: 'Space Grotesk'; font-weight: 800; }
+
+    /* tickets */
+    .ticket {
+      border: 2px solid var(--pv-charcoal); padding: 12px;
+      margin-bottom: 10px;
+      background: var(--pv-bone);
+      display: grid; grid-template-columns: 1fr auto; gap: 8px;
+    }
+    .ticket.won { background: rgba(77,106,46,0.12); }
+    .ticket.lost { background: rgba(28,22,18,0.06); opacity: 0.7; }
+    .ticket .pick { font-weight: 800; }
+    .ticket .pick small { font-weight: 700; color: var(--pv-orange); letter-spacing: 0.16em; font-size: 10px; display: block; margin-bottom: 2px; }
+    .ticket .stake {
+      text-align: right;
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      font-size: 18px;
+    }
+    .ticket .status {
+      font-size: 9px; letter-spacing: 0.3em; font-weight: 800;
+      padding: 3px 8px; display: inline-block; margin-top: 4px;
+    }
+    .ticket .status.pending { background: var(--pv-charcoal); color: var(--pv-bone); }
+    .ticket .status.won { background: var(--pv-green); color: var(--pv-bone); }
+    .ticket .status.lost { background: var(--pv-red); color: var(--pv-bone); }
+
+    /* bonus / weekly */
+    .bonus {
+      background: var(--pv-charcoal); color: var(--pv-bone);
+      padding: 14px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .bonus.ready { background: var(--pv-orange); color: var(--pv-charcoal); }
+    .bonus button {
+      padding: 8px 14px; font-weight: 800; letter-spacing: 0.18em;
+      background: var(--pv-bone); color: var(--pv-charcoal);
+      border: none; font-size: 11px;
+    }
+    .bonus button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* login */
+    .login-stage {
+      min-height: calc(100vh - 0px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .login-card {
+      width: 100%; max-width: 420px;
+      background: var(--pv-bone);
+      border: 3px solid var(--pv-charcoal);
+      box-shadow: 8px 8px 0 var(--pv-charcoal);
+      padding: 32px 28px;
+      text-align: center;
+    }
+    .login-card .logo-svg { width: 96px; height: 116px; margin: 0 auto 8px; display: block; }
+    .login-card .lh1 { font-family: "Bungee Inline", Impact, sans-serif; font-size: 28px; letter-spacing: 0.04em; }
+    .login-card .lh2 { font-size: 11px; letter-spacing: 0.36em; font-weight: 800; color: var(--pv-orange); margin-top: 4px; }
+    .field { margin-top: 14px; text-align: left; }
+    .field label { font-size: 10px; letter-spacing: 0.28em; font-weight: 800; color: rgba(28,22,18,0.6); }
+    .field input {
+      width: 100%; margin-top: 6px;
+      padding: 10px 12px;
+      background: var(--pv-bone-2);
+      border: 2px solid var(--pv-charcoal);
+      font-size: 16px; font-weight: 700;
+    }
+    .field input:focus { outline: none; border-color: var(--pv-orange); }
+    .login-btn {
+      width: 100%; margin-top: 20px;
+      padding: 14px;
+      background: var(--pv-orange); color: var(--pv-bone);
+      border: 3px solid var(--pv-charcoal);
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      font-size: 18px; letter-spacing: 0.06em;
+    }
+    .login-btn:hover { background: var(--pv-charcoal); color: var(--pv-bone); }
+    .login-msg { margin-top: 14px; font-size: 12px; color: var(--pv-red); font-weight: 700; min-height: 18px; }
+    .login-hint { margin-top: 16px; font-size: 11px; color: rgba(28,22,18,0.55); letter-spacing: 0.04em; }
+
+    /* bet modal */
+    .modal-bg {
+      position: fixed; inset: 0;
+      background: rgba(28,22,18,0.7);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 20px;
+    }
+    .modal {
+      background: var(--pv-bone);
+      border: 3px solid var(--pv-charcoal);
+      box-shadow: 8px 8px 0 var(--pv-charcoal);
+      width: 100%; max-width: 460px;
+      padding: 22px;
+    }
+    .modal h3 { font-family: "Bungee Inline", Impact, sans-serif; margin: 0 0 4px; font-size: 18px; letter-spacing: 0.06em; }
+    .modal .modal-sub { font-size: 11px; letter-spacing: 0.3em; font-weight: 800; color: var(--pv-orange); margin-bottom: 16px; }
+    .modal-row { display: flex; justify-content: space-between; padding: 6px 0; font-weight: 700; }
+    .modal-row .lab { color: rgba(28,22,18,0.6); font-size: 12px; letter-spacing: 0.16em; font-weight: 800; }
+    .stake-input {
+      width: 100%; margin-top: 10px;
+      padding: 14px;
+      background: var(--pv-bone-2); border: 2px solid var(--pv-charcoal);
+      font-family: "Bagel Fat One", Impact, sans-serif; font-size: 30px;
+      text-align: center;
+    }
+    .quick {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px;
+    }
+    .quick button {
+      padding: 8px; border: 2px solid var(--pv-charcoal);
+      background: var(--pv-bone); font-weight: 800; font-size: 12px;
+    }
+    .quick button:hover { background: var(--pv-charcoal); color: var(--pv-bone); }
+    .payout-box {
+      margin-top: 14px; padding: 12px;
+      background: var(--pv-charcoal); color: var(--pv-bone);
+    }
+    .payout-box .nm { font-size: 10px; letter-spacing: 0.3em; color: var(--pv-orange); font-weight: 800; }
+    .payout-box .v {
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      font-size: 36px; line-height: 1; margin-top: 4px;
+    }
+    .modal-btns { display: flex; gap: 8px; margin-top: 16px; }
+    .modal-btns button { flex: 1; padding: 12px; font-weight: 800; letter-spacing: 0.16em; font-size: 12px; border: 3px solid var(--pv-charcoal); }
+    .btn-secondary { background: var(--pv-bone); color: var(--pv-charcoal); }
+    .btn-primary { background: var(--pv-orange); color: var(--pv-bone); }
+
+    /* admin */
+    .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 720px) { .admin-grid { grid-template-columns: 1fr; } }
+    .admin-game {
+      border: 2px solid var(--pv-charcoal); padding: 12px;
+      background: var(--pv-bone);
+    }
+    .admin-game h4 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.18em; }
+    .admin-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+    .admin-fields select, .admin-fields input {
+      padding: 6px 8px; border: 1.5px solid var(--pv-charcoal); background: var(--pv-bone); font-weight: 700; font-size: 12px; width: 100%;
+    }
+    .admin-actions { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+    .admin-actions button {
+      padding: 6px 10px; font-size: 10px; letter-spacing: 0.14em; font-weight: 800;
+      border: 1.5px solid var(--pv-charcoal); background: var(--pv-bone);
+    }
+    .admin-actions button.primary { background: var(--pv-orange); color: var(--pv-bone); border-color: var(--pv-charcoal); }
+    .admin-result-input {
+      width: 38px; padding: 4px; border: 2px solid var(--pv-orange);
+      font-family: "Bagel Fat One", Impact, sans-serif; font-size: 18px; text-align: center;
+    }
+
+    .empty {
+      padding: 30px 18px; text-align: center;
+      border: 2px dashed rgba(28,22,18,0.3);
+      color: rgba(28,22,18,0.55);
+    }
+    .empty .e1 { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 22px; color: var(--pv-charcoal); }
+    .empty .e2 { font-size: 12px; margin-top: 4px; }
+
+    /* utilities */
+    .row-between { display: flex; justify-content: space-between; align-items: center; }
+    .small-label { font-size: 10px; letter-spacing: 0.3em; font-weight: 800; color: rgba(28,22,18,0.55); }
+
+    /* misc texture: little rupestre dots in topbar */
+    .topbar::before {
+      content: '';
+      position: absolute; left: 0; right: 0; bottom: -4px; height: 4px;
+      background-image: linear-gradient(90deg, var(--pv-orange) 0 8px, transparent 8px 14px);
+      background-size: 14px 4px;
+      pointer-events: none;
+    }
+    .topbar { position: sticky; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Firebase (compat SDK — global `firebase`, mais simples com Babel standalone) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+  <script>
+    // Config duplicado do /firebase-config.js (apostas usa compat SDK, classificação usa modular).
+    firebase.initializeApp({
+      apiKey: "AIzaSyB4Tu-OIAfBUfzdtY-wF9tSoBwP_36hdRg",
+      authDomain: "primitivao.firebaseapp.com",
+      projectId: "primitivao",
+      storageBucket: "primitivao.firebasestorage.app",
+      messagingSenderId: "279022752580",
+      appId: "1:279022752580:web:e5f467d6e2e83bc6cc7d11",
+    });
+    window.db = firebase.firestore();
+  </script>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="apostas-app.jsx"></script>
+</body>
+</html>
