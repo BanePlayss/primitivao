@@ -1,19 +1,21 @@
 // Apostas — single file React app.
 // Persiste em Firestore (compartilhado entre todos os dispositivos).
+// - primitivao/apostas : users, fixtures, bets (cupons parlay)
+// - primitivao/state   : classificação (mesmo doc do site antigo — dados mantidos)
 // Sessão (quem está logado neste navegador) fica em localStorage.
 
 const { useState, useEffect, useMemo, useRef } = React;
 
 // ─── DADOS BASE ─────────────────────────────────────────────────────────────
 const TEAMS = [
-  { id: 'bane',    name: 'Bane',    short: 'BAN', color: '#1c1612', mascot: 'mascara' },
-  { id: 'mohamed', name: 'Mohamed', short: 'MOH', color: '#c75418', mascot: 'tigre' },
-  { id: 'potato',  name: 'Potato',  short: 'PTT', color: '#8b3a14', mascot: 'pedra' },
-  { id: 'magreza', name: 'Magreza', short: 'MGR', color: '#2a201a', mascot: 'cruz' },
-  { id: 'celin',   name: 'Celin',   short: 'CEL', color: '#e8800f', mascot: 'mao' },
-  { id: 'juca',    name: 'Juca',    short: 'JUC', color: '#d63c0a', mascot: 'chama' },
-  { id: 'caco',    name: 'Caco',    short: 'CAC', color: '#4a3020', mascot: 'mamute' },
-  { id: 'vitinho', name: 'Vitinho', short: 'VIT', color: '#6e4824', mascot: 'osso' },
+  { id: 'bane',    name: 'Bane',    short: 'BAN', color: '#1c1612' },
+  { id: 'mohamed', name: 'Mohamed', short: 'MOH', color: '#c75418' },
+  { id: 'potato',  name: 'Potato',  short: 'PTT', color: '#8b3a14' },
+  { id: 'magreza', name: 'Magreza', short: 'MGR', color: '#2a201a' },
+  { id: 'celin',   name: 'Celin',   short: 'CEL', color: '#e8800f' },
+  { id: 'juca',    name: 'Juca',    short: 'JUC', color: '#d63c0a' },
+  { id: 'caco',    name: 'Caco',    short: 'CAC', color: '#4a3020' },
+  { id: 'vitinho', name: 'Vitinho', short: 'VIT', color: '#6e4824' },
 ];
 const TEAM = (id) => TEAMS.find(t => t.id === id) || TEAMS[0];
 
@@ -24,16 +26,18 @@ const START_PC = 50;
 const WEEKLY_PC = 20;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
+const DEF_BY = 1.8; // ambos marcam: SIM
+const DEF_BN = 2.0; // ambos marcam: NÃO
+
 // fixtures default: rodada 1 — 4 jogos
 const DEFAULT_FIXTURES = [
-  { id: 'r1g1', round: 1, home: 'bane',    away: 'mohamed', day: 'SEG', date: '04/05', time: '21:00', oddsH: 2.0, oddsD: 3.0, oddsA: 2.2, result: null, locked: false },
-  { id: 'r1g2', round: 1, home: 'potato',  away: 'magreza', day: 'TER', date: '05/05', time: '21:00', oddsH: 2.3, oddsD: 3.0, oddsA: 2.0, result: null, locked: false },
-  { id: 'r1g3', round: 1, home: 'celin',   away: 'juca',    day: 'QUA', date: '06/05', time: '21:00', oddsH: 2.1, oddsD: 3.0, oddsA: 2.1, result: null, locked: false },
-  { id: 'r1g4', round: 1, home: 'caco',    away: 'vitinho', day: 'QUI', date: '07/05', time: '21:00', oddsH: 2.5, oddsD: 3.0, oddsA: 1.9, result: null, locked: false },
+  { id: 'r1g1', round: 1, home: 'bane',    away: 'mohamed', day: 'SEG', date: '04/05', time: '21:00', oddsH: 2.0, oddsD: 3.0, oddsA: 2.2, oddsBY: DEF_BY, oddsBN: DEF_BN, result: null, locked: false },
+  { id: 'r1g2', round: 1, home: 'potato',  away: 'magreza', day: 'TER', date: '05/05', time: '21:00', oddsH: 2.3, oddsD: 3.0, oddsA: 2.0, oddsBY: DEF_BY, oddsBN: DEF_BN, result: null, locked: false },
+  { id: 'r1g3', round: 1, home: 'celin',   away: 'juca',    day: 'QUA', date: '06/05', time: '21:00', oddsH: 2.1, oddsD: 3.0, oddsA: 2.1, oddsBY: DEF_BY, oddsBN: DEF_BN, result: null, locked: false },
+  { id: 'r1g4', round: 1, home: 'caco',    away: 'vitinho', day: 'QUI', date: '07/05', time: '21:00', oddsH: 2.5, oddsD: 3.0, oddsA: 1.9, oddsBY: DEF_BY, oddsBN: DEF_BN, result: null, locked: false },
 ];
 
 // ─── STORAGE ────────────────────────────────────────────────────────────────
-// Apenas a sessão (login local) fica em localStorage. Tudo o resto vai para Firestore.
 const SESSION_KEY = 'pv-bet-session';
 function loadSession() {
   try { const v = localStorage.getItem(SESSION_KEY); return v ? JSON.parse(v) : null; }
@@ -45,12 +49,121 @@ function saveSession(val) {
     else localStorage.removeItem(SESSION_KEY);
   } catch(e) {}
 }
+const BET_DOC      = () => window.db.doc('primitivao/apostas');
+const CLASSIF_DOC  = () => window.db.doc('primitivao/state');
 
-// Firestore: documento único `primitivao/apostas` com payload JSON.
-// Centralizar num doc evita ter que criar regras de segurança por coleção.
-const STATE_DOC = () => window.db.doc('primitivao/apostas');
+// ─── NORMALIZAÇÃO (compat com dados antigos) ────────────────────────────────
+function normFixture(f) {
+  return { ...f, oddsBY: f.oddsBY != null ? f.oddsBY : DEF_BY, oddsBN: f.oddsBN != null ? f.oddsBN : DEF_BN };
+}
+function normBet(b) {
+  if (Array.isArray(b.legs)) return b;
+  // formato antigo (aposta simples) → vira cupom de 1 perna
+  return {
+    id: b.id, user: b.user, amount: b.amount, status: b.status || 'pending',
+    createdAt: b.createdAt || Date.now(), combinedOdds: b.odds,
+    payout: b.payout,
+    legs: [{
+      fixtureId: b.fixtureId, market: '1X2', pick: b.pick, odds: b.odds,
+      result: b.status === 'won' ? 'win' : b.status === 'lost' ? 'lose' : undefined,
+    }],
+  };
+}
 
-// ─── ÍCONE MINI (logo) ──────────────────────────────────────────────────────
+// ─── LÓGICA DE MERCADOS ─────────────────────────────────────────────────────
+function fixtureOutcome(fix, market) {
+  if (!fix || !fix.result) return null;
+  const { gh, ga } = fix.result;
+  if (market === '1X2')  return gh > ga ? 'H' : ga > gh ? 'A' : 'D';
+  if (market === 'BTTS') return (gh > 0 && ga > 0) ? 'Y' : 'N';
+  return null;
+}
+function oddFor(fix, market, pick) {
+  if (market === '1X2')  return pick === 'H' ? fix.oddsH : pick === 'D' ? fix.oddsD : fix.oddsA;
+  if (market === 'BTTS') return pick === 'Y' ? (fix.oddsBY != null ? fix.oddsBY : DEF_BY)
+                                             : (fix.oddsBN != null ? fix.oddsBN : DEF_BN);
+  return 1;
+}
+function ticketStatusFromLegs(legs) {
+  if (legs.some(l => l.result === 'lose')) return 'lost';
+  if (legs.length && legs.every(l => l.result === 'win')) return 'won';
+  return 'pending';
+}
+function legLabel(leg) {
+  const fx = leg._fix;
+  if (!fx) return '—';
+  const h = TEAM(fx.home), a = TEAM(fx.away);
+  if (leg.market === 'BTTS') return `${h.short}×${a.short} · AMBOS MARCAM: ${leg.pick === 'Y' ? 'SIM' : 'NÃO'}`;
+  const who = leg.pick === 'H' ? h.name : leg.pick === 'A' ? a.name : 'EMPATE';
+  return `${h.short}×${a.short} · ${who}`;
+}
+
+// ─── CLASSIFICAÇÃO: geração de tabela ────────────────────────────────────────
+const TOTAL_ROUNDS = 7;
+const DAYS = ['SEG','TER','QUA','QUI','SEX','SÁB','DOM'];
+function generateSchedule(teamIds) {
+  const ids = teamIds.slice();
+  const n = ids.length;
+  const rounds = [];
+  const fixed = ids[0];
+  let rotating = ids.slice(1);
+  for (let r = 0; r < n - 1; r++) {
+    const arr = [fixed, ...rotating];
+    const games = [];
+    for (let i = 0; i < n / 2; i++) {
+      const home = arr[i];
+      const away = arr[n - 1 - i];
+      games.push(r % 2 === 0 ? { home, away } : { home: away, away: home });
+    }
+    rounds.push(games);
+    rotating = [rotating[rotating.length - 1], ...rotating.slice(0, -1)];
+  }
+  return rounds;
+}
+function defaultRounds() {
+  const sched = generateSchedule(TEAMS.map(t => t.id));
+  const startDate = new Date(2026, 4, 4);
+  return sched.map((games, ri) => {
+    const base = new Date(startDate);
+    base.setDate(base.getDate() + ri * 7);
+    return games.map((g, gi) => {
+      const d = new Date(base);
+      d.setDate(d.getDate() + gi);
+      const day = DAYS[d.getDay() === 0 ? 6 : d.getDay() - 1];
+      const date = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+      return { home: g.home, away: g.away, day, date, time: gi % 2 === 0 ? '21:00' : '21:30', gh: '', ga: '' };
+    });
+  });
+}
+function computeStandings(rounds) {
+  const rec = {};
+  TEAMS.forEach(t => rec[t.id] = { ...t, j:0, v:0, e:0, d:0, gp:0, gc:0, p:0 });
+  (rounds || []).forEach(round => {
+    round.forEach(m => {
+      const gh = parseInt(m.gh, 10);
+      const ga = parseInt(m.ga, 10);
+      if (Number.isNaN(gh) || Number.isNaN(ga)) return;
+      const H = rec[m.home], A = rec[m.away];
+      if (!H || !A) return;
+      H.j++; A.j++;
+      H.gp += gh; H.gc += ga;
+      A.gp += ga; A.gc += gh;
+      if (gh > ga) { H.v++; A.d++; H.p += 3; }
+      else if (gh < ga) { A.v++; H.d++; A.p += 3; }
+      else { H.e++; A.e++; H.p += 1; A.p += 1; }
+    });
+  });
+  return Object.values(rec).sort((a,b) => {
+    if (b.p !== a.p) return b.p - a.p;
+    const sgA = a.gp - a.gc, sgB = b.gp - b.gc;
+    if (sgB !== sgA) return sgB - sgA;
+    if (b.v !== a.v) return b.v - a.v;
+    if (b.gp !== a.gp) return b.gp - a.gp;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+// ─── ÍCONES ─────────────────────────────────────────────────────────────────
 function MiniCrest({ size = 38, color = '#d76414' }) {
   return (
     <svg viewBox="0 0 100 120" width={size} height={size * 1.2} style={{ display: 'block' }}>
@@ -62,8 +175,6 @@ function MiniCrest({ size = 38, color = '#d76414' }) {
     </svg>
   );
 }
-
-// crest pequeno por time (versão simples)
 function TeamMini({ team, size = 36 }) {
   const t = typeof team === 'string' ? TEAM(team) : team;
   return (
@@ -79,95 +190,77 @@ function TeamMini({ team, size = 36 }) {
 
 // ─── APP ────────────────────────────────────────────────────────────────────
 function App() {
-  // Estado compartilhado via Firestore
   const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [] });
   const { users, fixtures, bets } = shared;
   const setUsers    = (u) => setShared(s => ({ ...s, users:    typeof u === 'function' ? u(s.users)    : u }));
   const setFixtures = (f) => setShared(s => ({ ...s, fixtures: typeof f === 'function' ? f(s.fixtures) : f }));
-  const setBets     = (b) => setShared(s => ({ ...s, bets:     typeof b === 'function' ? b(s.bets)     : b }));
 
-  // Sessão local (por dispositivo)
   const [session, _setSession] = useState(loadSession);
   const setSession = (s) => { saveSession(s); _setSession(s); };
 
-  const [tab, setTab]           = useState('apostar');
-  const [bettingOn, setBettingOn] = useState(null); // {fixture, pick}
-  const [synced, setSynced]     = useState(false);
+  const [tab, setTab]       = useState('apostar');
+  const [slip, setSlip]     = useState([]); // [{fixtureId, market, pick, odds}]
+  const [synced, setSynced] = useState(false);
 
-  // refs para evitar loop snapshot ↔ write
-  const hasLoadedRef       = useRef(false);
+  const hasLoadedRef        = useRef(false);
   const isApplyingRemoteRef = useRef(false);
 
-  // ── Firestore: subscribe one-shot ─────────────────────────────────────────
+  // ── Firestore: apostas doc ────────────────────────────────────────────────
   useEffect(() => {
-    const ref = STATE_DOC();
+    const ref = BET_DOC();
     const unsub = ref.onSnapshot(snap => {
       if (!snap.exists) {
-        // Seed inicial do documento — primeira vez que alguém abre.
-        ref.set({
-          json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [] }),
-          updatedAt: Date.now(),
-        }).catch(e => console.warn('Firestore seed failed', e));
-        hasLoadedRef.current = true;
-        setSynced(true);
+        ref.set({ json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [] }), updatedAt: Date.now() })
+           .catch(e => console.warn('Firestore seed failed', e));
+        hasLoadedRef.current = true; setSynced(true);
         return;
       }
       try {
         const remote = JSON.parse(snap.data().json);
         isApplyingRemoteRef.current = true;
         setShared({
-          users:    remote.users    && typeof remote.users    === 'object' ? remote.users    : {},
-          fixtures: Array.isArray(remote.fixtures)                        ? remote.fixtures : DEFAULT_FIXTURES,
-          bets:     Array.isArray(remote.bets)                            ? remote.bets     : [],
+          users:    remote.users && typeof remote.users === 'object' ? remote.users : {},
+          fixtures: Array.isArray(remote.fixtures) ? remote.fixtures.map(normFixture) : DEFAULT_FIXTURES,
+          bets:     Array.isArray(remote.bets) ? remote.bets.map(normBet) : [],
         });
-        hasLoadedRef.current = true;
-        setSynced(true);
+        hasLoadedRef.current = true; setSynced(true);
       } catch (e) { console.warn('Firestore parse failed', e); }
     }, err => console.warn('Firestore subscription failed', err));
     return () => unsub();
   }, []);
 
-  // ── Firestore: write on local change (debounced) ──────────────────────────
   useEffect(() => {
     if (!hasLoadedRef.current) return;
     if (isApplyingRemoteRef.current) { isApplyingRemoteRef.current = false; return; }
     const t = setTimeout(() => {
-      STATE_DOC().set({
-        json: JSON.stringify(shared),
-        updatedAt: Date.now(),
-      }).catch(e => console.warn('Firestore write failed', e));
+      BET_DOC().set({ json: JSON.stringify(shared), updatedAt: Date.now() })
+               .catch(e => console.warn('Firestore write failed', e));
     }, 250);
     return () => clearTimeout(t);
   }, [shared]);
 
   const me = session ? users[session.nick] : null;
-  const isAdmin = session?.nick === ADMIN_NICK;
+  const isAdmin = session && session.nick === ADMIN_NICK;
 
-  // login / register
   const handleAuth = (nick, senha) => {
     nick = nick.trim().toLowerCase();
     if (!nick || !senha) return 'Preencha nick e senha';
     if (nick === ADMIN_NICK) {
       if (senha !== ADMIN_PASS) return 'Senha de admin incorreta';
-      setSession({ nick });
-      return null;
+      setSession({ nick }); return null;
     }
     const existing = users[nick];
     if (existing) {
       if (existing.senha !== senha) return 'Senha incorreta';
-      setSession({ nick });
-      return null;
+      setSession({ nick }); return null;
     }
-    // novo cadastro
-    const now = Date.now();
-    setUsers(u => ({ ...u, [nick]: { senha, pc: START_PC, joined: now, lastWeekly: 0 } }));
+    setUsers(u => ({ ...u, [nick]: { senha, pc: START_PC, joined: Date.now(), lastWeekly: 0 } }));
     setSession({ nick });
     return null;
   };
 
-  const logout = () => { setSession(null); setTab('apostar'); };
+  const logout = () => { setSession(null); setTab('apostar'); setSlip([]); };
 
-  // claim bônus semanal
   const claimWeekly = () => {
     if (!me || isAdmin) return;
     const now = Date.now();
@@ -177,73 +270,109 @@ function App() {
   const weeklyReady = me ? (Date.now() - me.lastWeekly >= WEEK_MS) : false;
   const weeklyIn = me && !weeklyReady ? Math.max(0, WEEK_MS - (Date.now() - me.lastWeekly)) : 0;
 
-  // place bet
-  const placeBet = (fixtureId, pick, amount) => {
-    if (!me) return;
-    const fix = fixtures.find(f => f.id === fixtureId);
-    if (!fix || fix.locked || fix.result) return;
+  // ── CUPOM (parlay) ────────────────────────────────────────────────────────
+  const toggleLeg = (fix, market, pick) => {
+    if (isAdmin) return;
+    if (fix.locked || fix.result) return;
+    const odds = oddFor(fix, market, pick);
+    setSlip(prev => {
+      const exact = prev.find(s => s.fixtureId === fix.id && s.market === market && s.pick === pick);
+      if (exact) return prev.filter(s => !(s.fixtureId === fix.id && s.market === market && s.pick === pick));
+      // só 1 perna por jogo (evita combinar mercados correlacionados do mesmo jogo)
+      const others = prev.filter(s => s.fixtureId !== fix.id);
+      return [...others, { fixtureId: fix.id, market, pick, odds }];
+    });
+  };
+  const removeLeg = (fixtureId) => setSlip(prev => prev.filter(s => s.fixtureId !== fixtureId));
+  const clearSlip = () => setSlip([]);
+
+  const combinedOdds = slip.reduce((p, l) => p * l.odds, 1);
+
+  const placeBet = (amount) => {
+    if (!me || slip.length === 0) return;
+    for (const l of slip) {
+      const fx = fixtures.find(f => f.id === l.fixtureId);
+      if (!fx || fx.locked || fx.result) { alert('Um dos jogos do cupom já está travado.'); return; }
+    }
     if (amount <= 0 || amount > me.pc) return;
-    // checa se já apostou nesse jogo
-    const dup = bets.find(b => b.user === session.nick && b.fixtureId === fixtureId && b.status === 'pending');
-    if (dup) return alert('Você já tem um ticket aberto pra esse jogo. Cancele antes de apostar de novo.');
-    const odds = pick === 'H' ? fix.oddsH : pick === 'D' ? fix.oddsD : fix.oddsA;
+    const co = +slip.reduce((p, l) => p * l.odds, 1).toFixed(2);
     const ticket = {
       id: 't' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-      user: session.nick, fixtureId, pick, amount, odds, status: 'pending', createdAt: Date.now(),
+      user: session.nick, amount, status: 'pending', createdAt: Date.now(),
+      combinedOdds: co,
+      legs: slip.map(l => ({ fixtureId: l.fixtureId, market: l.market, pick: l.pick, odds: l.odds })),
     };
-    setBets(b => [ticket, ...b]);
-    setUsers(u => ({ ...u, [session.nick]: { ...u[session.nick], pc: u[session.nick].pc - amount } }));
-    setBettingOn(null);
+    setShared(s => ({
+      ...s,
+      bets: [ticket, ...s.bets],
+      users: { ...s.users, [session.nick]: { ...s.users[session.nick], pc: s.users[session.nick].pc - amount } },
+    }));
+    setSlip([]);
   };
 
   const cancelBet = (ticketId) => {
-    const t = bets.find(b => b.id === ticketId);
-    if (!t || t.status !== 'pending') return;
-    if (t.user !== session.nick && !isAdmin) return;
-    const fix = fixtures.find(f => f.id === t.fixtureId);
-    if (fix?.locked || fix?.result) return alert('Jogo já travado/finalizado.');
-    setBets(b => b.filter(x => x.id !== ticketId));
-    setUsers(u => ({ ...u, [t.user]: { ...u[t.user], pc: u[t.user].pc + t.amount } }));
+    setShared(s => {
+      const t = s.bets.find(b => b.id === ticketId);
+      if (!t || t.status !== 'pending') return s;
+      if (t.user !== session.nick && session.nick !== ADMIN_NICK) return s;
+      const blocked = t.legs.some(l => {
+        const fx = s.fixtures.find(f => f.id === l.fixtureId);
+        return fx && (fx.locked || fx.result);
+      });
+      if (blocked) { alert('Tem jogo travado/finalizado nesse cupom.'); return s; }
+      return {
+        ...s,
+        bets: s.bets.filter(b => b.id !== ticketId),
+        users: { ...s.users, [t.user]: { ...s.users[t.user], pc: s.users[t.user].pc + t.amount } },
+      };
+    });
   };
 
-  // admin: set result, recompute payouts
+  // ── ADMIN: resultado ──────────────────────────────────────────────────────
   const setResult = (fixtureId, gh, ga) => {
     const ghN = parseInt(gh, 10), gaN = parseInt(ga, 10);
     if (Number.isNaN(ghN) || Number.isNaN(gaN)) return;
-    const winner = ghN > gaN ? 'H' : gaN > ghN ? 'A' : 'D';
-    setFixtures(fs => fs.map(f => f.id === fixtureId ? { ...f, result: { gh: ghN, ga: gaN }, locked: true } : f));
-    // pagar tickets
-    setUsers(u => {
-      const nu = { ...u };
-      const affected = bets.filter(b => b.fixtureId === fixtureId && b.status === 'pending');
-      for (const t of affected) {
-        if (!nu[t.user]) continue;
-        if (t.pick === winner) {
-          const payout = Math.round(t.amount * t.odds);
-          nu[t.user] = { ...nu[t.user], pc: nu[t.user].pc + payout };
+    setShared(s => {
+      const fxList = s.fixtures.map(f => f.id === fixtureId ? { ...f, result: { gh: ghN, ga: gaN }, locked: true } : f);
+      const fx = fxList.find(f => f.id === fixtureId);
+      const users = { ...s.users };
+      const bets = s.bets.map(t => {
+        if (t.status !== 'pending') return t;
+        if (!t.legs.some(l => l.fixtureId === fixtureId)) return t;
+        const legs = t.legs.map(l => {
+          if (l.fixtureId !== fixtureId || l.result) return l;
+          const out = fixtureOutcome(fx, l.market);
+          return { ...l, result: l.pick === out ? 'win' : 'lose' };
+        });
+        const status = ticketStatusFromLegs(legs);
+        let payout = t.payout;
+        if (status === 'won') {
+          payout = Math.round(t.amount * t.combinedOdds);
+          if (users[t.user]) users[t.user] = { ...users[t.user], pc: users[t.user].pc + payout };
+        } else if (status === 'lost') {
+          payout = 0;
         }
-      }
-      return nu;
+        return { ...t, legs, status, payout };
+      });
+      return { ...s, fixtures: fxList, users, bets };
     });
-    setBets(bs => bs.map(b => {
-      if (b.fixtureId !== fixtureId || b.status !== 'pending') return b;
-      return { ...b, status: b.pick === winner ? 'won' : 'lost', payout: b.pick === winner ? Math.round(b.amount * b.odds) : 0 };
-    }));
   };
 
   const clearResult = (fixtureId) => {
-    // reverte: devolve payouts ganhos, deixa tickets pending de novo
-    setUsers(u => {
-      const nu = { ...u };
-      const affected = bets.filter(b => b.fixtureId === fixtureId && b.status === 'won');
-      for (const t of affected) {
-        if (!nu[t.user]) continue;
-        nu[t.user] = { ...nu[t.user], pc: nu[t.user].pc - (t.payout || 0) };
-      }
-      return nu;
+    setShared(s => {
+      const fxList = s.fixtures.map(f => f.id === fixtureId ? { ...f, result: null, locked: false } : f);
+      const users = { ...s.users };
+      const bets = s.bets.map(t => {
+        if (!t.legs.some(l => l.fixtureId === fixtureId)) return t;
+        if (t.status === 'won' && t.payout && users[t.user]) {
+          users[t.user] = { ...users[t.user], pc: users[t.user].pc - t.payout };
+        }
+        const legs = t.legs.map(l => l.fixtureId === fixtureId ? { ...l, result: undefined } : l);
+        const status = ticketStatusFromLegs(legs);
+        return { ...t, legs, status, payout: status === 'lost' ? 0 : undefined };
+      });
+      return { ...s, fixtures: fxList, users, bets };
     });
-    setBets(bs => bs.map(b => b.fixtureId === fixtureId ? { ...b, status: 'pending', payout: undefined } : b));
-    setFixtures(fs => fs.map(f => f.id === fixtureId ? { ...f, result: null, locked: false } : f));
   };
 
   const updateFixture = (id, patch) => setFixtures(fs => fs.map(f => f.id === id ? { ...f, ...patch } : f));
@@ -251,29 +380,31 @@ function App() {
     const round = Math.max(1, ...fixtures.map(f => f.round)) + 1;
     setFixtures(fs => [...fs, {
       id: 'g' + Date.now(), round, home: 'bane', away: 'mohamed', day: 'SEG', date: '01/01', time: '21:00',
-      oddsH: 2.0, oddsD: 3.0, oddsA: 2.2, result: null, locked: false,
+      oddsH: 2.0, oddsD: 3.0, oddsA: 2.2, oddsBY: DEF_BY, oddsBN: DEF_BN, result: null, locked: false,
     }]);
   };
   const delFixture = (id) => {
-    if (!confirm('Apagar jogo? Tickets ainda pending serão estornados.')) return;
-    const affected = bets.filter(b => b.fixtureId === id && b.status === 'pending');
-    setUsers(u => {
-      const nu = { ...u };
-      for (const t of affected) if (nu[t.user]) nu[t.user] = { ...nu[t.user], pc: nu[t.user].pc + t.amount };
-      return nu;
+    if (!confirm('Apagar jogo? Cupons pendentes com esse jogo serão estornados.')) return;
+    setShared(s => {
+      const users = { ...s.users };
+      const keep = [];
+      for (const t of s.bets) {
+        if (t.legs.some(l => l.fixtureId === id)) {
+          if (t.status === 'pending' && users[t.user]) {
+            users[t.user] = { ...users[t.user], pc: users[t.user].pc + t.amount };
+          }
+          continue;
+        }
+        keep.push(t);
+      }
+      return { ...s, users, bets: keep, fixtures: s.fixtures.filter(f => f.id !== id) };
     });
-    setBets(bs => bs.filter(b => b.fixtureId !== id));
-    setFixtures(fs => fs.filter(f => f.id !== id));
   };
 
-  // adjust user PC (admin)
   const adjustPc = (nick, delta) => {
-    if (!users[nick]) return;
-    setUsers(u => ({ ...u, [nick]: { ...u[nick], pc: Math.max(0, u[nick].pc + delta) } }));
+    setUsers(u => u[nick] ? ({ ...u, [nick]: { ...u[nick], pc: Math.max(0, u[nick].pc + delta) } }) : u);
   };
 
-  // Evita renderizar antes do Firestore carregar — senão o handleAuth pode
-  // achar que um nick existente é novo e sobrescrever os dados do usuário.
   if (!synced) {
     return (
       <div className="login-stage">
@@ -297,10 +428,10 @@ function App() {
 
         {tab === 'apostar' && (
           <ApostarView
-            fixtures={fixtures} bets={bets} me={me} session={session}
+            fixtures={fixtures} bets={bets} me={me} session={session} users={users}
             weeklyReady={weeklyReady} weeklyIn={weeklyIn} onClaim={claimWeekly}
-            onBet={(f, p) => setBettingOn({ fixture: f, pick: p })}
-            users={users}
+            slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
+            onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin}
           />
         )}
         {tab === 'tickets' && (
@@ -309,35 +440,28 @@ function App() {
         {tab === 'ranking' && (
           <RankingView users={users} bets={bets} me={session.nick} />
         )}
+        {tab === 'classificacao' && (
+          <ClassificacaoView isAdmin={isAdmin} />
+        )}
         {tab === 'admin' && isAdmin && (
           <AdminView fixtures={fixtures} bets={bets} users={users}
             updateFixture={updateFixture} addFixture={addFixture} delFixture={delFixture}
-            setResult={setResult} clearResult={clearResult}
-            adjustPc={adjustPc} cancelBet={cancelBet} />
+            setResult={setResult} clearResult={clearResult} adjustPc={adjustPc} />
         )}
       </div>
-
-      {bettingOn && (
-        <BetModal
-          fixture={bettingOn.fixture} pick={bettingOn.pick}
-          balance={me ? me.pc : 0}
-          onClose={() => setBettingOn(null)}
-          onConfirm={(amt) => placeBet(bettingOn.fixture.id, bettingOn.pick, amt)}
-        />
-      )}
     </>
   );
 }
 
-// ─── COMPONENTS ─────────────────────────────────────────────────────────────
+// ─── TOP BAR / TABS ─────────────────────────────────────────────────────────
 function TopBar({ nick, pc, isAdmin, onLogout }) {
   return (
     <div className="topbar">
       <div className="brand">
         <MiniCrest size={36} />
         <div className="brand-text">
-          <div className="t1 display">APOSTAS</div>
-          <div className="t2">PRIMITIVÃO · 2026</div>
+          <div className="t1 display">PRIMITIVÃO</div>
+          <div className="t2">APOSTAS · 2026</div>
         </div>
       </div>
       <div className="wallet">
@@ -365,6 +489,7 @@ function Tabs({ tab, setTab, isAdmin }) {
     { id: 'apostar', label: 'JOGOS' },
     { id: 'tickets', label: 'MEUS TICKETS' },
     { id: 'ranking', label: 'RANKING' },
+    { id: 'classificacao', label: 'CLASSIFICAÇÃO' },
   ];
   if (isAdmin) items.push({ id: 'admin', label: 'ADMIN' });
   return (
@@ -383,9 +508,8 @@ function Login({ onAuth }) {
   const [nick, setNick] = useState('');
   const [senha, setSenha] = useState('');
   const [msg, setMsg] = useState('');
-
   const submit = (e) => {
-    e?.preventDefault();
+    e && e.preventDefault();
     const err = onAuth(nick, senha);
     if (err) setMsg(err);
   };
@@ -404,7 +528,6 @@ function Login({ onAuth }) {
         </svg>
         <div className="lh1">CASA DE APOSTAS</div>
         <div className="lh2">PRIMITIVO COINS · PC</div>
-
         <div className="field">
           <label>NICK</label>
           <input value={nick} onChange={e => setNick(e.target.value)} placeholder="seu apelido" autoFocus autoCapitalize="off" autoCorrect="off" />
@@ -413,7 +536,6 @@ function Login({ onAuth }) {
           <label>SENHA</label>
           <input type="password" value={senha} onChange={e => setSenha(e.target.value)} placeholder="••••••" />
         </div>
-
         <button type="submit" className="login-btn">ENTRAR / CRIAR CONTA</button>
         <div className="login-msg">{msg}</div>
         <div className="login-hint">
@@ -425,18 +547,13 @@ function Login({ onAuth }) {
   );
 }
 
-// ─── APOSTAR ────────────────────────────────────────────────────────────────
-function ApostarView({ fixtures, bets, me, session, weeklyReady, weeklyIn, onClaim, onBet, users }) {
-  const isAdmin = session.nick === ADMIN_NICK;
+// ─── APOSTAR + CUPOM ────────────────────────────────────────────────────────
+function ApostarView({ fixtures, bets, me, session, users, weeklyReady, weeklyIn, onClaim,
+                        slip, onToggleLeg, onRemoveLeg, onClearSlip, onPlaceBet, isAdmin }) {
   const open = fixtures.filter(f => !f.result && !f.locked).sort((a, b) => a.round - b.round);
   const closed = fixtures.filter(f => f.result || f.locked).sort((a, b) => b.round - a.round);
-
-  // ranking top 5
   const ranking = Object.entries(users).map(([nick, u]) => ({ nick, pc: u.pc }))
     .sort((a, b) => b.pc - a.pc).slice(0, 5);
-
-  const myActiveBets = bets.filter(b => b.user === session.nick && b.status === 'pending');
-
   const days = Math.floor(weeklyIn / (24 * 60 * 60 * 1000));
   const hrs  = Math.floor((weeklyIn % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
 
@@ -463,7 +580,7 @@ function ApostarView({ fixtures, bets, me, session, weeklyReady, weeklyIn, onCla
           <div className="card-body">
             {open.length === 0 && <div className="empty"><div className="e1">SEM JOGOS</div><div className="e2">O admin ainda não abriu a rodada.</div></div>}
             {open.map(f => (
-              <FixtureRow key={f.id} fixture={f} bets={myActiveBets} onBet={onBet} canBet={!isAdmin} />
+              <FixtureRow key={f.id} fixture={f} slip={slip} onToggleLeg={onToggleLeg} canBet={!isAdmin} />
             ))}
           </div>
         </div>
@@ -476,7 +593,7 @@ function ApostarView({ fixtures, bets, me, session, weeklyReady, weeklyIn, onCla
             </div>
             <div className="card-body">
               {closed.map(f => (
-                <FixtureRow key={f.id} fixture={f} bets={myActiveBets} onBet={onBet} canBet={false} />
+                <FixtureRow key={f.id} fixture={f} slip={slip} onToggleLeg={onToggleLeg} canBet={false} />
               ))}
             </div>
           </div>
@@ -484,7 +601,12 @@ function ApostarView({ fixtures, bets, me, session, weeklyReady, weeklyIn, onCla
       </div>
 
       <aside>
-        <div className="card">
+        {!isAdmin && (
+          <Cupom slip={slip} fixtures={fixtures} balance={me ? me.pc : 0}
+                 onRemoveLeg={onRemoveLeg} onClearSlip={onClearSlip} onPlaceBet={onPlaceBet} />
+        )}
+
+        <div className="card" style={{ marginTop: slip.length || !isAdmin ? 18 : 0 }}>
           <div className="card-head">
             <div className="title">TOP 5</div>
             <div className="sub">RANKING</div>
@@ -500,42 +622,29 @@ function ApostarView({ fixtures, bets, me, session, weeklyReady, weeklyIn, onCla
             ))}
           </div>
         </div>
-
-        {myActiveBets.length > 0 && (
-          <div className="card" style={{ marginTop: 18 }}>
-            <div className="card-head">
-              <div className="title">EM JOGO</div>
-              <div className="sub">{myActiveBets.length} TICKETS</div>
-            </div>
-            <div className="card-body">
-              {myActiveBets.slice(0, 5).map(t => {
-                const f = fixtures.find(x => x.id === t.fixtureId);
-                if (!f) return null;
-                const team = t.pick === 'H' ? TEAM(f.home).name : t.pick === 'A' ? TEAM(f.away).name : 'EMPATE';
-                return (
-                  <div key={t.id} className="ticket">
-                    <div className="pick">
-                      <small>R{f.round} · {TEAM(f.home).short} × {TEAM(f.away).short}</small>
-                      {team} <span style={{ color: 'var(--pv-orange)', fontWeight: 800 }}>@ {t.odds.toFixed(2)}</span>
-                    </div>
-                    <div className="stake">{t.amount}<span style={{ fontSize: 10, letterSpacing: '0.2em', marginLeft: 4, fontFamily: 'Space Grotesk' }}>PC</span></div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </aside>
     </div>
   );
 }
 
-function FixtureRow({ fixture, bets, onBet, canBet }) {
+function OddBtn({ lab, val, selected, disabled, onClick }) {
+  return (
+    <button className={'odd-btn ' + (selected ? 'sel' : '')} disabled={disabled} onClick={onClick}>
+      <div className="lab">{lab}</div>
+      <div className="val">{Number(val).toFixed(2)}</div>
+    </button>
+  );
+}
+
+function FixtureRow({ fixture, slip, onToggleLeg, canBet }) {
   const f = fixture;
   const h = TEAM(f.home), a = TEAM(f.away);
-  const myBet = bets?.find(b => b.fixtureId === f.id);
   const finished = !!f.result;
-  const winner = finished ? (f.result.gh > f.result.ga ? 'H' : f.result.ga > f.result.gh ? 'A' : 'D') : null;
+  const win1x2 = finished ? fixtureOutcome(f, '1X2') : null;
+  const winBtts = finished ? fixtureOutcome(f, 'BTTS') : null;
+  const sel = (market, pick) => slip.some(s => s.fixtureId === f.id && s.market === market && s.pick === pick);
+  const dis = !canBet || f.locked || finished;
+
   return (
     <div className={'fixture ' + (finished ? 'finished ' : '') + (f.locked && !finished ? 'locked' : '')}>
       <div className="fixture-top">
@@ -557,28 +666,104 @@ function FixtureRow({ fixture, bets, onBet, canBet }) {
           <div className="team-info"><div className="nm">{a.name}</div><div className="sh">VISITANTE · {a.short}</div></div>
         </div>
       </div>
+
+      <div className="mkt-label">RESULTADO</div>
       <div className="odds-row">
-        <button className={'odd-btn ' + (winner === 'H' ? 'winner' : '')} disabled={!canBet || !!myBet || f.locked}
-                onClick={() => onBet(f, 'H')}>
-          <div className="lab">{h.short} VENCE</div>
-          <div className="val">{f.oddsH.toFixed(2)}</div>
-        </button>
-        <button className={'odd-btn ' + (winner === 'D' ? 'winner' : '')} disabled={!canBet || !!myBet || f.locked}
-                onClick={() => onBet(f, 'D')}>
-          <div className="lab">EMPATE</div>
-          <div className="val">{f.oddsD.toFixed(2)}</div>
-        </button>
-        <button className={'odd-btn ' + (winner === 'A' ? 'winner' : '')} disabled={!canBet || !!myBet || f.locked}
-                onClick={() => onBet(f, 'A')}>
-          <div className="lab">{a.short} VENCE</div>
-          <div className="val">{f.oddsA.toFixed(2)}</div>
-        </button>
+        <OddBtn lab={`${h.short} VENCE`} val={f.oddsH} selected={sel('1X2','H')}
+                disabled={dis || (finished && win1x2 !== 'H')} onClick={() => onToggleLeg(f, '1X2', 'H')} />
+        <OddBtn lab="EMPATE" val={f.oddsD} selected={sel('1X2','D')}
+                disabled={dis || (finished && win1x2 !== 'D')} onClick={() => onToggleLeg(f, '1X2', 'D')} />
+        <OddBtn lab={`${a.short} VENCE`} val={f.oddsA} selected={sel('1X2','A')}
+                disabled={dis || (finished && win1x2 !== 'A')} onClick={() => onToggleLeg(f, '1X2', 'A')} />
       </div>
-      {myBet && !finished && (
-        <div style={{ marginTop: 4, fontSize: 11, letterSpacing: '0.18em', fontWeight: 800, color: 'var(--pv-orange)' }}>
-          ★ VOCÊ APOSTOU {myBet.amount} PC EM {myBet.pick === 'H' ? h.short : myBet.pick === 'A' ? a.short : 'EMPATE'} @ {myBet.odds.toFixed(2)}
-        </div>
-      )}
+
+      <div className="mkt-label">AMBOS MARCAM</div>
+      <div className="odds-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <OddBtn lab="SIM" val={f.oddsBY != null ? f.oddsBY : DEF_BY} selected={sel('BTTS','Y')}
+                disabled={dis || (finished && winBtts !== 'Y')} onClick={() => onToggleLeg(f, 'BTTS', 'Y')} />
+        <OddBtn lab="NÃO" val={f.oddsBN != null ? f.oddsBN : DEF_BN} selected={sel('BTTS','N')}
+                disabled={dis || (finished && winBtts !== 'N')} onClick={() => onToggleLeg(f, 'BTTS', 'N')} />
+      </div>
+    </div>
+  );
+}
+
+// ─── CUPOM (bet slip) ───────────────────────────────────────────────────────
+function Cupom({ slip, fixtures, balance, onRemoveLeg, onClearSlip, onPlaceBet }) {
+  const [amt, setAmt] = useState(10);
+  const legs = slip.map(s => ({ ...s, _fix: fixtures.find(f => f.id === s.fixtureId) }));
+  const combined = slip.reduce((p, l) => p * l.odds, 1);
+  const payout = Math.round(amt * combined);
+  const valid = slip.length > 0 && amt > 0 && amt <= balance;
+  const multi = slip.length > 1;
+
+  return (
+    <div className="card cupom">
+      <div className="card-head">
+        <div className="title">CUPOM {multi ? '· CASADA' : ''}</div>
+        <div className="sub">{slip.length} {slip.length === 1 ? 'PALPITE' : 'PALPITES'}</div>
+      </div>
+      <div className="card-body">
+        {slip.length === 0 && (
+          <div className="empty">
+            <div className="e1">VAZIO</div>
+            <div className="e2">Clica nas odds dos jogos pra montar. Vários palpites = aposta casada (odds multiplicam).</div>
+          </div>
+        )}
+
+        {legs.map(l => (
+          <div key={l.fixtureId + l.market + l.pick} className="cupom-leg">
+            <div className="cupom-leg-txt">
+              <div className="cupom-leg-mkt">{l.market === 'BTTS' ? 'AMBOS MARCAM' : 'RESULTADO'}</div>
+              {legLabel(l)}
+            </div>
+            <div className="cupom-leg-odd mono">{l.odds.toFixed(2)}</div>
+            <button className="cupom-leg-x" onClick={() => onRemoveLeg(l.fixtureId)}>✕</button>
+          </div>
+        ))}
+
+        {slip.length > 0 && (
+          <>
+            <div className="modal-row" style={{ marginTop: 10 }}>
+              <span className="lab">ODDS TOTAL</span>
+              <span className="mono" style={{ color: 'var(--pv-orange)', fontWeight: 800 }}>{combined.toFixed(2)}x</span>
+            </div>
+            <div className="modal-row"><span className="lab">SALDO</span><span className="mono">{balance} PC</span></div>
+
+            <div style={{ marginTop: 10 }} className="small-label">QUANTO APOSTAR (PC)</div>
+            <input type="number" min="1" max={balance} value={amt}
+                   onChange={e => setAmt(Math.max(0, Math.min(balance, +e.target.value || 0)))}
+                   className="stake-input" />
+            <div className="quick">
+              <button onClick={() => setAmt(5)}>5</button>
+              <button onClick={() => setAmt(10)}>10</button>
+              <button onClick={() => setAmt(25)}>25</button>
+              <button onClick={() => setAmt(balance)}>MAX</button>
+            </div>
+
+            <div className="payout-box">
+              <div className="nm">RETORNO POTENCIAL</div>
+              <div className="v">{payout} <span style={{ fontSize: 12, letterSpacing: '0.3em', fontFamily: 'Space Grotesk' }}>PC</span></div>
+              <div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, color: 'var(--pv-orange)', marginTop: 4 }}>
+                LUCRO LÍQUIDO: +{payout - amt} PC
+              </div>
+            </div>
+
+            {multi && (
+              <div style={{ fontSize: 10, letterSpacing: '0.12em', color: 'rgba(28,22,18,0.6)', fontWeight: 700, marginTop: 10 }}>
+                ⚠ APOSTA CASADA: precisa acertar TODOS os {slip.length} palpites pra ganhar.
+              </div>
+            )}
+
+            <div className="modal-btns">
+              <button className="btn-secondary" onClick={onClearSlip}>LIMPAR</button>
+              <button className="btn-primary" disabled={!valid} onClick={() => onPlaceBet(amt)}>
+                APOSTAR {amt} PC
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -595,18 +780,23 @@ function TicketsView({ bets, fixtures, onCancel }) {
       <div className="card-head"><div className="title">MEUS TICKETS</div><div className="sub">{bets.length} TOTAL</div></div>
       <div className="card-body">
         {sorted.map(t => {
-          const f = fixtures.find(x => x.id === t.fixtureId);
-          if (!f) return null;
-          const team = t.pick === 'H' ? TEAM(f.home) : TEAM(f.away);
-          const label = t.pick === 'D' ? 'EMPATE' : team.name;
           const cls = t.status === 'won' ? 'ticket won' : t.status === 'lost' ? 'ticket lost' : 'ticket';
+          const blocked = t.legs.some(l => {
+            const f = fixtures.find(x => x.id === l.fixtureId);
+            return f && (f.locked || f.result);
+          });
+          const multi = t.legs.length > 1;
           return (
-            <div key={t.id} className={cls}>
+            <div key={t.id} className={cls} style={{ gridTemplateColumns: '1fr auto' }}>
               <div>
                 <div className="pick">
-                  <small>RODADA {String(f.round).padStart(2,'0')} · {TEAM(f.home).short} × {TEAM(f.away).short}</small>
-                  {label}
-                  <span style={{ color: 'var(--pv-orange)', fontWeight: 800, marginLeft: 8 }}>@ {t.odds.toFixed(2)}</span>
+                  <small>{multi ? `CASADA · ${t.legs.length} PALPITES` : 'SIMPLES'} · @ {Number(t.combinedOdds).toFixed(2)}</small>
+                  {t.legs.map((l, i) => {
+                    const f = fixtures.find(x => x.id === l.fixtureId);
+                    const lg = { ...l, _fix: f };
+                    const ic = l.result === 'win' ? '✓ ' : l.result === 'lose' ? '✕ ' : '• ';
+                    return <div key={i} style={{ fontWeight: 700, fontSize: 13, marginTop: 2 }}>{ic}{legLabel(lg)} <span style={{ color: 'var(--pv-orange)' }}>@{l.odds.toFixed(2)}</span></div>;
+                  })}
                 </div>
                 <div className={'status ' + t.status}>
                   {t.status === 'pending' ? 'EM ABERTO' : t.status === 'won' ? `VENCEU · +${t.payout} PC` : 'PERDEU'}
@@ -614,7 +804,7 @@ function TicketsView({ bets, fixtures, onCancel }) {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div className="stake">{t.amount} <span style={{ fontSize: 10, fontFamily: 'Space Grotesk', letterSpacing: '0.2em' }}>PC</span></div>
-                {t.status === 'pending' && !f.locked && (
+                {t.status === 'pending' && !blocked && (
                   <button onClick={() => onCancel(t.id)} style={{
                     marginTop: 8, padding: '6px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.18em',
                     background: 'transparent', border: '1.5px solid var(--pv-charcoal)',
@@ -634,8 +824,7 @@ function RankingView({ users, bets, me }) {
   const rows = Object.entries(users).map(([nick, u]) => {
     const my = bets.filter(b => b.user === nick);
     return {
-      nick, pc: u.pc,
-      apostas: my.length,
+      nick, pc: u.pc, apostas: my.length,
       vit: my.filter(b => b.status === 'won').length,
       der: my.filter(b => b.status === 'lost').length,
     };
@@ -646,13 +835,11 @@ function RankingView({ users, bets, me }) {
       <div className="card-body">
         {rows.length === 0 && <div className="empty"><div className="e2">Ninguém cadastrado ainda.</div></div>}
         {rows.map((r, i) => (
-          <div key={r.nick} className={'lb-row ' + (r.nick === me ? 'me' : '')} style={{ gridTemplateColumns: '36px 1fr auto auto auto auto', gap: 16 }}>
+          <div key={r.nick} className={'lb-row ' + (r.nick === me ? 'me' : '')} style={{ gridTemplateColumns: '36px 1fr auto auto auto', gap: 16 }}>
             <div className="lb-pos">{i + 1}</div>
             <div>
               <div className="lb-nick">@{r.nick}</div>
-              <div style={{ fontSize: 10, letterSpacing: '0.22em', color: 'rgba(28,22,18,0.5)', fontWeight: 800, marginTop: 2 }}>
-                {r.apostas} APOSTAS
-              </div>
+              <div style={{ fontSize: 10, letterSpacing: '0.22em', color: 'rgba(28,22,18,0.5)', fontWeight: 800, marginTop: 2 }}>{r.apostas} APOSTAS</div>
             </div>
             <div title="vitórias" style={{ color: 'var(--pv-green)', fontWeight: 800, fontFamily: 'Bagel Fat One', fontSize: 16 }}>{r.vit}<small style={{ fontFamily: 'Space Grotesk', fontSize: 9, letterSpacing: '0.2em', marginLeft: 3 }}>V</small></div>
             <div title="derrotas" style={{ color: 'var(--pv-red)', fontWeight: 800, fontFamily: 'Bagel Fat One', fontSize: 16 }}>{r.der}<small style={{ fontFamily: 'Space Grotesk', fontSize: 9, letterSpacing: '0.2em', marginLeft: 3 }}>D</small></div>
@@ -664,57 +851,168 @@ function RankingView({ users, bets, me }) {
   );
 }
 
-// ─── MODAL DE APOSTA ────────────────────────────────────────────────────────
-function BetModal({ fixture, pick, balance, onClose, onConfirm }) {
-  const [amt, setAmt] = useState(10);
-  const h = TEAM(fixture.home), a = TEAM(fixture.away);
-  const odds = pick === 'H' ? fixture.oddsH : pick === 'D' ? fixture.oddsD : fixture.oddsA;
-  const teamName = pick === 'H' ? h.name : pick === 'A' ? a.name : 'EMPATE';
-  const payout = Math.round(amt * odds);
-  const valid = amt > 0 && amt <= balance;
+// ─── CLASSIFICAÇÃO (aba) — doc primitivao/state ─────────────────────────────
+function ClassificacaoView({ isAdmin }) {
+  const [cs, setCs] = useState(null);          // { currentRound, rounds }
+  const loadedRef = useRef(false);
+  const applyingRef = useRef(false);
+
+  useEffect(() => {
+    const ref = CLASSIF_DOC();
+    const unsub = ref.onSnapshot(snap => {
+      if (!snap.exists) {
+        const seed = { currentRound: 0, rounds: defaultRounds() };
+        ref.set({ json: JSON.stringify(seed), updatedAt: Date.now() }).catch(e => console.warn(e));
+        applyingRef.current = true; setCs(seed); loadedRef.current = true;
+        return;
+      }
+      try {
+        const d = JSON.parse(snap.data().json);
+        if (d && Array.isArray(d.rounds) && d.rounds.length === TOTAL_ROUNDS) {
+          applyingRef.current = true; setCs(d); loadedRef.current = true;
+        }
+      } catch (e) { console.warn('Classif parse failed', e); }
+    }, err => console.warn('Classif subscription failed', err));
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (!loadedRef.current || cs == null) return;
+    if (applyingRef.current) { applyingRef.current = false; return; }
+    const t = setTimeout(() => {
+      CLASSIF_DOC().set({ json: JSON.stringify(cs), updatedAt: Date.now() }).catch(e => console.warn(e));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [cs]);
+
+  if (!cs) {
+    return <div className="card"><div className="card-body"><div className="empty"><div className="e1">CARREGANDO…</div></div></div></div>;
+  }
+
+  const standings = computeStandings(cs.rounds);
+  const round = cs.rounds[cs.currentRound] || [];
+
+  const patchMatch = (gi, patch) => {
+    setCs(prev => {
+      const rounds = prev.rounds.map((r, ri) => ri !== prev.currentRound ? r : r.map((m, mi) => mi === gi ? { ...m, ...patch } : m));
+      return { ...prev, rounds };
+    });
+  };
+
   return (
-    <div className="modal-bg" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <h3>CONFIRMAR APOSTA</h3>
-        <div className="modal-sub">RODADA {String(fixture.round).padStart(2,'0')} · {fixture.day} {fixture.date}</div>
-
-        <div className="modal-row"><span className="lab">JOGO</span><span>{h.short} × {a.short}</span></div>
-        <div className="modal-row"><span className="lab">PALPITE</span><span style={{ color: 'var(--pv-orange)', fontWeight: 800 }}>{teamName}</span></div>
-        <div className="modal-row"><span className="lab">ODDS</span><span className="mono">{odds.toFixed(2)}x</span></div>
-        <div className="modal-row"><span className="lab">SALDO</span><span className="mono">{balance} PC</span></div>
-
-        <div style={{ marginTop: 14 }} className="small-label">QUANTO APOSTAR (PC)</div>
-        <input type="number" min="1" max={balance} value={amt}
-               onChange={e => setAmt(Math.max(0, Math.min(balance, +e.target.value || 0)))}
-               className="stake-input" autoFocus />
-        <div className="quick">
-          <button onClick={() => setAmt(5)}>5</button>
-          <button onClick={() => setAmt(10)}>10</button>
-          <button onClick={() => setAmt(25)}>25</button>
-          <button onClick={() => setAmt(balance)}>MAX</button>
+    <div className="grid">
+      <div className="card">
+        <div className="card-head">
+          <div className="title">CLASSIFICAÇÃO</div>
+          <div className="sub">PRIMITIVÃO · IDA</div>
         </div>
-
-        <div className="payout-box">
-          <div className="nm">RETORNO POTENCIAL</div>
-          <div className="v">{payout} <span style={{ fontSize: 12, letterSpacing: '0.3em', fontFamily: 'Space Grotesk' }}>PC</span></div>
-          <div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, color: 'var(--pv-orange)', marginTop: 4 }}>
-            LUCRO LÍQUIDO: +{payout - amt} PC
-          </div>
-        </div>
-
-        <div className="modal-btns">
-          <button className="btn-secondary" onClick={onClose}>CANCELAR</button>
-          <button className="btn-primary" disabled={!valid} onClick={() => onConfirm(amt)}>
-            APOSTAR {amt} PC
-          </button>
+        <div className="card-body" style={{ overflowX: 'auto' }}>
+          <table className="std-table">
+            <thead>
+              <tr><th>#</th><th style={{ textAlign: 'left' }}>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th><th>P</th></tr>
+            </thead>
+            <tbody>
+              {standings.map((s, i) => {
+                const sg = s.gp - s.gc;
+                const cls = i < 2 ? 'glory' : i >= standings.length - 2 ? 'releg' : '';
+                return (
+                  <tr key={s.id} className={cls}>
+                    <td className="std-pos">{String(i + 1).padStart(2, '0')}</td>
+                    <td><div className="tnm"><TeamMini team={s.id} size={22} />{s.name}</div></td>
+                    <td>{s.j}</td><td style={{ fontWeight: 800 }}>{s.v}</td><td>{s.e}</td>
+                    <td style={{ color: 'rgba(28,22,18,0.45)' }}>{s.d}</td>
+                    <td>{sg > 0 ? '+' + sg : sg}</td>
+                    <td style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 16 }}>{s.p}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
+
+      <aside>
+        <div className="card">
+          <div className="card-head">
+            <div className="title">RODADA {String(cs.currentRound + 1).padStart(2, '0')}</div>
+            <div className="sub">{isAdmin ? 'EDITÁVEL' : 'SOMENTE LEITURA'}</div>
+          </div>
+          <div className="card-body">
+            <div className="round-tabs">
+              {Array.from({ length: TOTAL_ROUNDS }).map((_, i) => (
+                <button key={i} className={'rt ' + (i === cs.currentRound ? 'active' : '')}
+                        onClick={() => setCs(prev => ({ ...prev, currentRound: i }))}>
+                  {String(i + 1).padStart(2, '0')}
+                </button>
+              ))}
+            </div>
+
+            {round.map((m, gi) => {
+              const h = TEAM(m.home), a = TEAM(m.away);
+              const ghN = parseInt(m.gh, 10), gaN = parseInt(m.ga, 10);
+              const played = !Number.isNaN(ghN) && !Number.isNaN(gaN);
+              return (
+                <div key={gi} className="cmatch">
+                  <div className="cmatch-top">
+                    <span>JOGO {String(gi + 1).padStart(2, '0')}</span>
+                    <span>{m.day} · {m.date} · {m.time}</span>
+                  </div>
+                  <div className="cmatch-body">
+                    <div style={{ textAlign: 'center' }}>
+                      <TeamMini team={h} size={34} />
+                      {isAdmin ? (
+                        <select className="cteam-sel" value={m.home} onChange={e => patchMatch(gi, { home: e.target.value })}>
+                          {TEAMS.map(t => <option key={t.id} value={t.id}>{t.short}</option>)}
+                        </select>
+                      ) : <div style={{ fontWeight: 800, fontSize: 12, marginTop: 4 }}>{h.short}</div>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
+                      {isAdmin ? (
+                        <>
+                          <input className="cscore-in" value={m.gh} placeholder="–"
+                                 onChange={e => patchMatch(gi, { gh: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
+                          <span className="display">×</span>
+                          <input className="cscore-in" value={m.ga} placeholder="–"
+                                 onChange={e => patchMatch(gi, { ga: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
+                        </>
+                      ) : (
+                        <div className="display" style={{ fontSize: 22, color: played ? 'var(--pv-orange)' : 'rgba(28,22,18,0.3)' }}>
+                          {played ? `${ghN} × ${gaN}` : '– × –'}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <TeamMini team={a} size={34} />
+                      {isAdmin ? (
+                        <select className="cteam-sel" value={m.away} onChange={e => patchMatch(gi, { away: e.target.value })}>
+                          {TEAMS.map(t => <option key={t.id} value={t.id}>{t.short}</option>)}
+                        </select>
+                      ) : <div style={{ fontWeight: 800, fontSize: 12, marginTop: 4 }}>{a.short}</div>}
+                    </div>
+                  </div>
+                  {isAdmin && (
+                    <div className="cmatch-foot">
+                      <input className="cfld" value={m.day} maxLength={3} placeholder="DIA"
+                             onChange={e => patchMatch(gi, { day: e.target.value.toUpperCase().slice(0, 3) })} />
+                      <input className="cfld" value={m.date} maxLength={5} placeholder="DATA"
+                             onChange={e => patchMatch(gi, { date: e.target.value })} />
+                      <input className="cfld" value={m.time} maxLength={5} placeholder="HORA"
+                             onChange={e => patchMatch(gi, { time: e.target.value })} />
+                      <button className="cclear" onClick={() => patchMatch(gi, { gh: '', ga: '' })}>LIMPAR</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }
 
 // ─── ADMIN ──────────────────────────────────────────────────────────────────
-function AdminView({ fixtures, bets, users, updateFixture, addFixture, delFixture, setResult, clearResult, adjustPc, cancelBet }) {
+function AdminView({ fixtures, bets, users, updateFixture, addFixture, delFixture, setResult, clearResult, adjustPc }) {
   const [tab, setTab] = useState('jogos');
   return (
     <>
@@ -736,8 +1034,7 @@ function AdminView({ fixtures, bets, users, updateFixture, addFixture, delFixtur
                   onUpdate={p => updateFixture(f.id, p)}
                   onDel={() => delFixture(f.id)}
                   onResult={(gh, ga) => setResult(f.id, gh, ga)}
-                  onClear={() => clearResult(f.id)}
-                />
+                  onClear={() => clearResult(f.id)} />
               ))}
             </div>
           </div>
@@ -749,12 +1046,11 @@ function AdminView({ fixtures, bets, users, updateFixture, addFixture, delFixtur
           <div className="card-head"><div className="title">USUÁRIOS</div><div className="sub">{Object.keys(users).length} CADASTRADOS</div></div>
           <div className="card-body">
             {Object.entries(users).map(([nick, u]) => (
-              <div key={nick} className="lb-row" style={{ gridTemplateColumns: '1fr auto auto auto auto', gap: 10 }}>
+              <div key={nick} className="lb-row" style={{ gridTemplateColumns: '1fr auto auto auto', gap: 10 }}>
                 <div className="lb-nick">@{nick}</div>
                 <button onClick={() => adjustPc(nick, -10)} style={{ background: 'transparent', border: '1.5px solid var(--pv-charcoal)', padding: '4px 8px', fontWeight: 800 }}>-10</button>
                 <div className="lb-pc mono">{u.pc}</div>
                 <button onClick={() => adjustPc(nick, 10)} style={{ background: 'var(--pv-orange)', border: '1.5px solid var(--pv-charcoal)', padding: '4px 8px', fontWeight: 800, color: 'var(--pv-bone)' }}>+10</button>
-                <button onClick={() => { if (confirm('Apagar usuário ' + nick + '?')) { /* delete via window */ }}} style={{ background: 'transparent', color: 'var(--pv-red)', border: '1.5px solid var(--pv-red)', padding: '4px 8px', fontWeight: 800, fontSize: 11 }}>X</button>
               </div>
             ))}
           </div>
@@ -766,9 +1062,9 @@ function AdminView({ fixtures, bets, users, updateFixture, addFixture, delFixtur
 
 function AdminFixture({ f, bets, onUpdate, onDel, onResult, onClear }) {
   const h = TEAM(f.home), a = TEAM(f.away);
-  const [gh, setGh] = useState(f.result?.gh ?? '');
-  const [ga, setGa] = useState(f.result?.ga ?? '');
-  const ticketsCount = bets.filter(b => b.fixtureId === f.id).length;
+  const [gh, setGh] = useState(f.result ? f.result.gh : '');
+  const [ga, setGa] = useState(f.result ? f.result.ga : '');
+  const ticketsCount = bets.filter(b => b.legs && b.legs.some(l => l.fixtureId === f.id)).length;
   return (
     <div className="admin-game">
       <h4 className="display">R{f.round} · {h.short} × {a.short}{f.locked ? ' · TRAVADO' : ''}{f.result ? ' · ENCERRADO' : ''}</h4>
@@ -785,23 +1081,21 @@ function AdminFixture({ f, bets, onUpdate, onDel, onResult, onClear }) {
         <input type="number" value={f.round} onChange={e => onUpdate({ round: +e.target.value || 1 })} placeholder="RODADA" min={1} />
       </div>
       <div className="admin-fields" style={{ marginTop: 4 }}>
-        <div>
-          <div className="small-label">ODD MANDANTE</div>
-          <input type="number" step="0.1" min="1" value={f.oddsH} onChange={e => onUpdate({ oddsH: +e.target.value || 1 })} />
-        </div>
-        <div>
-          <div className="small-label">ODD EMPATE</div>
-          <input type="number" step="0.1" min="1" value={f.oddsD} onChange={e => onUpdate({ oddsD: +e.target.value || 1 })} />
-        </div>
+        <div><div className="small-label">ODD MANDANTE</div>
+          <input type="number" step="0.1" min="1" value={f.oddsH} onChange={e => onUpdate({ oddsH: +e.target.value || 1 })} /></div>
+        <div><div className="small-label">ODD EMPATE</div>
+          <input type="number" step="0.1" min="1" value={f.oddsD} onChange={e => onUpdate({ oddsD: +e.target.value || 1 })} /></div>
       </div>
       <div className="admin-fields">
-        <div>
-          <div className="small-label">ODD VISITANTE</div>
-          <input type="number" step="0.1" min="1" value={f.oddsA} onChange={e => onUpdate({ oddsA: +e.target.value || 1 })} />
-        </div>
-        <div>
-          <div className="small-label">{ticketsCount} TICKETS</div>
-        </div>
+        <div><div className="small-label">ODD VISITANTE</div>
+          <input type="number" step="0.1" min="1" value={f.oddsA} onChange={e => onUpdate({ oddsA: +e.target.value || 1 })} /></div>
+        <div><div className="small-label">{ticketsCount} TICKETS</div></div>
+      </div>
+      <div className="admin-fields">
+        <div><div className="small-label">AMBOS MARCAM · SIM</div>
+          <input type="number" step="0.1" min="1" value={f.oddsBY != null ? f.oddsBY : DEF_BY} onChange={e => onUpdate({ oddsBY: +e.target.value || 1 })} /></div>
+        <div><div className="small-label">AMBOS MARCAM · NÃO</div>
+          <input type="number" step="0.1" min="1" value={f.oddsBN != null ? f.oddsBN : DEF_BN} onChange={e => onUpdate({ oddsBN: +e.target.value || 1 })} /></div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, padding: '8px', background: 'var(--pv-bone-2)' }}>
