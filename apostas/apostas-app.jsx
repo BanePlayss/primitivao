@@ -25,9 +25,12 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 const CHAMPIONSHIPS = [
-  { id: 'fifa', name: 'Primitivão — FIFA 2026',          season: 'Season 1', tag: 'FIFA', status: 'active' },
-  { id: 'mk',   name: 'Primitivão — Mortal Kombat 2026', season: 'Season 1', tag: 'MK',   status: 'soon'   },
-  { id: 'rl',   name: 'Primitivão — Rocket League 2026', season: 'Season 1', tag: 'RL',   status: 'soon'   },
+  { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
+  { id: 'mk',   name: 'Primitivão — Mortal Kombat 2026',         season: 'Season 1', tag: 'MK',   status: 'soon'   },
+  { id: 'rl',   name: 'Primitivão — Rocket League 2026',         season: 'Season 1', tag: 'RL',   status: 'soon'   },
+  { id: 'lol',  name: 'Primitivão — League of Legends 2026',     season: 'Season 1', tag: 'LoL',  status: 'soon'   },
+  { id: 'cs',   name: 'Primitivão — Counter-Strike 2026',        season: 'Season 1', tag: 'CS',   status: 'soon'   },
+  { id: 'gwyf', name: 'Primitivão — Golf With Your Friends 2026', season: 'Season 1', tag: 'GWYF', status: 'soon'   },
 ];
 const CHAMP_BY_ID = Object.fromEntries(CHAMPIONSHIPS.map(c => [c.id, c]));
 
@@ -113,6 +116,59 @@ async function downloadFullBackup() {
   } catch (e) {
     console.error('Backup failed', e);
     return { ok: false, error: String(e && e.message || e) };
+  }
+}
+
+// ─── RESTORE ────────────────────────────────────────────────────────────────
+// Lê o conteúdo `apostas` e `classificacao` de um payload de backup (gerado
+// pelo downloadFullBackup) e SOBRESCREVE os dois docs do Firestore. Antes de
+// aplicar, dispara um backup de segurança automático do estado atual.
+// Devolve { ok, error?, applied: { users, bets, teams, interests, rounds } }.
+async function restoreFromBackup(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return { ok: false, error: 'JSON inválido (não é objeto).' };
+  }
+  // Aceita o formato v2 (com _raw) ou v1 (só apostas/classificacao).
+  const apostas       = payload.apostas;
+  const classificacao = payload.classificacao;
+  if (apostas == null && classificacao == null) {
+    return { ok: false, error: 'JSON não tem campo `apostas` nem `classificacao`.' };
+  }
+
+  // Backup de segurança PRIMEIRO. Se falhar, aborta sem escrever.
+  const safety = await downloadFullBackup();
+  if (!safety.ok) {
+    return { ok: false, error: 'Backup de segurança falhou — restore abortado: ' + safety.error };
+  }
+
+  try {
+    const writes = [];
+    if (apostas != null) {
+      writes.push(BET_DOC().set({
+        json: JSON.stringify(apostas),
+        updatedAt: Date.now(),
+      }));
+    }
+    if (classificacao != null) {
+      writes.push(CLASSIF_DOC().set({
+        json: JSON.stringify(classificacao),
+        updatedAt: Date.now(),
+      }));
+    }
+    await Promise.all(writes);
+    return {
+      ok: true,
+      applied: {
+        users:     Object.keys(apostas?.users || {}).length,
+        bets:      (apostas?.bets || []).length,
+        teams:     Object.keys(apostas?.teamPlayers || {}).length,
+        interests: Object.values(apostas?.interests || {})
+                          .reduce((s, x) => s + Object.keys(x || {}).length, 0),
+        rounds:    (classificacao?.rounds || []).length,
+      },
+    };
+  } catch (e) {
+    return { ok: false, error: 'Backup de seguranca baixado, mas o restore falhou: ' + String(e && e.message || e) };
   }
 }
 
@@ -930,13 +986,13 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
 
 function Tabs({ tab, setTab, isAdmin }) {
   const items = [
+    { id: 'classificacao', label: 'CLASSIFICAÇÃO' },
     { id: 'apostar', label: 'JOGOS' },
+    { id: 'ranking', label: 'RANKING' },
     { id: 'tickets', label: 'MEUS TICKETS' },
     { id: 'perfil', label: 'MEU PERFIL' },
-    { id: 'ranking', label: 'RANKING' },
     { id: 'fama', label: 'HALL DA FAMA' },
     { id: 'vergonha', label: 'HALL DA VERGONHA' },
-    { id: 'classificacao', label: 'CLASSIFICAÇÃO' },
   ];
   if (isAdmin) items.push({ id: 'admin', label: 'ADMIN' });
   const current = items.find(it => it.id === tab) || items[0];
@@ -1917,7 +1973,8 @@ function ClassificacaoView({ cs, setCs, isAdmin }) {
 
 // ─── ADMIN ──────────────────────────────────────────────────────────────────
 function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer }) {
-  // Tabs do admin: USUÁRIOS / TIMES / BACKUP.
+  // Tabs do admin: USUÁRIOS / TIMES / BACKUP / PERIGO. PERIGO ficou em aba
+  // separada pra não ser clicado por engano achando que era backup.
   const [tab, setTab] = useState('usuarios');
   const playerTeam = reverseTeamMap(teamPlayers);
 
@@ -1927,6 +1984,7 @@ function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer }) {
         <button className={'tab ' + (tab === 'usuarios' ? 'active' : '')} onClick={() => setTab('usuarios')}>USUÁRIOS</button>
         <button className={'tab ' + (tab === 'times' ? 'active' : '')} onClick={() => setTab('times')}>TIMES</button>
         <button className={'tab ' + (tab === 'backup' ? 'active' : '')} onClick={() => setTab('backup')}>BACKUP</button>
+        <button className={'tab ' + (tab === 'perigo' ? 'active' : '')} onClick={() => setTab('perigo')} style={{ color: tab === 'perigo' ? '#c33' : 'rgba(195,51,51,0.6)' }}>⚠ PERIGO</button>
       </div>
 
       {tab === 'usuarios' && (
@@ -1993,8 +2051,12 @@ function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer }) {
       {tab === 'backup' && (
         <>
           <BackupPanel />
-          <DangerZone />
+          <RestorePanel />
         </>
+      )}
+
+      {tab === 'perigo' && (
+        <DangerZone />
       )}
     </>
   );
@@ -2031,6 +2093,143 @@ function BackupPanel() {
         {status && status !== 'running' && !status.ok && (
           <p style={{ marginTop: 14, color: 'var(--pv-red, #c33)' }}>
             ✗ Erro: {status.error}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Lê o arquivo de backup que o usuário escolheu e devolve o JSON parseado.
+function readJsonFile(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = () => reject(new Error('Erro lendo arquivo'));
+    r.onload = (ev) => {
+      try { resolve(JSON.parse(ev.target.result)); }
+      catch (e) { reject(new Error('JSON inválido: ' + e.message)); }
+    };
+    r.readAsText(file);
+  });
+}
+
+function RestorePanel() {
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null); // {users, bets, ...} | {error}
+  const [status, setStatus] = useState(null);   // null | 'running' | {ok, applied?, error?}
+
+  const onFileChange = async (e) => {
+    setStatus(null);
+    const f = e.target.files && e.target.files[0];
+    if (!f) { setFile(null); setPreview(null); return; }
+    setFile(f);
+    try {
+      const data = await readJsonFile(f);
+      const apostas = data.apostas;
+      const classificacao = data.classificacao;
+      if (apostas == null && classificacao == null) {
+        setPreview({ error: 'JSON não tem campo `apostas` nem `classificacao`.' });
+        return;
+      }
+      setPreview({
+        users:     Object.keys(apostas?.users || {}).length,
+        bets:      (apostas?.bets || []).length,
+        teams:     Object.keys(apostas?.teamPlayers || {}).length,
+        interests: Object.values(apostas?.interests || {})
+                          .reduce((s, x) => s + Object.keys(x || {}).length, 0),
+        rounds:    (classificacao?.rounds || []).length,
+        exportedAt: data.exportedAt || '(sem data)',
+        version:   data.version || 1,
+      });
+    } catch (e) {
+      setPreview({ error: String(e.message || e) });
+    }
+  };
+
+  const onRestore = async () => {
+    if (!file || !preview || preview.error) return;
+    const ok = window.confirm(
+      'Vai SOBRESCREVER o estado atual com o conteúdo do backup.\n\n' +
+      'Um backup de segurança do estado ATUAL vai ser baixado antes (caso queira voltar).\n\n' +
+      'Confirma?'
+    );
+    if (!ok) return;
+    setStatus('running');
+    try {
+      const payload = await readJsonFile(file);
+      const result = await restoreFromBackup(payload);
+      setStatus(result);
+    } catch (e) {
+      setStatus({ ok: false, error: String(e.message || e) });
+    }
+  };
+
+  return (
+    <div className="card" style={{ marginTop: 14 }}>
+      <div className="card-head">
+        <div className="title">↻ RESTAURAR BACKUP</div>
+        <div className="sub">UPLOAD DE JSON</div>
+      </div>
+      <div className="card-body">
+        <p style={{ marginTop: 0, lineHeight: 1.5 }}>
+          Carrega um arquivo <code>.json</code> gerado pelo backup e
+          <strong> sobrescreve</strong> o estado atual do site (usuários, apostas, times
+          vinculados, inscrições e classificação). Um <strong>backup de segurança</strong> do
+          estado atual é baixado automaticamente antes — se algo der errado, é só restaurar
+          ele de volta.
+        </p>
+
+        <input
+          type="file"
+          accept=".json,application/json"
+          onChange={onFileChange}
+          disabled={status === 'running'}
+          style={{ marginTop: 8 }}
+        />
+
+        {preview && preview.error && (
+          <div style={{ marginTop: 12, padding: 10, background: '#fce4e4', border: '1.5px solid #c33', color: '#7a2222', fontSize: 12, fontWeight: 700 }}>
+            ✗ {preview.error}
+          </div>
+        )}
+
+        {preview && !preview.error && (
+          <div style={{ marginTop: 14, padding: 14, background: 'rgba(0,0,0,0.04)', border: '2px solid var(--pv-charcoal)' }}>
+            <div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, marginBottom: 8 }}>PRÉ-VIEW DO BACKUP</div>
+            <div style={{ fontSize: 12, lineHeight: 1.8 }}>
+              · <strong>{preview.users}</strong> usuários<br />
+              · <strong>{preview.bets}</strong> apostas (tickets)<br />
+              · <strong>{preview.teams}</strong> times vinculados a usuários<br />
+              · <strong>{preview.interests}</strong> inscrições em campeonatos<br />
+              · <strong>{preview.rounds}</strong> rodadas de classificação<br />
+              · Exportado em: <code>{preview.exportedAt}</code> (v{preview.version})
+            </div>
+
+            <button
+              onClick={onRestore}
+              disabled={status === 'running'}
+              style={{
+                marginTop: 14,
+                background: 'var(--pv-charcoal)', color: 'var(--pv-bone)',
+                padding: '10px 20px', fontWeight: 800, border: 'none',
+                letterSpacing: '0.16em', fontSize: 12,
+                cursor: status === 'running' ? 'wait' : 'pointer',
+              }}
+            >
+              {status === 'running' ? 'RESTAURANDO…' : '↻ RESTAURAR (sobrescreve atual)'}
+            </button>
+          </div>
+        )}
+
+        {status && status !== 'running' && status.ok && (
+          <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)', fontWeight: 700 }}>
+            ✓ Backup restaurado. {status.applied.users} usuários, {status.applied.bets} apostas,{' '}
+            {status.applied.teams} vínculos de time, {status.applied.rounds} rodadas, {status.applied.interests} inscrições.
+          </p>
+        )}
+        {status && status !== 'running' && !status.ok && (
+          <p style={{ marginTop: 14, color: 'var(--pv-red, #c33)', fontWeight: 700 }}>
+            ✗ {status.error}
           </p>
         )}
       </div>
