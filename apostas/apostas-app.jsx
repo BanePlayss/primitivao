@@ -659,9 +659,31 @@ function App() {
   useEffect(() => {
     if (!csLoadedRef.current || cs == null) return;
     if (csApplyingRef.current) { csApplyingRef.current = false; return; }
-    const t = setTimeout(() => {
-      CLASSIF_DOC().set({ json: JSON.stringify(cs), updatedAt: Date.now() })
-                   .catch(e => console.warn(e));
+    const t = setTimeout(async () => {
+      try {
+        await window.db.runTransaction(async (tx) => {
+          const snap = await tx.get(CLASSIF_DOC());
+          let cur = null;
+          if (snap.exists && typeof snap.data().json === 'string') {
+            try { cur = JSON.parse(snap.data().json); } catch (_) { cur = null; }
+          }
+          // Safety net: força shape valido. Se cs local vier malformado,
+          // cai pra remoto; se remoto vier malformado, usa defaults.
+          const safeRounds = Array.isArray(cs.rounds) && cs.rounds.length === TOTAL_ROUNDS
+            ? cs.rounds
+            : (cur && Array.isArray(cur.rounds) && cur.rounds.length === TOTAL_ROUNDS
+                ? cur.rounds
+                : defaultRounds());
+          const safe = {
+            currentRound: Number.isInteger(cs.currentRound) ? cs.currentRound
+                         : (cur && Number.isInteger(cur.currentRound) ? cur.currentRound : 0),
+            rounds: safeRounds,
+          };
+          tx.set(CLASSIF_DOC(), { json: JSON.stringify(safe), updatedAt: Date.now() });
+        });
+      } catch (e) {
+        console.warn('Firestore write failed (classif)', e);
+      }
     }, 300);
     return () => clearTimeout(t);
   }, [cs]);
