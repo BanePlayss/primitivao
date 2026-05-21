@@ -480,6 +480,52 @@
       .trophy-podiums { grid-template-columns: 1fr; }
     }
 
+    /* ──── TABS MOBILE (hamburger drawer) ──── */
+    /* No desktop o drawer é totalmente escondido; só aparece em <=720px. */
+    .tabs-mobile { display: none; }
+    .tabs-mobile-btn {
+      width: 100%;
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px;
+      background: var(--pv-charcoal); color: var(--pv-bone);
+      border: 3px solid var(--pv-charcoal);
+      font-weight: 800; letter-spacing: 0.14em; font-size: 12px;
+      text-align: left;
+    }
+    .tabs-mobile-btn .tabs-hamb { font-size: 18px; line-height: 1; }
+    .tabs-mobile-btn .tabs-current {
+      flex: 1; color: var(--pv-orange);
+      font-family: "Bungee Inline", Impact, sans-serif; letter-spacing: 0.06em;
+      font-size: 13px;
+    }
+    .tabs-mobile-btn .tabs-chev { font-size: 14px; color: var(--pv-bone); opacity: 0.7; }
+    .tabs-drawer {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: var(--pv-bone);
+      border: 3px solid var(--pv-charcoal);
+      border-top: none;
+      z-index: 40;
+      box-shadow: 6px 6px 0 var(--pv-charcoal);
+      max-height: 70vh; overflow-y: auto;
+    }
+    .tabs-drawer-item {
+      display: block; width: 100%; text-align: left;
+      padding: 14px 16px;
+      background: transparent; border: none;
+      border-bottom: 1px dashed rgba(28,22,18,0.18);
+      font-weight: 800; letter-spacing: 0.16em; font-size: 12px;
+      color: rgba(28,22,18,0.65);
+      cursor: pointer;
+    }
+    .tabs-drawer-item:last-child { border-bottom: none; }
+    .tabs-drawer-item.active {
+      color: var(--pv-charcoal);
+      background: rgba(215,100,20,0.12);
+      border-left: 4px solid var(--pv-orange);
+      padding-left: 12px;
+    }
+    .tabs-drawer-item:hover { background: rgba(215,100,20,0.08); }
+
     /* ════════════════════════════════════════════════════════════════════ */
     /* ─────────────────── MOBILE (≤ 720px) ─────────────────────────────── */
     /* ════════════════════════════════════════════════════════════════════ */
@@ -501,20 +547,10 @@
       /* PAGE: menos respiro lateral */
       .page { padding: 14px 12px; }
 
-      /* TABS: viram scroll horizontal */
-      .tabs {
-        overflow-x: auto;
-        flex-wrap: nowrap;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-      }
-      .tabs::-webkit-scrollbar { display: none; }
-      .tab {
-        flex-shrink: 0;
-        padding: 8px 12px;
-        font-size: 11px;
-        letter-spacing: 0.14em;
-      }
+      /* TABS: esconde a barra desktop, mostra o hamburger drawer.
+         Wrapper precisa de position: relative pro drawer ancorar. */
+      .tabs { display: none; }
+      .tabs-mobile { display: block; position: relative; margin-bottom: 14px; }
 
       /* CARDS */
       .card { box-shadow: 4px 4px 0 var(--pv-charcoal); }

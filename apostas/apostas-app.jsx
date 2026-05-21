@@ -939,14 +939,67 @@ function Tabs({ tab, setTab, isAdmin }) {
     { id: 'classificacao', label: 'CLASSIFICAÇÃO' },
   ];
   if (isAdmin) items.push({ id: 'admin', label: 'ADMIN' });
+  const current = items.find(it => it.id === tab) || items[0];
+  const [open, setOpen] = useState(false);
+
+  // Fecha o drawer ao clicar fora.
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e) => {
+      if (e.target.closest && !e.target.closest('.tabs-mobile')) setOpen(false);
+    };
+    const onEsc = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('touchstart', onClick);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('touchstart', onClick);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+
+  const pick = (id) => { setTab(id); setOpen(false); };
+
   return (
-    <div className="tabs">
-      {items.map(it => (
-        <button key={it.id} className={'tab ' + (tab === it.id ? 'active' : '')} onClick={() => setTab(it.id)}>
-          {it.label}
+    <>
+      {/* Desktop: linha horizontal de pílulas */}
+      <div className="tabs">
+        {items.map(it => (
+          <button key={it.id} className={'tab ' + (tab === it.id ? 'active' : '')} onClick={() => pick(it.id)}>
+            {it.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Mobile: hamburguer + drawer vertical */}
+      <div className="tabs-mobile">
+        <button
+          className="tabs-mobile-btn"
+          aria-expanded={open}
+          aria-label="Menu de navegação"
+          onClick={() => setOpen(o => !o)}
+        >
+          <span className="tabs-hamb">{open ? '✕' : '☰'}</span>
+          <span className="tabs-current">{current.label}</span>
+          <span className="tabs-chev">{open ? '▴' : '▾'}</span>
         </button>
-      ))}
-    </div>
+        {open && (
+          <div className="tabs-drawer" role="menu">
+            {items.map(it => (
+              <button
+                key={it.id}
+                role="menuitem"
+                className={'tabs-drawer-item ' + (tab === it.id ? 'active' : '')}
+                onClick={() => pick(it.id)}
+              >
+                {it.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
