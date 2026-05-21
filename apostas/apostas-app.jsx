@@ -87,6 +87,50 @@ function parseDocJsonSafe(snap) {
   }
 }
 
+// ─── TRANSAÇÕES (utilitários) ───────────────────────────────────────────────
+// Helper central pra todas as mutações de primitivao/apostas: roda o reducer
+// passado dentro de uma firestore transaction. Reducer recebe o estado remoto
+// parseado (json field) e devolve { next, result? } ou retorna null pra abortar.
+async function commitBetDocUpdate(reducer) {
+  const ref = BET_DOC();
+  return await window.db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    let cur = {};
+    if (snap.exists && typeof snap.data().json === 'string') {
+      try { cur = JSON.parse(snap.data().json); } catch (_) { cur = {}; }
+    }
+    const out = reducer(cur);
+    if (!out) return null; // no-op
+    const next = out.next || out; // reducer pode retornar só `next` ou {next, result}
+    if (next === null) return null;
+    tx.set(ref, {
+      json: JSON.stringify(next),
+      updatedAt: Date.now(),
+    }, { merge: true });
+    return out.result !== undefined ? out.result : { ok: true };
+  });
+}
+
+// Merge usado no write-back: protege contra outras tabs sobrescreverem campos
+// que ESTA tab não modificou. Cada campo tem estratégia própria.
+function mergeBetDocFields(remote, local) {
+  return {
+    // users / teamPlayers: shallow merge, local ganha em conflito de chave.
+    users:       { ...(remote.users || {}),       ...(local.users || {}) },
+    teamPlayers: { ...(remote.teamPlayers || {}), ...(local.teamPlayers || {}) },
+    // bets: união por id, local ganha em conflito.
+    bets:        mergeBetsById(remote.bets || [], local.bets || []),
+    // fixtures: take local (não é editado concorrentemente).
+    fixtures:    local.fixtures || remote.fixtures || DEFAULT_FIXTURES,
+  };
+}
+function mergeBetsById(remote, local) {
+  const byId = new Map();
+  for (const b of remote) if (b && b.id) byId.set(b.id, b);
+  for (const b of local)  if (b && b.id) byId.set(b.id, b);
+  return Array.from(byId.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
 async function downloadFullBackup() {
   try {
     const [betSnap, classifSnap] = await Promise.all([
@@ -478,7 +522,6 @@ function TeamMini({ team, size = 36 }) {
 function App() {
   const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {} });
   const { users, fixtures, bets, interests, teamPlayers } = shared;
-  const setUsers    = (u) => setShared(s => ({ ...s, users:    typeof u === 'function' ? u(s.users)    : u }));
 
   // cs: classificação compartilhada via primitivao/state. State é mantido no App
   // (e não em ClassificacaoView) para que: (a) ApostarView possa derivar jogos +
@@ -551,14 +594,13 @@ function App() {
     if (!hasLoadedRef.current) return;
     if (isApplyingRemoteRef.current) { isApplyingRemoteRef.current = false; return; }
     const t = setTimeout(() => {
-      // Exclui interests do que escrevemos no `json` — ele vive em campo
-      // top-level no Firestore (atualizado por toggleInterest em transação).
-      // Usar { merge: true } pra NÃO sobrescrever o top-level interests.
-      const { interests: _drop, ...sharedNoInterests } = shared;
-      BET_DOC().set({
-        json: JSON.stringify(sharedNoInterests),
-        updatedAt: Date.now(),
-      }, { merge: true }).catch(e => console.warn('Firestore write failed', e));
+      // Write-back transacional: lê remote, faz MERGE com local (campo a
+      // campo, vide mergeBetDocFields), grava resultado. Protege contra
+      // outras tabs sobrescreverem campos que esta tab não modificou.
+      const { interests: _drop, ...localNoInterests } = shared;
+      commitBetDocUpdate(remote => ({
+        next: mergeBetDocFields(remote, localNoInterests),
+      })).catch(e => console.warn('Firestore write failed', e));
     }, 250);
     return () => clearTimeout(t);
   }, [shared]);
@@ -602,54 +644,66 @@ function App() {
     return () => clearTimeout(t);
   }, [cs]);
 
-  // ── Liquidação automática: roda sempre que cs muda. Resolve ou reverte
-  //    pernas de apostas baseado nos placares das rounds. Suporta undo:
-  //    se admin apagar um placar, perna volta a pending e payout é estornado.
+  // ── Liquidação automática: roda transacionalmente sempre que cs muda.
+  //    Lê bets+users do REMOTE e aplica liquidação/estorno baseado em
+  //    cs.rounds (placares). Garante que paga payout EXATAMENTE UMA vez
+  //    mesmo com várias tabs disparando o efeito.
   useEffect(() => {
-    if (!cs || !hasLoadedRef.current || !shared.bets || shared.bets.length === 0) return;
-    let dirty = false;
-    const newUsers = { ...shared.users };
-    const newBets = shared.bets.map(b => {
-      let changed = false;
-      const legs = b.legs.map(l => {
-        const p = parseGameId(l.fixtureId);
-        if (!p) return l; // ID antigo ou inválido; deixa pendente
-        const g = cs.rounds?.[p.ri]?.[p.gi];
-        if (!g) return l;
-        const gh = parseInt(g.gh, 10), ga = parseInt(g.ga, 10);
-        const played = !Number.isNaN(gh) && !Number.isNaN(ga);
-        if (l.result && !played) { changed = true; return { ...l, result: undefined }; }
-        if (!l.result && played) {
-          const won = marketSettle(l.market, l.pick, gh, ga);
-          changed = true;
-          return { ...l, result: won ? 'win' : 'lose' };
-        }
-        return l;
-      });
-      if (!changed) return b;
-      const newStatus = ticketStatusFromLegs(legs);
-      const oldStatus = b.status;
-      const oldPayout = b.payout || 0;
-      let newPayout = b.payout;
-      // estorna se deixou de ser vencedor
-      if (oldStatus === 'won' && newStatus !== 'won' && oldPayout > 0 && newUsers[b.user]) {
-        newUsers[b.user] = { ...newUsers[b.user], pc: Math.max(0, newUsers[b.user].pc - oldPayout) };
+    if (!cs || !hasLoadedRef.current) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await commitBetDocUpdate(remote => {
+          const remoteBets = remote.bets || [];
+          if (remoteBets.length === 0) return null;
+          const newUsers = { ...(remote.users || {}) };
+          let dirty = false;
+          const newBets = remoteBets.map(b => {
+            let changed = false;
+            const legs = b.legs.map(l => {
+              const p = parseGameId(l.fixtureId);
+              if (!p) return l;
+              const g = cs.rounds?.[p.ri]?.[p.gi];
+              if (!g) return l;
+              const gh = parseInt(g.gh, 10), ga = parseInt(g.ga, 10);
+              const played = !Number.isNaN(gh) && !Number.isNaN(ga);
+              if (l.result && !played) { changed = true; return { ...l, result: undefined }; }
+              if (!l.result && played) {
+                const won = marketSettle(l.market, l.pick, gh, ga);
+                changed = true;
+                return { ...l, result: won ? 'win' : 'lose' };
+              }
+              return l;
+            });
+            if (!changed) return b;
+            const newStatus = ticketStatusFromLegs(legs);
+            const oldStatus = b.status;
+            const oldPayout = b.payout || 0;
+            let newPayout = b.payout;
+            if (oldStatus === 'won' && newStatus !== 'won' && oldPayout > 0 && newUsers[b.user]) {
+              newUsers[b.user] = { ...newUsers[b.user], pc: Math.max(0, newUsers[b.user].pc - oldPayout) };
+            }
+            if (newStatus === 'won' && oldStatus !== 'won') {
+              newPayout = Math.round(b.amount * b.combinedOdds);
+              if (newUsers[b.user]) {
+                newUsers[b.user] = { ...newUsers[b.user], pc: newUsers[b.user].pc + newPayout };
+              }
+            } else if (newStatus === 'lost') {
+              newPayout = 0;
+            } else if (newStatus === 'pending') {
+              newPayout = undefined;
+            }
+            dirty = true;
+            return { ...b, legs, status: newStatus, payout: newPayout };
+          });
+          if (!dirty) return null;
+          return { ...remote, users: newUsers, bets: newBets };
+        });
+      } catch (e) {
+        if (!cancelled) console.warn('auto-settle failed', e);
       }
-      // paga se virou vencedor
-      if (newStatus === 'won' && oldStatus !== 'won') {
-        newPayout = Math.round(b.amount * b.combinedOdds);
-        if (newUsers[b.user]) {
-          newUsers[b.user] = { ...newUsers[b.user], pc: newUsers[b.user].pc + newPayout };
-        }
-      } else if (newStatus === 'lost') {
-        newPayout = 0;
-      } else if (newStatus === 'pending') {
-        newPayout = undefined;
-      }
-      dirty = true;
-      return { ...b, legs, status: newStatus, payout: newPayout };
-    });
-    if (dirty) setShared(s => ({ ...s, users: newUsers, bets: newBets }));
+    })();
+    return () => { cancelled = true; };
   }, [cs]);
 
   // Derivados de cs.rounds: métricas dos times + jogos disponíveis com odds.
@@ -666,32 +720,58 @@ function App() {
   const me = session ? users[session.nick] : null;
   const isAdmin = session && session.nick === ADMIN_NICK;
 
-  const handleAuth = (nick, senha) => {
+  // Login/signup via transação: cadastro atomico contra remote — evita perder
+  // user novo se outro write concorrer.
+  const handleAuth = async (nick, senha) => {
     nick = nick.trim().toLowerCase();
     if (!nick || !senha) return 'Preencha nick e senha';
     if (nick === ADMIN_NICK) {
       if (senha !== ADMIN_PASS) return 'Senha de admin incorreta';
       setSession({ nick }); return null;
     }
-    const existing = users[nick];
-    if (existing) {
-      if (existing.senha !== senha) return 'Senha incorreta';
-      setSession({ nick }); return null;
+    try {
+      const result = await commitBetDocUpdate(remote => {
+        const remoteUsers = remote.users || {};
+        const existing = remoteUsers[nick];
+        if (existing) {
+          // já existe — valida senha
+          if (existing.senha !== senha) return { next: null, result: { err: 'Senha incorreta' } };
+          return { next: null, result: { ok: true } }; // no-op write, mas login ok
+        }
+        const users = { ...remoteUsers, [nick]: { senha, pc: START_PC, joined: Date.now(), lastWeekly: 0 } };
+        return { next: { ...remote, users }, result: { ok: true } };
+      });
+      if (result && result.err) return result.err;
+      setSession({ nick });
+      return null;
+    } catch (e) {
+      console.warn('handleAuth failed', e);
+      return 'Erro de conexão. Tente novamente.';
     }
-    setUsers(u => ({ ...u, [nick]: { senha, pc: START_PC, joined: Date.now(), lastWeekly: 0 } }));
-    setSession({ nick });
-    return null;
   };
 
   const logout = () => { setSession(null); setTab('apostar'); setSlip([]); };
 
-  const claimWeekly = () => {
-    if (!me || isAdmin) return;
-    const now = Date.now();
-    const cycleOK   = (now - me.lastWeekly) >= WEEK_MS;
-    const releasedOK = now >= WEEKLY_RELEASE_AT && me.lastWeekly < WEEKLY_RELEASE_AT;
-    if (!cycleOK && !releasedOK) return;
-    setUsers(u => ({ ...u, [session.nick]: { ...u[session.nick], pc: u[session.nick].pc + WEEKLY_PC, lastWeekly: now } }));
+  // Bônus semanal via transação: revalida elegibilidade contra dados REMOTOS
+  // pra evitar dois cliques rápidos creditarem em dobro, ou ser sobrescrito.
+  const claimWeekly = async () => {
+    if (!session || isAdmin) return;
+    const nick = session.nick;
+    try {
+      await commitBetDocUpdate(remote => {
+        const u = (remote.users || {})[nick];
+        if (!u) return null;
+        const now = Date.now();
+        const cycleOK    = (now - u.lastWeekly) >= WEEK_MS;
+        const releasedOK = now >= WEEKLY_RELEASE_AT && u.lastWeekly < WEEKLY_RELEASE_AT;
+        if (!cycleOK && !releasedOK) return null;
+        const users = {
+          ...remote.users,
+          [nick]: { ...u, pc: u.pc + WEEKLY_PC, lastWeekly: now },
+        };
+        return { ...remote, users };
+      });
+    } catch (e) { console.warn('claimWeekly failed', e); }
   };
   // Disponível se: (a) já se passaram 7 dias do último resgate, ou
   // (b) o release geral já chegou e o usuário só resgatou antes dele.
@@ -727,16 +807,15 @@ function App() {
   const removeLeg = (fixtureId) => setSlip(prev => prev.filter(s => s.fixtureId !== fixtureId));
   const clearSlip = () => setSlip([]);
 
-  const placeBet = (amount) => {
+  // PlaceBet via transação: debita PC + adiciona ticket atomicamente contra
+  // o estado remoto (não permite ficar negativo nem perder o ticket).
+  const placeBet = async (amount) => {
     if (!me || slip.length === 0) return;
-    // valida: todo jogo do cupom ainda precisa estar pendente em cs.rounds
     for (const l of slip) {
       const g = gameById[l.fixtureId];
       if (!g) { alert('Um dos jogos do cupom não está mais disponível.'); return; }
     }
-    if (amount <= 0 || amount > me.pc) return;
-    // Aposta casada SOMA as odds em vez de multiplicar (decisão do dono:
-    // produto explode pagamento; soma deixa o crescimento linear).
+    if (amount <= 0) return;
     const co = +slip.reduce((p, l) => p + l.odds, 0).toFixed(2);
     const ticket = {
       id: 't' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
@@ -744,28 +823,45 @@ function App() {
       combinedOdds: co,
       legs: slip.map(l => ({ fixtureId: l.fixtureId, market: l.market, pick: l.pick, odds: l.odds })),
     };
-    setShared(s => ({
-      ...s,
-      bets: [ticket, ...s.bets],
-      users: { ...s.users, [session.nick]: { ...s.users[session.nick], pc: s.users[session.nick].pc - amount } },
-    }));
-    setSlip([]);
+    try {
+      const result = await commitBetDocUpdate(remote => {
+        const u = (remote.users || {})[session.nick];
+        if (!u) return null;
+        if (u.pc < amount) return { next: null, result: { err: 'Saldo insuficiente' } };
+        const users = { ...remote.users, [session.nick]: { ...u, pc: u.pc - amount } };
+        const bets = [ticket, ...(remote.bets || [])];
+        return { next: { ...remote, users, bets }, result: { ok: true } };
+      });
+      if (result && result.err) { alert(result.err); return; }
+      setSlip([]);
+    } catch (e) {
+      console.warn('placeBet failed', e);
+      alert('Erro ao colocar aposta. Tenta de novo.');
+    }
   };
 
-  const cancelBet = (ticketId) => {
-    setShared(s => {
-      const t = s.bets.find(b => b.id === ticketId);
-      if (!t || t.status !== 'pending') return s;
-      if (t.user !== session.nick && session.nick !== ADMIN_NICK) return s;
-      // bloqueio: se alguma perna já foi liquidada, não dá pra cancelar
-      const settled = t.legs.some(l => !!l.result);
-      if (settled) { alert('Esse cupom já tem jogos finalizados.'); return s; }
-      return {
-        ...s,
-        bets: s.bets.filter(b => b.id !== ticketId),
-        users: { ...s.users, [t.user]: { ...s.users[t.user], pc: s.users[t.user].pc + t.amount } },
-      };
-    });
+  // CancelBet via transação: remove ticket + devolve PC atomicamente.
+  // (Deleção precisa ser transacional senão o merge restaura o bet do remote.)
+  const cancelBet = async (ticketId) => {
+    try {
+      const result = await commitBetDocUpdate(remote => {
+        const t = (remote.bets || []).find(b => b.id === ticketId);
+        if (!t || t.status !== 'pending') return null;
+        if (t.user !== session.nick && session.nick !== ADMIN_NICK) return null;
+        if (t.legs.some(l => !!l.result)) {
+          return { next: null, result: { err: 'Esse cupom já tem jogos finalizados.' } };
+        }
+        const bets = (remote.bets || []).filter(b => b.id !== ticketId);
+        const users = { ...remote.users };
+        if (users[t.user]) {
+          users[t.user] = { ...users[t.user], pc: users[t.user].pc + t.amount };
+        }
+        return { next: { ...remote, bets, users }, result: { ok: true } };
+      });
+      if (result && result.err) alert(result.err);
+    } catch (e) {
+      console.warn('cancelBet failed', e);
+    }
   };
 
   // ── INSCRIÇÕES (campeonatos "em breve") ───────────────────────────────────
@@ -791,26 +887,35 @@ function App() {
     }
   };
 
-  // Vincula um nick a um teamId (ou desvincula passando nick='').
-  // Cada nick só pode ter UM time; o setter remove a vinculação anterior.
-  const setTeamPlayer = (teamId, nick) => {
-    setShared(s => {
-      const map = { ...(s.teamPlayers || {}) };
-      const cleaned = (nick || '').trim().toLowerCase();
-      // remove qualquer outro time que estava com esse nick
-      if (cleaned) {
-        for (const [tid, n] of Object.entries(map)) {
-          if (n === cleaned && tid !== teamId) delete map[tid];
+  // Vincula um nick a um teamId via transação (cada nick = um time).
+  const setTeamPlayer = async (teamId, nick) => {
+    const cleaned = (nick || '').trim().toLowerCase();
+    try {
+      await commitBetDocUpdate(remote => {
+        const map = { ...(remote.teamPlayers || {}) };
+        if (cleaned) {
+          for (const [tid, n] of Object.entries(map)) {
+            if (n === cleaned && tid !== teamId) delete map[tid];
+          }
+          map[teamId] = cleaned;
+        } else {
+          delete map[teamId];
         }
-      }
-      if (cleaned) map[teamId] = cleaned;
-      else delete map[teamId];
-      return { ...s, teamPlayers: map };
-    });
+        return { ...remote, teamPlayers: map };
+      });
+    } catch (e) { console.warn('setTeamPlayer failed', e); }
   };
 
-  const adjustPc = (nick, delta) => {
-    setUsers(u => u[nick] ? ({ ...u, [nick]: { ...u[nick], pc: Math.max(0, u[nick].pc + delta) } }) : u);
+  // Ajuste de PC pelo admin via transação (lê PC remoto, soma delta atomicamente).
+  const adjustPc = async (nick, delta) => {
+    try {
+      await commitBetDocUpdate(remote => {
+        const u = (remote.users || {})[nick];
+        if (!u) return null;
+        const users = { ...remote.users, [nick]: { ...u, pc: Math.max(0, u.pc + delta) } };
+        return { ...remote, users };
+      });
+    } catch (e) { console.warn('adjustPc failed', e); }
   };
 
   if (!synced || cs === null) {
@@ -1118,14 +1223,22 @@ function Login({ onAuth, isNewNick }) {
   const [senha2, setSenha2] = useState('');
   const [msg, setMsg] = useState('');
   const isNew = isNewNick ? isNewNick(nick) : false;
-  const submit = (e) => {
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
     e && e.preventDefault();
+    if (busy) return;
     if (isNew && senha !== senha2) {
       setMsg('As senhas não conferem');
       return;
     }
-    const err = onAuth(nick, senha);
-    if (err) setMsg(err);
+    setBusy(true);
+    setMsg('');
+    try {
+      const err = await onAuth(nick, senha);
+      if (err) setMsg(err);
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <div className="login-stage">
@@ -1156,7 +1269,9 @@ function Login({ onAuth, isNewNick }) {
             <input type="password" value={senha2} onChange={e => setSenha2(e.target.value)} placeholder="••••••" />
           </div>
         )}
-        <button type="submit" className="login-btn">{isNew ? 'CRIAR CONTA' : 'ENTRAR'}</button>
+        <button type="submit" className="login-btn" disabled={busy}>
+          {busy ? 'AGUARDE…' : (isNew ? 'CRIAR CONTA' : 'ENTRAR')}
+        </button>
         <div className="login-msg">{msg}</div>
       </form>
     </div>
