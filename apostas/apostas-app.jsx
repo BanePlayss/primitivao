@@ -39,8 +39,8 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // imediatamente — mesmo quem já resgatou esta semana. Depois disso, o
 // ciclo normal de 7 dias volta a valer pra cada um. Pra liberar de novo no
 // futuro, é só atualizar este timestamp.
-// 22/05/2026 10:00 BRT (= 13:00 UTC).
-const WEEKLY_RELEASE_AT = Date.UTC(2026, 4, 22, 13, 0, 0);
+// 21/05/2026 10:00 BRT (= 13:00 UTC).
+const WEEKLY_RELEASE_AT = Date.UTC(2026, 4, 21, 13, 0, 0);
 
 const DEF_BY = 1.8; // ambos marcam: SIM
 const DEF_BN = 2.0; // ambos marcam: NÃO
@@ -128,7 +128,7 @@ async function wipeAllData() {
   try {
     await Promise.all([
       BET_DOC().set({
-        json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {} }),
+        json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {} }),
         updatedAt: Date.now(),
       }),
       CLASSIF_DOC().set({
@@ -404,8 +404,8 @@ function TeamMini({ team, size = 36 }) {
 
 // ─── APP ────────────────────────────────────────────────────────────────────
 function App() {
-  const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {} });
-  const { users, fixtures, bets, interests } = shared;
+  const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {} });
+  const { users, fixtures, bets, interests, teamPlayers } = shared;
   const setUsers    = (u) => setShared(s => ({ ...s, users:    typeof u === 'function' ? u(s.users)    : u }));
 
   // cs: classificação compartilhada via primitivao/state. State é mantido no App
@@ -431,7 +431,7 @@ function App() {
     const ref = BET_DOC();
     const unsub = ref.onSnapshot(snap => {
       if (!snap.exists) {
-        ref.set({ json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {} }), updatedAt: Date.now() })
+        ref.set({ json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {} }), updatedAt: Date.now() })
            .catch(e => console.warn('Firestore seed failed', e));
         hasLoadedRef.current = true; setSynced(true);
         return;
@@ -440,10 +440,11 @@ function App() {
         const remote = JSON.parse(snap.data().json);
         isApplyingRemoteRef.current = true;
         setShared({
-          users:     remote.users && typeof remote.users === 'object' ? remote.users : {},
-          fixtures:  Array.isArray(remote.fixtures) ? remote.fixtures.map(normFixture) : DEFAULT_FIXTURES,
-          bets:      Array.isArray(remote.bets) ? remote.bets.map(normBet) : [],
-          interests: remote.interests && typeof remote.interests === 'object' ? remote.interests : {},
+          users:        remote.users && typeof remote.users === 'object' ? remote.users : {},
+          fixtures:     Array.isArray(remote.fixtures) ? remote.fixtures.map(normFixture) : DEFAULT_FIXTURES,
+          bets:         Array.isArray(remote.bets) ? remote.bets.map(normBet) : [],
+          interests:    remote.interests && typeof remote.interests === 'object' ? remote.interests : {},
+          teamPlayers:  remote.teamPlayers && typeof remote.teamPlayers === 'object' ? remote.teamPlayers : {},
         });
         hasLoadedRef.current = true; setSynced(true);
       } catch (e) { console.warn('Firestore parse failed', e); }
@@ -682,6 +683,24 @@ function App() {
     });
   };
 
+  // Vincula um nick a um teamId (ou desvincula passando nick='').
+  // Cada nick só pode ter UM time; o setter remove a vinculação anterior.
+  const setTeamPlayer = (teamId, nick) => {
+    setShared(s => {
+      const map = { ...(s.teamPlayers || {}) };
+      const cleaned = (nick || '').trim().toLowerCase();
+      // remove qualquer outro time que estava com esse nick
+      if (cleaned) {
+        for (const [tid, n] of Object.entries(map)) {
+          if (n === cleaned && tid !== teamId) delete map[tid];
+        }
+      }
+      if (cleaned) map[teamId] = cleaned;
+      else delete map[teamId];
+      return { ...s, teamPlayers: map };
+    });
+  };
+
   const adjustPc = (nick, delta) => {
     setUsers(u => u[nick] ? ({ ...u, [nick]: { ...u[nick], pc: Math.max(0, u[nick].pc + delta) } }) : u);
   };
@@ -731,20 +750,33 @@ function App() {
             {tab === 'tickets' && (
               <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} onCancel={cancelBet} />
             )}
+            {tab === 'perfil' && (
+              <MeuPerfilView
+                nick={session.nick}
+                me={me}
+                cs={cs}
+                bets={bets}
+                teamPlayers={teamPlayers || {}}
+                isAdmin={isAdmin}
+              />
+            )}
             {tab === 'ranking' && (
               <RankingView users={users} bets={bets} me={session.nick} />
             )}
             {tab === 'fama' && (
-              <HallDaFamaView cs={cs} />
+              <HallDaFamaView cs={cs} teamPlayers={teamPlayers || {}} />
             )}
             {tab === 'vergonha' && (
-              <HallDaVergonhaView cs={cs} />
+              <HallDaVergonhaView cs={cs} teamPlayers={teamPlayers || {}} />
             )}
             {tab === 'classificacao' && (
               <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin} />
             )}
             {tab === 'admin' && isAdmin && (
-              <AdminView bets={bets} users={users} adjustPc={adjustPc} />
+              <AdminView
+                bets={bets} users={users} adjustPc={adjustPc}
+                teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
+              />
             )}
           </>
         ) : (
@@ -900,6 +932,7 @@ function Tabs({ tab, setTab, isAdmin }) {
   const items = [
     { id: 'apostar', label: 'JOGOS' },
     { id: 'tickets', label: 'MEUS TICKETS' },
+    { id: 'perfil', label: 'MEU PERFIL' },
     { id: 'ranking', label: 'RANKING' },
     { id: 'fama', label: 'HALL DA FAMA' },
     { id: 'vergonha', label: 'HALL DA VERGONHA' },
@@ -1275,6 +1308,235 @@ function TicketsView({ bets, gamesById, cs, onCancel }) {
 }
 
 // ─── RANKING ────────────────────────────────────────────────────────────────
+// ─── PERFIL DO USUÁRIO ──────────────────────────────────────────────────────
+// Lê teamPlayers pra descobrir qual time o nick representa. Mostra jogos do
+// time, troféus de campeonatos terminados, resumo de apostas.
+function reverseTeamMap(teamPlayers) {
+  const out = {};
+  for (const [tid, n] of Object.entries(teamPlayers || {})) {
+    if (n) out[n] = tid;
+  }
+  return out;
+}
+
+// Retorna [{ champId, kind: 'champion'|'vice'|'lanterna'|'penultimo' }] pro nick dado.
+function trophiesForNick(nick, cs, teamPlayers) {
+  const playerTeam = reverseTeamMap(teamPlayers);
+  const myTeam = playerTeam[nick];
+  if (!myTeam) return [];
+  const trophies = [];
+  for (const c of CHAMPIONSHIPS) {
+    const { status, standings } = computeChampStandings(c.id, cs);
+    if (status !== 'closed' || !standings || standings.length < 2) continue;
+    const last = standings.length - 1;
+    if (standings[0].id === myTeam)        trophies.push({ champId: c.id, kind: 'champion' });
+    else if (standings[1].id === myTeam)   trophies.push({ champId: c.id, kind: 'vice' });
+    else if (standings[last].id === myTeam)   trophies.push({ champId: c.id, kind: 'lanterna' });
+    else if (standings[last - 1].id === myTeam) trophies.push({ champId: c.id, kind: 'penultimo' });
+  }
+  return trophies;
+}
+
+function MeuPerfilView({ nick, me, cs, bets, teamPlayers, isAdmin }) {
+  const playerTeam = reverseTeamMap(teamPlayers);
+  const myTeamId = playerTeam[nick];
+  const myTeam = myTeamId ? TEAM(myTeamId) : null;
+  const rounds = cs?.rounds || [];
+
+  // Jogos do meu time (todos, jogados ou não), com round/index.
+  const myMatches = [];
+  if (myTeamId) {
+    rounds.forEach((round, ri) => round.forEach((g, gi) => {
+      if (g.home === myTeamId || g.away === myTeamId) {
+        myMatches.push({ ...g, ri, gi, round: ri + 1 });
+      }
+    }));
+  }
+  const played = myMatches.filter(g => isGamePlayed(g));
+  const upcoming = myMatches.filter(g => !isGamePlayed(g));
+
+  // Stats do meu time (V/E/D/Pts/SG) — usa computeStandings das rodadas jogadas.
+  const stand = myTeamId
+    ? computeStandings(rounds).find(s => s.id === myTeamId)
+    : null;
+
+  // Apostas
+  const myBets = bets.filter(b => b.user === nick);
+  const wonBets  = myBets.filter(b => b.status === 'won');
+  const lostBets = myBets.filter(b => b.status === 'lost');
+  const totalStake = myBets.reduce((s, b) => s + b.amount, 0);
+  const totalReturn = wonBets.reduce((s, b) => s + (b.payout || 0), 0);
+
+  const myTrophies = trophiesForNick(nick, cs, teamPlayers);
+
+  return (
+    <div>
+      {/* HEADER */}
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <div>
+            <div className="title">@{nick}</div>
+            <div className="sub">{isAdmin ? 'ADMIN' : `${me?.pc ?? 0} PC`}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* TIME */}
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <div className="title">MEU TIME</div>
+          <div className="sub">{myTeam ? `${myTeam.name.toUpperCase()} · ${myTeam.short}` : 'NÃO VINCULADO'}</div>
+        </div>
+        <div className="card-body">
+          {!myTeam ? (
+            <div className="empty">
+              <div className="e1">SEM TIME VINCULADO</div>
+              <div className="e2">Peça pro admin te vincular a um time em ADMIN → TIMES.</div>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14 }}>
+                <TeamMini team={myTeam} size={72} />
+                <div>
+                  <div style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 32, lineHeight: 1 }}>
+                    {myTeam.name}
+                  </div>
+                  {stand && (
+                    <div style={{ marginTop: 6, fontSize: 12, letterSpacing: '0.14em', fontWeight: 700, color: 'rgba(28,22,18,0.7)' }}>
+                      {stand.p} PTS · {stand.v}V {stand.e}E {stand.d}D · SG {(stand.gp - stand.gc) >= 0 ? '+' : ''}{stand.gp - stand.gc}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mkt-label" style={{ marginTop: 12 }}>JOGOS DISPUTADOS ({played.length})</div>
+              {played.length === 0 && <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.5)', padding: '6px 2px' }}>Nenhum jogo ainda.</div>}
+              {played.map(g => <MatchRow key={`p-${g.ri}-${g.gi}`} g={g} myTeamId={myTeamId} />)}
+
+              <div className="mkt-label" style={{ marginTop: 16 }}>PRÓXIMOS JOGOS ({upcoming.length})</div>
+              {upcoming.length === 0 && <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.5)', padding: '6px 2px' }}>Nenhum jogo agendado.</div>}
+              {upcoming.map(g => <MatchRow key={`u-${g.ri}-${g.gi}`} g={g} myTeamId={myTeamId} />)}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* TROFÉUS */}
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <div className="title">🏆 MEUS TROFÉUS</div>
+          <div className="sub">{myTrophies.length}</div>
+        </div>
+        <div className="card-body">
+          {myTrophies.length === 0 ? (
+            <div className="empty">
+              <div className="e1">VITRINE VAZIA</div>
+              <div className="e2">Você ainda não conquistou nenhum campeonato encerrado.</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+              {myTrophies.map(t => <TrophyItem key={t.champId + t.kind} trophy={t} />)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* APOSTAS RESUMO */}
+      <div className="card">
+        <div className="card-head">
+          <div className="title">MINHAS APOSTAS</div>
+          <div className="sub">{myBets.length} TICKETS</div>
+        </div>
+        <div className="card-body">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+            <Stat label="APOSTADO" value={`${totalStake} PC`} />
+            <Stat label="RETORNO" value={`${totalReturn} PC`} accent />
+            <Stat label="VITÓRIAS" value={wonBets.length} />
+            <Stat label="DERROTAS" value={lostBets.length} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MatchRow({ g, myTeamId }) {
+  const h = TEAM(g.home), a = TEAM(g.away);
+  const played = isGamePlayed(g);
+  const ghN = parseInt(g.gh, 10), gaN = parseInt(g.ga, 10);
+  let outcome = null;
+  if (played) {
+    if (g.home === myTeamId) {
+      outcome = ghN > gaN ? 'V' : ghN < gaN ? 'D' : 'E';
+    } else {
+      outcome = gaN > ghN ? 'V' : gaN < ghN ? 'D' : 'E';
+    }
+  }
+  const outcomeColor = outcome === 'V' ? 'var(--pv-green, #2a8)'
+                     : outcome === 'D' ? 'var(--pv-red, #c33)'
+                     : 'rgba(28,22,18,0.5)';
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: '48px 1fr auto auto', gap: 12,
+      alignItems: 'center', padding: '8px 4px', borderBottom: '1px solid rgba(28,22,18,0.08)',
+    }}>
+      <div style={{ fontSize: 10, letterSpacing: '0.18em', fontWeight: 800, color: 'rgba(28,22,18,0.55)' }}>
+        R{String(g.round).padStart(2, '0')}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontWeight: g.home === myTeamId ? 800 : 600 }}>{h.short}</span>
+        <span style={{ color: 'rgba(28,22,18,0.4)' }}>×</span>
+        <span style={{ fontWeight: g.away === myTeamId ? 800 : 600 }}>{a.short}</span>
+      </div>
+      <div style={{ fontFamily: 'mono', fontSize: 13, color: played ? 'var(--pv-orange)' : 'rgba(28,22,18,0.4)' }}>
+        {played ? `${ghN}×${gaN}` : `${g.day} ${g.date}`}
+      </div>
+      <div style={{ width: 24, textAlign: 'center', fontWeight: 800, color: outcomeColor }}>
+        {outcome || '·'}
+      </div>
+    </div>
+  );
+}
+
+function TrophyItem({ trophy }) {
+  const c = CHAMP_BY_ID[trophy.champId];
+  const meta = {
+    champion:  { icon: '🏆', label: 'CAMPEÃO',   color: '#c9a227', bg: '#fbf3d3' },
+    vice:      { icon: '🥈', label: 'VICE',       color: '#7a7a7a', bg: '#ececec' },
+    lanterna:  { icon: '🚽', label: 'LANTERNA',   color: '#7a2222', bg: '#fce4e4' },
+    penultimo: { icon: '🪥', label: 'PENÚLTIMO',  color: '#3e0f0f', bg: '#f0e2e2' },
+  }[trophy.kind] || { icon: '·', label: '', color: '#000', bg: '#eee' };
+  return (
+    <div style={{
+      flex: '0 0 calc(50% - 6px)', maxWidth: 220,
+      background: meta.bg, border: `2px solid ${meta.color}`,
+      padding: 12, textAlign: 'center',
+    }}>
+      <div style={{ fontSize: 42, lineHeight: 1 }}>{meta.icon}</div>
+      <div style={{ marginTop: 4, fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, color: meta.color }}>
+        {meta.label}
+      </div>
+      <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: 'rgba(28,22,18,0.75)' }}>
+        {c?.tag} · {c?.season}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, accent }) {
+  return (
+    <div style={{ padding: 10, background: 'rgba(0,0,0,0.03)' }}>
+      <div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, color: 'rgba(28,22,18,0.55)' }}>{label}</div>
+      <div style={{
+        marginTop: 4, fontFamily: 'Bagel Fat One, Impact', fontSize: 22,
+        color: accent ? 'var(--pv-orange)' : 'inherit', lineHeight: 1.1,
+      }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
 // ─── RANKING (apostadores por PC) ───────────────────────────────────────────
 function RankingView({ users, bets, me }) {
   const rows = Object.entries(users).map(([nick, u]) => {
@@ -1326,57 +1588,24 @@ function computeChampStandings(champId, cs) {
 }
 
 function TrophyCard({ champ, slot1, slot2, theme }) {
-  // theme: 'fame' (ouro) | 'shame' (preto/vermelho)
+  // theme: 'fame' (ouro/prata) | 'shame' (vinho)
   const isFame = theme === 'fame';
-  const accent = isFame ? '#c9a227' : '#7a2222'; // ouro vs vinho
+  const accent  = isFame ? '#c9a227' : '#7a2222';
   const accent2 = isFame ? '#9b7a1c' : '#3e0f0f';
-  const icon = isFame ? '🏆' : '💀';
   return (
     <div className="card" style={{ marginBottom: 14, borderTop: `3px solid ${accent}` }}>
       <div className="card-head" style={{ background: accent2, color: '#fff' }}>
         <div>
-          <div className="title" style={{ color: '#fff' }}>{icon} {champ.name.toUpperCase()}</div>
+          <div className="title" style={{ color: '#fff' }}>{isFame ? '🏆' : '🚽'} {champ.name.toUpperCase()}</div>
           <div className="sub" style={{ color: 'rgba(255,255,255,0.7)' }}>{champ.season}</div>
         </div>
       </div>
       <div className="card-body">
         {slot1 ? (
-          <>
-            <div style={{
-              padding: '14px 16px', background: 'rgba(0,0,0,0.04)',
-              borderLeft: `4px solid ${accent}`, marginBottom: 8,
-            }}>
-              <div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, color: accent2 }}>
-                {slot1.label}
-              </div>
-              <div style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 28, lineHeight: 1.1, marginTop: 4 }}>
-                {slot1.name}
-              </div>
-              {slot1.detail && (
-                <div style={{ fontSize: 11, letterSpacing: '0.16em', color: 'rgba(28,22,18,0.6)', marginTop: 4, fontWeight: 700 }}>
-                  {slot1.detail}
-                </div>
-              )}
-            </div>
-            {slot2 && (
-              <div style={{
-                padding: '10px 14px', background: 'rgba(0,0,0,0.02)',
-                borderLeft: `3px solid ${accent2}`,
-              }}>
-                <div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, color: 'rgba(28,22,18,0.6)' }}>
-                  {slot2.label}
-                </div>
-                <div style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 20, lineHeight: 1.1, marginTop: 4, color: 'rgba(28,22,18,0.75)' }}>
-                  {slot2.name}
-                </div>
-                {slot2.detail && (
-                  <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'rgba(28,22,18,0.5)', marginTop: 4, fontWeight: 700 }}>
-                    {slot2.detail}
-                  </div>
-                )}
-              </div>
-            )}
-          </>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <TrophyPodium slot={slot1} accent={accent}  size="big"   theme={theme} />
+            {slot2 && <TrophyPodium slot={slot2} accent={accent2} size="small" theme={theme} />}
+          </div>
         ) : (
           <div className="empty">
             <div className="e1">{champ.status === 'soon' ? 'AINDA NÃO COMEÇOU' : 'EM ANDAMENTO'}</div>
@@ -1392,6 +1621,45 @@ function TrophyCard({ champ, slot1, slot2, theme }) {
   );
 }
 
+function TrophyPodium({ slot, accent, size, theme }) {
+  const big = size === 'big';
+  // Ícones: 1º lugar (big) ganha "troféu"; 2º (small) ganha "medalha".
+  const isFame = theme === 'fame';
+  const icon = big
+    ? (isFame ? '🏆' : '🚽') // troféu (ou troféu-vergonha)
+    : (isFame ? '🥈' : '🪥'); // medalha (ou escova-vergonha)
+  return (
+    <div style={{
+      padding: big ? '18px 14px' : '14px 12px',
+      background: 'rgba(0,0,0,0.04)',
+      borderTop: `4px solid ${accent}`,
+      textAlign: 'center',
+    }}>
+      <div style={{ fontSize: big ? 64 : 44, lineHeight: 1 }}>{icon}</div>
+      <div style={{
+        marginTop: 6, fontSize: big ? 11 : 10, letterSpacing: '0.22em',
+        fontWeight: 800, color: accent,
+      }}>
+        {slot.label}
+      </div>
+      <div style={{
+        marginTop: 4, fontFamily: 'Bagel Fat One, Impact',
+        fontSize: big ? 24 : 18, lineHeight: 1.1,
+      }}>
+        {slot.name}
+      </div>
+      {slot.detail && (
+        <div style={{
+          marginTop: 4, fontSize: big ? 10 : 9, letterSpacing: '0.14em',
+          color: 'rgba(28,22,18,0.55)', fontWeight: 700,
+        }}>
+          {slot.detail}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function buildSlots(view, standings) {
   // view: 'fame' (campeão+vice) | 'shame' (último+penúltimo)
   if (!standings || standings.length < 2) return [null, null];
@@ -1399,15 +1667,15 @@ function buildSlots(view, standings) {
   if (view === 'fame') {
     const first = standings[0], second = standings[1];
     return [
-      { label: '🥇 CAMPEÃO', name: first.name, detail: formatDetail(first) },
-      { label: '🥈 VICE',    name: second.name, detail: formatDetail(second) },
+      { label: 'CAMPEÃO', name: first.name, detail: formatDetail(first) },
+      { label: 'VICE',    name: second.name, detail: formatDetail(second) },
     ];
   } else {
     const last = standings[standings.length - 1];
     const penult = standings[standings.length - 2];
     return [
-      { label: '🪦 LANTERNA',     name: last.name,   detail: formatDetail(last)   },
-      { label: '😬 PENÚLTIMO',   name: penult.name, detail: formatDetail(penult) },
+      { label: 'LANTERNA',  name: last.name,   detail: formatDetail(last)   },
+      { label: 'PENÚLTIMO', name: penult.name, detail: formatDetail(penult) },
     ];
   }
 }
@@ -1595,14 +1863,16 @@ function ClassificacaoView({ cs, setCs, isAdmin }) {
 }
 
 // ─── ADMIN ──────────────────────────────────────────────────────────────────
-function AdminView({ bets, users, adjustPc }) {
-  // Tabs do admin: USUÁRIOS (default) + BACKUP. Antiga aba JOGOS removida —
-  // jogos agora vêm de cs.rounds (CLASSIFICAÇÃO) e odds são automáticas.
+function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer }) {
+  // Tabs do admin: USUÁRIOS / TIMES / BACKUP.
   const [tab, setTab] = useState('usuarios');
+  const playerTeam = reverseTeamMap(teamPlayers);
+
   return (
     <>
       <div className="tabs" style={{ marginBottom: 14 }}>
         <button className={'tab ' + (tab === 'usuarios' ? 'active' : '')} onClick={() => setTab('usuarios')}>USUÁRIOS</button>
+        <button className={'tab ' + (tab === 'times' ? 'active' : '')} onClick={() => setTab('times')}>TIMES</button>
         <button className={'tab ' + (tab === 'backup' ? 'active' : '')} onClick={() => setTab('backup')}>BACKUP</button>
       </div>
 
@@ -1610,12 +1880,57 @@ function AdminView({ bets, users, adjustPc }) {
         <div className="card">
           <div className="card-head"><div className="title">USUÁRIOS</div><div className="sub">{Object.keys(users).length} CADASTRADOS</div></div>
           <div className="card-body">
-            {Object.entries(users).map(([nick, u]) => (
-              <div key={nick} className="lb-row" style={{ gridTemplateColumns: '1fr auto auto auto', gap: 10 }}>
-                <div className="lb-nick">@{nick}</div>
-                <button onClick={() => adjustPc(nick, -10)} style={{ background: 'transparent', border: '1.5px solid var(--pv-charcoal)', padding: '4px 8px', fontWeight: 800 }}>-10</button>
-                <div className="lb-pc mono">{u.pc}</div>
-                <button onClick={() => adjustPc(nick, 10)} style={{ background: 'var(--pv-orange)', border: '1.5px solid var(--pv-charcoal)', padding: '4px 8px', fontWeight: 800, color: 'var(--pv-bone)' }}>+10</button>
+            {Object.entries(users).map(([nick, u]) => {
+              const tid = playerTeam[nick];
+              const team = tid ? TEAM(tid) : null;
+              return (
+                <div key={nick} className="lb-row" style={{ gridTemplateColumns: '1fr auto auto auto', gap: 10 }}>
+                  <div>
+                    <div className="lb-nick">@{nick}</div>
+                    {team && (
+                      <div style={{ fontSize: 10, letterSpacing: '0.18em', fontWeight: 800, color: 'var(--pv-orange)', marginTop: 2 }}>
+                        TIME: {team.name.toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={() => adjustPc(nick, -10)} style={{ background: 'transparent', border: '1.5px solid var(--pv-charcoal)', padding: '4px 8px', fontWeight: 800 }}>-10</button>
+                  <div className="lb-pc mono">{u.pc}</div>
+                  <button onClick={() => adjustPc(nick, 10)} style={{ background: 'var(--pv-orange)', border: '1.5px solid var(--pv-charcoal)', padding: '4px 8px', fontWeight: 800, color: 'var(--pv-bone)' }}>+10</button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {tab === 'times' && (
+        <div className="card">
+          <div className="card-head">
+            <div className="title">TIMES DO CAMPEONATO</div>
+            <div className="sub">VINCULE CADA TIME A UM USUÁRIO</div>
+          </div>
+          <div className="card-body">
+            <p style={{ marginTop: 0, fontSize: 12, lineHeight: 1.5, color: 'rgba(28,22,18,0.7)' }}>
+              Aqui você define quem é cada time. O usuário vinculado vai ver "MEU TIME" no perfil
+              dele, com jogos passados, próximos e troféus dos campeonatos que esse time vencer.
+            </p>
+            {TEAMS.map(t => (
+              <div key={t.id} className="lb-row" style={{ gridTemplateColumns: 'auto 1fr auto', gap: 12, alignItems: 'center' }}>
+                <TeamMini team={t} size={36} />
+                <div>
+                  <div style={{ fontWeight: 800 }}>{t.name}</div>
+                  <div style={{ fontSize: 10, letterSpacing: '0.18em', color: 'rgba(28,22,18,0.5)', fontWeight: 800 }}>{t.short}</div>
+                </div>
+                <select
+                  value={teamPlayers[t.id] || ''}
+                  onChange={e => setTeamPlayer(t.id, e.target.value)}
+                  style={{ padding: '6px 10px', fontWeight: 700, minWidth: 140 }}
+                >
+                  <option value="">— sem vínculo —</option>
+                  {Object.keys(users).sort().map(nick => (
+                    <option key={nick} value={nick}>@{nick}</option>
+                  ))}
+                </select>
               </div>
             ))}
           </div>
