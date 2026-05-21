@@ -926,8 +926,10 @@ function App() {
   // que poderiam sobrescrever a lista de inscritos. Local state atualiza
   // sozinho via snapshot depois do write.
   const toggleInterest = async (champId) => {
-    if (!session) return;
+    if (!session || !session.nick) return;
+    const nick = session.nick;
     const ref = BET_DOC();
+    let newMap = null;
     try {
       await window.db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
@@ -950,14 +952,20 @@ function App() {
         }
         const map = { ...cur };
         const champ = { ...(map[champId] || {}) };
-        if (champ[session.nick]) delete champ[session.nick];
-        else champ[session.nick] = { at: Date.now() };
+        if (champ[nick]) delete champ[nick];
+        else champ[nick] = { at: Date.now() };
         map[champId] = champ;
+        newMap = map;
         tx.set(ref, { interests: map, updatedAt: Date.now() }, { merge: true });
       });
+      // Optimistic update local: a UI atualiza imediatamente sem esperar o
+      // subscription do Firestore. Vai bater com o snapshot quando chegar.
+      if (newMap) {
+        setShared(s => ({ ...s, interests: newMap }));
+      }
     } catch (e) {
       console.warn('toggleInterest failed', e);
-      throw e; // propaga pra UI conseguir mostrar feedback
+      throw e;
     }
   };
 
