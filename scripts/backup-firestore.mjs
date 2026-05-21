@@ -35,11 +35,25 @@ const parseJsonField = (snap) => {
   catch (e) { return { _parseError: e.message, _raw: raw }; }
 };
 
+// `interests` agora vive em campo top-level no doc (sibling do `json`),
+// pra escapar de races com outras escritas. Lemos top-level; fallback ao
+// formato antigo (dentro do json) pra retrocompat.
+const apostasData = parseJsonField(betSnap);
+const rawBetData = betSnap.exists ? betSnap.data() : {};
+if (apostasData && typeof apostasData === 'object') {
+  const topInterests = rawBetData.interests;
+  if (topInterests && typeof topInterests === 'object') {
+    apostasData.interests = topInterests;
+  } else if (!apostasData.interests) {
+    apostasData.interests = {};
+  }
+}
+
 const payload = {
   exportedAt: new Date().toISOString(),
-  version: 1,
+  version: 3,
   source: 'github-action',
-  apostas:       parseJsonField(betSnap),
+  apostas:       apostasData,
   classificacao: parseJsonField(classifSnap),
 };
 
@@ -50,4 +64,6 @@ writeFileSync(file, JSON.stringify(payload, null, 2));
 
 const users = Object.keys(payload.apostas?.users || {}).length;
 const bets  = (payload.apostas?.bets || []).length;
-console.log(`Wrote ${file} — ${users} users, ${bets} bets.`);
+const interestsCount = Object.values(payload.apostas?.interests || {})
+                              .reduce((s, x) => s + Object.keys(x || {}).length, 0);
+console.log(`Wrote ${file} — ${users} users, ${bets} bets, ${interestsCount} inscricoes.`);

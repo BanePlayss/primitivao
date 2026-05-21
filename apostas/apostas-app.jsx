@@ -95,14 +95,25 @@ async function downloadFullBackup() {
     ]);
     const apostas       = parseDocJsonSafe(betSnap);
     const classificacao = parseDocJsonSafe(classifSnap);
+    // interests agora vive em campo top-level do doc (sibling de `json`),
+    // pra não competir com outras escritas. Fallback ao formato antigo
+    // (interests dentro de json) pra retrocompat.
+    const rawApostas = betSnap.exists ? betSnap.data() : {};
+    const topLevelInterests = rawApostas.interests;
+    const apostasData = apostas.data ? { ...apostas.data } : null;
+    if (apostasData) {
+      apostasData.interests = (topLevelInterests && typeof topLevelInterests === 'object')
+        ? topLevelInterests
+        : (apostasData.interests || {});
+    }
     const payload = {
       exportedAt: new Date().toISOString(),
-      version: 2,
+      version: 3,
       source: 'browser-admin',
-      apostas:       apostas.data,
+      apostas:       apostasData,
       classificacao: classificacao.data,
       // metadados crus pra nunca perder dado mesmo se o parse falhar.
-      _raw: { apostas, classificacao },
+      _raw: { apostas, classificacao, topLevelInterests },
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -144,8 +155,12 @@ async function restoreFromBackup(payload) {
   try {
     const writes = [];
     if (apostas != null) {
+      // Separa interests do resto: gravamos como campo top-level pra não
+      // competir com outras escritas (race condition).
+      const { interests, ...rest } = apostas;
       writes.push(BET_DOC().set({
-        json: JSON.stringify(apostas),
+        json: JSON.stringify(rest),
+        interests: (interests && typeof interests === 'object') ? interests : {},
         updatedAt: Date.now(),
       }));
     }
@@ -184,7 +199,8 @@ async function wipeAllData() {
   try {
     await Promise.all([
       BET_DOC().set({
-        json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {} }),
+        json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], teamPlayers: {} }),
+        interests: {}, // campo top-level — separado do json
         updatedAt: Date.now(),
       }),
       CLASSIF_DOC().set({
@@ -487,22 +503,45 @@ function App() {
     const ref = BET_DOC();
     const unsub = ref.onSnapshot(snap => {
       if (!snap.exists) {
-        ref.set({ json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {} }), updatedAt: Date.now() })
+        ref.set({ json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], teamPlayers: {} }), interests: {}, updatedAt: Date.now() })
            .catch(e => console.warn('Firestore seed failed', e));
         hasLoadedRef.current = true; setSynced(true);
         return;
       }
       try {
-        const remote = JSON.parse(snap.data().json);
+        const docData = snap.data();
+        const remote = JSON.parse(docData.json);
+        // interests agora é campo TOP-LEVEL pra não sofrer race com outras
+        // escritas no json. Mantém fallback pra docs antigos.
+        const topInterests = docData.interests;
+        let interests;
+        let needsMigration = false;
+        if (topInterests && typeof topInterests === 'object') {
+          interests = topInterests;
+        } else if (remote.interests && typeof remote.interests === 'object') {
+          interests = remote.interests;
+          needsMigration = true;
+        } else {
+          interests = {};
+        }
         isApplyingRemoteRef.current = true;
         setShared({
           users:        remote.users && typeof remote.users === 'object' ? remote.users : {},
           fixtures:     Array.isArray(remote.fixtures) ? remote.fixtures.map(normFixture) : DEFAULT_FIXTURES,
           bets:         Array.isArray(remote.bets) ? remote.bets.map(normBet) : [],
-          interests:    remote.interests && typeof remote.interests === 'object' ? remote.interests : {},
+          interests,
           teamPlayers:  remote.teamPlayers && typeof remote.teamPlayers === 'object' ? remote.teamPlayers : {},
         });
         hasLoadedRef.current = true; setSynced(true);
+        // Migração one-shot: promove interests do json pra campo top-level.
+        if (needsMigration) {
+          const { interests: _drop, ...rest } = remote;
+          ref.set({
+            json: JSON.stringify(rest),
+            interests,
+            updatedAt: Date.now(),
+          }, { merge: true }).catch(err => console.warn('Migracao interests falhou', err));
+        }
       } catch (e) { console.warn('Firestore parse failed', e); }
     }, err => console.warn('Firestore subscription failed', err));
     return () => unsub();
@@ -512,8 +551,14 @@ function App() {
     if (!hasLoadedRef.current) return;
     if (isApplyingRemoteRef.current) { isApplyingRemoteRef.current = false; return; }
     const t = setTimeout(() => {
-      BET_DOC().set({ json: JSON.stringify(shared), updatedAt: Date.now() })
-               .catch(e => console.warn('Firestore write failed', e));
+      // Exclui interests do que escrevemos no `json` — ele vive em campo
+      // top-level no Firestore (atualizado por toggleInterest em transação).
+      // Usar { merge: true } pra NÃO sobrescrever o top-level interests.
+      const { interests: _drop, ...sharedNoInterests } = shared;
+      BET_DOC().set({
+        json: JSON.stringify(sharedNoInterests),
+        updatedAt: Date.now(),
+      }, { merge: true }).catch(e => console.warn('Firestore write failed', e));
     }, 250);
     return () => clearTimeout(t);
   }, [shared]);
@@ -724,19 +769,26 @@ function App() {
   };
 
   // ── INSCRIÇÕES (campeonatos "em breve") ───────────────────────────────────
-  const toggleInterest = (champId) => {
+  // Transação atômica direto no Firestore — evita race com outras escritas
+  // que poderiam sobrescrever a lista de inscritos. Local state atualiza
+  // sozinho via snapshot depois do write.
+  const toggleInterest = async (champId) => {
     if (!session) return;
-    setShared(s => {
-      const map = { ...(s.interests || {}) };
-      const champ = { ...(map[champId] || {}) };
-      if (champ[session.nick]) {
-        delete champ[session.nick];
-      } else {
-        champ[session.nick] = { at: Date.now() };
-      }
-      map[champId] = champ;
-      return { ...s, interests: map };
-    });
+    const ref = BET_DOC();
+    try {
+      await window.db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const cur = (snap.exists && snap.data().interests) || {};
+        const map = { ...cur };
+        const champ = { ...(map[champId] || {}) };
+        if (champ[session.nick]) delete champ[session.nick];
+        else champ[session.nick] = { at: Date.now() };
+        map[champId] = champ;
+        tx.set(ref, { interests: map, updatedAt: Date.now() }, { merge: true });
+      });
+    } catch (e) {
+      console.warn('toggleInterest failed', e);
+    }
   };
 
   // Vincula um nick a um teamId (ou desvincula passando nick='').
