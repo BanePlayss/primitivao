@@ -1602,7 +1602,7 @@ function TrophyCard({ champ, slot1, slot2, theme }) {
       </div>
       <div className="card-body">
         {slot1 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="trophy-podiums">
             <TrophyPodium slot={slot1} accent={accent}  size="big"   theme={theme} />
             {slot2 && <TrophyPodium slot={slot2} accent={accent2} size="small" theme={theme} />}
           </div>

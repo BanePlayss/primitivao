@@ -470,6 +470,151 @@
       margin-left: auto; background: transparent; border: 1.5px solid rgba(28,22,18,0.4);
       color: rgba(28,22,18,0.6); font-size: 9px; letter-spacing: 0.18em; font-weight: 800; padding: 4px 8px;
     }
+
+    /* ──── PÓDIO DE TROFÉU (HoF/HoV) ──── */
+    /* Default: 1º e 2º lado a lado. No mobile estreito vira 1 coluna. */
+    .trophy-podiums {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    @media (max-width: 540px) {
+      .trophy-podiums { grid-template-columns: 1fr; }
+    }
+
+    /* ════════════════════════════════════════════════════════════════════ */
+    /* ─────────────────── MOBILE (≤ 720px) ─────────────────────────────── */
+    /* ════════════════════════════════════════════════════════════════════ */
+    @media (max-width: 720px) {
+      /* TOPBAR encolhe e envolve se precisar */
+      .topbar { padding: 10px 12px; flex-wrap: wrap; gap: 8px; }
+      .brand { gap: 10px; min-width: 0; }
+      .brand-text .t1 { font-size: 18px; }
+      .brand-text .t2 { font-size: 9px; letter-spacing: 0.24em; }
+      .wallet { gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+      .pc-pill { padding: 4px 10px 4px 6px; gap: 6px; }
+      .pc-coin { width: 20px; height: 20px; font-size: 11px; }
+      .pc-amt { font-size: 17px; }
+      .pc-unit { font-size: 8px; letter-spacing: 0.16em; }
+      .nick { font-size: 11px; letter-spacing: 0.06em; }
+      .nick-tag { padding: 3px 6px; margin-right: 4px; font-size: 10px; }
+      .logout-btn { padding: 5px 10px; font-size: 10px; letter-spacing: 0.14em; }
+
+      /* PAGE: menos respiro lateral */
+      .page { padding: 14px 12px; }
+
+      /* TABS: viram scroll horizontal */
+      .tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .tabs::-webkit-scrollbar { display: none; }
+      .tab {
+        flex-shrink: 0;
+        padding: 8px 12px;
+        font-size: 11px;
+        letter-spacing: 0.14em;
+      }
+
+      /* CARDS */
+      .card { box-shadow: 4px 4px 0 var(--pv-charcoal); }
+      .card-head { padding: 11px 14px; }
+      .card-head .title { font-size: 13px; letter-spacing: 0.04em; }
+      .card-head .sub { font-size: 9px; letter-spacing: 0.22em; }
+      .card-body { padding: 14px; }
+
+      /* FIXTURE / JOGOS */
+      .fixture { padding: 12px; margin-bottom: 10px; gap: 10px; }
+      .fixture-match { gap: 8px; }
+      .team-info .nm { font-size: 12px; }
+      .team-info .sh { font-size: 8px; letter-spacing: 0.22em; }
+      .vs { font-size: 16px; }
+      .odd-btn { padding: 8px 4px; }
+      .odd-btn .val { font-size: 18px; }
+      .odd-btn .lab { font-size: 8px; letter-spacing: 0.18em; }
+      .mkt-label { font-size: 8px; letter-spacing: 0.22em; margin: 8px 0 3px; }
+
+      /* TICKETS */
+      .ticket { padding: 10px; gap: 6px; }
+      .ticket .stake { font-size: 16px; }
+      .ticket .pick { font-size: 12px; }
+
+      /* CUPOM */
+      .cupom-leg { padding: 6px 0; gap: 6px; }
+      .cupom-leg-txt { font-size: 11px; }
+      .cupom-leg-odd { font-size: 13px; }
+      .cupom-leg-x { width: 22px; height: 22px; }
+
+      /* BONUS BANNER: empilha em coluna */
+      .bonus {
+        padding: 12px 14px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        text-align: left;
+      }
+      .bonus > div { width: 100%; }
+      .bonus button { width: 100%; padding: 10px; }
+
+      /* RANKING / LEADERBOARD */
+      .lb-row { padding: 8px 4px; gap: 8px; }
+      .lb-pos { font-size: 16px; }
+      .lb-nick { font-size: 13px; letter-spacing: 0.02em; }
+      .lb-pc { font-size: 14px; }
+
+      /* CLASSIFICAÇÃO */
+      .round-tabs .rt { font-size: 11px; padding: 5px 0; }
+      .cmatch { padding: 8px 10px; }
+      .cmatch-body { gap: 6px; }
+      .cscore-in { width: 32px; height: 38px; font-size: 16px; }
+      .std-table th, .std-table td { padding: 7px 4px; font-size: 11px; }
+      .std-pos { font-size: 14px; }
+      .cteam-sel { font-size: 10px; max-width: 64px; }
+
+      /* MODAL: stake input menor */
+      .modal { padding: 16px; }
+      .modal h3 { font-size: 16px; }
+      .stake-input { font-size: 24px; padding: 10px; }
+      .payout-box .v { font-size: 28px; }
+      .modal-btns button { font-size: 11px; padding: 10px; }
+
+      /* ADMIN: sempre 1 coluna */
+      .admin-grid { grid-template-columns: 1fr; }
+
+      /* LOGIN: padding menor */
+      .login-card { padding: 24px 20px; box-shadow: 5px 5px 0 var(--pv-charcoal); }
+      .login-card .lh1 { font-size: 22px; }
+      .login-card .lh2 { font-size: 10px; letter-spacing: 0.28em; }
+      .login-btn { font-size: 16px; padding: 12px; }
+      .field input { font-size: 16px; padding: 9px 10px; }
+
+      /* EMPTY STATE */
+      .empty { padding: 22px 12px; }
+      .empty .e1 { font-size: 18px; }
+      .empty .e2 { font-size: 11px; }
+    }
+
+    /* ════════════════════════════════════════════════════════════════════ */
+    /* ─────────────────── ULTRA NARROW (≤ 420px) ───────────────────────── */
+    /* ════════════════════════════════════════════════════════════════════ */
+    @media (max-width: 420px) {
+      .topbar { padding: 8px 10px; }
+      .brand-text .t1 { font-size: 16px; }
+      .brand-text .t2 { font-size: 8px; letter-spacing: 0.2em; }
+      .pc-amt { font-size: 15px; }
+      .nick-tag { font-size: 9px; padding: 2px 5px; }
+      .logout-btn { padding: 4px 8px; font-size: 9px; }
+      .page { padding: 10px 10px; }
+      .card-head .title { font-size: 12px; }
+      .card-body { padding: 12px; }
+
+      /* Round tabs em 2 linhas (4×2) — 7 em uma linha fica apertado demais */
+      .round-tabs { grid-template-columns: repeat(4, 1fr); gap: 5px; }
+      .round-tabs .rt { font-size: 12px; padding: 6px 0; }
+
+      .odd-btn .val { font-size: 16px; }
+      .odd-btn .lab { font-size: 7px; }
+    }
   </style>
 </head>
 <body>
