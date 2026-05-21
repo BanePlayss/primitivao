@@ -731,11 +731,14 @@ function App() {
             {tab === 'tickets' && (
               <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} onCancel={cancelBet} />
             )}
+            {tab === 'ranking' && (
+              <RankingView users={users} bets={bets} me={session.nick} />
+            )}
             {tab === 'fama' && (
-              <HallDaFamaView users={users} bets={bets} me={session.nick} />
+              <HallDaFamaView cs={cs} />
             )}
             {tab === 'vergonha' && (
-              <HallDaVergonhaView users={users} bets={bets} me={session.nick} />
+              <HallDaVergonhaView cs={cs} />
             )}
             {tab === 'classificacao' && (
               <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin} />
@@ -897,6 +900,7 @@ function Tabs({ tab, setTab, isAdmin }) {
   const items = [
     { id: 'apostar', label: 'JOGOS' },
     { id: 'tickets', label: 'MEUS TICKETS' },
+    { id: 'ranking', label: 'RANKING' },
     { id: 'fama', label: 'HALL DA FAMA' },
     { id: 'vergonha', label: 'HALL DA VERGONHA' },
     { id: 'classificacao', label: 'CLASSIFICAÇÃO' },
@@ -1271,74 +1275,179 @@ function TicketsView({ bets, gamesById, cs, onCancel }) {
 }
 
 // ─── RANKING ────────────────────────────────────────────────────────────────
-function statsRows(users, bets) {
-  return Object.entries(users).map(([nick, u]) => {
+// ─── RANKING (apostadores por PC) ───────────────────────────────────────────
+function RankingView({ users, bets, me }) {
+  const rows = Object.entries(users).map(([nick, u]) => {
     const my = bets.filter(b => b.user === nick);
     return {
       nick, pc: u.pc, apostas: my.length,
       vit: my.filter(b => b.status === 'won').length,
       der: my.filter(b => b.status === 'lost').length,
     };
-  });
-}
-
-function StatRow({ r, i, me, theme }) {
-  // theme: 'fame' (verde/laranja) | 'shame' (vermelho)
-  const isShame = theme === 'shame';
-  return (
-    <div className={'lb-row ' + (r.nick === me ? 'me' : '')} style={{ gridTemplateColumns: '36px 1fr auto auto auto', gap: 16 }}>
-      <div className="lb-pos">{i + 1}</div>
-      <div>
-        <div className="lb-nick">@{r.nick}</div>
-        <div style={{ fontSize: 10, letterSpacing: '0.22em', color: 'rgba(28,22,18,0.5)', fontWeight: 800, marginTop: 2 }}>{r.apostas} APOSTAS</div>
-      </div>
-      <div title="vitórias" style={{ color: 'var(--pv-green)', fontWeight: 800, fontFamily: 'Bagel Fat One', fontSize: 16 }}>{r.vit}<small style={{ fontFamily: 'Space Grotesk', fontSize: 9, letterSpacing: '0.2em', marginLeft: 3 }}>V</small></div>
-      <div title="derrotas" style={{ color: 'var(--pv-red)', fontWeight: 800, fontFamily: 'Bagel Fat One', fontSize: 16 }}>{r.der}<small style={{ fontFamily: 'Space Grotesk', fontSize: 9, letterSpacing: '0.2em', marginLeft: 3 }}>D</small></div>
-      <div className="lb-pc mono" style={isShame ? { color: 'var(--pv-red)' } : undefined}>{r.pc}</div>
-    </div>
-  );
-}
-
-function HallDaFamaView({ users, bets, me }) {
-  // Hall da Fama: maior PC primeiro, tie-break por mais vitórias.
-  const rows = statsRows(users, bets).sort((a, b) => {
-    if (b.pc !== a.pc) return b.pc - a.pc;
-    return b.vit - a.vit;
-  });
+  }).sort((a, b) => b.pc - a.pc);
   return (
     <div className="card">
-      <div className="card-head">
-        <div className="title">🏆 HALL DA FAMA</div>
-        <div className="sub">{rows.length} JOGADORES · MAIOR PC NO TOPO</div>
-      </div>
+      <div className="card-head"><div className="title">RANKING GERAL</div><div className="sub">{rows.length} JOGADORES · POR PC</div></div>
       <div className="card-body">
         {rows.length === 0 && <div className="empty"><div className="e2">Ninguém cadastrado ainda.</div></div>}
-        {rows.map((r, i) => <StatRow key={r.nick} r={r} i={i} me={me} theme="fame" />)}
+        {rows.map((r, i) => (
+          <div key={r.nick} className={'lb-row ' + (r.nick === me ? 'me' : '')} style={{ gridTemplateColumns: '36px 1fr auto auto auto', gap: 16 }}>
+            <div className="lb-pos">{i + 1}</div>
+            <div>
+              <div className="lb-nick">@{r.nick}</div>
+              <div style={{ fontSize: 10, letterSpacing: '0.22em', color: 'rgba(28,22,18,0.5)', fontWeight: 800, marginTop: 2 }}>{r.apostas} APOSTAS</div>
+            </div>
+            <div title="vitórias" style={{ color: 'var(--pv-green)', fontWeight: 800, fontFamily: 'Bagel Fat One', fontSize: 16 }}>{r.vit}<small style={{ fontFamily: 'Space Grotesk', fontSize: 9, letterSpacing: '0.2em', marginLeft: 3 }}>V</small></div>
+            <div title="derrotas" style={{ color: 'var(--pv-red)', fontWeight: 800, fontFamily: 'Bagel Fat One', fontSize: 16 }}>{r.der}<small style={{ fontFamily: 'Space Grotesk', fontSize: 9, letterSpacing: '0.2em', marginLeft: 3 }}>D</small></div>
+            <div className="lb-pc mono">{r.pc}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-function HallDaVergonhaView({ users, bets, me }) {
-  // Hall da Vergonha: quem tem mais derrotas no topo. Tie-break por menor PC.
-  // Filtra quem nunca perdeu nada (não tem do que ter vergonha ainda).
-  const rows = statsRows(users, bets)
-    .filter(r => r.der > 0)
-    .sort((a, b) => {
-      if (b.der !== a.der) return b.der - a.der;
-      if (a.pc !== b.pc) return a.pc - b.pc;
-      return b.apostas - a.apostas;
-    });
+// ─── TROFÉUS POR CAMPEONATO (Hall da Fama / Hall da Vergonha) ──────────────
+// Diferente do RANKING (apostadores), aqui o foco é o CAMPEONATO em si:
+// quem foi campeão e vice (HoF), quem foi último e penúltimo (HoV).
+// Só aparece quando o campeonato termina (todas as rodadas com placar).
+
+function computeChampStandings(champId, cs) {
+  // Hoje só FIFA tem dados estruturados em cs.rounds. MK/RL: 'soon'.
+  if (champId !== 'fifa') return { status: 'soon' };
+  const rounds = cs?.rounds || [];
+  if (rounds.length === 0) return { status: 'soon' };
+  const allDone = rounds.every(r => Array.isArray(r) && r.length > 0 && r.every(isGamePlayed));
+  const standings = computeStandings(rounds);
+  return {
+    status: allDone ? 'closed' : 'ongoing',
+    standings,
+  };
+}
+
+function TrophyCard({ champ, slot1, slot2, theme }) {
+  // theme: 'fame' (ouro) | 'shame' (preto/vermelho)
+  const isFame = theme === 'fame';
+  const accent = isFame ? '#c9a227' : '#7a2222'; // ouro vs vinho
+  const accent2 = isFame ? '#9b7a1c' : '#3e0f0f';
+  const icon = isFame ? '🏆' : '💀';
   return (
-    <div className="card">
-      <div className="card-head">
-        <div className="title">💀 HALL DA VERGONHA</div>
-        <div className="sub">{rows.length} CASTIGADOS · MAIS DERROTAS NO TOPO</div>
+    <div className="card" style={{ marginBottom: 14, borderTop: `3px solid ${accent}` }}>
+      <div className="card-head" style={{ background: accent2, color: '#fff' }}>
+        <div>
+          <div className="title" style={{ color: '#fff' }}>{icon} {champ.name.toUpperCase()}</div>
+          <div className="sub" style={{ color: 'rgba(255,255,255,0.7)' }}>{champ.season}</div>
+        </div>
       </div>
       <div className="card-body">
-        {rows.length === 0 && <div className="empty"><div className="e1">NINGUÉM AQUI</div><div className="e2">Ainda não tem ninguém com derrotas registradas.</div></div>}
-        {rows.map((r, i) => <StatRow key={r.nick} r={r} i={i} me={me} theme="shame" />)}
+        {slot1 ? (
+          <>
+            <div style={{
+              padding: '14px 16px', background: 'rgba(0,0,0,0.04)',
+              borderLeft: `4px solid ${accent}`, marginBottom: 8,
+            }}>
+              <div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, color: accent2 }}>
+                {slot1.label}
+              </div>
+              <div style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 28, lineHeight: 1.1, marginTop: 4 }}>
+                {slot1.name}
+              </div>
+              {slot1.detail && (
+                <div style={{ fontSize: 11, letterSpacing: '0.16em', color: 'rgba(28,22,18,0.6)', marginTop: 4, fontWeight: 700 }}>
+                  {slot1.detail}
+                </div>
+              )}
+            </div>
+            {slot2 && (
+              <div style={{
+                padding: '10px 14px', background: 'rgba(0,0,0,0.02)',
+                borderLeft: `3px solid ${accent2}`,
+              }}>
+                <div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, color: 'rgba(28,22,18,0.6)' }}>
+                  {slot2.label}
+                </div>
+                <div style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 20, lineHeight: 1.1, marginTop: 4, color: 'rgba(28,22,18,0.75)' }}>
+                  {slot2.name}
+                </div>
+                {slot2.detail && (
+                  <div style={{ fontSize: 10, letterSpacing: '0.16em', color: 'rgba(28,22,18,0.5)', marginTop: 4, fontWeight: 700 }}>
+                    {slot2.detail}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="empty">
+            <div className="e1">{champ.status === 'soon' ? 'AINDA NÃO COMEÇOU' : 'EM ANDAMENTO'}</div>
+            <div className="e2">
+              {champ.status === 'soon'
+                ? 'Campeonato em fase de inscrições.'
+                : 'A temporada precisa terminar pra premiação aparecer aqui.'}
+            </div>
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+function buildSlots(view, standings) {
+  // view: 'fame' (campeão+vice) | 'shame' (último+penúltimo)
+  if (!standings || standings.length < 2) return [null, null];
+  const formatDetail = (s) => `${s.p} pts · ${s.v}v ${s.e}e ${s.d}d · SG ${(s.gp - s.gc) >= 0 ? '+' : ''}${s.gp - s.gc}`;
+  if (view === 'fame') {
+    const first = standings[0], second = standings[1];
+    return [
+      { label: '🥇 CAMPEÃO', name: first.name, detail: formatDetail(first) },
+      { label: '🥈 VICE',    name: second.name, detail: formatDetail(second) },
+    ];
+  } else {
+    const last = standings[standings.length - 1];
+    const penult = standings[standings.length - 2];
+    return [
+      { label: '🪦 LANTERNA',     name: last.name,   detail: formatDetail(last)   },
+      { label: '😬 PENÚLTIMO',   name: penult.name, detail: formatDetail(penult) },
+    ];
+  }
+}
+
+function HallDaFamaView({ cs }) {
+  return (
+    <div>
+      {CHAMPIONSHIPS.map(c => {
+        const { status, standings } = computeChampStandings(c.id, cs);
+        const [slot1, slot2] = status === 'closed' ? buildSlots('fame', standings) : [null, null];
+        return (
+          <TrophyCard
+            key={c.id}
+            champ={{ ...c, status }}
+            slot1={slot1}
+            slot2={slot2}
+            theme="fame"
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function HallDaVergonhaView({ cs }) {
+  return (
+    <div>
+      {CHAMPIONSHIPS.map(c => {
+        const { status, standings } = computeChampStandings(c.id, cs);
+        const [slot1, slot2] = status === 'closed' ? buildSlots('shame', standings) : [null, null];
+        return (
+          <TrophyCard
+            key={c.id}
+            champ={{ ...c, status }}
+            slot1={slot1}
+            slot2={slot2}
+            theme="shame"
+          />
+        );
+      })}
     </div>
   );
 }
