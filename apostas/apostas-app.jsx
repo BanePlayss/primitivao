@@ -20,7 +20,7 @@ const TEAMS = [
 const TEAM = (id) => TEAMS.find(t => t.id === id) || TEAMS[0];
 
 const ADMIN_NICK = 'admin';
-const ADMIN_PASS = 'primitivao';
+const ADMIN_PASS = 'primitivaoseguro';
 
 const START_PC = 50;
 const WEEKLY_PC = 20;
@@ -51,6 +51,64 @@ function saveSession(val) {
 }
 const BET_DOC      = () => window.db.doc('primitivao/apostas');
 const CLASSIF_DOC  = () => window.db.doc('primitivao/state');
+
+// ─── BACKUP ─────────────────────────────────────────────────────────────────
+// Dispara download de um JSON com TODOS os dados do site (apostas + classificação).
+// Usado pelo botão na aba ADMIN; o GitHub Action diário usa o mesmo formato.
+async function downloadFullBackup() {
+  try {
+    const [betSnap, classifSnap] = await Promise.all([
+      BET_DOC().get(),
+      CLASSIF_DOC().get(),
+    ]);
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      version: 1,
+      source: 'browser-admin',
+      apostas:       betSnap.exists     ? JSON.parse(betSnap.data().json)     : null,
+      classificacao: classifSnap.exists ? JSON.parse(classifSnap.data().json) : null,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `primitivao-backup-${ts}.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    return { ok: true, users: Object.keys(payload.apostas?.users || {}).length, bets: (payload.apostas?.bets || []).length };
+  } catch (e) {
+    console.error('Backup failed', e);
+    return { ok: false, error: String(e && e.message || e) };
+  }
+}
+
+// ─── WIPE (PERIGO) ──────────────────────────────────────────────────────────
+// Reseta os dois docs do Firestore pro estado inicial (mesmo que o app gera
+// quando o doc não existe). FORÇA backup baixado antes — se o backup falhar,
+// aborta sem tocar em nada.
+async function wipeAllData() {
+  const backup = await downloadFullBackup();
+  if (!backup.ok) {
+    return { ok: false, error: 'Backup falhou; reset abortado por segurança. Detalhe: ' + backup.error };
+  }
+  try {
+    await Promise.all([
+      BET_DOC().set({
+        json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [] }),
+        updatedAt: Date.now(),
+      }),
+      CLASSIF_DOC().set({
+        json: JSON.stringify({ currentRound: 0, rounds: defaultRounds() }),
+        updatedAt: Date.now(),
+      }),
+    ]);
+    return { ok: true, backedUp: backup };
+  } catch (e) {
+    console.error('Wipe failed', e);
+    return { ok: false, error: 'Backup baixou mas o reset falhou: ' + String(e && e.message || e) };
+  }
+}
 
 // ─── NORMALIZAÇÃO (compat com dados antigos) ────────────────────────────────
 function normFixture(f) {
@@ -1019,6 +1077,7 @@ function AdminView({ fixtures, bets, users, updateFixture, addFixture, delFixtur
       <div className="tabs" style={{ marginBottom: 14 }}>
         <button className={'tab ' + (tab === 'jogos' ? 'active' : '')} onClick={() => setTab('jogos')}>JOGOS</button>
         <button className={'tab ' + (tab === 'usuarios' ? 'active' : '')} onClick={() => setTab('usuarios')}>USUÁRIOS</button>
+        <button className={'tab ' + (tab === 'backup' ? 'active' : '')} onClick={() => setTab('backup')}>BACKUP</button>
       </div>
 
       {tab === 'jogos' && (
@@ -1056,7 +1115,129 @@ function AdminView({ fixtures, bets, users, updateFixture, addFixture, delFixtur
           </div>
         </div>
       )}
+
+      {tab === 'backup' && (
+        <>
+          <BackupPanel />
+          <DangerZone />
+        </>
+      )}
     </>
+  );
+}
+
+function BackupPanel() {
+  const [status, setStatus] = useState(null); // null | 'running' | {ok, users?, bets?, error?}
+  const onClick = async () => {
+    setStatus('running');
+    const result = await downloadFullBackup();
+    setStatus(result);
+  };
+  return (
+    <div className="card">
+      <div className="card-head">
+        <div className="title">BACKUP DE DADOS</div>
+        <div className="sub">EXPORTA TUDO EM JSON</div>
+      </div>
+      <div className="card-body">
+        <p style={{ marginTop: 0, lineHeight: 1.5 }}>
+          Gera um arquivo <code>.json</code> com <strong>todos os dados do site</strong>: usuários,
+          apostas, jogos e classificação. Guarde em local seguro (Drive, e-mail pra você mesmo, etc).
+          Um backup automático também é gerado todo dia pelo GitHub Action e fica em <code>backups/</code> no repo.
+        </p>
+        <button onClick={onClick} disabled={status === 'running'}
+          style={{ background: 'var(--pv-orange)', color: 'var(--pv-bone)', padding: '10px 20px', fontWeight: 800, border: 'none', letterSpacing: '0.16em', fontSize: 12, cursor: status === 'running' ? 'wait' : 'pointer' }}>
+          {status === 'running' ? 'GERANDO…' : '↓ BAIXAR BACKUP JSON'}
+        </button>
+        {status && status !== 'running' && status.ok && (
+          <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)' }}>
+            ✓ Backup baixado. {status.users} usuários, {status.bets} apostas.
+          </p>
+        )}
+        {status && status !== 'running' && !status.ok && (
+          <p style={{ marginTop: 14, color: 'var(--pv-red, #c33)' }}>
+            ✗ Erro: {status.error}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Frase exata que o admin precisa digitar pra liberar o botão de reset.
+const WIPE_CONFIRM_PHRASE = 'DELETAR TUDO';
+
+function DangerZone() {
+  const [confirmText, setConfirmText] = useState('');
+  const [status, setStatus] = useState(null); // null | 'running' | {ok, error?}
+  const canFire = confirmText.trim() === WIPE_CONFIRM_PHRASE && status !== 'running';
+
+  const onClick = async () => {
+    if (!canFire) return;
+    setStatus('running');
+    const result = await wipeAllData();
+    setStatus(result);
+    if (result.ok) setConfirmText('');
+  };
+
+  return (
+    <div className="card" style={{ marginTop: 20, border: '2px solid #c33' }}>
+      <div className="card-head" style={{ background: '#3a0e0e' }}>
+        <div className="title" style={{ color: '#ff8a8a' }}>⚠ ZONA DE PERIGO</div>
+        <div className="sub" style={{ color: '#ffb3b3' }}>OPERAÇÃO IRREVERSÍVEL</div>
+      </div>
+      <div className="card-body">
+        <p style={{ marginTop: 0, lineHeight: 1.5 }}>
+          <strong>Apaga todos os dados do site:</strong> usuários, apostas,
+          resultados de jogos e classificação. Os jogos voltam pro estado
+          inicial (rodada 1, 4 partidas seed). <strong>Não dá pra desfazer.</strong>
+        </p>
+        <p style={{ lineHeight: 1.5 }}>
+          Antes de deletar, o sistema vai <strong>baixar automaticamente um
+          backup completo</strong> pro seu computador. Se o backup falhar, o
+          reset é abortado.
+        </p>
+        <p style={{ lineHeight: 1.5 }}>
+          Pra confirmar, digite <code style={{ background: '#222', padding: '2px 6px', color: '#ff8a8a' }}>{WIPE_CONFIRM_PHRASE}</code> no campo abaixo:
+        </p>
+        <input
+          type="text"
+          value={confirmText}
+          onChange={e => setConfirmText(e.target.value)}
+          placeholder={WIPE_CONFIRM_PHRASE}
+          disabled={status === 'running'}
+          style={{ width: '100%', maxWidth: 280, padding: '8px 12px', fontSize: 14, fontFamily: 'monospace', border: '1.5px solid #c33', background: '#1a0606', color: '#ff8a8a', marginBottom: 12, letterSpacing: '0.1em' }}
+        />
+        <div>
+          <button
+            onClick={onClick}
+            disabled={!canFire}
+            style={{
+              background: canFire ? '#c33' : '#5a2a2a',
+              color: canFire ? '#fff' : '#999',
+              padding: '10px 20px',
+              fontWeight: 800,
+              border: 'none',
+              letterSpacing: '0.16em',
+              fontSize: 12,
+              cursor: canFire ? 'pointer' : 'not-allowed',
+            }}
+          >
+            {status === 'running' ? 'EXECUTANDO…' : '🗑 DELETAR TUDO AGORA'}
+          </button>
+        </div>
+        {status && status !== 'running' && status.ok && (
+          <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)' }}>
+            ✓ Tudo resetado. Backup baixado: {status.backedUp.users} usuários, {status.backedUp.bets} apostas salvos no arquivo.
+          </p>
+        )}
+        {status && status !== 'running' && !status.ok && (
+          <p style={{ marginTop: 14, color: 'var(--pv-red, #c33)' }}>
+            ✗ {status.error}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 

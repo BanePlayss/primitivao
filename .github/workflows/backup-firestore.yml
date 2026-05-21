@@ -1,0 +1,40 @@
+name: Daily Firestore Backup
+
+# Roda todo dia às 07:00 UTC = 04:00 BRT (madrugada, baixo tráfego).
+# Também pode ser disparado manualmente em Actions → Run workflow.
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin@^12
+
+      - name: Dump Firestore to backups/
+        env:
+          FIREBASE_SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}
+        run: node scripts/backup-firestore.mjs
+
+      - name: Commit backup (if changed)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backups/
+          if git diff --cached --quiet; then
+            echo "No changes — backup is identical to last commit."
+          else
+            git commit -m "chore(backup): firestore snapshot $(date -u +%Y-%m-%d)"
+            git push
+          fi
