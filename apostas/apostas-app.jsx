@@ -23,8 +23,13 @@ const ADMIN_NICK = 'admin';
 const ADMIN_PASS = 'primitivaoseguro';
 
 const START_PC = 50;
-const WEEKLY_PC = 20;
+const WEEKLY_PC = 500;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+// Toda vez que o valor do bônus mudar e quisermos liberar pra todos
+// novamente, atualizamos este timestamp pro "agora". Usuários cujo
+// `lastWeekly` é anterior a este marco ficam imediatamente elegíveis,
+// mesmo sem ter passado a semana.
+const WEEKLY_RELEASE_AT = Date.UTC(2026, 4, 21, 0, 0, 0); // 2026-05-21 00:00 UTC
 
 const DEF_BY = 1.8; // ambos marcam: SIM
 const DEF_BN = 2.0; // ambos marcam: NÃO
@@ -303,9 +308,13 @@ function computeTeamMetrics(rounds) {
   return out;
 }
 
+// Teto baixo (10x) pra evitar odds exorbitantes em mercados raros
+// (Ninguém Marca, +3 gols). Piso 1.10 pra nada parecer "garantido".
+const ODD_MIN = 1.10;
+const ODD_MAX = 10.00;
 function toOdd(p) {
-  if (!(p > 0) || !isFinite(p)) return 99;
-  return Math.max(1.01, Math.min(99, +(1 / p).toFixed(2)));
+  if (!(p > 0) || !isFinite(p)) return ODD_MAX;
+  return Math.max(ODD_MIN, Math.min(ODD_MAX, +(1 / p).toFixed(2)));
 }
 
 function computeGameOdds(homeId, awayId, metrics) {
@@ -564,10 +573,13 @@ function App() {
   const claimWeekly = () => {
     if (!me || isAdmin) return;
     const now = Date.now();
-    if (now - me.lastWeekly < WEEK_MS) return;
+    const fresh = (now - me.lastWeekly) >= WEEK_MS || me.lastWeekly < WEEKLY_RELEASE_AT;
+    if (!fresh) return;
     setUsers(u => ({ ...u, [session.nick]: { ...u[session.nick], pc: u[session.nick].pc + WEEKLY_PC, lastWeekly: now } }));
   };
-  const weeklyReady = me ? (Date.now() - me.lastWeekly >= WEEK_MS) : false;
+  const weeklyReady = me
+    ? (Date.now() - me.lastWeekly >= WEEK_MS || me.lastWeekly < WEEKLY_RELEASE_AT)
+    : false;
   const weeklyIn = me && !weeklyReady ? Math.max(0, WEEK_MS - (Date.now() - me.lastWeekly)) : 0;
 
   // ── CUPOM (parlay) ────────────────────────────────────────────────────────
@@ -595,7 +607,9 @@ function App() {
       if (!g) { alert('Um dos jogos do cupom não está mais disponível.'); return; }
     }
     if (amount <= 0 || amount > me.pc) return;
-    const co = +slip.reduce((p, l) => p * l.odds, 1).toFixed(2);
+    // Aposta casada SOMA as odds em vez de multiplicar (decisão do dono:
+    // produto explode pagamento; soma deixa o crescimento linear).
+    const co = +slip.reduce((p, l) => p + l.odds, 0).toFixed(2);
     const ticket = {
       id: 't' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
       user: session.nick, amount, status: 'pending', createdAt: Date.now(),
@@ -799,7 +813,7 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
             <div>
               <div className="small-label" style={{ color: weeklyReady ? 'var(--pv-charcoal)' : 'var(--pv-orange)' }}>BÔNUS SEMANAL</div>
               <div className="display" style={{ fontSize: 22, marginTop: 4 }}>
-                {weeklyReady ? '+20 PC DISPONÍVEIS' : `Disponível em ${days}d ${hrs}h`}
+                {weeklyReady ? `+${WEEKLY_PC} PC DISPONÍVEIS` : `Disponível em ${days}d ${hrs}h`}
               </div>
             </div>
             <button onClick={onClaim} disabled={!weeklyReady}>{weeklyReady ? 'RECLAMAR' : 'BLOQUEADO'}</button>
@@ -861,54 +875,86 @@ function GameRow({ game, slip, onToggleLeg, canBet }) {
   const sel = (market, pick) => slip.some(s => s.fixtureId === game.id && s.market === market && s.pick === pick);
   const dis = !canBet;
   const o = game.odds || {};
+  // Quantas pernas desse jogo já estão no cupom (mostra indicador no header
+  // mesmo com a aposta colapsada).
+  const legsHere = slip.filter(s => s.fixtureId === game.id).length;
+  // Default expandido se já tem perna aqui; caso contrário começa colapsado.
+  const [expanded, setExpanded] = useState(legsHere > 0);
+
   return (
-    <div className="fixture">
-      <div className="fixture-top">
-        <div className="fixture-tag">RODADA {String(game.round).padStart(2, '0')}</div>
-        <div>{game.day} · {game.date} · {game.time}</div>
-      </div>
-      <div className="fixture-match">
-        <div className="fixture-team">
-          <TeamMini team={h} size={42} />
-          <div className="team-info"><div className="nm">{h.name}</div><div className="sh">{h.short} · MANDANTE</div></div>
+    <div className={'fixture ' + (expanded ? 'expanded' : 'collapsed')}>
+      <button
+        type="button"
+        onClick={() => setExpanded(e => !e)}
+        style={{
+          width: '100%', background: 'transparent', border: 'none', padding: 0,
+          textAlign: 'left', cursor: 'pointer', color: 'inherit', font: 'inherit',
+        }}
+      >
+        <div className="fixture-top">
+          <div className="fixture-tag">RODADA {String(game.round).padStart(2, '0')}</div>
+          <div>
+            {game.day} · {game.date} · {game.time}
+            {legsHere > 0 && (
+              <span style={{ marginLeft: 8, color: 'var(--pv-orange)', fontWeight: 800 }}>
+                · {legsHere} NO CUPOM
+              </span>
+            )}
+          </div>
         </div>
-        <div className="vs"><span style={{ color: 'var(--pv-orange)' }}>×</span></div>
-        <div className="fixture-team away">
-          <TeamMini team={a} size={42} />
-          <div className="team-info"><div className="nm">{a.name}</div><div className="sh">VISITANTE · {a.short}</div></div>
+        <div className="fixture-match">
+          <div className="fixture-team">
+            <TeamMini team={h} size={42} />
+            <div className="team-info"><div className="nm">{h.name}</div><div className="sh">{h.short} · MANDANTE</div></div>
+          </div>
+          <div className="vs"><span style={{ color: 'var(--pv-orange)' }}>×</span></div>
+          <div className="fixture-team away">
+            <TeamMini team={a} size={42} />
+            <div className="team-info"><div className="nm">{a.name}</div><div className="sh">VISITANTE · {a.short}</div></div>
+          </div>
         </div>
-      </div>
+        <div style={{
+          textAlign: 'center', marginTop: 6, fontSize: 10, letterSpacing: '0.22em',
+          fontWeight: 800, color: 'var(--pv-orange)',
+        }}>
+          {expanded ? '▲ FECHAR PALPITES' : '▼ VER PALPITES'}
+        </div>
+      </button>
 
-      <div className="mkt-label">RESULTADO</div>
-      <div className="odds-row">
-        <OddBtn lab={`${h.short} VENCE`} val={o['1X2']?.H} selected={sel('1X2','H')} disabled={dis} onClick={() => onToggleLeg(game, '1X2', 'H')} />
-        <OddBtn lab="EMPATE"             val={o['1X2']?.D} selected={sel('1X2','D')} disabled={dis} onClick={() => onToggleLeg(game, '1X2', 'D')} />
-        <OddBtn lab={`${a.short} VENCE`} val={o['1X2']?.A} selected={sel('1X2','A')} disabled={dis} onClick={() => onToggleLeg(game, '1X2', 'A')} />
-      </div>
+      {expanded && (
+        <>
+          <div className="mkt-label">RESULTADO</div>
+          <div className="odds-row">
+            <OddBtn lab={`${h.short} VENCE`} val={o['1X2']?.H} selected={sel('1X2','H')} disabled={dis} onClick={() => onToggleLeg(game, '1X2', 'H')} />
+            <OddBtn lab="EMPATE"             val={o['1X2']?.D} selected={sel('1X2','D')} disabled={dis} onClick={() => onToggleLeg(game, '1X2', 'D')} />
+            <OddBtn lab={`${a.short} VENCE`} val={o['1X2']?.A} selected={sel('1X2','A')} disabled={dis} onClick={() => onToggleLeg(game, '1X2', 'A')} />
+          </div>
 
-      <div className="mkt-label">AMBOS MARCAM</div>
-      <div className="odds-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        <OddBtn lab="SIM" val={o['BTTS']?.Y} selected={sel('BTTS','Y')} disabled={dis} onClick={() => onToggleLeg(game, 'BTTS', 'Y')} />
-        <OddBtn lab="NÃO" val={o['BTTS']?.N} selected={sel('BTTS','N')} disabled={dis} onClick={() => onToggleLeg(game, 'BTTS', 'N')} />
-      </div>
+          <div className="mkt-label">AMBOS MARCAM</div>
+          <div className="odds-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            <OddBtn lab="SIM" val={o['BTTS']?.Y} selected={sel('BTTS','Y')} disabled={dis} onClick={() => onToggleLeg(game, 'BTTS', 'Y')} />
+            <OddBtn lab="NÃO" val={o['BTTS']?.N} selected={sel('BTTS','N')} disabled={dis} onClick={() => onToggleLeg(game, 'BTTS', 'N')} />
+          </div>
 
-      <div className="mkt-label">NINGUÉM MARCA (0×0)</div>
-      <div className="odds-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        <OddBtn lab="SIM" val={o['NM']?.Y} selected={sel('NM','Y')} disabled={dis} onClick={() => onToggleLeg(game, 'NM', 'Y')} />
-        <OddBtn lab="NÃO" val={o['NM']?.N} selected={sel('NM','N')} disabled={dis} onClick={() => onToggleLeg(game, 'NM', 'N')} />
-      </div>
+          <div className="mkt-label">NINGUÉM MARCA (0×0)</div>
+          <div className="odds-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            <OddBtn lab="SIM" val={o['NM']?.Y} selected={sel('NM','Y')} disabled={dis} onClick={() => onToggleLeg(game, 'NM', 'Y')} />
+            <OddBtn lab="NÃO" val={o['NM']?.N} selected={sel('NM','N')} disabled={dis} onClick={() => onToggleLeg(game, 'NM', 'N')} />
+          </div>
 
-      <div className="mkt-label">+3 GOLS · {h.short}</div>
-      <div className="odds-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        <OddBtn lab="SIM" val={o['O3H']?.Y} selected={sel('O3H','Y')} disabled={dis} onClick={() => onToggleLeg(game, 'O3H', 'Y')} />
-        <OddBtn lab="NÃO" val={o['O3H']?.N} selected={sel('O3H','N')} disabled={dis} onClick={() => onToggleLeg(game, 'O3H', 'N')} />
-      </div>
+          <div className="mkt-label">+3 GOLS · {h.short}</div>
+          <div className="odds-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            <OddBtn lab="SIM" val={o['O3H']?.Y} selected={sel('O3H','Y')} disabled={dis} onClick={() => onToggleLeg(game, 'O3H', 'Y')} />
+            <OddBtn lab="NÃO" val={o['O3H']?.N} selected={sel('O3H','N')} disabled={dis} onClick={() => onToggleLeg(game, 'O3H', 'N')} />
+          </div>
 
-      <div className="mkt-label">+3 GOLS · {a.short}</div>
-      <div className="odds-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        <OddBtn lab="SIM" val={o['O3A']?.Y} selected={sel('O3A','Y')} disabled={dis} onClick={() => onToggleLeg(game, 'O3A', 'Y')} />
-        <OddBtn lab="NÃO" val={o['O3A']?.N} selected={sel('O3A','N')} disabled={dis} onClick={() => onToggleLeg(game, 'O3A', 'N')} />
-      </div>
+          <div className="mkt-label">+3 GOLS · {a.short}</div>
+          <div className="odds-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            <OddBtn lab="SIM" val={o['O3A']?.Y} selected={sel('O3A','Y')} disabled={dis} onClick={() => onToggleLeg(game, 'O3A', 'Y')} />
+            <OddBtn lab="NÃO" val={o['O3A']?.N} selected={sel('O3A','N')} disabled={dis} onClick={() => onToggleLeg(game, 'O3A', 'N')} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -917,7 +963,8 @@ function GameRow({ game, slip, onToggleLeg, canBet }) {
 function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet }) {
   const [amt, setAmt] = useState(10);
   const legs = slip.map(s => ({ ...s, _fix: gamesById ? gamesById[s.fixtureId] : null }));
-  const combined = slip.reduce((p, l) => p * l.odds, 1);
+  // SOMA (não multiplica) — ver placeBet.
+  const combined = slip.reduce((p, l) => p + l.odds, 0);
   const payout = Math.round(amt * combined);
   const valid = slip.length > 0 && amt > 0 && amt <= balance;
   const multi = slip.length > 1;
