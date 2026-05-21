@@ -22,14 +22,25 @@ const TEAM = (id) => TEAMS.find(t => t.id === id) || TEAMS[0];
 const ADMIN_NICK = 'admin';
 const ADMIN_PASS = 'primitivaoseguro';
 
+// ─── CAMPEONATOS ────────────────────────────────────────────────────────────
+// Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
+const CHAMPIONSHIPS = [
+  { id: 'fifa', name: 'Primitivão — FIFA 2026',          season: 'Season 1', tag: 'FIFA', status: 'active' },
+  { id: 'mk',   name: 'Primitivão — Mortal Kombat 2026', season: 'Season 1', tag: 'MK',   status: 'soon'   },
+  { id: 'rl',   name: 'Primitivão — Rocket League 2026', season: 'Season 1', tag: 'RL',   status: 'soon'   },
+];
+const CHAMP_BY_ID = Object.fromEntries(CHAMPIONSHIPS.map(c => [c.id, c]));
+
 const START_PC = 50;
 const WEEKLY_PC = 500;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-// Toda vez que o valor do bônus mudar e quisermos liberar pra todos
-// novamente, atualizamos este timestamp pro "agora". Usuários cujo
-// `lastWeekly` é anterior a este marco ficam imediatamente elegíveis,
-// mesmo sem ter passado a semana.
-const WEEKLY_RELEASE_AT = Date.UTC(2026, 4, 21, 0, 0, 0); // 2026-05-21 00:00 UTC
+// Próximo "release geral" do bônus: quando a hora atual passa desse marco,
+// TODOS os usuários cujo `lastWeekly` é anterior a ele ficam elegíveis
+// imediatamente — mesmo quem já resgatou esta semana. Depois disso, o
+// ciclo normal de 7 dias volta a valer pra cada um. Pra liberar de novo no
+// futuro, é só atualizar este timestamp.
+// 22/05/2026 10:00 BRT (= 13:00 UTC).
+const WEEKLY_RELEASE_AT = Date.UTC(2026, 4, 22, 13, 0, 0);
 
 const DEF_BY = 1.8; // ambos marcam: SIM
 const DEF_BN = 2.0; // ambos marcam: NÃO
@@ -117,7 +128,7 @@ async function wipeAllData() {
   try {
     await Promise.all([
       BET_DOC().set({
-        json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [] }),
+        json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {} }),
         updatedAt: Date.now(),
       }),
       CLASSIF_DOC().set({
@@ -393,8 +404,8 @@ function TeamMini({ team, size = 36 }) {
 
 // ─── APP ────────────────────────────────────────────────────────────────────
 function App() {
-  const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [] });
-  const { users, fixtures, bets } = shared;
+  const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {} });
+  const { users, fixtures, bets, interests } = shared;
   const setUsers    = (u) => setShared(s => ({ ...s, users:    typeof u === 'function' ? u(s.users)    : u }));
 
   // cs: classificação compartilhada via primitivao/state. State é mantido no App
@@ -410,6 +421,7 @@ function App() {
   const [tab, setTab]       = useState('apostar');
   const [slip, setSlip]     = useState([]); // [{fixtureId='rXgY', market, pick, odds}]
   const [synced, setSynced] = useState(false);
+  const [championship, setChampionship] = useState('fifa');
 
   const hasLoadedRef        = useRef(false);
   const isApplyingRemoteRef = useRef(false);
@@ -419,7 +431,7 @@ function App() {
     const ref = BET_DOC();
     const unsub = ref.onSnapshot(snap => {
       if (!snap.exists) {
-        ref.set({ json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [] }), updatedAt: Date.now() })
+        ref.set({ json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {} }), updatedAt: Date.now() })
            .catch(e => console.warn('Firestore seed failed', e));
         hasLoadedRef.current = true; setSynced(true);
         return;
@@ -428,9 +440,10 @@ function App() {
         const remote = JSON.parse(snap.data().json);
         isApplyingRemoteRef.current = true;
         setShared({
-          users:    remote.users && typeof remote.users === 'object' ? remote.users : {},
-          fixtures: Array.isArray(remote.fixtures) ? remote.fixtures.map(normFixture) : DEFAULT_FIXTURES,
-          bets:     Array.isArray(remote.bets) ? remote.bets.map(normBet) : [],
+          users:     remote.users && typeof remote.users === 'object' ? remote.users : {},
+          fixtures:  Array.isArray(remote.fixtures) ? remote.fixtures.map(normFixture) : DEFAULT_FIXTURES,
+          bets:      Array.isArray(remote.bets) ? remote.bets.map(normBet) : [],
+          interests: remote.interests && typeof remote.interests === 'object' ? remote.interests : {},
         });
         hasLoadedRef.current = true; setSynced(true);
       } catch (e) { console.warn('Firestore parse failed', e); }
@@ -573,14 +586,27 @@ function App() {
   const claimWeekly = () => {
     if (!me || isAdmin) return;
     const now = Date.now();
-    const fresh = (now - me.lastWeekly) >= WEEK_MS || me.lastWeekly < WEEKLY_RELEASE_AT;
-    if (!fresh) return;
+    const cycleOK   = (now - me.lastWeekly) >= WEEK_MS;
+    const releasedOK = now >= WEEKLY_RELEASE_AT && me.lastWeekly < WEEKLY_RELEASE_AT;
+    if (!cycleOK && !releasedOK) return;
     setUsers(u => ({ ...u, [session.nick]: { ...u[session.nick], pc: u[session.nick].pc + WEEKLY_PC, lastWeekly: now } }));
   };
+  // Disponível se: (a) já se passaram 7 dias do último resgate, ou
+  // (b) o release geral já chegou e o usuário só resgatou antes dele.
   const weeklyReady = me
-    ? (Date.now() - me.lastWeekly >= WEEK_MS || me.lastWeekly < WEEKLY_RELEASE_AT)
+    ? (Date.now() - me.lastWeekly >= WEEK_MS) ||
+      (Date.now() >= WEEKLY_RELEASE_AT && me.lastWeekly < WEEKLY_RELEASE_AT)
     : false;
-  const weeklyIn = me && !weeklyReady ? Math.max(0, WEEK_MS - (Date.now() - me.lastWeekly)) : 0;
+  // Contagem regressiva: mostra o que chegar antes — fim do ciclo de 7 dias
+  // ou a hora do release geral (se ainda no futuro e usuário não resgatou).
+  const weeklyIn = (() => {
+    if (!me || weeklyReady) return 0;
+    const tCycle   = WEEK_MS - (Date.now() - me.lastWeekly);
+    const tRelease = (WEEKLY_RELEASE_AT > Date.now() && me.lastWeekly < WEEKLY_RELEASE_AT)
+      ? WEEKLY_RELEASE_AT - Date.now()
+      : Infinity;
+    return Math.max(0, Math.min(tCycle, tRelease));
+  })();
 
   // ── CUPOM (parlay) ────────────────────────────────────────────────────────
   // game = item de `games` (vindo de cs.rounds, com id rXgY e odds calculadas)
@@ -640,6 +666,22 @@ function App() {
     });
   };
 
+  // ── INSCRIÇÕES (campeonatos "em breve") ───────────────────────────────────
+  const toggleInterest = (champId) => {
+    if (!session) return;
+    setShared(s => {
+      const map = { ...(s.interests || {}) };
+      const champ = { ...(map[champId] || {}) };
+      if (champ[session.nick]) {
+        delete champ[session.nick];
+      } else {
+        champ[session.nick] = { at: Date.now() };
+      }
+      map[champId] = champ;
+      return { ...s, interests: map };
+    });
+  };
+
   const adjustPc = (nick, delta) => {
     setUsers(u => u[nick] ? ({ ...u, [nick]: { ...u[nick], pc: Math.max(0, u[nick].pc + delta) } }) : u);
   };
@@ -662,31 +704,56 @@ function App() {
     }} />;
   }
 
+  const active = CHAMP_BY_ID[championship] || CHAMPIONSHIPS[0];
+
   return (
     <>
       <TopBar nick={session.nick} pc={isAdmin ? '∞' : me.pc} isAdmin={isAdmin} onLogout={logout} />
       <div className="page">
-        <Tabs tab={tab} setTab={setTab} isAdmin={isAdmin} />
+        <ChampionshipSelector
+          value={championship}
+          onChange={setChampionship}
+          interests={interests || {}}
+        />
 
-        {tab === 'apostar' && (
-          <ApostarView
-            games={games} gamesById={gamesById} bets={bets} me={me} session={session} users={users}
-            weeklyReady={weeklyReady} weeklyIn={weeklyIn} onClaim={claimWeekly}
-            slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
-            onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin}
+        {active.status === 'active' ? (
+          <>
+            <Tabs tab={tab} setTab={setTab} isAdmin={isAdmin} />
+
+            {tab === 'apostar' && (
+              <ApostarView
+                games={games} gamesById={gamesById} bets={bets} me={me} session={session} users={users}
+                weeklyReady={weeklyReady} weeklyIn={weeklyIn} onClaim={claimWeekly}
+                slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
+                onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin}
+              />
+            )}
+            {tab === 'tickets' && (
+              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} onCancel={cancelBet} />
+            )}
+            {tab === 'fama' && (
+              <HallDaFamaView users={users} bets={bets} me={session.nick} />
+            )}
+            {tab === 'vergonha' && (
+              <HallDaVergonhaView users={users} bets={bets} me={session.nick} />
+            )}
+            {tab === 'classificacao' && (
+              <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin} />
+            )}
+            {tab === 'admin' && isAdmin && (
+              <AdminView bets={bets} users={users} adjustPc={adjustPc} />
+            )}
+          </>
+        ) : (
+          <ChampionshipPlaceholder
+            champ={active}
+            session={session}
+            interested={!!(interests?.[active.id]?.[session.nick])}
+            count={Object.keys(interests?.[active.id] || {}).length}
+            list={Object.keys(interests?.[active.id] || {}).sort()}
+            isAdmin={isAdmin}
+            onToggleInterest={() => toggleInterest(active.id)}
           />
-        )}
-        {tab === 'tickets' && (
-          <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} onCancel={cancelBet} />
-        )}
-        {tab === 'ranking' && (
-          <RankingView users={users} bets={bets} me={session.nick} />
-        )}
-        {tab === 'classificacao' && (
-          <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin} />
-        )}
-        {tab === 'admin' && isAdmin && (
-          <AdminView bets={bets} users={users} adjustPc={adjustPc} />
         )}
       </div>
     </>
@@ -724,11 +791,114 @@ function TopBar({ nick, pc, isAdmin, onLogout }) {
   );
 }
 
+// ─── CAMPEONATO: seletor + página "em breve" ────────────────────────────────
+function ChampionshipSelector({ value, onChange, interests }) {
+  return (
+    <div style={{
+      display: 'flex', gap: 8, marginBottom: 14, overflowX: 'auto',
+      paddingBottom: 4,
+    }}>
+      {CHAMPIONSHIPS.map(c => {
+        const isActive = c.id === value;
+        const count = Object.keys(interests?.[c.id] || {}).length;
+        const isComing = c.status === 'soon';
+        return (
+          <button
+            key={c.id}
+            onClick={() => onChange(c.id)}
+            style={{
+              flexShrink: 0,
+              padding: '10px 16px',
+              border: '2px solid ' + (isActive ? 'var(--pv-orange)' : 'var(--pv-charcoal)'),
+              background: isActive ? 'var(--pv-orange)' : 'transparent',
+              color: isActive ? 'var(--pv-bone)' : 'var(--pv-charcoal)',
+              fontWeight: 800,
+              fontSize: 11,
+              letterSpacing: '0.14em',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              gap: 2,
+              lineHeight: 1.2,
+            }}
+          >
+            <span style={{ fontSize: 10, opacity: 0.7 }}>
+              {c.tag} {isComing ? '· EM BREVE' : '· ATIVO'}
+              {isComing && count > 0 && ` · ${count}`}
+            </span>
+            <span>{c.season.toUpperCase()}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ChampionshipPlaceholder({ champ, session, interested, count, list, isAdmin, onToggleInterest }) {
+  return (
+    <div className="card">
+      <div className="card-head">
+        <div className="title">{champ.name.toUpperCase()}</div>
+        <div className="sub">{champ.season} · EM BREVE</div>
+      </div>
+      <div className="card-body" style={{ textAlign: 'center', padding: '40px 20px' }}>
+        <div style={{
+          fontFamily: 'Bagel Fat One, Impact', fontSize: 48,
+          color: 'var(--pv-orange)', letterSpacing: '0.04em', lineHeight: 1,
+        }}>
+          EM BREVE
+        </div>
+        <p style={{ marginTop: 14, fontSize: 14, lineHeight: 1.6, maxWidth: 520, marginLeft: 'auto', marginRight: 'auto' }}>
+          Esse campeonato ainda não começou. Se você tem interesse em participar,
+          deixa sua inscrição abaixo — quanto mais gente, mais cedo a temporada sai
+          do papel.
+        </p>
+
+        <div style={{ marginTop: 24 }}>
+          {interested ? (
+            <>
+              <div style={{ fontSize: 12, letterSpacing: '0.2em', fontWeight: 800, color: 'var(--pv-green, #2a8)', marginBottom: 8 }}>
+                ✓ INSCRIÇÃO REGISTRADA
+              </div>
+              <button onClick={onToggleInterest} style={{
+                background: 'transparent', border: '1.5px solid var(--pv-charcoal)',
+                color: 'var(--pv-charcoal)', padding: '8px 18px', fontWeight: 800,
+                letterSpacing: '0.16em', fontSize: 11, cursor: 'pointer',
+              }}>
+                CANCELAR INSCRIÇÃO
+              </button>
+            </>
+          ) : (
+            <button onClick={onToggleInterest} style={{
+              background: 'var(--pv-orange)', color: 'var(--pv-bone)',
+              padding: '12px 28px', fontWeight: 800, border: 'none',
+              letterSpacing: '0.18em', fontSize: 13, cursor: 'pointer',
+            }}>
+              QUERO PARTICIPAR
+            </button>
+          )}
+        </div>
+
+        <div style={{ marginTop: 28, fontSize: 12, letterSpacing: '0.18em', fontWeight: 800, color: 'rgba(28,22,18,0.6)' }}>
+          {count} {count === 1 ? 'INSCRITO' : 'INSCRITOS'}
+        </div>
+        {isAdmin && list && list.length > 0 && (
+          <div style={{ marginTop: 12, fontSize: 12, color: 'rgba(28,22,18,0.7)' }}>
+            {list.map(n => '@' + n).join(' · ')}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Tabs({ tab, setTab, isAdmin }) {
   const items = [
     { id: 'apostar', label: 'JOGOS' },
     { id: 'tickets', label: 'MEUS TICKETS' },
-    { id: 'ranking', label: 'RANKING' },
+    { id: 'fama', label: 'HALL DA FAMA' },
+    { id: 'vergonha', label: 'HALL DA VERGONHA' },
     { id: 'classificacao', label: 'CLASSIFICAÇÃO' },
   ];
   if (isAdmin) items.push({ id: 'admin', label: 'ADMIN' });
@@ -1101,32 +1271,73 @@ function TicketsView({ bets, gamesById, cs, onCancel }) {
 }
 
 // ─── RANKING ────────────────────────────────────────────────────────────────
-function RankingView({ users, bets, me }) {
-  const rows = Object.entries(users).map(([nick, u]) => {
+function statsRows(users, bets) {
+  return Object.entries(users).map(([nick, u]) => {
     const my = bets.filter(b => b.user === nick);
     return {
       nick, pc: u.pc, apostas: my.length,
       vit: my.filter(b => b.status === 'won').length,
       der: my.filter(b => b.status === 'lost').length,
     };
-  }).sort((a, b) => b.pc - a.pc);
+  });
+}
+
+function StatRow({ r, i, me, theme }) {
+  // theme: 'fame' (verde/laranja) | 'shame' (vermelho)
+  const isShame = theme === 'shame';
+  return (
+    <div className={'lb-row ' + (r.nick === me ? 'me' : '')} style={{ gridTemplateColumns: '36px 1fr auto auto auto', gap: 16 }}>
+      <div className="lb-pos">{i + 1}</div>
+      <div>
+        <div className="lb-nick">@{r.nick}</div>
+        <div style={{ fontSize: 10, letterSpacing: '0.22em', color: 'rgba(28,22,18,0.5)', fontWeight: 800, marginTop: 2 }}>{r.apostas} APOSTAS</div>
+      </div>
+      <div title="vitórias" style={{ color: 'var(--pv-green)', fontWeight: 800, fontFamily: 'Bagel Fat One', fontSize: 16 }}>{r.vit}<small style={{ fontFamily: 'Space Grotesk', fontSize: 9, letterSpacing: '0.2em', marginLeft: 3 }}>V</small></div>
+      <div title="derrotas" style={{ color: 'var(--pv-red)', fontWeight: 800, fontFamily: 'Bagel Fat One', fontSize: 16 }}>{r.der}<small style={{ fontFamily: 'Space Grotesk', fontSize: 9, letterSpacing: '0.2em', marginLeft: 3 }}>D</small></div>
+      <div className="lb-pc mono" style={isShame ? { color: 'var(--pv-red)' } : undefined}>{r.pc}</div>
+    </div>
+  );
+}
+
+function HallDaFamaView({ users, bets, me }) {
+  // Hall da Fama: maior PC primeiro, tie-break por mais vitórias.
+  const rows = statsRows(users, bets).sort((a, b) => {
+    if (b.pc !== a.pc) return b.pc - a.pc;
+    return b.vit - a.vit;
+  });
   return (
     <div className="card">
-      <div className="card-head"><div className="title">RANKING GERAL</div><div className="sub">{rows.length} JOGADORES</div></div>
+      <div className="card-head">
+        <div className="title">🏆 HALL DA FAMA</div>
+        <div className="sub">{rows.length} JOGADORES · MAIOR PC NO TOPO</div>
+      </div>
       <div className="card-body">
         {rows.length === 0 && <div className="empty"><div className="e2">Ninguém cadastrado ainda.</div></div>}
-        {rows.map((r, i) => (
-          <div key={r.nick} className={'lb-row ' + (r.nick === me ? 'me' : '')} style={{ gridTemplateColumns: '36px 1fr auto auto auto', gap: 16 }}>
-            <div className="lb-pos">{i + 1}</div>
-            <div>
-              <div className="lb-nick">@{r.nick}</div>
-              <div style={{ fontSize: 10, letterSpacing: '0.22em', color: 'rgba(28,22,18,0.5)', fontWeight: 800, marginTop: 2 }}>{r.apostas} APOSTAS</div>
-            </div>
-            <div title="vitórias" style={{ color: 'var(--pv-green)', fontWeight: 800, fontFamily: 'Bagel Fat One', fontSize: 16 }}>{r.vit}<small style={{ fontFamily: 'Space Grotesk', fontSize: 9, letterSpacing: '0.2em', marginLeft: 3 }}>V</small></div>
-            <div title="derrotas" style={{ color: 'var(--pv-red)', fontWeight: 800, fontFamily: 'Bagel Fat One', fontSize: 16 }}>{r.der}<small style={{ fontFamily: 'Space Grotesk', fontSize: 9, letterSpacing: '0.2em', marginLeft: 3 }}>D</small></div>
-            <div className="lb-pc mono">{r.pc}</div>
-          </div>
-        ))}
+        {rows.map((r, i) => <StatRow key={r.nick} r={r} i={i} me={me} theme="fame" />)}
+      </div>
+    </div>
+  );
+}
+
+function HallDaVergonhaView({ users, bets, me }) {
+  // Hall da Vergonha: quem tem mais derrotas no topo. Tie-break por menor PC.
+  // Filtra quem nunca perdeu nada (não tem do que ter vergonha ainda).
+  const rows = statsRows(users, bets)
+    .filter(r => r.der > 0)
+    .sort((a, b) => {
+      if (b.der !== a.der) return b.der - a.der;
+      if (a.pc !== b.pc) return a.pc - b.pc;
+      return b.apostas - a.apostas;
+    });
+  return (
+    <div className="card">
+      <div className="card-head">
+        <div className="title">💀 HALL DA VERGONHA</div>
+        <div className="sub">{rows.length} CASTIGADOS · MAIS DERROTAS NO TOPO</div>
+      </div>
+      <div className="card-body">
+        {rows.length === 0 && <div className="empty"><div className="e1">NINGUÉM AQUI</div><div className="e2">Ainda não tem ninguém com derrotas registradas.</div></div>}
+        {rows.map((r, i) => <StatRow key={r.nick} r={r} i={i} me={me} theme="shame" />)}
       </div>
     </div>
   );
