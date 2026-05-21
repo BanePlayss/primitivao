@@ -89,8 +89,16 @@ function parseDocJsonSafe(snap) {
 
 // ─── TRANSAÇÕES (utilitários) ───────────────────────────────────────────────
 // Helper central pra todas as mutações de primitivao/apostas: roda o reducer
-// passado dentro de uma firestore transaction. Reducer recebe o estado remoto
-// parseado (json field) e devolve { next, result? } ou retorna null pra abortar.
+// passado dentro de uma firestore transaction.
+//
+// Reducer recebe o estado remoto parseado (json field) e pode retornar:
+//   - null/undefined            → no-op, devolve null
+//   - { __abort:true, result }  → no-op (com resultado pro caller)
+//   - <next state>              → escreve next como novo json
+//
+// SAFETY NET: o `next` é normalizado pra ter `users/fixtures/bets/teamPlayers`,
+// usando `cur` como fallback se algum campo vier ausente/inválido. Isso
+// previne corrupção do json caso um reducer com bug devolva objeto malformado.
 async function commitBetDocUpdate(reducer) {
   const ref = BET_DOC();
   return await window.db.runTransaction(async (tx) => {
@@ -100,14 +108,28 @@ async function commitBetDocUpdate(reducer) {
       try { cur = JSON.parse(snap.data().json); } catch (_) { cur = {}; }
     }
     const out = reducer(cur);
-    if (!out) return null; // no-op
-    const next = out.next || out; // reducer pode retornar só `next` ou {next, result}
-    if (next === null) return null;
+    if (out == null) return null;
+    if (out && typeof out === 'object' && out.__abort === true) {
+      return out.result !== undefined ? out.result : null;
+    }
+    // Normalização defensiva: garante schema mínimo, sem perder fields de cur.
+    const safe = {
+      users:       (out && typeof out.users === 'object' && out.users)
+                       ? out.users
+                       : (cur.users && typeof cur.users === 'object' ? cur.users : {}),
+      fixtures:    Array.isArray(out && out.fixtures) ? out.fixtures
+                       : (Array.isArray(cur.fixtures) ? cur.fixtures : DEFAULT_FIXTURES),
+      bets:        Array.isArray(out && out.bets) ? out.bets
+                       : (Array.isArray(cur.bets) ? cur.bets : []),
+      teamPlayers: (out && typeof out.teamPlayers === 'object' && out.teamPlayers)
+                       ? out.teamPlayers
+                       : (cur.teamPlayers && typeof cur.teamPlayers === 'object' ? cur.teamPlayers : {}),
+    };
     tx.set(ref, {
-      json: JSON.stringify(next),
+      json: JSON.stringify(safe),
       updatedAt: Date.now(),
     }, { merge: true });
-    return out.result !== undefined ? out.result : { ok: true };
+    return { ok: true };
   });
 }
 
@@ -734,12 +756,10 @@ function App() {
         const remoteUsers = remote.users || {};
         const existing = remoteUsers[nick];
         if (existing) {
-          // já existe — valida senha
-          if (existing.senha !== senha) return { next: null, result: { err: 'Senha incorreta' } };
-          return { next: null, result: { ok: true } }; // no-op write, mas login ok
+          if (existing.senha !== senha) return { __abort: true, result: { err: 'Senha incorreta' } };
+          return { __abort: true, result: { ok: true } }; // login válido, sem write
         }
-        const users = { ...remoteUsers, [nick]: { senha, pc: START_PC, joined: Date.now(), lastWeekly: 0 } };
-        return { next: { ...remote, users }, result: { ok: true } };
+        return { ...remote, users: { ...remoteUsers, [nick]: { senha, pc: START_PC, joined: Date.now(), lastWeekly: 0 } } };
       });
       if (result && result.err) return result.err;
       setSession({ nick });
@@ -827,10 +847,10 @@ function App() {
       const result = await commitBetDocUpdate(remote => {
         const u = (remote.users || {})[session.nick];
         if (!u) return null;
-        if (u.pc < amount) return { next: null, result: { err: 'Saldo insuficiente' } };
+        if (u.pc < amount) return { __abort: true, result: { err: 'Saldo insuficiente' } };
         const users = { ...remote.users, [session.nick]: { ...u, pc: u.pc - amount } };
         const bets = [ticket, ...(remote.bets || [])];
-        return { next: { ...remote, users, bets }, result: { ok: true } };
+        return { ...remote, users, bets };
       });
       if (result && result.err) { alert(result.err); return; }
       setSlip([]);
@@ -849,14 +869,14 @@ function App() {
         if (!t || t.status !== 'pending') return null;
         if (t.user !== session.nick && session.nick !== ADMIN_NICK) return null;
         if (t.legs.some(l => !!l.result)) {
-          return { next: null, result: { err: 'Esse cupom já tem jogos finalizados.' } };
+          return { __abort: true, result: { err: 'Esse cupom já tem jogos finalizados.' } };
         }
         const bets = (remote.bets || []).filter(b => b.id !== ticketId);
         const users = { ...remote.users };
         if (users[t.user]) {
           users[t.user] = { ...users[t.user], pc: users[t.user].pc + t.amount };
         }
-        return { next: { ...remote, bets, users }, result: { ok: true } };
+        return { ...remote, bets, users };
       });
       if (result && result.err) alert(result.err);
     } catch (e) {
