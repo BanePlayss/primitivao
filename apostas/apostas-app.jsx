@@ -104,8 +104,15 @@ async function commitBetDocUpdate(reducer) {
   return await window.db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     let cur = {};
-    if (snap.exists && typeof snap.data().json === 'string') {
-      try { cur = JSON.parse(snap.data().json); } catch (_) { cur = {}; }
+    let topInterests = null;
+    if (snap.exists) {
+      const data = snap.data();
+      if (typeof data.json === 'string') {
+        try { cur = JSON.parse(data.json); } catch (_) { cur = {}; }
+      }
+      if (data.interests && typeof data.interests === 'object') {
+        topInterests = data.interests;
+      }
     }
     const out = reducer(cur);
     if (out == null) return null;
@@ -125,10 +132,18 @@ async function commitBetDocUpdate(reducer) {
                        ? out.teamPlayers
                        : (cur.teamPlayers && typeof cur.teamPlayers === 'object' ? cur.teamPlayers : {}),
     };
-    tx.set(ref, {
+    const writeData = {
       json: JSON.stringify(safe),
       updatedAt: Date.now(),
-    }, { merge: true });
+    };
+    // Auto-migração: se o doc tá em formato antigo (interests dentro do json,
+    // sem campo top-level), promovemos AGORA pro top-level junto com a escrita.
+    // Evita que escritas regulares (placeBet, signup, etc.) percam as inscrições
+    // que estavam dentro do json antes da migração explícita rodar.
+    if (topInterests === null && cur.interests && typeof cur.interests === 'object') {
+      writeData.interests = cur.interests;
+    }
+    tx.set(ref, writeData, { merge: true });
     return { ok: true };
   });
 }
@@ -916,7 +931,23 @@ function App() {
     try {
       await window.db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
-        const cur = (snap.exists && snap.data().interests) || {};
+        // Lê interests da fonte top-level OU do json antigo (compat). Sem isso,
+        // se o doc ainda não foi migrado e a 1a inscrição rolar aqui, perdemos
+        // tudo que estava dentro do json.
+        let cur = {};
+        if (snap.exists) {
+          const data = snap.data();
+          if (data.interests && typeof data.interests === 'object') {
+            cur = data.interests;
+          } else if (typeof data.json === 'string') {
+            try {
+              const parsed = JSON.parse(data.json);
+              if (parsed && parsed.interests && typeof parsed.interests === 'object') {
+                cur = parsed.interests;
+              }
+            } catch (_) {}
+          }
+        }
         const map = { ...cur };
         const champ = { ...(map[champId] || {}) };
         if (champ[session.nick]) delete champ[session.nick];
@@ -926,6 +957,7 @@ function App() {
       });
     } catch (e) {
       console.warn('toggleInterest failed', e);
+      throw e; // propaga pra UI conseguir mostrar feedback
     }
   };
 
@@ -1126,6 +1158,20 @@ function ChampionshipSelector({ value, onChange, interests }) {
 }
 
 function ChampionshipPlaceholder({ champ, session, interested, count, list, isAdmin, onToggleInterest }) {
+  const [busy, setBusy] = useState(false);
+  const [errMsg, setErrMsg] = useState('');
+  const handleClick = async () => {
+    if (busy) return;
+    setBusy(true);
+    setErrMsg('');
+    try {
+      await onToggleInterest();
+    } catch (e) {
+      setErrMsg('Não consegui registrar. Tenta de novo em alguns segundos.');
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <div className="card">
       <div className="card-head">
@@ -1151,22 +1197,29 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
               <div style={{ fontSize: 12, letterSpacing: '0.2em', fontWeight: 800, color: 'var(--pv-green, #2a8)', marginBottom: 8 }}>
                 ✓ INSCRIÇÃO REGISTRADA
               </div>
-              <button onClick={onToggleInterest} style={{
+              <button onClick={handleClick} disabled={busy} style={{
                 background: 'transparent', border: '1.5px solid var(--pv-charcoal)',
                 color: 'var(--pv-charcoal)', padding: '8px 18px', fontWeight: 800,
-                letterSpacing: '0.16em', fontSize: 11, cursor: 'pointer',
+                letterSpacing: '0.16em', fontSize: 11,
+                cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1,
               }}>
-                CANCELAR INSCRIÇÃO
+                {busy ? 'AGUARDE…' : 'CANCELAR INSCRIÇÃO'}
               </button>
             </>
           ) : (
-            <button onClick={onToggleInterest} style={{
+            <button onClick={handleClick} disabled={busy} style={{
               background: 'var(--pv-orange)', color: 'var(--pv-bone)',
               padding: '12px 28px', fontWeight: 800, border: 'none',
-              letterSpacing: '0.18em', fontSize: 13, cursor: 'pointer',
+              letterSpacing: '0.18em', fontSize: 13,
+              cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1,
             }}>
-              QUERO PARTICIPAR
+              {busy ? 'AGUARDE…' : 'QUERO PARTICIPAR'}
             </button>
+          )}
+          {errMsg && (
+            <div style={{ marginTop: 10, color: 'var(--pv-red, #c33)', fontSize: 12, fontWeight: 700 }}>
+              ✗ {errMsg}
+            </div>
           )}
         </div>
 
