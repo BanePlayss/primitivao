@@ -475,7 +475,10 @@ function App() {
   }
 
   if (!session || !me && !isAdmin) {
-    return <Login onAuth={handleAuth} />;
+    return <Login onAuth={handleAuth} isNewNick={(n) => {
+      const nick = (n || '').trim().toLowerCase();
+      return !!nick && nick !== ADMIN_NICK && !users[nick];
+    }} />;
   }
 
   return (
@@ -562,12 +565,18 @@ function Tabs({ tab, setTab, isAdmin }) {
 }
 
 // ─── LOGIN ──────────────────────────────────────────────────────────────────
-function Login({ onAuth }) {
+function Login({ onAuth, isNewNick }) {
   const [nick, setNick] = useState('');
   const [senha, setSenha] = useState('');
+  const [senha2, setSenha2] = useState('');
   const [msg, setMsg] = useState('');
+  const isNew = isNewNick ? isNewNick(nick) : false;
   const submit = (e) => {
     e && e.preventDefault();
+    if (isNew && senha !== senha2) {
+      setMsg('As senhas não conferem');
+      return;
+    }
     const err = onAuth(nick, senha);
     if (err) setMsg(err);
   };
@@ -588,18 +597,20 @@ function Login({ onAuth }) {
         <div className="lh2">PRIMITIVO COINS · PC</div>
         <div className="field">
           <label>NICK</label>
-          <input value={nick} onChange={e => setNick(e.target.value)} placeholder="seu apelido" autoFocus autoCapitalize="off" autoCorrect="off" />
+          <input value={nick} onChange={e => { setNick(e.target.value); setMsg(''); }} placeholder="seu apelido" autoFocus autoCapitalize="off" autoCorrect="off" />
         </div>
         <div className="field">
           <label>SENHA</label>
           <input type="password" value={senha} onChange={e => setSenha(e.target.value)} placeholder="••••••" />
         </div>
-        <button type="submit" className="login-btn">ENTRAR / CRIAR CONTA</button>
+        {isNew && (
+          <div className="field">
+            <label>CONFIRMAR SENHA</label>
+            <input type="password" value={senha2} onChange={e => setSenha2(e.target.value)} placeholder="••••••" />
+          </div>
+        )}
+        <button type="submit" className="login-btn">{isNew ? 'CRIAR CONTA' : 'ENTRAR'}</button>
         <div className="login-msg">{msg}</div>
-        <div className="login-hint">
-          Nick novo → cria conta automaticamente com <b>50 PC</b>.<br />
-          +20 PC toda semana. Admin = <code>admin / primitivao</code>.
-        </div>
       </form>
     </div>
   );
