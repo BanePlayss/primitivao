@@ -55,18 +55,35 @@ const CLASSIF_DOC  = () => window.db.doc('primitivao/state');
 // ─── BACKUP ─────────────────────────────────────────────────────────────────
 // Dispara download de um JSON com TODOS os dados do site (apostas + classificação).
 // Usado pelo botão na aba ADMIN; o GitHub Action diário usa o mesmo formato.
+function parseDocJsonSafe(snap) {
+  if (!snap || !snap.exists) return { exists: false, data: null };
+  const raw = snap.data();
+  if (!raw || typeof raw.json !== 'string') {
+    return { exists: true, data: null, raw, parseError: 'campo `json` ausente ou nao string' };
+  }
+  try {
+    return { exists: true, data: JSON.parse(raw.json), updatedAt: raw.updatedAt };
+  } catch (e) {
+    return { exists: true, data: null, raw, parseError: String(e && e.message || e) };
+  }
+}
+
 async function downloadFullBackup() {
   try {
     const [betSnap, classifSnap] = await Promise.all([
       BET_DOC().get(),
       CLASSIF_DOC().get(),
     ]);
+    const apostas       = parseDocJsonSafe(betSnap);
+    const classificacao = parseDocJsonSafe(classifSnap);
     const payload = {
       exportedAt: new Date().toISOString(),
-      version: 1,
+      version: 2,
       source: 'browser-admin',
-      apostas:       betSnap.exists     ? JSON.parse(betSnap.data().json)     : null,
-      classificacao: classifSnap.exists ? JSON.parse(classifSnap.data().json) : null,
+      apostas:       apostas.data,
+      classificacao: classificacao.data,
+      // metadados crus pra nunca perder dado mesmo se o parse falhar.
+      _raw: { apostas, classificacao },
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -922,9 +939,20 @@ function RankingView({ users, bets, me }) {
 
 // ─── CLASSIFICAÇÃO (aba) — doc primitivao/state ─────────────────────────────
 function ClassificacaoView({ isAdmin }) {
-  const [cs, setCs] = useState(null);          // { currentRound, rounds }
+  const [cs, setCs] = useState(null);          // { currentRound, rounds } — compartilhado via Firestore
+  const [viewRound, setViewRound] = useState(0); // LOCAL: rodada que ESTE usuário está vendo
   const loadedRef = useRef(false);
   const applyingRef = useRef(false);
+  const initViewRef = useRef(false);
+
+  // Na primeira vez que cs carrega, inicializa viewRound com a "rodada oficial".
+  // Depois disso, navegação é puramente local — não afeta outros usuários.
+  useEffect(() => {
+    if (!cs || initViewRef.current) return;
+    initViewRef.current = true;
+    const cr = Number.isInteger(cs.currentRound) ? cs.currentRound : 0;
+    setViewRound(Math.max(0, Math.min(TOTAL_ROUNDS - 1, cr)));
+  }, [cs]);
 
   useEffect(() => {
     const ref = CLASSIF_DOC();
@@ -937,9 +965,21 @@ function ClassificacaoView({ isAdmin }) {
       }
       try {
         const d = JSON.parse(snap.data().json);
-        if (d && Array.isArray(d.rounds) && d.rounds.length === TOTAL_ROUNDS) {
-          applyingRef.current = true; setCs(d); loadedRef.current = true;
+        const obj = d && typeof d === 'object' ? d : {};
+        // Auto-heal: se rounds estiver ausente, tamanho errado ou tipo errado,
+        // pad com defaults / trunca pra TOTAL_ROUNDS em vez de travar a tela.
+        let rounds = Array.isArray(obj.rounds) ? obj.rounds : [];
+        if (rounds.length !== TOTAL_ROUNDS) {
+          const defs = defaultRounds();
+          rounds = rounds.length < TOTAL_ROUNDS
+            ? [...rounds, ...defs.slice(rounds.length)]
+            : rounds.slice(0, TOTAL_ROUNDS);
+          console.warn(`Classif: rounds com tamanho inesperado, ajustando para ${TOTAL_ROUNDS}.`);
         }
+        const currentRound = Number.isInteger(obj.currentRound) ? obj.currentRound : 0;
+        applyingRef.current = true;
+        setCs({ currentRound, rounds });
+        loadedRef.current = true;
       } catch (e) { console.warn('Classif parse failed', e); }
     }, err => console.warn('Classif subscription failed', err));
     return () => unsub();
@@ -959,11 +999,11 @@ function ClassificacaoView({ isAdmin }) {
   }
 
   const standings = computeStandings(cs.rounds);
-  const round = cs.rounds[cs.currentRound] || [];
+  const round = cs.rounds[viewRound] || [];
 
   const patchMatch = (gi, patch) => {
     setCs(prev => {
-      const rounds = prev.rounds.map((r, ri) => ri !== prev.currentRound ? r : r.map((m, mi) => mi === gi ? { ...m, ...patch } : m));
+      const rounds = prev.rounds.map((r, ri) => ri !== viewRound ? r : r.map((m, mi) => mi === gi ? { ...m, ...patch } : m));
       return { ...prev, rounds };
     });
   };
@@ -1003,14 +1043,14 @@ function ClassificacaoView({ isAdmin }) {
       <aside>
         <div className="card">
           <div className="card-head">
-            <div className="title">RODADA {String(cs.currentRound + 1).padStart(2, '0')}</div>
+            <div className="title">RODADA {String(viewRound + 1).padStart(2, '0')}</div>
             <div className="sub">{isAdmin ? 'EDITÁVEL' : 'SOMENTE LEITURA'}</div>
           </div>
           <div className="card-body">
             <div className="round-tabs">
               {Array.from({ length: TOTAL_ROUNDS }).map((_, i) => (
-                <button key={i} className={'rt ' + (i === cs.currentRound ? 'active' : '')}
-                        onClick={() => setCs(prev => ({ ...prev, currentRound: i }))}>
+                <button key={i} className={'rt ' + (i === viewRound ? 'active' : '')}
+                        onClick={() => setViewRound(i)}>
                   {String(i + 1).padStart(2, '0')}
                 </button>
               ))}
