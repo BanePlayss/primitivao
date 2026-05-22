@@ -950,6 +950,16 @@ function App() {
         if (t.legs.some(l => !!l.result)) {
           return { __abort: true, result: { err: 'Esse cupom já tem jogos finalizados.' } };
         }
+        // Rejeita se algum jogo do cupom está travado pelo admin.
+        const someLocked = t.legs.some(l => {
+          const p = parseGameId(l.fixtureId);
+          if (!p) return false;
+          const g = cs?.rounds?.[p.ri]?.[p.gi];
+          return !!(g && g.locked);
+        });
+        if (someLocked) {
+          return { __abort: true, result: { err: 'Não dá pra cancelar: algum jogo do cupom foi travado pelo admin.' } };
+        }
         const bets = (remote.bets || []).filter(b => b.id !== ticketId);
         const users = { ...remote.users };
         if (users[t.user]) {
@@ -1757,8 +1767,15 @@ function TicketsView({ bets, gamesById, cs, onCancel }) {
       <div className="card-body">
         {sorted.map(t => {
           const cls = t.status === 'won' ? 'ticket won' : t.status === 'lost' ? 'ticket lost' : 'ticket';
-          // Cancelar permitido só se NENHUMA perna já tem resultado.
-          const blocked = t.legs.some(l => !!l.result);
+          // Cancelar bloqueado se: já tem perna liquidada OU algum jogo do
+          // cupom foi travado pelo admin (impede saída esperta antes da
+          // bola rolar).
+          const hasSettled = t.legs.some(l => !!l.result);
+          const hasLocked  = t.legs.some(l => {
+            const g = resolveGame(l.fixtureId);
+            return !!(g && g.locked);
+          });
+          const blocked = hasSettled || hasLocked;
           const multi = t.legs.length > 1;
           return (
             <div key={t.id} className={cls} style={{ gridTemplateColumns: '1fr auto' }}>
@@ -1784,6 +1801,14 @@ function TicketsView({ bets, gamesById, cs, onCancel }) {
                     marginTop: 8, padding: '6px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.18em',
                     background: 'transparent', border: '1.5px solid var(--pv-charcoal)',
                   }}>CANCELAR</button>
+                )}
+                {t.status === 'pending' && hasLocked && !hasSettled && (
+                  <div style={{
+                    marginTop: 8, fontSize: 9, letterSpacing: '0.16em', fontWeight: 800,
+                    color: '#c33', lineHeight: 1.3, maxWidth: 110,
+                  }}>
+                    🔒 JOGO TRAVADO<br />NÃO DÁ PRA CANCELAR
+                  </div>
                 )}
               </div>
             </div>
