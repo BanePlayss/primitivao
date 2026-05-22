@@ -779,6 +779,28 @@ function App() {
     const m = {}; for (const g of games) m[g.id] = g; return m;
   }, [games]);
 
+  // Auto-prune do slip: se admin lançou placar de um jogo que tava no cupom,
+  // o jogo sai de `gamesById`. Em vez de só travar no placeBet, removemos
+  // proativamente as pernas afetadas e mostramos um aviso curto.
+  const [slipPruneMsg, setSlipPruneMsg] = useState('');
+  useEffect(() => {
+    if (slip.length === 0) return;
+    if (!cs?.rounds || cs.rounds.length === 0) return; // ainda não carregou — não mexer
+    const valid = slip.filter(s => {
+      const p = parseGameId(s.fixtureId);
+      if (!p) return false;
+      const g = cs.rounds[p.ri]?.[p.gi];
+      if (!g) return false;
+      return !isGamePlayed(g);
+    });
+    if (valid.length !== slip.length) {
+      const removed = slip.length - valid.length;
+      setSlip(valid);
+      setSlipPruneMsg(`${removed} ${removed === 1 ? 'palpite removido do cupom (jogo já finalizado).' : 'palpites removidos do cupom (jogos já finalizados).'}`);
+      setTimeout(() => setSlipPruneMsg(''), 6000);
+    }
+  }, [cs, slip.length]);
+
   const me = session ? users[session.nick] : null;
   const isAdmin = session && session.nick === ADMIN_NICK;
 
@@ -871,9 +893,16 @@ function App() {
   // o estado remoto (não permite ficar negativo nem perder o ticket).
   const placeBet = async (amount) => {
     if (!me || slip.length === 0) return;
-    for (const l of slip) {
-      const g = gameById[l.fixtureId];
-      if (!g) { alert('Um dos jogos do cupom não está mais disponível.'); return; }
+    // Rede de segurança: se algum palpite ainda referencia jogo indisponível
+    // (admin lançou placar bem na hora), removemos e avisamos sem bloquear.
+    const validSlip = slip.filter(l => !!gamesById[l.fixtureId]);
+    if (validSlip.length !== slip.length) {
+      const removed = slip.length - validSlip.length;
+      setSlip(validSlip);
+      alert(removed === 1
+        ? 'Um palpite foi removido porque o jogo acabou de ter o placar lançado. Confere o cupom e tenta de novo.'
+        : `${removed} palpites foram removidos (jogos já finalizados). Confere o cupom e tenta de novo.`);
+      return;
     }
     if (amount <= 0) return;
     const co = +slip.reduce((p, l) => p + l.odds, 0).toFixed(2);
@@ -1049,6 +1078,7 @@ function App() {
                 weeklyReady={weeklyReady} weeklyIn={weeklyIn} onClaim={claimWeekly}
                 slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
                 onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin}
+                slipPruneMsg={slipPruneMsg}
               />
             )}
             {tab === 'tickets' && (
@@ -1393,7 +1423,7 @@ function Login({ onAuth, isNewNick }) {
 // ─── APOSTAR + CUPOM ────────────────────────────────────────────────────────
 // games = lista derivada de cs.rounds (já filtrada por jogos não-jogados, com odds).
 function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, weeklyIn, onClaim,
-                        slip, onToggleLeg, onRemoveLeg, onClearSlip, onPlaceBet, isAdmin }) {
+                        slip, onToggleLeg, onRemoveLeg, onClearSlip, onPlaceBet, isAdmin, slipPruneMsg }) {
   const open = (games || []).slice().sort((a, b) => a.round - b.round || a.gi - b.gi);
   const ranking = Object.entries(users).map(([nick, u]) => ({ nick, pc: u.pc }))
     .sort((a, b) => b.pc - a.pc).slice(0, 5);
@@ -1431,7 +1461,7 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
 
       <aside>
         {!isAdmin && (
-          <Cupom slip={slip} gamesById={gamesById} balance={me ? me.pc : 0}
+          <Cupom slip={slip} gamesById={gamesById} balance={me ? me.pc : 0} pruneMsg={slipPruneMsg}
                  onRemoveLeg={onRemoveLeg} onClearSlip={onClearSlip} onPlaceBet={onPlaceBet} />
         )}
 
@@ -1555,7 +1585,7 @@ function GameRow({ game, slip, onToggleLeg, canBet }) {
 }
 
 // ─── CUPOM (bet slip) ───────────────────────────────────────────────────────
-function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet }) {
+function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet, pruneMsg }) {
   const [amt, setAmt] = useState(10);
   const [busy, setBusy] = useState(false);
   const legs = slip.map(s => ({ ...s, _fix: gamesById ? gamesById[s.fixtureId] : null }));
@@ -1578,6 +1608,17 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet 
         <div className="sub">{slip.length} {slip.length === 1 ? 'PALPITE' : 'PALPITES'}</div>
       </div>
       <div className="card-body">
+        {pruneMsg && (
+          <div style={{
+            padding: '8px 12px', background: 'rgba(215,100,20,0.15)',
+            border: '1.5px solid var(--pv-orange)', marginBottom: 10,
+            fontSize: 11, fontWeight: 700, color: 'var(--pv-charcoal)',
+            letterSpacing: '0.04em', lineHeight: 1.4,
+          }}>
+            ⚠ {pruneMsg}
+          </div>
+        )}
+
         {slip.length === 0 && (
           <div className="empty">
             <div className="e1">VAZIO</div>
