@@ -703,14 +703,17 @@ function App() {
     return () => clearTimeout(t);
   }, [cs]);
 
-  // ── Liquidação automática: roda transacionalmente sempre que cs muda.
-  //    Lê bets+users do REMOTE e aplica liquidação/estorno baseado em
-  //    cs.rounds (placares). Garante que paga payout EXATAMENTE UMA vez
-  //    mesmo com várias tabs disparando o efeito.
+  // ── Liquidação automática: roda transacionalmente quando cs muda.
+  //    Debounce de 600ms — admin digitando placar dispara cs várias vezes
+  //    por segundo; sem debounce, cada keystroke virava uma transação no
+  //    Firestore, criando contenção com placeBet/cancelBet etc. e podendo
+  //    bloquear ações do usuário durante o input do placar.
   useEffect(() => {
     if (!cs || !hasLoadedRef.current) return;
     let cancelled = false;
-    (async () => {
+    const csSnapshot = cs; // captura imutável
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
       try {
         await commitBetDocUpdate(remote => {
           const remoteBets = remote.bets || [];
@@ -722,7 +725,7 @@ function App() {
             const legs = b.legs.map(l => {
               const p = parseGameId(l.fixtureId);
               if (!p) return l;
-              const g = cs.rounds?.[p.ri]?.[p.gi];
+              const g = csSnapshot.rounds?.[p.ri]?.[p.gi];
               if (!g) return l;
               const gh = parseInt(g.gh, 10), ga = parseInt(g.ga, 10);
               const played = !Number.isNaN(gh) && !Number.isNaN(ga);
@@ -761,8 +764,8 @@ function App() {
       } catch (e) {
         if (!cancelled) console.warn('auto-settle failed', e);
       }
-    })();
-    return () => { cancelled = true; };
+    }, 600);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [cs]);
 
   // Derivados de cs.rounds: métricas dos times + jogos disponíveis com odds.
@@ -883,8 +886,14 @@ function App() {
     try {
       const result = await commitBetDocUpdate(remote => {
         const u = (remote.users || {})[session.nick];
-        if (!u) return null;
-        if (u.pc < amount) return { __abort: true, result: { err: 'Saldo insuficiente' } };
+        if (!u) {
+          return { __abort: true, result: { err: 'Sua conta não está sincronizada. Faz logout e entra de novo.' } };
+        }
+        if (u.pc < amount) {
+          return { __abort: true, result: { err: 'Saldo insuficiente (tem ' + u.pc + ' PC, aposta de ' + amount + ' PC).' } };
+        }
+        // Idempotência: se por algum motivo o ticket já foi gravado, não duplica.
+        if ((remote.bets || []).some(b => b.id === ticket.id)) return null;
         const users = { ...remote.users, [session.nick]: { ...u, pc: u.pc - amount } };
         const bets = [ticket, ...(remote.bets || [])];
         return { ...remote, users, bets };
@@ -893,7 +902,7 @@ function App() {
       setSlip([]);
     } catch (e) {
       console.warn('placeBet failed', e);
-      alert('Erro ao colocar aposta. Tenta de novo.');
+      alert('Erro ao colocar aposta: ' + (e && e.message || e) + '. Tenta de novo em alguns segundos.');
     }
   };
 
@@ -1548,12 +1557,19 @@ function GameRow({ game, slip, onToggleLeg, canBet }) {
 // ─── CUPOM (bet slip) ───────────────────────────────────────────────────────
 function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet }) {
   const [amt, setAmt] = useState(10);
+  const [busy, setBusy] = useState(false);
   const legs = slip.map(s => ({ ...s, _fix: gamesById ? gamesById[s.fixtureId] : null }));
   // SOMA (não multiplica) — ver placeBet.
   const combined = slip.reduce((p, l) => p + l.odds, 0);
   const payout = Math.round(amt * combined);
-  const valid = slip.length > 0 && amt > 0 && amt <= balance;
+  const valid = !busy && slip.length > 0 && amt > 0 && amt <= balance;
   const multi = slip.length > 1;
+  const handlePlace = async () => {
+    if (busy) return;
+    setBusy(true);
+    try { await onPlaceBet(amt); }
+    finally { setBusy(false); }
+  };
 
   return (
     <div className="card cupom">
@@ -1614,9 +1630,9 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet 
             )}
 
             <div className="modal-btns">
-              <button className="btn-secondary" onClick={onClearSlip}>LIMPAR</button>
-              <button className="btn-primary" disabled={!valid} onClick={() => onPlaceBet(amt)}>
-                APOSTAR {amt} PC
+              <button className="btn-secondary" onClick={onClearSlip} disabled={busy}>LIMPAR</button>
+              <button className="btn-primary" disabled={!valid} onClick={handlePlace}>
+                {busy ? 'APOSTANDO…' : `APOSTAR ${amt} PC`}
               </button>
             </div>
           </>
