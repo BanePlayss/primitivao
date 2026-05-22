@@ -882,8 +882,10 @@ function App() {
     setSlip(prev => {
       const exact = prev.find(s => s.fixtureId === game.id && s.market === market && s.pick === pick);
       if (exact) return prev.filter(s => !(s.fixtureId === game.id && s.market === market && s.pick === pick));
-      // só 1 perna por jogo (evita combinar mercados correlacionados do mesmo jogo)
-      const others = prev.filter(s => s.fixtureId !== game.id);
+      // Permite múltiplos mercados do MESMO jogo (1X2 + BTTS + NM + +3 gols),
+      // mas só 1 pick por mercado — trocar pick do mesmo mercado substitui
+      // (não dá pra apostar em 2 resultados contraditórios do mesmo mercado).
+      const others = prev.filter(s => !(s.fixtureId === game.id && s.market === market));
       return [...others, { fixtureId: game.id, market, pick, odds }];
     });
   };
@@ -1683,7 +1685,7 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
         {slip.length === 0 && (
           <div className="empty">
             <div className="e1">VAZIO</div>
-            <div className="e2">Clica nas odds dos jogos pra montar. Vários palpites = aposta casada (odds multiplicam).</div>
+            <div className="e2">Clica nas odds dos jogos pra montar. Vários palpites = aposta casada (odds somam). Dá pra combinar mais de um mercado do mesmo jogo (ex: 1X2 + ambos marcam).</div>
           </div>
         )}
 
