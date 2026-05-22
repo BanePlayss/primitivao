@@ -531,15 +531,15 @@ function marketSettle(market, pick, gh, ga) {
 }
 
 // ─── ÍCONES ─────────────────────────────────────────────────────────────────
-function MiniCrest({ size = 38, color = '#d76414' }) {
+function MiniCrest({ size = 38 }) {
   return (
-    <svg viewBox="0 0 100 120" width={size} height={size * 1.2} style={{ display: 'block' }}>
-      <path d="M10 12 L 90 12 L 90 62 C 90 90 82 104 50 118 C 18 104 10 90 10 62 Z"
-            fill={color} stroke="#1c1612" strokeWidth="4" />
-      <ellipse cx="50" cy="60" rx="16" ry="22" fill="#f4ead7" />
-      <path d="M42 58 L 46 58 L 44 62 Z M58 58 L 54 58 L 56 62 Z" fill="#1c1612" />
-      <path d="M42 70 L 58 70 L 50 78 Z" fill="#1c1612" />
-    </svg>
+    <img
+      src="primitivao-icon.png"
+      alt="Primitivão"
+      width={size}
+      height={size}
+      style={{ display: 'block', objectFit: 'contain', flexShrink: 0 }}
+    />
   );
 }
 function TeamMini({ team, size = 36 }) {
@@ -1416,16 +1416,7 @@ function Login({ onAuth, isNewNick }) {
   return (
     <div className="login-stage">
       <form className="login-card" onSubmit={submit}>
-        <svg className="logo-svg" viewBox="0 0 200 240">
-          <path d="M20 24 L 180 24 L 180 124 C 180 180 164 208 100 236 C 36 208 20 180 20 124 Z"
-                fill="#d76414" stroke="#1c1612" strokeWidth="8" />
-          <rect x="20" y="44" width="160" height="30" fill="#1c1612" />
-          <text x="100" y="66" textAnchor="middle" fontFamily="Bungee Inline, Impact" fontSize="20" letterSpacing="2" fill="#f4ead7">PRIMITIVÃO</text>
-          <ellipse cx="100" cy="140" rx="36" ry="50" fill="#1c1612" />
-          <path d="M84 130 L 96 130 L 90 144 Z" fill="#f4ead7" />
-          <path d="M104 130 L 116 130 L 110 144 Z" fill="#f4ead7" />
-          <path d="M82 168 L 90 178 L 98 168 L 106 178 L 114 168 L 118 174 L 118 188 L 82 188 Z" fill="#f4ead7" />
-        </svg>
+        <img className="logo-svg" src="primitivao-icon.png" alt="Primitivão" />
         <div className="lh1">CASA DE APOSTAS</div>
         <div className="lh2">PRIMITIVO COINS · PC</div>
         <div className="field">
