@@ -791,12 +791,12 @@ function App() {
       if (!p) return false;
       const g = cs.rounds[p.ri]?.[p.gi];
       if (!g) return false;
-      return !isGamePlayed(g);
+      return !isGamePlayed(g) && !g.locked;
     });
     if (valid.length !== slip.length) {
       const removed = slip.length - valid.length;
       setSlip(valid);
-      setSlipPruneMsg(`${removed} ${removed === 1 ? 'palpite removido do cupom (jogo já finalizado).' : 'palpites removidos do cupom (jogos já finalizados).'}`);
+      setSlipPruneMsg(`${removed} ${removed === 1 ? 'palpite removido do cupom (jogo finalizado ou travado).' : 'palpites removidos do cupom (jogos finalizados ou travados).'}`);
       setTimeout(() => setSlipPruneMsg(''), 6000);
     }
   }, [cs, slip.length]);
@@ -876,6 +876,7 @@ function App() {
   // game = item de `games` (vindo de cs.rounds, com id rXgY e odds calculadas)
   const toggleLeg = (game, market, pick) => {
     if (isAdmin) return;
+    if (game?.locked) return; // jogo travado pelo admin não aceita aposta
     const odds = game?.odds?.[market]?.[pick];
     if (!odds || !game.id) return;
     setSlip(prev => {
@@ -894,8 +895,11 @@ function App() {
   const placeBet = async (amount) => {
     if (!me || slip.length === 0) return;
     // Rede de segurança: se algum palpite ainda referencia jogo indisponível
-    // (admin lançou placar bem na hora), removemos e avisamos sem bloquear.
-    const validSlip = slip.filter(l => !!gamesById[l.fixtureId]);
+    // (admin lançou placar ou travou bem na hora), removemos e avisamos sem bloquear.
+    const validSlip = slip.filter(l => {
+      const g = gamesById[l.fixtureId];
+      return g && !g.locked;
+    });
     if (validSlip.length !== slip.length) {
       const removed = slip.length - validSlip.length;
       setSlip(validSlip);
@@ -1026,6 +1030,20 @@ function App() {
     } catch (e) { console.warn('setTeamPlayer failed', e); }
   };
 
+  // Toggle de "travado" num jogo específico (admin only). Quando travado, o
+  // jogo some da lista de apostas pros users e pernas no slip são auto-podadas.
+  // Operação é local em cs (mesmo write-back de placares cuida da persistência).
+  const toggleGameLock = (ri, gi) => {
+    setCs(prev => {
+      if (!prev || !Array.isArray(prev.rounds)) return prev;
+      const rounds = prev.rounds.map((r, rIdx) => rIdx !== ri ? r : r.map((m, mIdx) => {
+        if (mIdx !== gi) return m;
+        return { ...m, locked: !m.locked };
+      }));
+      return { ...prev, rounds };
+    });
+  };
+
   // Ajuste de PC pelo admin via transação (lê PC remoto, soma delta atomicamente).
   const adjustPc = async (nick, delta) => {
     try {
@@ -1079,6 +1097,7 @@ function App() {
                 slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
                 onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin}
                 slipPruneMsg={slipPruneMsg}
+                onToggleLock={toggleGameLock}
               />
             )}
             {tab === 'tickets' && (
@@ -1423,8 +1442,14 @@ function Login({ onAuth, isNewNick }) {
 // ─── APOSTAR + CUPOM ────────────────────────────────────────────────────────
 // games = lista derivada de cs.rounds (já filtrada por jogos não-jogados, com odds).
 function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, weeklyIn, onClaim,
-                        slip, onToggleLeg, onRemoveLeg, onClearSlip, onPlaceBet, isAdmin, slipPruneMsg }) {
-  const open = (games || []).slice().sort((a, b) => a.round - b.round || a.gi - b.gi);
+                        slip, onToggleLeg, onRemoveLeg, onClearSlip, onPlaceBet, isAdmin, slipPruneMsg,
+                        onToggleLock }) {
+  // Admin vê todos os jogos abertos (inclusive travados, pra poder destravar);
+  // user comum só vê os destravados.
+  const open = (games || [])
+    .filter(g => isAdmin || !g.locked)
+    .slice()
+    .sort((a, b) => a.round - b.round || a.gi - b.gi);
   const ranking = Object.entries(users).map(([nick, u]) => ({ nick, pc: u.pc }))
     .sort((a, b) => b.pc - a.pc).slice(0, 5);
   const days = Math.floor(weeklyIn / (24 * 60 * 60 * 1000));
@@ -1453,7 +1478,8 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
           <div className="card-body">
             {open.length === 0 && <div className="empty"><div className="e1">SEM JOGOS</div><div className="e2">Todos os jogos já foram finalizados ou ainda não há rodadas.</div></div>}
             {open.map(g => (
-              <GameRow key={g.id} game={g} slip={slip} onToggleLeg={onToggleLeg} canBet={!isAdmin} />
+              <GameRow key={g.id} game={g} slip={slip} onToggleLeg={onToggleLeg} canBet={!isAdmin}
+                       isAdmin={isAdmin} onToggleLock={() => onToggleLock(g.ri, g.gi)} />
             ))}
           </div>
         </div>
@@ -1495,19 +1521,19 @@ function OddBtn({ lab, val, selected, disabled, onClick }) {
   );
 }
 
-function GameRow({ game, slip, onToggleLeg, canBet }) {
+function GameRow({ game, slip, onToggleLeg, canBet, isAdmin, onToggleLock }) {
   const h = TEAM(game.home), a = TEAM(game.away);
   const sel = (market, pick) => slip.some(s => s.fixtureId === game.id && s.market === market && s.pick === pick);
-  const dis = !canBet;
+  const isLocked = !!game.locked;
+  // Desabilita odds se: não pode apostar (admin), ou jogo travado.
+  const dis = !canBet || isLocked;
   const o = game.odds || {};
-  // Quantas pernas desse jogo já estão no cupom (mostra indicador no header
-  // mesmo com a aposta colapsada).
   const legsHere = slip.filter(s => s.fixtureId === game.id).length;
-  // Default expandido se já tem perna aqui; caso contrário começa colapsado.
   const [expanded, setExpanded] = useState(legsHere > 0);
 
   return (
-    <div className={'fixture ' + (expanded ? 'expanded' : 'collapsed')}>
+    <div className={'fixture ' + (expanded ? 'expanded' : 'collapsed')}
+         style={isLocked ? { opacity: 0.7, borderColor: '#7a2222' } : undefined}>
       <button
         type="button"
         onClick={() => setExpanded(e => !e)}
@@ -1517,7 +1543,14 @@ function GameRow({ game, slip, onToggleLeg, canBet }) {
         }}
       >
         <div className="fixture-top">
-          <div className="fixture-tag">RODADA {String(game.round).padStart(2, '0')}</div>
+          <div className="fixture-tag">
+            RODADA {String(game.round).padStart(2, '0')}
+            {isLocked && (
+              <span style={{ marginLeft: 8, color: '#c33', fontFamily: 'Space Grotesk', letterSpacing: '0.18em' }}>
+                · 🔒 TRAVADO
+              </span>
+            )}
+          </div>
           <div>
             {game.day} · {game.date} · {game.time}
             {legsHere > 0 && (
@@ -1545,6 +1578,24 @@ function GameRow({ game, slip, onToggleLeg, canBet }) {
           {expanded ? '▲ FECHAR PALPITES' : '▼ VER PALPITES'}
         </div>
       </button>
+
+      {isAdmin && onToggleLock && (
+        <div style={{ marginTop: 8, textAlign: 'right' }}>
+          <button
+            type="button"
+            onClick={onToggleLock}
+            style={{
+              background: isLocked ? '#7a2222' : 'transparent',
+              color: isLocked ? 'var(--pv-bone)' : 'var(--pv-charcoal)',
+              border: '1.5px solid ' + (isLocked ? '#7a2222' : 'var(--pv-charcoal)'),
+              padding: '6px 12px', fontWeight: 800, letterSpacing: '0.14em',
+              fontSize: 10, cursor: 'pointer',
+            }}
+          >
+            {isLocked ? '🔓 DESTRAVAR APOSTAS' : '🔒 TRAVAR APOSTAS'}
+          </button>
+        </div>
+      )}
 
       {expanded && (
         <>
