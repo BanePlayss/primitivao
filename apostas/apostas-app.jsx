@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260525-sidebar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260525-sidebar-full ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1136,15 +1136,15 @@ function App() {
   return (
     <>
       <TopBar nick={session.nick} pc={isAdmin ? '∞' : me.pc} isAdmin={isAdmin} onLogout={logout} />
-      <div className="page">
-        <ChampionshipSelector
-          value={championship}
-          onChange={setChampionship}
-          interests={interests || {}}
-        />
+      <div className="below-topbar">
+        <div className="content-area">
+          <div className="page">
+            <ChampionshipSelector
+              value={championship}
+              onChange={setChampionship}
+              interests={interests || {}}
+            />
 
-        <div className="app-layout">
-          <div className="app-main">
             <Tabs tab={tab} setTab={setTab} isAdmin={isAdmin} />
 
         {showPlaceholder && (
@@ -1206,8 +1206,8 @@ function App() {
           />
         )}
           </div>
-          <Sidebar tab={tab} setTab={setTab} isAdmin={isAdmin} />
         </div>
+        <Sidebar tab={tab} setTab={setTab} isAdmin={isAdmin} />
       </div>
     </>
   );

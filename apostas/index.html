@@ -124,42 +124,51 @@
     }
     .card-body { padding: 18px; }
 
-    /* layout principal: conteúdo + sidebar à direita */
-    .app-layout {
-      display: flex; gap: 18px;
-      align-items: flex-start;
+    /* layout principal: conteúdo + sidebar full-height à direita */
+    .below-topbar {
+      display: flex;
+      align-items: stretch;
+      min-height: calc(100vh - 76px); /* abaixo do topbar */
     }
-    .app-main { flex: 1; min-width: 0; }
+    .content-area { flex: 1; min-width: 0; }
     .app-sidebar {
-      width: 220px; flex-shrink: 0;
-      position: sticky; top: 80px;
+      width: 240px; flex-shrink: 0;
+      background: var(--pv-charcoal);
+      color: var(--pv-bone);
+      border-left: 4px solid var(--pv-orange);
+      position: sticky;
+      top: 76px;
+      align-self: flex-start;
+      height: calc(100vh - 76px);
+      overflow-y: auto;
+      box-sizing: border-box;
+      padding: 20px 14px;
     }
-    .sidebar-nav {
-      display: flex; flex-direction: column; gap: 6px;
-      padding: 14px;
-      background: var(--pv-bone);
-      border: 3px solid var(--pv-charcoal);
-      box-shadow: 4px 4px 0 var(--pv-charcoal);
-    }
+    .sidebar-nav { display: flex; flex-direction: column; gap: 6px; }
     .sidebar-label {
-      font-size: 9px; letter-spacing: 0.3em; font-weight: 800;
+      font-size: 9px; letter-spacing: 0.32em; font-weight: 800;
       color: var(--pv-orange);
-      padding: 2px 0 6px;
-      border-bottom: 2px solid var(--pv-charcoal);
-      margin-bottom: 4px;
+      padding: 2px 6px 10px;
+      border-bottom: 2px solid var(--pv-orange);
+      margin-bottom: 8px;
     }
     .sidebar-tab {
       background: transparent;
       border: 2px solid transparent;
-      padding: 10px 12px;
+      padding: 11px 12px;
       font-weight: 800; letter-spacing: 0.14em; font-size: 11px;
-      color: rgba(28,22,18,0.55);
+      color: rgba(244,234,215,0.55);
       text-align: left;
       cursor: pointer;
+      font-family: inherit;
     }
-    .sidebar-tab:hover { background: rgba(215,100,20,0.08); color: var(--pv-charcoal); }
+    .sidebar-tab:hover {
+      background: rgba(215,100,20,0.18);
+      color: var(--pv-bone);
+    }
     .sidebar-tab.active {
-      background: var(--pv-charcoal); color: var(--pv-bone);
+      background: var(--pv-orange);
+      color: var(--pv-charcoal);
       border-color: var(--pv-orange);
     }
 
@@ -584,7 +593,7 @@
     @media (max-width: 720px) {
       /* No mobile, sidebar some — hamburger drawer cobre. */
       .app-sidebar { display: none; }
-      .app-layout { display: block; }
+      .below-topbar { display: block; min-height: 0; }
 
       /* TOPBAR encolhe e envolve se precisar */
       .topbar { padding: 10px 12px; flex-wrap: wrap; gap: 8px; }
@@ -733,6 +742,6 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
   <!-- Bump o ?v= a cada deploy importante pra forçar tabs antigos a recarregar. -->
-  <script type="text/babel" src="apostas-app.jsx?v=20260525-sidebar"></script>
+  <script type="text/babel" src="apostas-app.jsx?v=20260525-sidebar-full"></script>
 </body>
 </html>
