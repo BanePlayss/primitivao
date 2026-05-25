@@ -1330,16 +1330,21 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
 }
 
 function Tabs({ tab, setTab, isAdmin }) {
-  const items = [
+  // Esquerda: abas do CAMPEONATO selecionado.
+  // Direita: abas GLOBAIS (não dependem do campeonato).
+  const champItems = [
     { id: 'classificacao', label: 'CLASSIFICAÇÃO' },
-    { id: 'apostar', label: 'JOGOS' },
-    { id: 'ranking', label: 'RANKING' },
-    { id: 'tickets', label: 'MEUS TICKETS' },
-    { id: 'perfil', label: 'MEU PERFIL' },
-    { id: 'fama', label: 'HALL DA FAMA' },
+    { id: 'apostar',       label: 'JOGOS' },
+    { id: 'tickets',       label: 'MEUS TICKETS' },
+  ];
+  const globalItems = [
+    { id: 'ranking',  label: 'RANKING' },
+    { id: 'perfil',   label: 'MEU PERFIL' },
+    { id: 'fama',     label: 'HALL DA FAMA' },
     { id: 'vergonha', label: 'HALL DA VERGONHA' },
   ];
-  if (isAdmin) items.push({ id: 'admin', label: 'ADMIN' });
+  if (isAdmin) globalItems.push({ id: 'admin', label: 'ADMIN' });
+  const items = [...champItems, ...globalItems];
   const current = items.find(it => it.id === tab) || items[0];
   const [open, setOpen] = useState(false);
 
@@ -1361,19 +1366,25 @@ function Tabs({ tab, setTab, isAdmin }) {
   }, [open]);
 
   const pick = (id) => { setTab(id); setOpen(false); };
+  const renderTab = (it) => (
+    <button key={it.id} className={'tab ' + (tab === it.id ? 'active' : '')} onClick={() => pick(it.id)}>
+      {it.label}
+    </button>
+  );
 
   return (
     <>
-      {/* Desktop: linha horizontal de pílulas */}
+      {/* Desktop: dois grupos — esquerda (campeonato) e direita (globais). */}
       <div className="tabs">
-        {items.map(it => (
-          <button key={it.id} className={'tab ' + (tab === it.id ? 'active' : '')} onClick={() => pick(it.id)}>
-            {it.label}
-          </button>
-        ))}
+        <div className="tabs-group tabs-group-left">
+          {champItems.map(renderTab)}
+        </div>
+        <div className="tabs-group tabs-group-right">
+          {globalItems.map(renderTab)}
+        </div>
       </div>
 
-      {/* Mobile: hamburguer + drawer vertical */}
+      {/* Mobile: hamburguer + drawer vertical (com separador entre grupos). */}
       <div className="tabs-mobile">
         <button
           className="tabs-mobile-btn"
@@ -1387,13 +1398,19 @@ function Tabs({ tab, setTab, isAdmin }) {
         </button>
         {open && (
           <div className="tabs-drawer" role="menu">
-            {items.map(it => (
-              <button
-                key={it.id}
-                role="menuitem"
-                className={'tabs-drawer-item ' + (tab === it.id ? 'active' : '')}
-                onClick={() => pick(it.id)}
-              >
+            <div className="tabs-drawer-section-label">DESTE CAMPEONATO</div>
+            {champItems.map(it => (
+              <button key={it.id} role="menuitem"
+                      className={'tabs-drawer-item ' + (tab === it.id ? 'active' : '')}
+                      onClick={() => pick(it.id)}>
+                {it.label}
+              </button>
+            ))}
+            <div className="tabs-drawer-section-label">GLOBAL</div>
+            {globalItems.map(it => (
+              <button key={it.id} role="menuitem"
+                      className={'tabs-drawer-item ' + (tab === it.id ? 'active' : '')}
+                      onClick={() => pick(it.id)}>
                 {it.label}
               </button>
             ))}
