@@ -172,6 +172,40 @@
       border-color: var(--pv-orange);
     }
 
+    /* ──── APOSTAR (página de JOGOS) ──── */
+    .apostar-header {
+      background: var(--pv-charcoal); color: var(--pv-bone);
+      padding: 16px 20px;
+      margin-bottom: 18px;
+      border-left: 6px solid var(--pv-orange);
+    }
+    .apostar-header-title {
+      font-family: "Bungee Inline", Impact, sans-serif;
+      font-size: 18px; letter-spacing: 0.06em;
+    }
+    .apostar-header-stats {
+      margin-top: 8px;
+      font-size: 12px; letter-spacing: 0.08em;
+      display: flex; gap: 8px; flex-wrap: wrap;
+      color: rgba(244,234,215,0.7);
+    }
+    .apostar-header-stats strong {
+      color: var(--pv-bone); font-family: "Bagel Fat One", Impact, sans-serif;
+      font-size: 16px; font-weight: 400; letter-spacing: 0;
+      margin-right: 3px;
+    }
+    .round-card { margin-bottom: 16px; }
+    .apostar-aside {
+      /* coluna lateral DENTRO da .grid (não confundir com .app-sidebar global) */
+    }
+    .cupom-sticky {
+      position: sticky;
+      top: 90px; /* abaixo do topbar + selector */
+    }
+    @media (max-width: 880px) {
+      .cupom-sticky { position: static; }
+    }
+
     /* tabs (topo, só champ no desktop) */
     .tabs {
       display: flex; gap: 0; margin-bottom: 18px;
@@ -742,6 +776,6 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
   <!-- Bump o ?v= a cada deploy importante pra forçar tabs antigos a recarregar. -->
-  <script type="text/babel" src="apostas-app.jsx?v=20260525-sidebar-full"></script>
+  <script type="text/babel" src="apostas-app.jsx?v=20260525-apostar-ux"></script>
 </body>
 </html>

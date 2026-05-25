@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260525-sidebar-full ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260525-apostar-ux ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1548,10 +1548,22 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
     .filter(g => isAdmin || !g.locked)
     .slice()
     .sort((a, b) => a.round - b.round || a.gi - b.gi);
-  const ranking = Object.entries(users).map(([nick, u]) => ({ nick, pc: u.pc }))
-    .sort((a, b) => b.pc - a.pc).slice(0, 5);
+
+  // Agrupa por rodada pra renderizar uma seção por rodada (mais escaneável
+  // que uma lista única de 28+ jogos).
+  const byRound = open.reduce((acc, g) => {
+    (acc[g.round] = acc[g.round] || []).push(g);
+    return acc;
+  }, {});
+  const rounds = Object.keys(byRound).map(Number).sort((a, b) => a - b);
+
   const days = Math.floor(weeklyIn / (24 * 60 * 60 * 1000));
   const hrs  = Math.floor((weeklyIn % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+
+  // Stats rápidas
+  const totalGames = open.length;
+  const lockedCount = (games || []).filter(g => g.locked).length;
+  const myPicksInSlip = slip.length;
 
   return (
     <div className="grid">
@@ -1568,43 +1580,65 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
           </div>
         )}
 
-        <div className="card">
-          <div className="card-head">
-            <div className="title">JOGOS ABERTOS</div>
-            <div className="sub">{open.length} DISPONÍVEIS · ODDS AUTO</div>
-          </div>
-          <div className="card-body">
-            {open.length === 0 && <div className="empty"><div className="e1">SEM JOGOS</div><div className="e2">Todos os jogos já foram finalizados ou ainda não há rodadas.</div></div>}
-            {open.map(g => (
-              <GameRow key={g.id} game={g} slip={slip} onToggleLeg={onToggleLeg} canBet={!isAdmin}
-                       isAdmin={isAdmin} onToggleLock={() => onToggleLock(g.ri, g.gi)} />
-            ))}
+        {/* Header com stats */}
+        <div className="apostar-header">
+          <div className="apostar-header-main">
+            <div className="apostar-header-title">JOGOS DISPONÍVEIS</div>
+            <div className="apostar-header-stats">
+              <span><strong>{totalGames}</strong> em aberto</span>
+              <span>·</span>
+              <span><strong>{rounds.length}</strong> rodada{rounds.length === 1 ? '' : 's'}</span>
+              {!isAdmin && myPicksInSlip > 0 && (
+                <>
+                  <span>·</span>
+                  <span style={{ color: 'var(--pv-orange)' }}><strong>{myPicksInSlip}</strong> palpite{myPicksInSlip === 1 ? '' : 's'} no cupom</span>
+                </>
+              )}
+              {isAdmin && lockedCount > 0 && (
+                <>
+                  <span>·</span>
+                  <span style={{ color: '#c33' }}>🔒 <strong>{lockedCount}</strong> travado{lockedCount === 1 ? '' : 's'}</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Jogos agrupados por rodada */}
+        {totalGames === 0 ? (
+          <div className="card">
+            <div className="card-body">
+              <div className="empty">
+                <div className="e1">SEM JOGOS</div>
+                <div className="e2">Todos os jogos já foram finalizados ou ainda não há rodadas.</div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          rounds.map(rn => (
+            <div key={rn} className="card round-card">
+              <div className="card-head">
+                <div className="title">RODADA {String(rn).padStart(2, '0')}</div>
+                <div className="sub">{byRound[rn].length} JOGO{byRound[rn].length === 1 ? '' : 'S'}</div>
+              </div>
+              <div className="card-body">
+                {byRound[rn].map(g => (
+                  <GameRow key={g.id} game={g} slip={slip} onToggleLeg={onToggleLeg} canBet={!isAdmin}
+                           isAdmin={isAdmin} onToggleLock={() => onToggleLock(g.ri, g.gi)} />
+                ))}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
-      <aside>
+      <aside className="apostar-aside">
         {!isAdmin && (
-          <Cupom slip={slip} gamesById={gamesById} balance={me ? me.pc : 0} pruneMsg={slipPruneMsg}
-                 onRemoveLeg={onRemoveLeg} onClearSlip={onClearSlip} onPlaceBet={onPlaceBet} />
+          <div className="cupom-sticky">
+            <Cupom slip={slip} gamesById={gamesById} balance={me ? me.pc : 0} pruneMsg={slipPruneMsg}
+                   onRemoveLeg={onRemoveLeg} onClearSlip={onClearSlip} onPlaceBet={onPlaceBet} />
+          </div>
         )}
-
-        <div className="card" style={{ marginTop: slip.length || !isAdmin ? 18 : 0 }}>
-          <div className="card-head">
-            <div className="title">TOP 5</div>
-            <div className="sub">RANKING</div>
-          </div>
-          <div className="card-body">
-            {ranking.length === 0 && <div className="empty"><div className="e2">Ainda não tem apostadores.</div></div>}
-            {ranking.map((r, i) => (
-              <div key={r.nick} className={'lb-row ' + (r.nick === session.nick ? 'me ' : '') + (i === 0 ? 'top1' : '')}>
-                <div className="lb-pos">{i + 1}</div>
-                <div className="lb-nick">@{r.nick}</div>
-                <div className="lb-pc mono">{r.pc}</div>
-              </div>
-            ))}
-          </div>
-        </div>
       </aside>
     </div>
   );
