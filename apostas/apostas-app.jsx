@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260525-atual ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260525-inicio ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -603,6 +603,9 @@ function App() {
   const [slip, setSlip]     = useState([]); // [{fixtureId='rXgY', market, pick, odds}]
   const [synced, setSynced] = useState(false);
   const [championship, setChampionship] = useState('fifa');
+  // VIEW principal: 'inicio' (noticias/feed) ou 'campeonatos' (selector+tabs).
+  // 'discord' não é uma view — abre link externo direto.
+  const [view, setView] = useState('inicio');
 
   const hasLoadedRef        = useRef(false);
   const isApplyingRemoteRef = useRef(false);
@@ -1146,8 +1149,18 @@ function App() {
         weeklyReady={weeklyReady}
         weeklyIn={weeklyIn}
         onClaimWeekly={claimWeekly}
+        view={view}
+        onView={setView}
       />
       <div className="below-topbar">
+        {view === 'inicio' && (
+          <div className="content-area">
+            <div className="page">
+              <InicioView />
+            </div>
+          </div>
+        )}
+        {view === 'campeonatos' && (<>
         <div className="content-area">
           <div className="page">
             <ChampionshipSelector
@@ -1219,17 +1232,19 @@ function App() {
           </div>
         </div>
         <Sidebar tab={tab} setTab={setTab} isAdmin={isAdmin} />
+        </>)}
       </div>
     </>
   );
 }
 
 // ─── TOP BAR / TABS ─────────────────────────────────────────────────────────
-function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly }) {
+function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly, view, onView }) {
   const days = Math.floor(weeklyIn / (24 * 60 * 60 * 1000));
   const hrs  = Math.floor((weeklyIn % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
   const mins = Math.floor((weeklyIn % (60 * 60 * 1000)) / (60 * 1000));
   const countdown = days > 0 ? `${days}d ${hrs}h` : (hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`);
+  const goDiscord = () => window.open('https://discord.gg/CgjuJSYW5u', '_blank', 'noopener,noreferrer');
   return (
     <div className="topbar">
       <div className="brand">
@@ -1239,6 +1254,13 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
           <div className="t2">APOSTAS · 2026</div>
         </div>
       </div>
+      <nav className="primary-nav" aria-label="Navegação principal">
+        <button className={'pnav ' + (view === 'inicio' ? 'active' : '')} onClick={() => onView && onView('inicio')}>INÍCIO</button>
+        <button className={'pnav ' + (view === 'campeonatos' ? 'active' : '')} onClick={() => onView && onView('campeonatos')}>CAMPEONATOS</button>
+        <button className="pnav pnav-ext" onClick={goDiscord} title="Abre em nova aba">
+          DISCORD <span className="pnav-ext-icon">↗</span>
+        </button>
+      </nav>
       <div className="wallet">
         {!isAdmin && weeklyReady && (
           <button className="weekly-chip weekly-chip-ready" onClick={onClaimWeekly} title="Reclamar bônus semanal">
@@ -1568,6 +1590,101 @@ function Login({ onAuth, isNewNick }) {
 
 // ─── APOSTAR + CUPOM ────────────────────────────────────────────────────────
 // games = lista derivada de cs.rounds (já filtrada por jogos não-jogados, com odds).
+// ─── INÍCIO ────────────────────────────────────────────────────────────────
+// Feed de notícias / vídeos / atualizações do projeto.
+// Pra adicionar uma notícia nova, é só inserir um objeto no array NEWS.
+const NEWS = [
+  {
+    id: 'primitivao-resiste',
+    title: 'PRIMITIVÃO RESISTE!',
+    subtitle: 'Vândalo digital apaga base de apostadores — sistema renasce maior e melhor.',
+    date: '21/05/2026',
+    tag: 'ATUALIZAÇÃO',
+    image: 'news/primitivao-resiste.png',
+    body: (
+      <>
+        <p>
+          Na calada da noite, um invasor mal-intencionado conseguiu apagar
+          todos os usuários e inscrições do Primitivão. Mas o cofre PC
+          resistiu! Em horas, o sistema voltou no ar com defesas reforçadas.
+        </p>
+        <p><strong>O que mudou:</strong></p>
+        <ul>
+          <li>🎲 Odds <strong>automáticas</strong> baseadas na classificação</li>
+          <li>🎯 5 mercados: 1X2, Ambos Marcam, Ninguém Marca, +3 Gols (mandante/visitante)</li>
+          <li>💰 Bônus semanal de <strong>500 PC</strong> (era 20!) — toda segunda 10h BRT</li>
+          <li>🏆 Hall da Fama e Hall da Vergonha por temporada</li>
+          <li>👤 Aba "Meu Perfil" com seu time, troféus e títulos</li>
+          <li>🎮 Mortal Kombat, Rocket League, LoL, CS, Golf With Your Friends, Copa do Mundo — chegando em breve</li>
+          <li>📱 Otimizado pra celular (com menu hamburger)</li>
+          <li>🔒 Defesas contra race conditions e backup automático diário</li>
+        </ul>
+      </>
+    ),
+  },
+  {
+    id: 'fifa-s1',
+    title: 'TEMPORADA EM ANDAMENTO: FIFA 2026 SEASON 1',
+    subtitle: 'A primeira temporada já está rolando — confira os jogos da rodada atual.',
+    date: '18/05/2026',
+    tag: 'CAMPEONATO',
+    image: null,
+    body: (
+      <>
+        <p>
+          A primeira temporada oficial do Primitivão tá no ar. 8 jogadores,
+          7 rodadas, 28 jogos. Apostas abertas em cada partida até o admin
+          travar (geralmente quando a bola vai rolar).
+        </p>
+        <p>
+          As <strong>odds são calculadas em tempo real</strong> a partir da
+          classificação: quanto mais forte um time (pontos + saldo de gol),
+          menor a odd dele vencer. Quando uma rodada inteira termina, as
+          odds da próxima rodada são recalculadas automaticamente pra todo
+          mundo no app.
+        </p>
+        <p>
+          Vá em <strong>CAMPEONATOS → FIFA → JOGOS</strong> pra apostar.
+        </p>
+      </>
+    ),
+  },
+];
+
+function InicioView() {
+  return (
+    <div className="inicio-feed">
+      <div className="inicio-hero">
+        <div className="inicio-hero-tag">FEED</div>
+        <div className="inicio-hero-title">NOTÍCIAS DO PRIMITIVÃO</div>
+        <div className="inicio-hero-sub">Atualizações, gols, momentos memoráveis e o estado do campeonato.</div>
+      </div>
+      {NEWS.map(n => (
+        <article key={n.id} className="news-card">
+          <header className="news-card-head">
+            <span className="news-tag">{n.tag}</span>
+            <span className="news-date">{n.date}</span>
+          </header>
+          {n.image && (
+            <div className="news-image-wrap">
+              <img src={n.image} alt={n.title} className="news-image"
+                   onError={(e) => { e.target.style.display = 'none'; }} />
+            </div>
+          )}
+          <div className="news-body">
+            <h2 className="news-title">{n.title}</h2>
+            <p className="news-subtitle">{n.subtitle}</p>
+            <div className="news-text">{n.body}</div>
+          </div>
+        </article>
+      ))}
+      <div className="inicio-foot">
+        Mais notícias chegando. Atualizações, melhores momentos e novidades dos campeonatos.
+      </div>
+    </div>
+  );
+}
+
 function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, weeklyIn, onClaim,
                         slip, onToggleLeg, onRemoveLeg, onClearSlip, onPlaceBet, isAdmin, slipPruneMsg,
                         onToggleLock }) {
