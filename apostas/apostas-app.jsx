@@ -24,6 +24,9 @@ const ADMIN_PASS = 'primitivaoseguro';
 
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
+// Marker visível no console pra confirmar que tá rodando a versão nova.
+console.log('%c PRIMITIVÃO v=20260525-copa-2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
   { id: 'mk',   name: 'Primitivão — Mortal Kombat 2026',         season: 'Season 1', tag: 'MK',   status: 'soon'   },
@@ -31,6 +34,7 @@ const CHAMPIONSHIPS = [
   { id: 'lol',  name: 'Primitivão — League of Legends 2026',     season: 'Season 1', tag: 'LoL',  status: 'soon'   },
   { id: 'cs',   name: 'Primitivão — Counter-Strike 2026',        season: 'Season 1', tag: 'CS',   status: 'soon'   },
   { id: 'gwyf', name: 'Primitivão — Golf With Your Friends 2026', season: 'Season 1', tag: 'GWYF', status: 'soon'   },
+  { id: 'copa', name: 'Primitivão — Copa do Mundo 2026',         season: 'Season 1', tag: 'COPA', status: 'soon'   },
 ];
 const CHAMP_BY_ID = Object.fromEntries(CHAMPIONSHIPS.map(c => [c.id, c]));
 
