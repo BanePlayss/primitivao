@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260525-apostar-ux2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260525-weekly-topbar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -40,14 +40,30 @@ const CHAMP_BY_ID = Object.fromEntries(CHAMPIONSHIPS.map(c => [c.id, c]));
 
 const START_PC = 50;
 const WEEKLY_PC = 500;
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-// Próximo "release geral" do bônus: quando a hora atual passa desse marco,
-// TODOS os usuários cujo `lastWeekly` é anterior a ele ficam elegíveis
-// imediatamente — mesmo quem já resgatou esta semana. Depois disso, o
-// ciclo normal de 7 dias volta a valer pra cada um. Pra liberar de novo no
-// futuro, é só atualizar este timestamp.
-// 21/05/2026 10:00 BRT (= 13:00 UTC).
-const WEEKLY_RELEASE_AT = Date.UTC(2026, 4, 21, 13, 0, 0);
+
+// Bônus libera TODA SEGUNDA 10:00 BRT (= 13:00 UTC). Quem ainda não
+// resgatou nesta janela (lastWeekly < última segunda 10h) está elegível.
+// Como a regra é baseada em "última segunda passada", trocar o valor da
+// constante WEEKLY_PC ou qualquer ajuste já libera todo mundo cuja última
+// claim foi antes da última segunda — sem precisar de timestamp manual.
+function lastMondayAt10BRT(now) {
+  const t = now == null ? Date.now() : now;
+  const d = new Date(t);
+  const day = d.getUTCDay(); // 0=Dom, 1=Seg, ..., 6=Sáb
+  let daysBack;
+  if (day === 1) {
+    daysBack = d.getUTCHours() >= 13 ? 0 : 7; // antes das 10h BRT, volta 1 semana
+  } else {
+    daysBack = (day + 6) % 7; // Dom=0→6, Ter=2→1, Qua=3→2, Sáb=6→5
+  }
+  const m = new Date(d);
+  m.setUTCDate(d.getUTCDate() - daysBack);
+  m.setUTCHours(13, 0, 0, 0);
+  return m.getTime();
+}
+function nextMondayAt10BRT(now) {
+  return lastMondayAt10BRT(now) + 7 * 24 * 60 * 60 * 1000;
+}
 
 const DEF_BY = 1.8; // ambos marcam: SIM
 const DEF_BN = 2.0; // ambos marcam: NÃO
@@ -849,6 +865,7 @@ function App() {
 
   // Bônus semanal via transação: revalida elegibilidade contra dados REMOTOS
   // pra evitar dois cliques rápidos creditarem em dobro, ou ser sobrescrito.
+  // Elegível = user ainda não resgatou nesta semana (janela = última segunda 10h BRT).
   const claimWeekly = async () => {
     if (!session || isAdmin) return;
     const nick = session.nick;
@@ -856,34 +873,20 @@ function App() {
       await commitBetDocUpdate(remote => {
         const u = (remote.users || {})[nick];
         if (!u) return null;
-        const now = Date.now();
-        const cycleOK    = (now - u.lastWeekly) >= WEEK_MS;
-        const releasedOK = now >= WEEKLY_RELEASE_AT && u.lastWeekly < WEEKLY_RELEASE_AT;
-        if (!cycleOK && !releasedOK) return null;
+        const monday = lastMondayAt10BRT();
+        if ((u.lastWeekly || 0) >= monday) return null; // já resgatou nesta janela
         const users = {
           ...remote.users,
-          [nick]: { ...u, pc: u.pc + WEEKLY_PC, lastWeekly: now },
+          [nick]: { ...u, pc: u.pc + WEEKLY_PC, lastWeekly: Date.now() },
         };
         return { ...remote, users };
       });
     } catch (e) { console.warn('claimWeekly failed', e); }
   };
-  // Disponível se: (a) já se passaram 7 dias do último resgate, ou
-  // (b) o release geral já chegou e o usuário só resgatou antes dele.
-  const weeklyReady = me
-    ? (Date.now() - me.lastWeekly >= WEEK_MS) ||
-      (Date.now() >= WEEKLY_RELEASE_AT && me.lastWeekly < WEEKLY_RELEASE_AT)
-    : false;
-  // Contagem regressiva: mostra o que chegar antes — fim do ciclo de 7 dias
-  // ou a hora do release geral (se ainda no futuro e usuário não resgatou).
-  const weeklyIn = (() => {
-    if (!me || weeklyReady) return 0;
-    const tCycle   = WEEK_MS - (Date.now() - me.lastWeekly);
-    const tRelease = (WEEKLY_RELEASE_AT > Date.now() && me.lastWeekly < WEEKLY_RELEASE_AT)
-      ? WEEKLY_RELEASE_AT - Date.now()
-      : Infinity;
-    return Math.max(0, Math.min(tCycle, tRelease));
-  })();
+  const weeklyReady = me ? ((me.lastWeekly || 0) < lastMondayAt10BRT()) : false;
+  const weeklyIn = me && !weeklyReady
+    ? Math.max(0, nextMondayAt10BRT() - Date.now())
+    : 0;
 
   // ── CUPOM (parlay) ────────────────────────────────────────────────────────
   // game = item de `games` (vindo de cs.rounds, com id rXgY e odds calculadas)
@@ -1135,7 +1138,15 @@ function App() {
 
   return (
     <>
-      <TopBar nick={session.nick} pc={isAdmin ? '∞' : me.pc} isAdmin={isAdmin} onLogout={logout} />
+      <TopBar
+        nick={session.nick}
+        pc={isAdmin ? '∞' : me.pc}
+        isAdmin={isAdmin}
+        onLogout={logout}
+        weeklyReady={weeklyReady}
+        weeklyIn={weeklyIn}
+        onClaimWeekly={claimWeekly}
+      />
       <div className="below-topbar">
         <div className="content-area">
           <div className="page">
@@ -1214,7 +1225,11 @@ function App() {
 }
 
 // ─── TOP BAR / TABS ─────────────────────────────────────────────────────────
-function TopBar({ nick, pc, isAdmin, onLogout }) {
+function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly }) {
+  const days = Math.floor(weeklyIn / (24 * 60 * 60 * 1000));
+  const hrs  = Math.floor((weeklyIn % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+  const mins = Math.floor((weeklyIn % (60 * 60 * 1000)) / (60 * 1000));
+  const countdown = days > 0 ? `${days}d ${hrs}h` : (hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`);
   return (
     <div className="topbar">
       <div className="brand">
@@ -1225,6 +1240,20 @@ function TopBar({ nick, pc, isAdmin, onLogout }) {
         </div>
       </div>
       <div className="wallet">
+        {!isAdmin && weeklyReady && (
+          <button className="weekly-chip weekly-chip-ready" onClick={onClaimWeekly} title="Reclamar bônus semanal">
+            <span className="weekly-chip-icon">🎁</span>
+            <span className="weekly-chip-main">+{WEEKLY_PC} PC</span>
+            <span className="weekly-chip-sub">RECLAMAR</span>
+          </button>
+        )}
+        {!isAdmin && !weeklyReady && (
+          <div className="weekly-chip weekly-chip-locked" title="Próximo bônus: segunda 10h BRT">
+            <span className="weekly-chip-icon">🔒</span>
+            <span className="weekly-chip-main">BÔNUS</span>
+            <span className="weekly-chip-sub">{countdown}</span>
+          </div>
+        )}
         {!isAdmin && (
           <div className="pc-pill">
             <div className="pc-coin">P</div>
@@ -1580,9 +1609,6 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
   }, {});
   const rounds = Object.keys(byRound).map(Number).sort((a, b) => a - b);
 
-  const days = Math.floor(weeklyIn / (24 * 60 * 60 * 1000));
-  const hrs  = Math.floor((weeklyIn % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-
   // Stats rápidas (sempre sobre todos os abertos, não filtrados)
   const totalGames = open.length;
   const lockedCount = (games || []).filter(g => g.locked).length;
@@ -1598,17 +1624,7 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
   return (
     <div className="grid">
       <div>
-        {!isAdmin && (
-          <div className={'bonus ' + (weeklyReady ? 'ready' : '')}>
-            <div>
-              <div className="small-label" style={{ color: weeklyReady ? 'var(--pv-charcoal)' : 'var(--pv-orange)' }}>BÔNUS SEMANAL</div>
-              <div className="display" style={{ fontSize: 22, marginTop: 4 }}>
-                {weeklyReady ? `+${WEEKLY_PC} PC DISPONÍVEIS` : `Disponível em ${days}d ${hrs}h`}
-              </div>
-            </div>
-            <button onClick={onClaim} disabled={!weeklyReady}>{weeklyReady ? 'RECLAMAR' : 'BLOQUEADO'}</button>
-          </div>
-        )}
+        {/* (Banner do bônus migrou pro TopBar — fica visível em qualquer aba.) */}
 
         {/* Header com stats */}
         <div className="apostar-header">
