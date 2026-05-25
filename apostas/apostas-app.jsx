@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260525-weekly-topbar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260525-atual ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1670,7 +1670,7 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
                       className={'chip ' + (filter === 'r' + r ? 'active' : '') + (r === firstRound ? ' chip-next' : '')}
                       onClick={() => setFilter('r' + r)}>
                 R{String(r).padStart(2, '0')}
-                {r === firstRound && <span className="chip-next-tag">PRÓXIMA</span>}
+                {r === firstRound && <span className="chip-next-tag">ATUAL</span>}
               </button>
             ))}
           </div>
@@ -1710,7 +1710,7 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
                   <div>
                     <div className="title">
                       RODADA {String(rn).padStart(2, '0')}
-                      {isNext && <span className="round-next-tag">PRÓXIMA</span>}
+                      {isNext && <span className="round-next-tag">ATUAL</span>}
                     </div>
                     <div className="sub">
                       {byRound[rn].length} JOGO{byRound[rn].length === 1 ? '' : 'S'}
