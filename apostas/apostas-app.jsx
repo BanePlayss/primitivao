@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260525-copa-2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260525-tickets-right ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1127,7 +1127,8 @@ function App() {
   const active = CHAMP_BY_ID[championship] || CHAMPIONSHIPS[0];
   const isActiveChamp = active.status === 'active';
   // Tabs específicas do CAMPEONATO ativo (precisam de cs.rounds, games, etc).
-  const champTabs = new Set(['classificacao', 'apostar', 'tickets']);
+  // MEUS TICKETS é global (mostra apostas do user em qualquer estado).
+  const champTabs = new Set(['classificacao', 'apostar']);
   // Quando o campeonato selecionado não tá ativo, e o usuário tenta acessar
   // uma aba "do campeonato", mostramos a página "EM BREVE" no lugar.
   const showPlaceholder = !isActiveChamp && champTabs.has(tab);
@@ -1362,14 +1363,14 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
 }
 
 function Tabs({ tab, setTab, isAdmin }) {
-  // Esquerda: abas do CAMPEONATO selecionado.
-  // Direita: abas GLOBAIS (não dependem do campeonato).
+  // Esquerda: abas DO CAMPEONATO (dados especificos do campeonato selecionado).
+  // Direita: abas DO USUÁRIO (suas info / tickets) e GLOBAIS (rankings/halls).
   const champItems = [
     { id: 'classificacao', label: 'CLASSIFICAÇÃO' },
     { id: 'apostar',       label: 'JOGOS' },
-    { id: 'tickets',       label: 'MEUS TICKETS' },
   ];
   const globalItems = [
+    { id: 'tickets',  label: 'MEUS TICKETS' },
     { id: 'ranking',  label: 'RANKING' },
     { id: 'perfil',   label: 'MEU PERFIL' },
     { id: 'fama',     label: 'HALL DA FAMA' },
