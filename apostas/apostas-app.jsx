@@ -1096,6 +1096,12 @@ function App() {
   }
 
   const active = CHAMP_BY_ID[championship] || CHAMPIONSHIPS[0];
+  const isActiveChamp = active.status === 'active';
+  // Tabs específicas do CAMPEONATO ativo (precisam de cs.rounds, games, etc).
+  const champTabs = new Set(['classificacao', 'apostar', 'tickets']);
+  // Quando o campeonato selecionado não tá ativo, e o usuário tenta acessar
+  // uma aba "do campeonato", mostramos a página "EM BREVE" no lugar.
+  const showPlaceholder = !isActiveChamp && champTabs.has(tab);
 
   return (
     <>
@@ -1107,53 +1113,9 @@ function App() {
           interests={interests || {}}
         />
 
-        {active.status === 'active' ? (
-          <>
-            <Tabs tab={tab} setTab={setTab} isAdmin={isAdmin} />
+        <Tabs tab={tab} setTab={setTab} isAdmin={isAdmin} />
 
-            {tab === 'apostar' && (
-              <ApostarView
-                games={games} gamesById={gamesById} bets={bets} me={me} session={session} users={users}
-                weeklyReady={weeklyReady} weeklyIn={weeklyIn} onClaim={claimWeekly}
-                slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
-                onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin}
-                slipPruneMsg={slipPruneMsg}
-                onToggleLock={toggleGameLock}
-              />
-            )}
-            {tab === 'tickets' && (
-              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} onCancel={cancelBet} />
-            )}
-            {tab === 'perfil' && (
-              <MeuPerfilView
-                nick={session.nick}
-                me={me}
-                cs={cs}
-                bets={bets}
-                teamPlayers={teamPlayers || {}}
-                isAdmin={isAdmin}
-              />
-            )}
-            {tab === 'ranking' && (
-              <RankingView users={users} bets={bets} me={session.nick} />
-            )}
-            {tab === 'fama' && (
-              <HallDaFamaView cs={cs} teamPlayers={teamPlayers || {}} />
-            )}
-            {tab === 'vergonha' && (
-              <HallDaVergonhaView cs={cs} teamPlayers={teamPlayers || {}} />
-            )}
-            {tab === 'classificacao' && (
-              <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin} />
-            )}
-            {tab === 'admin' && isAdmin && (
-              <AdminView
-                bets={bets} users={users} adjustPc={adjustPc}
-                teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
-              />
-            )}
-          </>
-        ) : (
+        {showPlaceholder && (
           <ChampionshipPlaceholder
             champ={active}
             session={session}
@@ -1162,6 +1124,50 @@ function App() {
             list={Object.keys(interests?.[active.id] || {}).sort()}
             isAdmin={isAdmin}
             onToggleInterest={() => toggleInterest(active.id)}
+          />
+        )}
+
+        {!showPlaceholder && tab === 'apostar' && (
+          <ApostarView
+            games={games} gamesById={gamesById} bets={bets} me={me} session={session} users={users}
+            weeklyReady={weeklyReady} weeklyIn={weeklyIn} onClaim={claimWeekly}
+            slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
+            onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin}
+            slipPruneMsg={slipPruneMsg}
+            onToggleLock={toggleGameLock}
+          />
+        )}
+        {!showPlaceholder && tab === 'tickets' && (
+          <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} onCancel={cancelBet} />
+        )}
+        {!showPlaceholder && tab === 'classificacao' && (
+          <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin} />
+        )}
+
+        {/* Globais — independem do campeonato selecionado */}
+        {tab === 'perfil' && (
+          <MeuPerfilView
+            nick={session.nick}
+            me={me}
+            cs={cs}
+            bets={bets}
+            teamPlayers={teamPlayers || {}}
+            isAdmin={isAdmin}
+          />
+        )}
+        {tab === 'ranking' && (
+          <RankingView users={users} bets={bets} me={session.nick} />
+        )}
+        {tab === 'fama' && (
+          <HallDaFamaView cs={cs} teamPlayers={teamPlayers || {}} />
+        )}
+        {tab === 'vergonha' && (
+          <HallDaVergonhaView cs={cs} teamPlayers={teamPlayers || {}} />
+        )}
+        {tab === 'admin' && isAdmin && (
+          <AdminView
+            bets={bets} users={users} adjustPc={adjustPc}
+            teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
           />
         )}
       </div>
@@ -1851,6 +1857,26 @@ function trophiesForNick(nick, cs, teamPlayers) {
   return trophies;
 }
 
+// ─── TÍTULOS DO USUÁRIO ─────────────────────────────────────────────────────
+// Catálogo de títulos concedidos automaticamente baseado em condições.
+// Cada título tem um `check(ctx)` que recebe { nick, bets, users } e devolve bool.
+const TITLE_DEFS = [
+  {
+    id: 'beta_tester',
+    name: 'BETA TESTER',
+    icon: '🧪',
+    desc: 'Participou da primeira temporada (FIFA 2026 Season 1) — apostou pelo menos uma vez.',
+    color: '#7a4dc9',
+    check: ({ nick, bets }) => (bets || []).some(b => b.user === nick),
+  },
+];
+function titlesForNick(nick, ctx) {
+  return TITLE_DEFS.filter(t => {
+    try { return !!t.check({ nick, ...ctx }); }
+    catch (_) { return false; }
+  });
+}
+
 function MeuPerfilView({ nick, me, cs, bets, teamPlayers, isAdmin }) {
   const playerTeam = reverseTeamMap(teamPlayers);
   const myTeamId = playerTeam[nick];
@@ -1894,6 +1920,9 @@ function MeuPerfilView({ nick, me, cs, bets, teamPlayers, isAdmin }) {
           </div>
         </div>
       </div>
+
+      {/* TÍTULOS */}
+      <TitulosCard nick={nick} bets={bets} />
 
       {/* TIME */}
       <div className="card" style={{ marginBottom: 14 }}>
@@ -2007,6 +2036,54 @@ function MatchRow({ g, myTeamId }) {
       </div>
       <div style={{ width: 24, textAlign: 'center', fontWeight: 800, color: outcomeColor }}>
         {outcome || '·'}
+      </div>
+    </div>
+  );
+}
+
+function TitulosCard({ nick, bets }) {
+  const titulos = titlesForNick(nick, { bets });
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <div className="card-head">
+        <div className="title">🏷️ TÍTULOS</div>
+        <div className="sub">{titulos.length}</div>
+      </div>
+      <div className="card-body">
+        {titulos.length === 0 ? (
+          <div className="empty">
+            <div className="e1">SEM TÍTULOS</div>
+            <div className="e2">Vai conquistando títulos conforme participar dos campeonatos.</div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {titulos.map(t => (
+              <div key={t.id} style={{
+                flex: '0 0 calc(50% - 5px)', maxWidth: 260, minWidth: 200,
+                padding: '12px 14px',
+                background: t.color + '15',
+                border: `2px solid ${t.color}`,
+                borderLeft: `6px solid ${t.color}`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 24, lineHeight: 1 }}>{t.icon}</span>
+                  <span style={{
+                    fontFamily: 'Bagel Fat One, Impact',
+                    fontSize: 18, color: t.color, letterSpacing: '0.04em',
+                  }}>
+                    {t.name}
+                  </span>
+                </div>
+                <div style={{
+                  marginTop: 6, fontSize: 11, lineHeight: 1.4,
+                  color: 'rgba(28,22,18,0.7)', fontWeight: 600,
+                }}>
+                  {t.desc}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
