@@ -1066,6 +1066,31 @@ function App() {
   };
 
   // Ajuste de PC pelo admin via transação (lê PC remoto, soma delta atomicamente).
+  // Seleciona qual titulo o user quer exibir publicamente (na classificacao
+  // e no ranking). Passa null pra remover.
+  const setSelectedTitle = async (titleId) => {
+    if (!session || !session.nick) return;
+    const nick = session.nick;
+    try {
+      await commitBetDocUpdate(remote => {
+        const u = (remote.users || {})[nick];
+        if (!u) return null;
+        // Valida que o titulo eh elegivel pra esse user (anti-burlar)
+        if (titleId) {
+          const earned = titlesForNick(nick, {
+            bets: remote.bets || [],
+            users: remote.users || {},
+            teamPlayers: remote.teamPlayers || {},
+            cs,
+          });
+          if (!earned.some(t => t.id === titleId)) return null;
+        }
+        const users = { ...remote.users, [nick]: { ...u, title: titleId || null } };
+        return { ...remote, users };
+      });
+    } catch (e) { console.warn('setSelectedTitle failed', e); }
+  };
+
   const adjustPc = async (nick, delta) => {
     try {
       await commitBetDocUpdate(remote => {
@@ -1141,7 +1166,8 @@ function App() {
           <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} onCancel={cancelBet} />
         )}
         {!showPlaceholder && tab === 'classificacao' && (
-          <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin} />
+          <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin}
+                             users={users} teamPlayers={teamPlayers || {}} />
         )}
 
         {/* Globais — independem do campeonato selecionado */}
@@ -1151,18 +1177,20 @@ function App() {
             me={me}
             cs={cs}
             bets={bets}
+            users={users}
             teamPlayers={teamPlayers || {}}
             isAdmin={isAdmin}
+            onSelectTitle={setSelectedTitle}
           />
         )}
         {tab === 'ranking' && (
           <RankingView users={users} bets={bets} me={session.nick} />
         )}
         {tab === 'fama' && (
-          <HallDaFamaView cs={cs} teamPlayers={teamPlayers || {}} />
+          <HallDaFamaView cs={cs} teamPlayers={teamPlayers || {}} users={users} />
         )}
         {tab === 'vergonha' && (
-          <HallDaVergonhaView cs={cs} teamPlayers={teamPlayers || {}} />
+          <HallDaVergonhaView cs={cs} teamPlayers={teamPlayers || {}} users={users} />
         )}
         {tab === 'admin' && isAdmin && (
           <AdminView
@@ -1882,9 +1910,12 @@ const TITLE_DEFS = [
     id: 'beta_tester',
     name: 'BETA TESTER',
     icon: '🧪',
-    desc: 'Participou da primeira temporada (FIFA 2026 Season 1) — apostou pelo menos uma vez.',
+    desc: 'Jogou a primeira temporada do Primitivão (FIFA 2026 Season 1) — está vinculado a um time.',
     color: '#7a4dc9',
-    check: ({ nick, bets }) => (bets || []).some(b => b.user === nick),
+    check: ({ nick, teamPlayers }) => {
+      const players = Object.values(teamPlayers || {});
+      return players.includes(nick);
+    },
   },
 ];
 function titlesForNick(nick, ctx) {
@@ -1893,8 +1924,36 @@ function titlesForNick(nick, ctx) {
     catch (_) { return false; }
   });
 }
+function getTitleDef(id) {
+  return TITLE_DEFS.find(t => t.id === id) || null;
+}
 
-function MeuPerfilView({ nick, me, cs, bets, teamPlayers, isAdmin }) {
+// Badge compacto pra renderizar em standings/ranking ao lado de nomes.
+function TitleBadge({ titleId, size }) {
+  const t = getTitleDef(titleId);
+  if (!t) return null;
+  const big = size === 'lg';
+  return (
+    <span title={t.desc} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: big ? '3px 8px' : '2px 6px',
+      background: t.color + '22',
+      border: `1px solid ${t.color}`,
+      fontSize: big ? 10 : 9,
+      fontWeight: 800,
+      letterSpacing: '0.08em',
+      color: t.color,
+      marginLeft: 6,
+      verticalAlign: 'middle',
+      whiteSpace: 'nowrap',
+      lineHeight: 1.2,
+    }}>
+      {t.icon} {t.name}
+    </span>
+  );
+}
+
+function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, isAdmin, onSelectTitle }) {
   const playerTeam = reverseTeamMap(teamPlayers);
   const myTeamId = playerTeam[nick];
   const myTeam = myTeamId ? TEAM(myTeamId) : null;
@@ -1939,7 +1998,12 @@ function MeuPerfilView({ nick, me, cs, bets, teamPlayers, isAdmin }) {
       </div>
 
       {/* TÍTULOS */}
-      <TitulosCard nick={nick} bets={bets} />
+      <TitulosCard
+        nick={nick}
+        ctx={{ bets, users, teamPlayers, cs }}
+        selectedTitle={me?.title || null}
+        onSelectTitle={onSelectTitle}
+      />
 
       {/* TIME */}
       <div className="card" style={{ marginBottom: 14 }}>
@@ -2058,13 +2122,17 @@ function MatchRow({ g, myTeamId }) {
   );
 }
 
-function TitulosCard({ nick, bets }) {
-  const titulos = titlesForNick(nick, { bets });
+function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
+  const titulos = titlesForNick(nick, ctx || {});
+  const handleClick = (id) => {
+    if (!onSelectTitle) return;
+    onSelectTitle(selectedTitle === id ? null : id);
+  };
   return (
     <div className="card" style={{ marginBottom: 14 }}>
       <div className="card-head">
         <div className="title">🏷️ TÍTULOS</div>
-        <div className="sub">{titulos.length}</div>
+        <div className="sub">{titulos.length} · CLIQUE PARA EXIBIR</div>
       </div>
       <div className="card-body">
         {titulos.length === 0 ? (
@@ -2073,33 +2141,59 @@ function TitulosCard({ nick, bets }) {
             <div className="e2">Vai conquistando títulos conforme participar dos campeonatos.</div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {titulos.map(t => (
-              <div key={t.id} style={{
-                flex: '0 0 calc(50% - 5px)', maxWidth: 260, minWidth: 200,
-                padding: '12px 14px',
-                background: t.color + '15',
-                border: `2px solid ${t.color}`,
-                borderLeft: `6px solid ${t.color}`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 24, lineHeight: 1 }}>{t.icon}</span>
-                  <span style={{
-                    fontFamily: 'Bagel Fat One, Impact',
-                    fontSize: 18, color: t.color, letterSpacing: '0.04em',
-                  }}>
-                    {t.name}
-                  </span>
-                </div>
-                <div style={{
-                  marginTop: 6, fontSize: 11, lineHeight: 1.4,
-                  color: 'rgba(28,22,18,0.7)', fontWeight: 600,
-                }}>
-                  {t.desc}
-                </div>
-              </div>
-            ))}
-          </div>
+          <>
+            <p style={{ marginTop: 0, marginBottom: 12, fontSize: 11, color: 'rgba(28,22,18,0.65)', lineHeight: 1.4 }}>
+              Clica num título pra exibi-lo publicamente no seu nome (CLASSIFICAÇÃO + RANKING). Clica de novo pra esconder.
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              {titulos.map(t => {
+                const isSelected = selectedTitle === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => handleClick(t.id)}
+                    style={{
+                      flex: '0 0 calc(50% - 5px)', maxWidth: 280, minWidth: 200,
+                      padding: '12px 14px',
+                      textAlign: 'left',
+                      background: isSelected ? t.color : t.color + '15',
+                      border: `2px solid ${t.color}`,
+                      borderLeft: `6px solid ${t.color}`,
+                      cursor: 'pointer',
+                      color: isSelected ? '#fff' : 'inherit',
+                      font: 'inherit',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 24, lineHeight: 1 }}>{t.icon}</span>
+                        <span style={{
+                          fontFamily: 'Bagel Fat One, Impact',
+                          fontSize: 18, color: isSelected ? '#fff' : t.color, letterSpacing: '0.04em',
+                        }}>
+                          {t.name}
+                        </span>
+                      </div>
+                      {isSelected && (
+                        <span style={{
+                          fontSize: 9, letterSpacing: '0.18em', fontWeight: 800,
+                          padding: '2px 6px', background: 'rgba(255,255,255,0.25)',
+                        }}>
+                          ✓ EXIBINDO
+                        </span>
+                      )}
+                    </div>
+                    <div style={{
+                      marginTop: 6, fontSize: 11, lineHeight: 1.4,
+                      color: isSelected ? 'rgba(255,255,255,0.9)' : 'rgba(28,22,18,0.7)', fontWeight: 600,
+                    }}>
+                      {t.desc}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -2151,6 +2245,7 @@ function RankingView({ users, bets, me }) {
     const my = bets.filter(b => b.user === nick);
     return {
       nick, pc: u.pc, apostas: my.length,
+      title: u.title || null,
       vit: my.filter(b => b.status === 'won').length,
       der: my.filter(b => b.status === 'lost').length,
     };
@@ -2164,7 +2259,10 @@ function RankingView({ users, bets, me }) {
           <div key={r.nick} className={'lb-row ' + (r.nick === me ? 'me' : '')} style={{ gridTemplateColumns: '36px 1fr auto auto auto', gap: 16 }}>
             <div className="lb-pos">{i + 1}</div>
             <div>
-              <div className="lb-nick">@{r.nick}</div>
+              <div className="lb-nick">
+                @{r.nick}
+                {r.title && <TitleBadge titleId={r.title} />}
+              </div>
               <div style={{ fontSize: 10, letterSpacing: '0.22em', color: 'rgba(28,22,18,0.5)', fontWeight: 800, marginTop: 2 }}>{r.apostas} APOSTAS</div>
             </div>
             <div title="vitórias" style={{ color: 'var(--pv-green)', fontWeight: 800, fontFamily: 'Bagel Fat One', fontSize: 16 }}>{r.vit}<small style={{ fontFamily: 'Space Grotesk', fontSize: 9, letterSpacing: '0.2em', marginLeft: 3 }}>V</small></div>
@@ -2331,7 +2429,7 @@ function HallDaVergonhaView({ cs }) {
 // ─── CLASSIFICAÇÃO (aba) ────────────────────────────────────────────────────
 // Controlled component: cs e setCs vêm do App (que mantém o subscribe ao
 // primitivao/state, faz write-back e liquidação automática das apostas).
-function ClassificacaoView({ cs, setCs, isAdmin }) {
+function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers }) {
   const [viewRound, setViewRound] = useState(0); // LOCAL: rodada que ESTE usuário está vendo
   const initViewRef = useRef(false);
 
@@ -2374,10 +2472,19 @@ function ClassificacaoView({ cs, setCs, isAdmin }) {
               {standings.map((s, i) => {
                 const sg = s.gp - s.gc;
                 const cls = i < 2 ? 'glory' : i >= standings.length - 2 ? 'releg' : '';
+                // descobre o título exibido pelo jogador desse time, se houver
+                const playerNick = (teamPlayers || {})[s.id];
+                const playerTitle = playerNick ? (users || {})[playerNick]?.title : null;
                 return (
                   <tr key={s.id} className={cls}>
                     <td className="std-pos">{String(i + 1).padStart(2, '0')}</td>
-                    <td><div className="tnm"><TeamMini team={s.id} size={22} />{s.name}</div></td>
+                    <td>
+                      <div className="tnm" style={{ flexWrap: 'wrap' }}>
+                        <TeamMini team={s.id} size={22} />
+                        <span>{s.name}</span>
+                        {playerTitle && <TitleBadge titleId={playerTitle} />}
+                      </div>
+                    </td>
                     <td>{s.j}</td><td style={{ fontWeight: 800 }}>{s.v}</td><td>{s.e}</td>
                     <td style={{ color: 'rgba(28,22,18,0.45)' }}>{s.d}</td>
                     <td>{sg > 0 ? '+' + sg : sg}</td>
