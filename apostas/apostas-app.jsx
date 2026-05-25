@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260525-tickets-right ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260525-sidebar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1143,7 +1143,9 @@ function App() {
           interests={interests || {}}
         />
 
-        <Tabs tab={tab} setTab={setTab} isAdmin={isAdmin} />
+        <div className="app-layout">
+          <div className="app-main">
+            <Tabs tab={tab} setTab={setTab} isAdmin={isAdmin} />
 
         {showPlaceholder && (
           <ChampionshipPlaceholder
@@ -1203,6 +1205,9 @@ function App() {
             teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
           />
         )}
+          </div>
+          <Sidebar tab={tab} setTab={setTab} isAdmin={isAdmin} />
+        </div>
       </div>
     </>
   );
@@ -1362,9 +1367,9 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
   );
 }
 
-function Tabs({ tab, setTab, isAdmin }) {
-  // Esquerda: abas DO CAMPEONATO (dados especificos do campeonato selecionado).
-  // Direita: abas DO USUÁRIO (suas info / tickets) e GLOBAIS (rankings/halls).
+// Lista canônica de tabs: definida fora pra Tabs (topo) e Sidebar (lateral)
+// usarem a mesma fonte da verdade.
+function getTabItems(isAdmin) {
   const champItems = [
     { id: 'classificacao', label: 'CLASSIFICAÇÃO' },
     { id: 'apostar',       label: 'JOGOS' },
@@ -1377,11 +1382,17 @@ function Tabs({ tab, setTab, isAdmin }) {
     { id: 'vergonha', label: 'HALL DA VERGONHA' },
   ];
   if (isAdmin) globalItems.push({ id: 'admin', label: 'ADMIN' });
-  const items = [...champItems, ...globalItems];
-  const current = items.find(it => it.id === tab) || items[0];
+  return { champItems, globalItems };
+}
+
+// Tabs do TOPO (só itens do campeonato no desktop) + hamburger drawer no mobile
+// com TODOS os itens (champ + global), pra não precisar abrir sidebar separada.
+function Tabs({ tab, setTab, isAdmin }) {
+  const { champItems, globalItems } = getTabItems(isAdmin);
+  const allItems = [...champItems, ...globalItems];
+  const current = allItems.find(it => it.id === tab) || allItems[0];
   const [open, setOpen] = useState(false);
 
-  // Fecha o drawer ao clicar fora.
   useEffect(() => {
     if (!open) return;
     const onClick = (e) => {
@@ -1399,25 +1410,22 @@ function Tabs({ tab, setTab, isAdmin }) {
   }, [open]);
 
   const pick = (id) => { setTab(id); setOpen(false); };
-  const renderTab = (it) => (
-    <button key={it.id} className={'tab ' + (tab === it.id ? 'active' : '')} onClick={() => pick(it.id)}>
-      {it.label}
-    </button>
-  );
 
   return (
     <>
-      {/* Desktop: dois grupos — esquerda (campeonato) e direita (globais). */}
+      {/* Desktop: só tabs DO CAMPEONATO horizontais no topo do conteúdo.
+          As globais ficam na Sidebar à direita. */}
       <div className="tabs">
         <div className="tabs-group tabs-group-left">
-          {champItems.map(renderTab)}
-        </div>
-        <div className="tabs-group tabs-group-right">
-          {globalItems.map(renderTab)}
+          {champItems.map(it => (
+            <button key={it.id} className={'tab ' + (tab === it.id ? 'active' : '')} onClick={() => pick(it.id)}>
+              {it.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Mobile: hamburguer + drawer vertical (com separador entre grupos). */}
+      {/* Mobile: hamburguer + drawer com tudo (champ + global). */}
       <div className="tabs-mobile">
         <button
           className="tabs-mobile-btn"
@@ -1451,6 +1459,28 @@ function Tabs({ tab, setTab, isAdmin }) {
         )}
       </div>
     </>
+  );
+}
+
+// Sidebar VERTICAL à direita no desktop. Renderiza só os itens GLOBAIS.
+// Escondida no mobile (hamburger drawer cobre).
+function Sidebar({ tab, setTab, isAdmin }) {
+  const { globalItems } = getTabItems(isAdmin);
+  return (
+    <aside className="app-sidebar">
+      <div className="sidebar-nav">
+        <div className="sidebar-label">GLOBAL</div>
+        {globalItems.map(it => (
+          <button
+            key={it.id}
+            className={'sidebar-tab ' + (tab === it.id ? 'active' : '')}
+            onClick={() => setTab(it.id)}
+          >
+            {it.label}
+          </button>
+        ))}
+      </div>
+    </aside>
   );
 }
 

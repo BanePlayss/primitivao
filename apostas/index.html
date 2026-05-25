@@ -124,11 +124,49 @@
     }
     .card-body { padding: 18px; }
 
-    /* tabs */
+    /* layout principal: conteúdo + sidebar à direita */
+    .app-layout {
+      display: flex; gap: 18px;
+      align-items: flex-start;
+    }
+    .app-main { flex: 1; min-width: 0; }
+    .app-sidebar {
+      width: 220px; flex-shrink: 0;
+      position: sticky; top: 80px;
+    }
+    .sidebar-nav {
+      display: flex; flex-direction: column; gap: 6px;
+      padding: 14px;
+      background: var(--pv-bone);
+      border: 3px solid var(--pv-charcoal);
+      box-shadow: 4px 4px 0 var(--pv-charcoal);
+    }
+    .sidebar-label {
+      font-size: 9px; letter-spacing: 0.3em; font-weight: 800;
+      color: var(--pv-orange);
+      padding: 2px 0 6px;
+      border-bottom: 2px solid var(--pv-charcoal);
+      margin-bottom: 4px;
+    }
+    .sidebar-tab {
+      background: transparent;
+      border: 2px solid transparent;
+      padding: 10px 12px;
+      font-weight: 800; letter-spacing: 0.14em; font-size: 11px;
+      color: rgba(28,22,18,0.55);
+      text-align: left;
+      cursor: pointer;
+    }
+    .sidebar-tab:hover { background: rgba(215,100,20,0.08); color: var(--pv-charcoal); }
+    .sidebar-tab.active {
+      background: var(--pv-charcoal); color: var(--pv-bone);
+      border-color: var(--pv-orange);
+    }
+
+    /* tabs (topo, só champ no desktop) */
     .tabs {
       display: flex; gap: 0; margin-bottom: 18px;
       border-bottom: 3px solid var(--pv-charcoal);
-      justify-content: space-between;
       flex-wrap: wrap;
     }
     .tabs-group { display: flex; gap: 0; }
@@ -544,6 +582,10 @@
     /* ─────────────────── MOBILE (≤ 720px) ─────────────────────────────── */
     /* ════════════════════════════════════════════════════════════════════ */
     @media (max-width: 720px) {
+      /* No mobile, sidebar some — hamburger drawer cobre. */
+      .app-sidebar { display: none; }
+      .app-layout { display: block; }
+
       /* TOPBAR encolhe e envolve se precisar */
       .topbar { padding: 10px 12px; flex-wrap: wrap; gap: 8px; }
       .brand { gap: 10px; min-width: 0; }
@@ -691,6 +733,6 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
   <!-- Bump o ?v= a cada deploy importante pra forçar tabs antigos a recarregar. -->
-  <script type="text/babel" src="apostas-app.jsx?v=20260525-tickets-right"></script>
+  <script type="text/babel" src="apostas-app.jsx?v=20260525-sidebar"></script>
 </body>
 </html>
