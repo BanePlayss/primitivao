@@ -1600,7 +1600,7 @@ const NEWS = [
     subtitle: 'Vândalo digital apaga base de apostadores — sistema renasce maior e melhor.',
     date: '21/05/2026',
     tag: 'ATUALIZAÇÃO',
-    image: 'news/primitivao-resiste.png',
+    image: 'news/primitivao-resiste.jpg',
     body: (
       <>
         <p>
