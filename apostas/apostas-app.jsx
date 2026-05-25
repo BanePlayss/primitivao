@@ -120,17 +120,26 @@ async function commitBetDocUpdate(reducer) {
       return out.result !== undefined ? out.result : null;
     }
     // Normalização defensiva: garante schema mínimo, sem perder fields de cur.
+    const validMap = (v) => v && typeof v === 'object' && !Array.isArray(v) ? v : null;
+    const protectMap = (outVal, curVal, label) => {
+      const o = validMap(outVal);
+      const c = validMap(curVal);
+      // Proteção contra zeragem acidental (stale tab, race, reducer bugado).
+      // NUNCA escrevemos {} se remote tinha entradas. Wipe legítimo precisa
+      // ir via wipeAllData (que usa BET_DOC().set() direto, fora desse helper).
+      if (o && Object.keys(o).length === 0 && c && Object.keys(c).length > 0) {
+        console.warn(`commitBetDocUpdate: rejeitou zerar ${label} (cur tem ${Object.keys(c).length} entradas)`);
+        return c;
+      }
+      return o || c || {};
+    };
     const safe = {
-      users:       (out && typeof out.users === 'object' && out.users)
-                       ? out.users
-                       : (cur.users && typeof cur.users === 'object' ? cur.users : {}),
+      users:       protectMap(out && out.users,       cur.users,       'users'),
+      teamPlayers: protectMap(out && out.teamPlayers, cur.teamPlayers, 'teamPlayers'),
       fixtures:    Array.isArray(out && out.fixtures) ? out.fixtures
                        : (Array.isArray(cur.fixtures) ? cur.fixtures : DEFAULT_FIXTURES),
       bets:        Array.isArray(out && out.bets) ? out.bets
                        : (Array.isArray(cur.bets) ? cur.bets : []),
-      teamPlayers: (out && typeof out.teamPlayers === 'object' && out.teamPlayers)
-                       ? out.teamPlayers
-                       : (cur.teamPlayers && typeof cur.teamPlayers === 'object' ? cur.teamPlayers : {}),
     };
     const writeData = {
       json: JSON.stringify(safe),
