@@ -1,0 +1,3117 @@
+{
+  "exportedAt": "2026-05-25T11:14:19.348Z",
+  "version": 3,
+  "source": "github-action",
+  "apostas": {
+    "users": {
+      "celin": {
+        "senha": "1511",
+        "pc": 0,
+        "joined": 1779360519594,
+        "lastWeekly": 1779372351217
+      },
+      "bane": {
+        "senha": "seligaian45",
+        "pc": 2932,
+        "joined": 1779361096485,
+        "lastWeekly": 1779371940028
+      },
+      "marbello": {
+        "senha": "Rodrigo2704",
+        "pc": 4254,
+        "joined": 1779363607519,
+        "lastWeekly": 1779411351851
+      },
+      "jucamelero": {
+        "senha": "Lupalinda1",
+        "pc": 192,
+        "joined": 1779363632865,
+        "lastWeekly": 1779371216621
+      },
+      "mohamed": {
+        "senha": "45114576",
+        "pc": 855,
+        "joined": 1779363649433,
+        "lastWeekly": 1779384794253
+      },
+      "magreza": {
+        "senha": "arthurbr1999",
+        "pc": 124,
+        "joined": 1779369658342,
+        "lastWeekly": 1779369672956
+      },
+      "vitinho": {
+        "senha": "123456",
+        "pc": 1166,
+        "joined": 1779372200580,
+        "lastWeekly": 1779372206097
+      },
+      "spider": {
+        "senha": "1407Jp98@x",
+        "pc": 550,
+        "joined": 1779384981242,
+        "lastWeekly": 1779384987075
+      },
+      "xaolin": {
+        "senha": "Cailinpk",
+        "pc": 50,
+        "joined": 1779386422213,
+        "lastWeekly": 0
+      },
+      "oldspriggan": {
+        "senha": "V1t0r1@s50",
+        "pc": 550,
+        "joined": 1779388498792,
+        "lastWeekly": 1779388503021
+      },
+      "ricle": {
+        "senha": "201098br",
+        "pc": 20,
+        "joined": 1779410336535,
+        "lastWeekly": 1779410428145
+      },
+      "caco": {
+        "senha": "senha1234",
+        "pc": 5608,
+        "joined": 1779410442437,
+        "lastWeekly": 1779410448429
+      },
+      "pitera": {
+        "senha": "102030",
+        "pc": 20288,
+        "joined": 1779415739480,
+        "lastWeekly": 1779415741559
+      },
+      "bamgu": {
+        "senha": "xdd123",
+        "pc": 450,
+        "joined": 1779415107423,
+        "lastWeekly": 1779415117211
+      },
+      "duckz3ra": {
+        "senha": "Quorthon66",
+        "pc": 0,
+        "joined": 1779417231182,
+        "lastWeekly": 1779417235501
+      },
+      "utirrabianc": {
+        "senha": "YXZRfe5A99qeaGW",
+        "pc": 550,
+        "joined": 1779424242563,
+        "lastWeekly": 1779424269438
+      },
+      "deivonha": {
+        "senha": "david@14092007",
+        "pc": 550,
+        "joined": 1779646513482,
+        "lastWeekly": 1779646562663
+      },
+      "potato": {
+        "senha": "Hall109247@",
+        "pc": 0,
+        "joined": 1779665383402,
+        "lastWeekly": 1779665385317
+      }
+    },
+    "fixtures": [
+      {
+        "id": "r1g1",
+        "round": 1,
+        "home": "bane",
+        "away": "mohamed",
+        "day": "SEG",
+        "date": "04/05",
+        "time": "21:00",
+        "oddsH": 2,
+        "oddsD": 3,
+        "oddsA": 2.2,
+        "oddsBY": 1.8,
+        "oddsBN": 2,
+        "result": null,
+        "locked": false
+      },
+      {
+        "id": "r1g2",
+        "round": 1,
+        "home": "potato",
+        "away": "magreza",
+        "day": "TER",
+        "date": "05/05",
+        "time": "21:00",
+        "oddsH": 2.3,
+        "oddsD": 3,
+        "oddsA": 2,
+        "oddsBY": 1.8,
+        "oddsBN": 2,
+        "result": null,
+        "locked": false
+      },
+      {
+        "id": "r1g3",
+        "round": 1,
+        "home": "celin",
+        "away": "juca",
+        "day": "QUA",
+        "date": "06/05",
+        "time": "21:00",
+        "oddsH": 2.1,
+        "oddsD": 3,
+        "oddsA": 2.1,
+        "oddsBY": 1.8,
+        "oddsBN": 2,
+        "result": null,
+        "locked": false
+      },
+      {
+        "id": "r1g4",
+        "round": 1,
+        "home": "caco",
+        "away": "vitinho",
+        "day": "QUI",
+        "date": "07/05",
+        "time": "21:00",
+        "oddsH": 2.5,
+        "oddsD": 3,
+        "oddsA": 1.9,
+        "oddsBY": 1.8,
+        "oddsBN": 2,
+        "result": null,
+        "locked": false
+      }
+    ],
+    "bets": [
+      {
+        "id": "t1779684538895-kflt",
+        "user": "celin",
+        "amount": 25828,
+        "status": "pending",
+        "createdAt": 1779684538895,
+        "combinedOdds": 5.24,
+        "legs": [
+          {
+            "fixtureId": "r5g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.47
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.19
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 1.48
+          }
+        ]
+      },
+      {
+        "id": "t1779670668566-lgxz",
+        "user": "duckz3ra",
+        "amount": 20,
+        "status": "pending",
+        "createdAt": 1779670668566,
+        "combinedOdds": 1.87,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.87
+          }
+        ]
+      },
+      {
+        "id": "t1779667005453-hftp",
+        "user": "mohamed",
+        "amount": 22,
+        "status": "lost",
+        "createdAt": 1779667005453,
+        "combinedOdds": 5.74,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.74,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779666976158-ix1l",
+        "user": "mohamed",
+        "amount": 118,
+        "status": "won",
+        "createdAt": 1779666976158,
+        "combinedOdds": 1.73,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73,
+            "result": "win"
+          }
+        ],
+        "payout": 204
+      },
+      {
+        "id": "t1779666921574-yp2n",
+        "user": "mohamed",
+        "amount": 222,
+        "status": "won",
+        "createdAt": 1779666921574,
+        "combinedOdds": 1.67,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.67,
+            "result": "win"
+          }
+        ],
+        "payout": 371
+      },
+      {
+        "id": "t1779666911472-0y3a",
+        "user": "caco",
+        "amount": 1000,
+        "status": "won",
+        "createdAt": 1779666911472,
+        "combinedOdds": 3.4,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.67,
+            "result": "win"
+          }
+        ],
+        "payout": 3400
+      },
+      {
+        "id": "t1779670279955-06yx",
+        "user": "pitera",
+        "amount": 3175,
+        "status": "won",
+        "createdAt": 1779670279955,
+        "combinedOdds": 4.5,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.67,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 14288
+      },
+      {
+        "id": "t1779666917353-do0p",
+        "user": "potato",
+        "amount": 20,
+        "status": "lost",
+        "createdAt": 1779666917353,
+        "combinedOdds": 4.88,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.67,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.48,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779666918494-rttb",
+        "user": "vitinho",
+        "amount": 405,
+        "status": "won",
+        "createdAt": 1779666918494,
+        "combinedOdds": 2.83,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73,
+            "result": "win"
+          }
+        ],
+        "payout": 1146
+      },
+      {
+        "id": "t1779666845535-2kgs",
+        "user": "celin",
+        "amount": 5000,
+        "status": "won",
+        "createdAt": 1779666845535,
+        "combinedOdds": 4.5,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.67,
+            "result": "win"
+          }
+        ],
+        "payout": 22500
+      },
+      {
+        "id": "t1779665921164-cr89",
+        "user": "vitinho",
+        "amount": 350,
+        "status": "lost",
+        "createdAt": 1779665921164,
+        "combinedOdds": 2.23,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.23,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779665553545-fyu3",
+        "user": "potato",
+        "amount": 60,
+        "status": "lost",
+        "createdAt": 1779665553545,
+        "combinedOdds": 4.62,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.59,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 3.03,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779665048641-aent",
+        "user": "pitera",
+        "amount": 3666,
+        "status": "won",
+        "createdAt": 1779665048641,
+        "combinedOdds": 2.23,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 8175
+      },
+      {
+        "id": "t1779498739513-iloj",
+        "user": "celin",
+        "amount": 165,
+        "status": "won",
+        "createdAt": 1779498739513,
+        "combinedOdds": 5.26,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 3.03,
+            "result": "win"
+          }
+        ],
+        "payout": 868
+      },
+      {
+        "id": "t1779452015383-c2h9",
+        "user": "celin",
+        "amount": 2000,
+        "status": "won",
+        "createdAt": 1779452015383,
+        "combinedOdds": 2.23,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 4460
+      },
+      {
+        "id": "t1779418600769-exo1",
+        "user": "magreza",
+        "amount": 250,
+        "status": "pending",
+        "createdAt": 1779418600769,
+        "combinedOdds": 4.2,
+        "legs": [
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.65
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.26
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.29
+          }
+        ]
+      },
+      {
+        "id": "t1779418574121-eswg",
+        "user": "magreza",
+        "amount": 250,
+        "status": "pending",
+        "createdAt": 1779418574121,
+        "combinedOdds": 3.96,
+        "legs": [
+          {
+            "fixtureId": "r5g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.45
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.35
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.16
+          }
+        ]
+      },
+      {
+        "id": "t1779418545992-cdu7",
+        "user": "magreza",
+        "amount": 250,
+        "status": "pending",
+        "createdAt": 1779418545992,
+        "combinedOdds": 3.46,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.87
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.59
+          }
+        ]
+      },
+      {
+        "id": "t1779418550483-7xj0",
+        "user": "ricle",
+        "amount": 9,
+        "status": "lost",
+        "createdAt": 1779418550483,
+        "combinedOdds": 8.24,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.23,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 2.19,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.59,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779418555432-ktr0",
+        "user": "vitinho",
+        "amount": 200,
+        "status": "lost",
+        "createdAt": 1779418555432,
+        "combinedOdds": 6.3,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.23,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 1.84,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779418502500-l8o7",
+        "user": "ricle",
+        "amount": 90,
+        "status": "lost",
+        "createdAt": 1779418502500,
+        "combinedOdds": 7.89,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.23,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 1.84,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.59,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779418456036-6jz8",
+        "user": "magreza",
+        "amount": 250,
+        "status": "lost",
+        "createdAt": 1779418456036,
+        "combinedOdds": 4.95,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.23,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.59,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779418246168-z83i",
+        "user": "jucamelero",
+        "amount": 1200,
+        "status": "pending",
+        "createdAt": 1779418246168,
+        "combinedOdds": 3.71,
+        "legs": [
+          {
+            "fixtureId": "r5g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.16
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.45
+          }
+        ]
+      },
+      {
+        "id": "t1779418325802-c5v2",
+        "user": "duckz3ra",
+        "amount": 170,
+        "status": "pending",
+        "createdAt": 1779418325802,
+        "combinedOdds": 1.59,
+        "legs": [
+          {
+            "fixtureId": "r6g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.59
+          }
+        ]
+      },
+      {
+        "id": "t1779418300758-42do",
+        "user": "duckz3ra",
+        "amount": 50,
+        "status": "pending",
+        "createdAt": 1779418300758,
+        "combinedOdds": 5.93,
+        "legs": [
+          {
+            "fixtureId": "r6g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.32
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 2.05
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.56
+          }
+        ]
+      },
+      {
+        "id": "t1779418254240-5v9i",
+        "user": "duckz3ra",
+        "amount": 50,
+        "status": "pending",
+        "createdAt": 1779418254240,
+        "combinedOdds": 5.01,
+        "legs": [
+          {
+            "fixtureId": "r6g1",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.84
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.64
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.53
+          }
+        ]
+      },
+      {
+        "id": "t1779418166959-7h20",
+        "user": "duckz3ra",
+        "amount": 50,
+        "status": "pending",
+        "createdAt": 1779418166959,
+        "combinedOdds": 2.59,
+        "legs": [
+          {
+            "fixtureId": "r6g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.42
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.17
+          }
+        ]
+      },
+      {
+        "id": "t1779418142512-iz5k",
+        "user": "duckz3ra",
+        "amount": 25,
+        "status": "lost",
+        "createdAt": 1779418142512,
+        "combinedOdds": 7.08,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.74,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.93,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.23,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.18,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779418070214-ydmn",
+        "user": "duckz3ra",
+        "amount": 35,
+        "status": "pending",
+        "createdAt": 1779418070214,
+        "combinedOdds": 9.11,
+        "legs": [
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.65
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.26
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 4.91
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.29
+          }
+        ]
+      },
+      {
+        "id": "t1779418009247-czaj",
+        "user": "duckz3ra",
+        "amount": 100,
+        "status": "pending",
+        "createdAt": 1779418009248,
+        "combinedOdds": 2.61,
+        "legs": [
+          {
+            "fixtureId": "r5g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.45
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.16
+          }
+        ]
+      },
+      {
+        "id": "t1779417345655-p6fh",
+        "user": "jucamelero",
+        "amount": 100,
+        "status": "lost",
+        "createdAt": 1779417345655,
+        "combinedOdds": 6.01,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 2.19,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.59,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779417458250-yc07",
+        "user": "magreza",
+        "amount": 698,
+        "status": "won",
+        "createdAt": 1779417458250,
+        "combinedOdds": 1.61,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 1124
+      },
+      {
+        "id": "t1779420771041-7yt8",
+        "user": "pitera",
+        "amount": 1000,
+        "status": "won",
+        "createdAt": 1779420771041,
+        "combinedOdds": 4.05,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.34,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 4050
+      },
+      {
+        "id": "t1779417519974-sh1j",
+        "user": "vitinho",
+        "amount": 100,
+        "status": "won",
+        "createdAt": 1779417519974,
+        "combinedOdds": 1.61,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 161
+      },
+      {
+        "id": "t1779417426902-6akh",
+        "user": "duckz3ra",
+        "amount": 35,
+        "status": "pending",
+        "createdAt": 1779417426902,
+        "combinedOdds": 3.46,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.87
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.59
+          }
+        ]
+      },
+      {
+        "id": "t1779417345863-k7z8",
+        "user": "duckz3ra",
+        "amount": 35,
+        "status": "lost",
+        "createdAt": 1779417345863,
+        "combinedOdds": 5.19,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.23,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779416746881-xqae",
+        "user": "jucamelero",
+        "amount": 350,
+        "status": "won",
+        "createdAt": 1779416746881,
+        "combinedOdds": 2.96,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          }
+        ],
+        "payout": 1036
+      },
+      {
+        "id": "t1779416876578-6oit",
+        "user": "bamgu",
+        "amount": 100,
+        "status": "lost",
+        "createdAt": 1779416876578,
+        "combinedOdds": 28.47,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "D",
+            "odds": 8,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 3.89,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.34,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.24,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "NM",
+            "pick": "Y",
+            "odds": 10,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779416812285-su9s",
+        "user": "ricle",
+        "amount": 1,
+        "status": "lost",
+        "createdAt": 1779416812285,
+        "combinedOdds": 11.51,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 3.94,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.24,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 3.89,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.34,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779416778360-5xrq",
+        "user": "ricle",
+        "amount": 9,
+        "status": "lost",
+        "createdAt": 1779416778360,
+        "combinedOdds": 10.64,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.24,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.34,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779420027523-t3tm",
+        "user": "pitera",
+        "amount": 485,
+        "status": "lost",
+        "createdAt": 1779420027523,
+        "combinedOdds": 7.95,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.24,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779416661649-7gui",
+        "user": "celin",
+        "amount": 1000,
+        "status": "won",
+        "createdAt": 1779416661649,
+        "combinedOdds": 1.61,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 1610
+      },
+      {
+        "id": "t1779416537518-8bxp",
+        "user": "vitinho",
+        "amount": 200,
+        "status": "lost",
+        "createdAt": 1779416537518,
+        "combinedOdds": 8.2,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.24,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779416317371-xdsj",
+        "user": "jucamelero",
+        "amount": 37,
+        "status": "won",
+        "createdAt": 1779416317371,
+        "combinedOdds": 6.64,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.34,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.24,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 246
+      },
+      {
+        "id": "t1779416427578-wrfp",
+        "user": "marbello",
+        "amount": 1000,
+        "status": "won",
+        "createdAt": 1779416427578,
+        "combinedOdds": 2.96,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          }
+        ],
+        "payout": 2960
+      },
+      {
+        "id": "t1779416389499-1ero",
+        "user": "bane",
+        "amount": 174,
+        "status": "lost",
+        "createdAt": 1779416389499,
+        "combinedOdds": 10.64,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.24,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.34,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779416366009-gj1x",
+        "user": "bane",
+        "amount": 174,
+        "status": "lost",
+        "createdAt": 1779416366009,
+        "combinedOdds": 5.24,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.24,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779416356562-n53z",
+        "user": "bane",
+        "amount": 174,
+        "status": "won",
+        "createdAt": 1779416356562,
+        "combinedOdds": 1.61,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 280
+      },
+      {
+        "id": "t1779416274998-23bf",
+        "user": "mohamed",
+        "amount": 90,
+        "status": "won",
+        "createdAt": 1779416274998,
+        "combinedOdds": 1.24,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.24,
+            "result": "win"
+          }
+        ],
+        "payout": 112
+      },
+      {
+        "id": "t1779416272702-2chj",
+        "user": "caco",
+        "amount": 1000,
+        "status": "won",
+        "createdAt": 1779416272702,
+        "combinedOdds": 2.96,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          }
+        ],
+        "payout": 2960
+      },
+      {
+        "id": "t1779415069727-7g3z",
+        "user": "jucamelero",
+        "amount": 100,
+        "status": "won",
+        "createdAt": 1779415069727,
+        "combinedOdds": 5.24,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.41,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.73,
+            "result": "win"
+          }
+        ],
+        "payout": 524
+      },
+      {
+        "id": "t1779418503137-0o1i",
+        "user": "pitera",
+        "amount": 831,
+        "status": "lost",
+        "createdAt": 1779418503137,
+        "combinedOdds": 5.27,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.95,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.22,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779415170232-oj3m",
+        "user": "celin",
+        "amount": 1000,
+        "status": "won",
+        "createdAt": 1779415170232,
+        "combinedOdds": 2.41,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.41,
+            "result": "win"
+          }
+        ],
+        "payout": 2410
+      },
+      {
+        "id": "t1779415231924-t8yw",
+        "user": "vitinho",
+        "amount": 100,
+        "status": "won",
+        "createdAt": 1779415231924,
+        "combinedOdds": 2.41,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.41,
+            "result": "win"
+          }
+        ],
+        "payout": 241
+      },
+      {
+        "id": "t1779415087049-tptf",
+        "user": "caco",
+        "amount": 100,
+        "status": "won",
+        "createdAt": 1779415087049,
+        "combinedOdds": 1.73,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.73,
+            "result": "win"
+          }
+        ],
+        "payout": 173
+      },
+      {
+        "id": "t1779414965714-fsi3",
+        "user": "mohamed",
+        "amount": 51,
+        "status": "lost",
+        "createdAt": 1779414965714,
+        "combinedOdds": 2.36,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 2.36,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779415071058-swtj",
+        "user": "ricle",
+        "amount": 3706,
+        "status": "lost",
+        "createdAt": 1779415071058,
+        "combinedOdds": 12.33,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.41,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.61,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.73,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.48,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779415041234-o9jl",
+        "user": "ricle",
+        "amount": 3000,
+        "status": "lost",
+        "createdAt": 1779415041234,
+        "combinedOdds": 11.23,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.61,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.73,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.48,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.41,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779414930654-16xb",
+        "user": "caco",
+        "amount": 400,
+        "status": "won",
+        "createdAt": 1779414930654,
+        "combinedOdds": 2.41,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.41,
+            "result": "win"
+          }
+        ],
+        "payout": 964
+      },
+      {
+        "id": "t1779414299621-mmmm",
+        "user": "ricle",
+        "amount": 1436,
+        "status": "won",
+        "createdAt": 1779414299621,
+        "combinedOdds": 4.67,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.33,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.12,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.12,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 6706
+      },
+      {
+        "id": "t1779414199254-cc0r",
+        "user": "bane",
+        "amount": 889,
+        "status": "won",
+        "createdAt": 1779414199254,
+        "combinedOdds": 3.57,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.12,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.12,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.33,
+            "result": "win"
+          }
+        ],
+        "payout": 3174
+      },
+      {
+        "id": "t1779417533653-7ms7",
+        "user": "pitera",
+        "amount": 300,
+        "status": "won",
+        "createdAt": 1779417533653,
+        "combinedOdds": 7.72,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.33,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 3.05,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.12,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.12,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 2316
+      },
+      {
+        "id": "t1779414283116-yk84",
+        "user": "vitinho",
+        "amount": 634,
+        "status": "won",
+        "createdAt": 1779414283116,
+        "combinedOdds": 1.33,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.33,
+            "result": "win"
+          }
+        ],
+        "payout": 843
+      },
+      {
+        "id": "t1779414155184-hxc3",
+        "user": "celin",
+        "amount": 718,
+        "status": "won",
+        "createdAt": 1779414155184,
+        "combinedOdds": 3.05,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 3.05,
+            "result": "win"
+          }
+        ],
+        "payout": 2190
+      },
+      {
+        "id": "t1779414150251-6oo8",
+        "user": "celin",
+        "amount": 718,
+        "status": "won",
+        "createdAt": 1779414150251,
+        "combinedOdds": 1.33,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.33,
+            "result": "win"
+          }
+        ],
+        "payout": 955
+      },
+      {
+        "id": "t1779414025767-rnix",
+        "user": "magreza",
+        "amount": 525,
+        "status": "won",
+        "createdAt": 1779414025767,
+        "combinedOdds": 1.33,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.33,
+            "result": "win"
+          }
+        ],
+        "payout": 698
+      },
+      {
+        "id": "t1779413926470-946q",
+        "user": "mohamed",
+        "amount": 294,
+        "status": "won",
+        "createdAt": 1779413926470,
+        "combinedOdds": 1.33,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.33,
+            "result": "win"
+          }
+        ],
+        "payout": 391
+      },
+      {
+        "id": "t1779413708042-0qy4",
+        "user": "bane",
+        "amount": 245,
+        "status": "won",
+        "createdAt": 1779413708042,
+        "combinedOdds": 2.61,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          }
+        ],
+        "payout": 639
+      },
+      {
+        "id": "t1779413497001-e7aw",
+        "user": "vitinho",
+        "amount": 490,
+        "status": "won",
+        "createdAt": 1779413497001,
+        "combinedOdds": 1.23,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.23,
+            "result": "win"
+          }
+        ],
+        "payout": 603
+      },
+      {
+        "id": "t1779412865912-6opg",
+        "user": "jucamelero",
+        "amount": 50,
+        "status": "lost",
+        "createdAt": 1779412865912,
+        "combinedOdds": 8.82,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 8.82,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779413010609-xe0b",
+        "user": "vitinho",
+        "amount": 25,
+        "status": "won",
+        "createdAt": 1779413010609,
+        "combinedOdds": 1.23,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.23,
+            "result": "win"
+          }
+        ],
+        "payout": 31
+      },
+      {
+        "id": "t1779412779211-sbxn",
+        "user": "jucamelero",
+        "amount": 50,
+        "status": "pending",
+        "createdAt": 1779412779211,
+        "combinedOdds": 22.38,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.14,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 2.01,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.85,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.99,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.77
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.16
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 3.09
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.27
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.22
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.38
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.54
+          }
+        ]
+      },
+      {
+        "id": "t1779416122341-cnf9",
+        "user": "pitera",
+        "amount": 100,
+        "status": "lost",
+        "createdAt": 1779416122341,
+        "combinedOdds": 11.17,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 3.16,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.4,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412613146-zhhw",
+        "user": "mohamed",
+        "amount": 50,
+        "status": "pending",
+        "createdAt": 1779412613146,
+        "combinedOdds": 23.96,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.56,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.21,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.87,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.99,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.77
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.53
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.02,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.71
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.23
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.19
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.54
+          }
+        ]
+      },
+      {
+        "id": "t1779415958627-402w",
+        "user": "pitera",
+        "amount": 100,
+        "status": "won",
+        "createdAt": 1779415958627,
+        "combinedOdds": 6.16,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.56,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.99,
+            "result": "win"
+          }
+        ],
+        "payout": 616
+      },
+      {
+        "id": "t1779412596456-wl2b",
+        "user": "bane",
+        "amount": 10,
+        "status": "lost",
+        "createdAt": 1779412596456,
+        "combinedOdds": 6.91,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 3.54
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 3.37,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412582623-afvp",
+        "user": "bane",
+        "amount": 45,
+        "status": "lost",
+        "createdAt": 1779412582623,
+        "combinedOdds": 6.47,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.56,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.92,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.99,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779415907713-20ot",
+        "user": "pitera",
+        "amount": 50,
+        "status": "lost",
+        "createdAt": 1779415907713,
+        "combinedOdds": 9.53,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.56,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.99,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 3.37,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412497999-b5bt",
+        "user": "marbello",
+        "amount": 550,
+        "status": "won",
+        "createdAt": 1779412497999,
+        "combinedOdds": 4.17,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.56,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          }
+        ],
+        "payout": 2294
+      },
+      {
+        "id": "t1779412468421-yfwu",
+        "user": "magreza",
+        "amount": 25,
+        "status": "lost",
+        "createdAt": 1779412468421,
+        "combinedOdds": 2.89,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.89,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412421871-5ii3",
+        "user": "vitinho",
+        "amount": 25,
+        "status": "won",
+        "createdAt": 1779412421871,
+        "combinedOdds": 4.39,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.23,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 3.16,
+            "result": "win"
+          }
+        ],
+        "payout": 110
+      },
+      {
+        "id": "t1779412233675-44l2",
+        "user": "mohamed",
+        "amount": 20,
+        "status": "lost",
+        "createdAt": 1779412233675,
+        "combinedOdds": 3.23,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 3.23,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412221380-utgq",
+        "user": "mohamed",
+        "amount": 80,
+        "status": "won",
+        "createdAt": 1779412221380,
+        "combinedOdds": 1.87,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.87,
+            "result": "win"
+          }
+        ],
+        "payout": 150
+      },
+      {
+        "id": "t1779412188252-v8y2",
+        "user": "mohamed",
+        "amount": 20,
+        "status": "lost",
+        "createdAt": 1779412188252,
+        "combinedOdds": 2.71,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 2.71,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412238893-amlb",
+        "user": "celin",
+        "amount": 550,
+        "status": "won",
+        "createdAt": 1779412238893,
+        "combinedOdds": 2.61,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          }
+        ],
+        "payout": 1436
+      },
+      {
+        "id": "t1779412129196-surd",
+        "user": "mohamed",
+        "amount": 26,
+        "status": "won",
+        "createdAt": 1779412129196,
+        "combinedOdds": 2.71,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 2.71,
+            "result": "win"
+          }
+        ],
+        "payout": 70
+      },
+      {
+        "id": "t1779412254181-m05g",
+        "user": "vitinho",
+        "amount": 10,
+        "status": "lost",
+        "createdAt": 1779412254181,
+        "combinedOdds": 25.67,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.56,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.92,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.87,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.99,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.77
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.53
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.02,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.71
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.23
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.19
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.54
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412053881-j674",
+        "user": "jucamelero",
+        "amount": 100,
+        "status": "won",
+        "createdAt": 1779412053881,
+        "combinedOdds": 1.23,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.23,
+            "result": "win"
+          }
+        ],
+        "payout": 123
+      },
+      {
+        "id": "t1779412077404-sgbo",
+        "user": "caco",
+        "amount": 38,
+        "status": "won",
+        "createdAt": 1779412077404,
+        "combinedOdds": 2.61,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          }
+        ],
+        "payout": 99
+      },
+      {
+        "id": "t1779412088139-mlkw",
+        "user": "ricle",
+        "amount": 550,
+        "status": "won",
+        "createdAt": 1779412088139,
+        "combinedOdds": 2.61,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          }
+        ],
+        "payout": 1436
+      },
+      {
+        "id": "t1779411907567-to14",
+        "user": "jucamelero",
+        "amount": 300,
+        "status": "lost",
+        "createdAt": 1779411907567,
+        "combinedOdds": 1.46,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.46,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      }
+    ],
+    "teamPlayers": {
+      "bane": "bane",
+      "mohamed": "mohamed",
+      "potato": "potato",
+      "magreza": "magreza",
+      "celin": "celin",
+      "juca": "jucamelero",
+      "caco": "caco",
+      "vitinho": "vitinho"
+    },
+    "interests": {
+      "mk": {
+        "mohamed": {
+          "at": 1779668372789
+        },
+        "spider": {
+          "at": 1779675309198
+        }
+      },
+      "lol": {
+        "spider": {
+          "at": 1779675315698
+        }
+      },
+      "gwyf": {
+        "spider": {
+          "at": 1779675322654
+        }
+      }
+    }
+  },
+  "classificacao": {
+    "currentRound": 5,
+    "rounds": [
+      [
+        {
+          "home": "vitinho",
+          "away": "mohamed",
+          "day": "SEG",
+          "date": "11/05",
+          "time": "21:00",
+          "gh": "4",
+          "ga": "3"
+        },
+        {
+          "home": "potato",
+          "away": "bane",
+          "day": "SEG",
+          "date": "11/05",
+          "time": "21:30",
+          "gh": "3",
+          "ga": "0"
+        },
+        {
+          "home": "caco",
+          "away": "juca",
+          "day": "SEG",
+          "date": "11/05",
+          "time": "22:00",
+          "gh": "2",
+          "ga": "6"
+        },
+        {
+          "home": "magreza",
+          "away": "celin",
+          "day": "SEG",
+          "date": "11/05",
+          "time": "22:30",
+          "gh": "1",
+          "ga": "2"
+        }
+      ],
+      [
+        {
+          "home": "mohamed",
+          "away": "juca",
+          "day": "SEG",
+          "date": "11/05",
+          "time": "23:00",
+          "gh": "0",
+          "ga": "8"
+        },
+        {
+          "home": "potato",
+          "away": "magreza",
+          "day": "TER",
+          "date": "12/05",
+          "time": "21:30",
+          "gh": "2",
+          "ga": "2"
+        },
+        {
+          "home": "vitinho",
+          "away": "bane",
+          "day": "TER",
+          "date": "12/05",
+          "time": "22:00",
+          "gh": "1",
+          "ga": "1"
+        },
+        {
+          "home": "celin",
+          "away": "caco",
+          "day": "TER",
+          "date": "12/05",
+          "time": "22:30",
+          "gh": "1",
+          "ga": "3"
+        }
+      ],
+      [
+        {
+          "home": "vitinho",
+          "away": "magreza",
+          "day": "SEG",
+          "date": "18/05",
+          "time": "21:00",
+          "gh": "0",
+          "ga": "5"
+        },
+        {
+          "home": "bane",
+          "away": "juca",
+          "day": "TER",
+          "date": "18/05",
+          "time": "21:30",
+          "gh": "0",
+          "ga": "7"
+        },
+        {
+          "home": "potato",
+          "away": "celin",
+          "day": "QUA",
+          "date": "18/05",
+          "time": "22:00",
+          "gh": "4",
+          "ga": "2"
+        },
+        {
+          "home": "caco",
+          "away": "mohamed",
+          "day": "QUI",
+          "date": "18/05",
+          "time": "22:30",
+          "gh": "4",
+          "ga": "0"
+        }
+      ],
+      [
+        {
+          "home": "mohamed",
+          "away": "bane",
+          "day": "SEG",
+          "date": "25/06",
+          "time": "21:00",
+          "gh": "1",
+          "ga": "6"
+        },
+        {
+          "home": "celin",
+          "away": "vitinho",
+          "day": "TER",
+          "date": "25/06",
+          "time": "21:30",
+          "gh": "4",
+          "ga": "2"
+        },
+        {
+          "home": "juca",
+          "away": "potato",
+          "day": "QUA",
+          "date": "25/06",
+          "time": "22:00",
+          "gh": "8",
+          "ga": "0"
+        },
+        {
+          "home": "caco",
+          "away": "magreza",
+          "day": "QUI",
+          "date": "25/06",
+          "time": "22:30",
+          "gh": "5",
+          "ga": "4",
+          "locked": true
+        }
+      ],
+      [
+        {
+          "home": "juca",
+          "away": "vitinho",
+          "day": "SEG",
+          "date": "25/06",
+          "time": "21:00",
+          "gh": "5",
+          "ga": "0",
+          "locked": true
+        },
+        {
+          "home": "potato",
+          "away": "caco",
+          "day": "TER",
+          "date": "25/06",
+          "time": "21:30",
+          "gh": "4",
+          "ga": "1",
+          "locked": true
+        },
+        {
+          "home": "magreza",
+          "away": "bane",
+          "day": "QUA",
+          "date": "25/06",
+          "time": "21:00",
+          "gh": "5",
+          "ga": "2",
+          "locked": true
+        },
+        {
+          "home": "celin",
+          "away": "mohamed",
+          "day": "QUI",
+          "date": "25/06",
+          "time": "21:30",
+          "gh": "9",
+          "ga": "2",
+          "locked": true
+        }
+      ],
+      [
+        {
+          "home": "bane",
+          "away": "caco",
+          "day": "SEG",
+          "date": "08/06",
+          "time": "21:00",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "celin",
+          "away": "juca",
+          "day": "TER",
+          "date": "09/06",
+          "time": "21:30",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "magreza",
+          "away": "mohamed",
+          "day": "QUA",
+          "date": "10/06",
+          "time": "21:00",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "potato",
+          "away": "vitinho",
+          "day": "QUI",
+          "date": "11/06",
+          "time": "21:30",
+          "gh": "7",
+          "ga": "3",
+          "locked": true
+        }
+      ],
+      [
+        {
+          "home": "juca",
+          "away": "magreza",
+          "day": "SEG",
+          "date": "15/06",
+          "time": "21:00",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "caco",
+          "away": "vitinho",
+          "day": "TER",
+          "date": "16/06",
+          "time": "21:30",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "celin",
+          "away": "bane",
+          "day": "QUA",
+          "date": "17/06",
+          "time": "21:00",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "mohamed",
+          "away": "potato",
+          "day": "QUI",
+          "date": "18/06",
+          "time": "21:30",
+          "gh": "",
+          "ga": ""
+        }
+      ]
+    ]
+  }
+}
