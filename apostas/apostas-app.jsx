@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260525-apostar-ux ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260525-apostar-ux2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1549,9 +1549,32 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
     .slice()
     .sort((a, b) => a.round - b.round || a.gi - b.gi);
 
-  // Agrupa por rodada pra renderizar uma seção por rodada (mais escaneável
-  // que uma lista única de 28+ jogos).
-  const byRound = open.reduce((acc, g) => {
+  // Lista de rodadas com jogos em aberto (pra montar os chips de filtro).
+  const allRoundsWithGames = Array.from(new Set(open.map(g => g.round))).sort((a, b) => a - b);
+  const firstRound = allRoundsWithGames[0]; // "próxima rodada"
+
+  // FILTRO: 'all' | 'mine' | 'rN'
+  const [filter, setFilter] = useState('all');
+
+  // ROUND EXPANSION: por padrão SÓ a próxima rodada (firstRound) começa
+  // expandida. Estado guarda override explícito (true/false) pra cada rodada.
+  const [explicitExp, setExplicitExp] = useState({});
+  const isExpanded = (rn) => (rn in explicitExp ? explicitExp[rn] : rn === firstRound);
+  const toggleRound = (rn) => setExplicitExp(s => ({ ...s, [rn]: !isExpanded(rn) }));
+
+  // Aplica filtro
+  const filtered = (() => {
+    if (filter === 'all') return open;
+    if (filter === 'mine') return open.filter(g => slip.some(s => s.fixtureId === g.id));
+    if (filter.startsWith('r')) {
+      const r = +filter.slice(1);
+      return open.filter(g => g.round === r);
+    }
+    return open;
+  })();
+
+  // Reagrupa filtrado por rodada
+  const byRound = filtered.reduce((acc, g) => {
     (acc[g.round] = acc[g.round] || []).push(g);
     return acc;
   }, {});
@@ -1560,10 +1583,17 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
   const days = Math.floor(weeklyIn / (24 * 60 * 60 * 1000));
   const hrs  = Math.floor((weeklyIn % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
 
-  // Stats rápidas
+  // Stats rápidas (sempre sobre todos os abertos, não filtrados)
   const totalGames = open.length;
   const lockedCount = (games || []).filter(g => g.locked).length;
   const myPicksInSlip = slip.length;
+  const myGamesCount = open.filter(g => slip.some(s => s.fixtureId === g.id)).length;
+
+  // FAB scroll-to-cupom no mobile
+  const scrollToCupom = () => {
+    const el = document.getElementById('cupom-anchor');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
     <div className="grid">
@@ -1587,7 +1617,7 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
             <div className="apostar-header-stats">
               <span><strong>{totalGames}</strong> em aberto</span>
               <span>·</span>
-              <span><strong>{rounds.length}</strong> rodada{rounds.length === 1 ? '' : 's'}</span>
+              <span><strong>{allRoundsWithGames.length}</strong> rodada{allRoundsWithGames.length === 1 ? '' : 's'}</span>
               {!isAdmin && myPicksInSlip > 0 && (
                 <>
                   <span>·</span>
@@ -1604,7 +1634,33 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
           </div>
         </div>
 
-        {/* Jogos agrupados por rodada */}
+        {/* Chips de filtro */}
+        {totalGames > 0 && (
+          <div className="filter-chips">
+            <button className={'chip ' + (filter === 'all' ? 'active' : '')} onClick={() => setFilter('all')}>
+              TODOS · {totalGames}
+            </button>
+            {!isAdmin && (
+              <button
+                className={'chip ' + (filter === 'mine' ? 'active' : '')}
+                onClick={() => setFilter('mine')}
+                disabled={myGamesCount === 0}
+              >
+                MEUS PALPITES · {myGamesCount}
+              </button>
+            )}
+            {allRoundsWithGames.map(r => (
+              <button key={r}
+                      className={'chip ' + (filter === 'r' + r ? 'active' : '') + (r === firstRound ? ' chip-next' : '')}
+                      onClick={() => setFilter('r' + r)}>
+                R{String(r).padStart(2, '0')}
+                {r === firstRound && <span className="chip-next-tag">PRÓXIMA</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Jogos agrupados por rodada (filtrados) */}
         {totalGames === 0 ? (
           <div className="card">
             <div className="card-body">
@@ -1614,25 +1670,58 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
               </div>
             </div>
           </div>
-        ) : (
-          rounds.map(rn => (
-            <div key={rn} className="card round-card">
-              <div className="card-head">
-                <div className="title">RODADA {String(rn).padStart(2, '0')}</div>
-                <div className="sub">{byRound[rn].length} JOGO{byRound[rn].length === 1 ? '' : 'S'}</div>
-              </div>
-              <div className="card-body">
-                {byRound[rn].map(g => (
-                  <GameRow key={g.id} game={g} slip={slip} onToggleLeg={onToggleLeg} canBet={!isAdmin}
-                           isAdmin={isAdmin} onToggleLock={() => onToggleLock(g.ri, g.gi)} />
-                ))}
+        ) : rounds.length === 0 ? (
+          <div className="card">
+            <div className="card-body">
+              <div className="empty">
+                <div className="e1">NADA POR AQUI</div>
+                <div className="e2">Nenhum jogo bate com esse filtro.</div>
               </div>
             </div>
-          ))
+          </div>
+        ) : (
+          rounds.map(rn => {
+            const expanded = isExpanded(rn);
+            const isNext = rn === firstRound;
+            return (
+              <div key={rn} className={'card round-card' + (isNext ? ' round-card-next' : '')}>
+                <button
+                  type="button"
+                  onClick={() => toggleRound(rn)}
+                  className="round-card-head"
+                  aria-expanded={expanded}
+                >
+                  <div>
+                    <div className="title">
+                      RODADA {String(rn).padStart(2, '0')}
+                      {isNext && <span className="round-next-tag">PRÓXIMA</span>}
+                    </div>
+                    <div className="sub">
+                      {byRound[rn].length} JOGO{byRound[rn].length === 1 ? '' : 'S'}
+                      {(() => {
+                        const here = byRound[rn].filter(g => slip.some(s => s.fixtureId === g.id)).length;
+                        if (here > 0) return ` · ${here} no cupom`;
+                        return '';
+                      })()}
+                    </div>
+                  </div>
+                  <span className="round-chev">{expanded ? '▴' : '▾'}</span>
+                </button>
+                {expanded && (
+                  <div className="card-body">
+                    {byRound[rn].map(g => (
+                      <GameRow key={g.id} game={g} slip={slip} onToggleLeg={onToggleLeg} canBet={!isAdmin}
+                               isAdmin={isAdmin} onToggleLock={() => onToggleLock(g.ri, g.gi)} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
 
-      <aside className="apostar-aside">
+      <aside className="apostar-aside" id="cupom-anchor">
         {!isAdmin && (
           <div className="cupom-sticky">
             <Cupom slip={slip} gamesById={gamesById} balance={me ? me.pc : 0} pruneMsg={slipPruneMsg}
@@ -1640,6 +1729,14 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
           </div>
         )}
       </aside>
+
+      {/* FAB mobile: aparece quando há pernas no slip, scrolla pro cupom */}
+      {!isAdmin && slip.length > 0 && (
+        <button className="cupom-fab" onClick={scrollToCupom} type="button">
+          🎫 <span className="cupom-fab-num">{slip.length}</span>
+          <span className="cupom-fab-label">VER CUPOM</span>
+        </button>
+      )}
     </div>
   );
 }
