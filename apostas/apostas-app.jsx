@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260525-inicio ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260526-edicao08 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1594,6 +1594,57 @@ function Login({ onAuth, isNewNick }) {
 // Feed de notícias / vídeos / atualizações do projeto.
 // Pra adicionar uma notícia nova, é só inserir um objeto no array NEWS.
 const NEWS = [
+  {
+    id: 'edicao-08-escandalo',
+    title: 'ESCÂNDALO EM CAMPO! CELIN MANIPULOU O RESULTADO??',
+    subtitle: 'Juca 4 × 0 Celin · aos 88 min Celin "desaba" e leva 3 gols num lance só. Coincidência ou entregada?',
+    date: '25/05/2026',
+    tag: 'PRIMITIVÃO TIMES · VOL. 08',
+    image: 'news/edicao-08-escandalo.jpg',
+    body: (
+      <>
+        <p>
+          Edição especial do <strong>Primitivão Times</strong> com tudo o que
+          tá rolando na temporada:
+        </p>
+        <ul>
+          <li>⚠️ <strong>Celin manipulou?</strong> Segurou o jogo a tarde inteira pra não tomar gol — aos 88 min levou 3 e fechou Juca 4 × 0 Celin. <em>"Coincidência ou entregada?"</em></li>
+          <li>💀 <strong>Mohamed alcança −33 SG</strong> após derrota amarga contra o Magreza. 0 vitórias, 6 derrotas. Vai encerrar com −50?</li>
+          <li>🔥 <strong>Juca on fire!</strong> 4 jogos, 4 goleadas, 100% de zoeira.</li>
+          <li>📚 <strong>Magreza em modo carreira:</strong> nem piedade, nem desculpa.</li>
+          <li>🎯 <strong>Comissão do VARIMITIVÃO</strong> de plantão: <em>"errou de novo? não foi erro, foi intenção!"</em></li>
+          <li>📰 <strong>Futmercado bombando</strong> — rumores, trocas e negociações de padaria.</li>
+          <li>🏆 <strong>Próximo jogo:</strong> BANE × CACO. Dois títulos, um destino.</li>
+        </ul>
+        <p>
+          Acompanha tudo na aba <strong>CAMPEONATOS → FIFA</strong> — classificação,
+          jogos abertos e o Hall da Vergonha em tempo real.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'bonus-semanal',
+    title: '+500 PC NA CONTA, MEU FILHO!',
+    subtitle: 'O xamã liberou o cofre — não esquece de checar antes da rodada.',
+    date: '22/05/2026',
+    tag: 'PROMO',
+    image: 'news/bonus-semanal.jpg',
+    body: (
+      <>
+        <p>
+          Todo dia <strong>segunda-feira às 10h da manhã (BRT)</strong> o cofre
+          do xamã se abre e libera <strong>500 PC de graça</strong> pra cada
+          jogador. É só clicar no chip <strong>+500 PC RECLAMAR</strong> que
+          aparece lá no topo da página, ao lado do seu saldo.
+        </p>
+        <p>
+          Não perdeu? Confere também o site toda segunda — quem não reclama
+          fica de fora até a próxima.
+        </p>
+      </>
+    ),
+  },
   {
     id: 'primitivao-resiste',
     title: 'PRIMITIVÃO RESISTE!',
