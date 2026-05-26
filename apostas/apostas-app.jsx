@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260526-edicao08 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260526-comments ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -210,20 +210,24 @@ async function downloadFullBackup() {
     // (interests dentro de json) pra retrocompat.
     const rawApostas = betSnap.exists ? betSnap.data() : {};
     const topLevelInterests = rawApostas.interests;
+    const topLevelComments  = rawApostas.comments;
     const apostasData = apostas.data ? { ...apostas.data } : null;
     if (apostasData) {
       apostasData.interests = (topLevelInterests && typeof topLevelInterests === 'object')
         ? topLevelInterests
         : (apostasData.interests || {});
+      apostasData.comments = (topLevelComments && typeof topLevelComments === 'object')
+        ? topLevelComments
+        : (apostasData.comments || {});
     }
     const payload = {
       exportedAt: new Date().toISOString(),
-      version: 3,
+      version: 4,
       source: 'browser-admin',
       apostas:       apostasData,
       classificacao: classificacao.data,
       // metadados crus pra nunca perder dado mesmo se o parse falhar.
-      _raw: { apostas, classificacao, topLevelInterests },
+      _raw: { apostas, classificacao, topLevelInterests, topLevelComments },
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -265,12 +269,13 @@ async function restoreFromBackup(payload) {
   try {
     const writes = [];
     if (apostas != null) {
-      // Separa interests do resto: gravamos como campo top-level pra não
-      // competir com outras escritas (race condition).
-      const { interests, ...rest } = apostas;
+      // Separa interests + comments do resto: gravamos como campos top-level
+      // pra não competir com outras escritas (race condition).
+      const { interests, comments, ...rest } = apostas;
       writes.push(BET_DOC().set({
         json: JSON.stringify(rest),
         interests: (interests && typeof interests === 'object') ? interests : {},
+        comments:  (comments  && typeof comments  === 'object') ? comments  : {},
         updatedAt: Date.now(),
       }));
     }
@@ -311,6 +316,7 @@ async function wipeAllData() {
       BET_DOC().set({
         json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], teamPlayers: {} }),
         interests: {}, // campo top-level — separado do json
+        comments:  {}, // campo top-level — separado do json
         updatedAt: Date.now(),
       }),
       CLASSIF_DOC().set({
@@ -586,8 +592,8 @@ function TeamMini({ team, size = 36 }) {
 
 // ─── APP ────────────────────────────────────────────────────────────────────
 function App() {
-  const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {} });
-  const { users, fixtures, bets, interests, teamPlayers } = shared;
+  const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {}, comments: {} });
+  const { users, fixtures, bets, interests, teamPlayers, comments } = shared;
 
   // cs: classificação compartilhada via primitivao/state. State é mantido no App
   // (e não em ClassificacaoView) para que: (a) ApostarView possa derivar jogos +
@@ -623,8 +629,8 @@ function App() {
       try {
         const docData = snap.data();
         const remote = JSON.parse(docData.json);
-        // interests agora é campo TOP-LEVEL pra não sofrer race com outras
-        // escritas no json. Mantém fallback pra docs antigos.
+        // interests/comments agora são campos TOP-LEVEL pra não sofrer race
+        // com outras escritas no json. Mantém fallback pra docs antigos.
         const topInterests = docData.interests;
         let interests;
         let needsMigration = false;
@@ -636,12 +642,15 @@ function App() {
         } else {
           interests = {};
         }
+        const topComments = docData.comments;
+        const comments = (topComments && typeof topComments === 'object') ? topComments : {};
         isApplyingRemoteRef.current = true;
         setShared({
           users:        remote.users && typeof remote.users === 'object' ? remote.users : {},
           fixtures:     Array.isArray(remote.fixtures) ? remote.fixtures.map(normFixture) : DEFAULT_FIXTURES,
           bets:         Array.isArray(remote.bets) ? remote.bets.map(normBet) : [],
           interests,
+          comments,
           teamPlayers:  remote.teamPlayers && typeof remote.teamPlayers === 'object' ? remote.teamPlayers : {},
         });
         hasLoadedRef.current = true; setSynced(true);
@@ -666,7 +675,7 @@ function App() {
       // Write-back transacional: lê remote, faz MERGE com local (campo a
       // campo, vide mergeBetDocFields), grava resultado. Protege contra
       // outras tabs sobrescreverem campos que esta tab não modificou.
-      const { interests: _drop, ...localNoInterests } = shared;
+      const { interests: _drop1, comments: _drop2, ...localNoInterests } = shared;
       commitBetDocUpdate(remote => ({
         next: mergeBetDocFields(remote, localNoInterests),
       })).catch(e => console.warn('Firestore write failed', e));
@@ -1042,6 +1051,63 @@ function App() {
     }
   };
 
+  // ── COMENTÁRIOS NAS NOTÍCIAS ──────────────────────────────────────────────
+  // Mesmo padrão de interests: campo top-level no doc, atualizado via
+  // transação atômica. Estrutura: comments[newsId] = [{ id, nick, text, at }]
+  const addComment = async (newsId, text) => {
+    if (!session || !session.nick) return;
+    const nick = session.nick;
+    const clean = String(text || '').trim().slice(0, 500);
+    if (!clean) return;
+    const newComment = {
+      id: 'c' + Date.now() + Math.random().toString(36).slice(2, 6),
+      nick, text: clean, at: Date.now(),
+    };
+    const ref = BET_DOC();
+    let newMap = null;
+    try {
+      await window.db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const cur = (snap.exists && snap.data().comments && typeof snap.data().comments === 'object')
+          ? snap.data().comments : {};
+        const list = Array.isArray(cur[newsId]) ? cur[newsId] : [];
+        const next = { ...cur, [newsId]: [...list, newComment] };
+        newMap = next;
+        tx.set(ref, { comments: next, updatedAt: Date.now() }, { merge: true });
+      });
+      if (newMap) setShared(s => ({ ...s, comments: newMap }));
+    } catch (e) {
+      console.warn('addComment failed', e);
+      throw e;
+    }
+  };
+
+  const deleteComment = async (newsId, commentId) => {
+    if (!session || !session.nick) return;
+    const ref = BET_DOC();
+    let newMap = null;
+    try {
+      await window.db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const cur = (snap.exists && snap.data().comments && typeof snap.data().comments === 'object')
+          ? snap.data().comments : {};
+        const list = Array.isArray(cur[newsId]) ? cur[newsId] : [];
+        const target = list.find(c => c.id === commentId);
+        if (!target) return; // sumiu
+        // Só admin ou autor pode deletar
+        if (target.nick !== session.nick && session.nick !== ADMIN_NICK) return;
+        const filtered = list.filter(c => c.id !== commentId);
+        const next = { ...cur, [newsId]: filtered };
+        newMap = next;
+        tx.set(ref, { comments: next, updatedAt: Date.now() }, { merge: true });
+      });
+      if (newMap) setShared(s => ({ ...s, comments: newMap }));
+    } catch (e) {
+      console.warn('deleteComment failed', e);
+      throw e;
+    }
+  };
+
   // Vincula um nick a um teamId via transação (cada nick = um time).
   const setTeamPlayer = async (teamId, nick) => {
     const cleaned = (nick || '').trim().toLowerCase();
@@ -1156,7 +1222,13 @@ function App() {
         {view === 'inicio' && (
           <div className="content-area">
             <div className="page">
-              <InicioView />
+              <InicioView
+                session={session}
+                isAdmin={isAdmin}
+                comments={comments || {}}
+                onAdd={addComment}
+                onDelete={deleteComment}
+              />
             </div>
           </div>
         )}
@@ -1702,7 +1774,7 @@ const NEWS = [
   },
 ];
 
-function InicioView() {
+function InicioView({ session, isAdmin, comments, onAdd, onDelete }) {
   return (
     <div className="inicio-feed">
       <div className="inicio-hero">
@@ -1727,6 +1799,14 @@ function InicioView() {
             <p className="news-subtitle">{n.subtitle}</p>
             <div className="news-text">{n.body}</div>
           </div>
+          <Comments
+            newsId={n.id}
+            list={Array.isArray((comments || {})[n.id]) ? comments[n.id] : []}
+            sessionNick={session?.nick}
+            isAdmin={isAdmin}
+            onAdd={onAdd}
+            onDelete={onDelete}
+          />
         </article>
       ))}
       <div className="inicio-foot">
@@ -1734,6 +1814,117 @@ function InicioView() {
       </div>
     </div>
   );
+}
+
+function Comments({ newsId, list, sessionNick, isAdmin, onAdd, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const count = list.length;
+  const sorted = list.slice().sort((a, b) => (b.at || 0) - (a.at || 0)); // mais recente primeiro
+
+  const handleSend = async () => {
+    if (busy) return;
+    const clean = text.trim();
+    if (!clean) return;
+    setBusy(true); setErr('');
+    try {
+      await onAdd(newsId, clean);
+      setText('');
+    } catch (e) {
+      setErr('Não consegui enviar. Tenta de novo.');
+    } finally { setBusy(false); }
+  };
+
+  const handleDel = async (commentId) => {
+    if (!confirm('Apagar esse comentário?')) return;
+    try { await onDelete(newsId, commentId); }
+    catch (e) { console.warn(e); }
+  };
+
+  return (
+    <div className="comments-section">
+      <button
+        type="button"
+        className="comments-toggle"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+      >
+        💬 {open ? 'OCULTAR COMENTÁRIOS' : 'VER COMENTÁRIOS'} · {count}
+        <span className="comments-chev">{open ? '▴' : '▾'}</span>
+      </button>
+      {open && (
+        <div className="comments-body">
+          {sessionNick && (
+            <div className="comment-form">
+              <textarea
+                className="comment-input"
+                placeholder={`Comentar como @${sessionNick}…`}
+                value={text}
+                onChange={e => setText(e.target.value)}
+                maxLength={500}
+                rows={2}
+                disabled={busy}
+              />
+              <div className="comment-form-row">
+                <span className="comment-counter">{text.length}/500</span>
+                <button
+                  className="comment-send"
+                  disabled={busy || !text.trim()}
+                  onClick={handleSend}
+                >
+                  {busy ? 'ENVIANDO…' : 'ENVIAR'}
+                </button>
+              </div>
+              {err && <div className="comment-err">{err}</div>}
+            </div>
+          )}
+          {sorted.length === 0 && (
+            <div className="comments-empty">
+              Ninguém comentou ainda. Seja o primeiro 🎯
+            </div>
+          )}
+          {sorted.map(c => {
+            const canDel = c.nick === sessionNick || isAdmin;
+            const when = formatCommentTime(c.at);
+            return (
+              <div key={c.id} className="comment">
+                <div className="comment-head">
+                  <span className="comment-nick">@{c.nick}</span>
+                  <span className="comment-when">{when}</span>
+                  {canDel && (
+                    <button
+                      className="comment-del"
+                      title="Apagar"
+                      onClick={() => handleDel(c.id)}
+                    >✕</button>
+                  )}
+                </div>
+                <div className="comment-text">{c.text}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatCommentTime(ts) {
+  if (!ts) return '';
+  const diff = Date.now() - ts;
+  const min = Math.floor(diff / 60000);
+  if (min < 1)   return 'agora';
+  if (min < 60)  return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24)    return `há ${h}h`;
+  const d = Math.floor(h / 24);
+  if (d < 7)     return `há ${d}d`;
+  // mais de 7 dias: data
+  const dt = new Date(ts);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}`;
 }
 
 function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, weeklyIn, onClaim,

@@ -150,6 +150,100 @@
       font-size: 12px; color: rgba(28,22,18,0.5);
       letter-spacing: 0.12em; font-weight: 700;
     }
+
+    /* Comentários (uma seção embaixo de cada news-card) */
+    .comments-section { border-top: 2px dashed rgba(28,22,18,0.15); }
+    .comments-toggle {
+      width: 100%;
+      padding: 12px 24px;
+      background: transparent; border: none;
+      font-family: inherit; font-weight: 800;
+      font-size: 11px; letter-spacing: 0.18em;
+      color: var(--pv-charcoal);
+      cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+      text-align: left;
+    }
+    .comments-toggle:hover { background: rgba(215,100,20,0.06); }
+    .comments-chev { margin-left: auto; color: var(--pv-orange); font-size: 14px; }
+    .comments-body {
+      padding: 12px 24px 20px;
+      background: rgba(28,22,18,0.02);
+    }
+    .comment-form { margin-bottom: 16px; }
+    .comment-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--pv-bone);
+      border: 2px solid var(--pv-charcoal);
+      font-family: inherit; font-size: 13px;
+      font-weight: 600;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    .comment-input:focus { outline: none; border-color: var(--pv-orange); }
+    .comment-form-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 6px;
+    }
+    .comment-counter {
+      font-size: 10px; color: rgba(28,22,18,0.5);
+      letter-spacing: 0.08em; font-weight: 700;
+    }
+    .comment-send {
+      padding: 6px 16px;
+      background: var(--pv-orange); color: var(--pv-bone);
+      border: 2px solid var(--pv-charcoal);
+      font-family: inherit; font-weight: 800;
+      letter-spacing: 0.14em; font-size: 11px;
+      cursor: pointer;
+    }
+    .comment-send:disabled { opacity: 0.4; cursor: not-allowed; }
+    .comment-err {
+      margin-top: 6px;
+      color: var(--pv-red, #c33); font-size: 11px; font-weight: 700;
+    }
+    .comments-empty {
+      padding: 16px; text-align: center;
+      color: rgba(28,22,18,0.5);
+      font-size: 12px; font-weight: 600;
+      border: 2px dashed rgba(28,22,18,0.18);
+    }
+    .comment {
+      padding: 10px 12px;
+      background: var(--pv-bone);
+      border-left: 3px solid var(--pv-orange);
+      margin-bottom: 8px;
+    }
+    .comment-head {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 4px;
+    }
+    .comment-nick {
+      font-weight: 800; font-size: 12px; letter-spacing: 0.04em;
+      color: var(--pv-orange);
+    }
+    .comment-when {
+      font-size: 10px; color: rgba(28,22,18,0.5);
+      letter-spacing: 0.06em; font-weight: 700;
+    }
+    .comment-del {
+      margin-left: auto;
+      background: transparent; color: rgba(28,22,18,0.4);
+      border: 1px solid rgba(28,22,18,0.25);
+      width: 22px; height: 22px;
+      font-weight: 800; font-size: 11px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .comment-del:hover {
+      color: var(--pv-red, #c33);
+      border-color: var(--pv-red, #c33);
+    }
+    .comment-text {
+      font-size: 13px; line-height: 1.45;
+      white-space: pre-wrap; word-wrap: break-word;
+    }
     .pc-pill {
       background: var(--pv-orange); color: var(--pv-charcoal);
       padding: 6px 14px 6px 10px;
@@ -1012,6 +1106,6 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
   <!-- Bump o ?v= a cada deploy importante pra forçar tabs antigos a recarregar. -->
-  <script type="text/babel" src="apostas-app.jsx?v=20260526-edicao08"></script>
+  <script type="text/babel" src="apostas-app.jsx?v=20260526-comments"></script>
 </body>
 </html>
