@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260527-copa-grupos ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260527-fix-parse ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -239,6 +239,16 @@ function resolveWcSlot(rawSlot, standingsByGroup) {
 }
 
 function scoreWcPick(real, pick) {
+  if (!real || !pick) return 0;
+  const rgh = parseInt(real.gh, 10), rga = parseInt(real.ga, 10);
+  const pgh = parseInt(pick.gh, 10), pga = parseInt(pick.ga, 10);
+  if ([rgh, rga, pgh, pga].some(Number.isNaN)) return 0;
+  if (rgh === pgh && rga === pga) return 3; // placar exato
+  const r = rgh > rga ? 'H' : rgh < rga ? 'A' : 'D';
+  const p = pgh > pga ? 'H' : pgh < pga ? 'A' : 'D';
+  if (r === p) return 1; // só o resultado
+  return 0;
+}
 const CHAMP_BY_ID = Object.fromEntries(CHAMPIONSHIPS.map(c => [c.id, c]));
 
 const START_PC = 50;
