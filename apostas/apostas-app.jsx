@@ -36,7 +36,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260527-secure-hash ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260527-discord-news ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -823,6 +823,57 @@ function TeamMini({ team, size = 36 }) {
 }
 
 // ─── APP ────────────────────────────────────────────────────────────────────
+// ─── DISCORD WEBHOOK ────────────────────────────────────────────────────────
+// Posta uma mensagem no canal do Discord configurado em `discord_webhook`
+// (top-level field do doc do Firestore). Retorna { ok, err? }.
+//
+// O admin configura a URL pelo painel ADMIN → DISCORD. Se a URL não estiver
+// setada, o helper retorna ok:false sem fazer fetch.
+async function postToDiscord(webhookUrl, content, extras) {
+  if (!webhookUrl || !webhookUrl.startsWith('https://discord.com/api/webhooks/')) {
+    return { ok: false, err: 'webhook não configurado ou URL inválida' };
+  }
+  try {
+    const body = { content: String(content || '').slice(0, 1900) };
+    if (extras && extras.embeds) body.embeds = extras.embeds;
+    if (extras && extras.username) body.username = extras.username;
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      return { ok: false, err: `HTTP ${res.status} ${txt.slice(0, 200)}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, err: String(e.message || e) };
+  }
+}
+
+// Atualiza URL do webhook no Firestore (admin only — sem checagem aqui,
+// a UI quem garante).
+async function saveDiscordWebhook(url) {
+  await BET_DOC().set({ discord_webhook: String(url || '') }, { merge: true });
+}
+
+// ─── NEWS REMOTAS ───────────────────────────────────────────────────────────
+async function saveRemoteNews(newsArray) {
+  // grava como top-level field; passa por validação simples
+  const clean = (Array.isArray(newsArray) ? newsArray : []).map(n => ({
+    id:       String(n.id || ''),
+    title:    String(n.title || ''),
+    subtitle: String(n.subtitle || ''),
+    date:     String(n.date || ''),
+    tag:      String(n.tag || ''),
+    image:    String(n.image || ''),
+    body:     String(n.body || ''),
+    at:       Number(n.at) || Date.now(),
+  })).filter(n => n.id && n.title);
+  await BET_DOC().set({ news: clean }, { merge: true });
+}
+
 function App() {
   const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {}, comments: {}, worldcup: { results: {}, picks: {} } });
   const { users, fixtures, bets, interests, teamPlayers, comments, worldcup } = shared;
@@ -847,6 +898,10 @@ function App() {
 
   // Dados estáticos da Copa do Mundo 2026 (carregados de JSON).
   const [wcData, setWcData] = useState({ matches: [], teamsByName: {} });
+  // Discord webhook URL (admin configura no painel) + lista remota de news.
+  // `remoteNews === null` → não tem nada no Firestore, usa o array hardcoded NEWS.
+  const [discordWebhook, setDiscordWebhook] = useState('');
+  const [remoteNews, setRemoteNews] = useState(null);
   useEffect(() => {
     let cancelled = false;
     Promise.all([
@@ -899,6 +954,10 @@ function App() {
         const worldcup = (topWc && typeof topWc === 'object')
           ? { results: topWc.results || {}, picks: topWc.picks || {} }
           : { results: {}, picks: {} };
+        // Discord webhook URL e lista de news também são top-level
+        // (admin atualiza via painel; toda tab recebe via snapshot).
+        setDiscordWebhook(typeof docData.discord_webhook === 'string' ? docData.discord_webhook : '');
+        setRemoteNews(Array.isArray(docData.news) ? docData.news : null);
         isApplyingRemoteRef.current = true;
         setShared({
           users:        remote.users && typeof remote.users === 'object' ? remote.users : {},
@@ -1572,6 +1631,7 @@ function App() {
                 comments={comments || {}}
                 onAdd={addComment}
                 onDelete={deleteComment}
+                remoteNews={remoteNews}
               />
             </div>
           </div>
@@ -1658,6 +1718,7 @@ function App() {
           <AdminView
             bets={bets} users={users} adjustPc={adjustPc}
             teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
+            discordWebhook={discordWebhook} remoteNews={remoteNews}
           />
         )}
           </div>
@@ -3018,7 +3079,12 @@ function CopaRanking({ users, fixtures, results, picks, myNick }) {
   );
 }
 
-function InicioView({ session, isAdmin, comments, onAdd, onDelete }) {
+function InicioView({ session, isAdmin, comments, onAdd, onDelete, remoteNews }) {
+  // Se admin já configurou news pelo painel, usa elas. Senão, cai no array
+  // hardcoded NEWS (que tem JSX no body). Posts do admin têm `body` como
+  // string com quebras de linha — renderizamos via <NewsBodyText>.
+  const usingRemote = Array.isArray(remoteNews) && remoteNews.length > 0;
+  const newsToShow = usingRemote ? remoteNews : NEWS;
   return (
     <div className="inicio-feed">
       <div className="inicio-hero">
@@ -3026,7 +3092,7 @@ function InicioView({ session, isAdmin, comments, onAdd, onDelete }) {
         <div className="inicio-hero-title">NOTÍCIAS DO PRIMITIVÃO</div>
         <div className="inicio-hero-sub">Atualizações, gols, momentos memoráveis e o estado do campeonato.</div>
       </div>
-      {NEWS.map(n => (
+      {newsToShow.map(n => (
         <article key={n.id} className="news-card">
           <header className="news-card-head">
             <span className="news-tag">{n.tag}</span>
@@ -3041,7 +3107,9 @@ function InicioView({ session, isAdmin, comments, onAdd, onDelete }) {
           <div className="news-body">
             <h2 className="news-title">{n.title}</h2>
             <p className="news-subtitle">{n.subtitle}</p>
-            <div className="news-text">{n.body}</div>
+            <div className="news-text">
+              {typeof n.body === 'string' ? <NewsBodyText text={n.body} /> : n.body}
+            </div>
           </div>
           <Comments
             newsId={n.id}
@@ -3058,6 +3126,24 @@ function InicioView({ session, isAdmin, comments, onAdd, onDelete }) {
       </div>
     </div>
   );
+}
+
+// Renderiza corpo de notícia em texto puro (do admin), respeitando quebras
+// de linha duplas como parágrafos e simples como <br/>. Sem HTML/markdown
+// — texto literal pra não abrir XSS via input do admin.
+function NewsBodyText({ text }) {
+  if (!text) return null;
+  const paragraphs = String(text).split(/\n\s*\n/);
+  return paragraphs.map((p, i) => (
+    <p key={i}>
+      {p.split('\n').map((ln, j, arr) => (
+        <React.Fragment key={j}>
+          {ln}
+          {j < arr.length - 1 && <br />}
+        </React.Fragment>
+      ))}
+    </p>
+  ));
 }
 
 function Comments({ newsId, list, sessionNick, isAdmin, onAdd, onDelete }) {
@@ -4375,9 +4461,233 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers }) {
 }
 
 // ─── ADMIN ──────────────────────────────────────────────────────────────────
-function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer }) {
-  // Tabs do admin: USUÁRIOS / TIMES / BACKUP / PERIGO. PERIGO ficou em aba
-  // separada pra não ser clicado por engano achando que era backup.
+// ─── ADMIN: DISCORD PANEL ──────────────────────────────────────────────────
+function DiscordAdminPanel({ webhook }) {
+  const [url, setUrl] = useState(webhook || '');
+  const [savedMsg, setSavedMsg] = useState('');
+  const [testMsg, setTestMsg] = useState('');
+  const [customMsg, setCustomMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { setUrl(webhook || ''); }, [webhook]);
+
+  const save = async () => {
+    setBusy(true); setSavedMsg('');
+    try {
+      await saveDiscordWebhook(url.trim());
+      setSavedMsg('URL salva.');
+    } catch (e) {
+      setSavedMsg('Erro: ' + (e.message || e));
+    } finally { setBusy(false); }
+  };
+
+  const test = async () => {
+    setBusy(true); setTestMsg('');
+    const r = await postToDiscord(url.trim(), 'Teste de webhook do Primitivão — se você está vendo isso, funcionou.', { username: 'Primitivão Bot' });
+    setTestMsg(r.ok ? 'Teste enviado.' : 'Falhou: ' + r.err);
+    setBusy(false);
+  };
+
+  const postCustom = async () => {
+    if (!customMsg.trim()) return;
+    setBusy(true); setTestMsg('');
+    const r = await postToDiscord(url.trim(), customMsg, { username: 'Primitivão' });
+    setTestMsg(r.ok ? 'Postado.' : 'Falhou: ' + r.err);
+    if (r.ok) setCustomMsg('');
+    setBusy(false);
+  };
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <div className="title">DISCORD</div>
+        <div className="sub">WEBHOOK + POSTS RÁPIDOS</div>
+      </div>
+      <div className="card-body">
+        <p style={{ marginTop: 0, lineHeight: 1.5 }}>
+          Cole aqui a URL do <strong>webhook do canal do Discord</strong>.
+          Crie em <em>Editar Canal → Integrações → Webhooks → Novo Webhook → Copiar URL</em>.
+          Qualquer mensagem postada usa o nome "Primitivão".
+        </p>
+        <label className="small-label">URL DO WEBHOOK</label>
+        <input
+          type="text"
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          placeholder="https://discord.com/api/webhooks/..."
+          style={{ width: '100%', padding: 10, fontSize: 12, border: '2px solid var(--pv-charcoal)', background: 'var(--pv-bone-2)', fontFamily: 'monospace', marginTop: 6, boxSizing: 'border-box' }}
+        />
+        <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={save} disabled={busy} style={{ background: 'var(--pv-orange)', color: 'var(--pv-bone)', border: 'none', padding: '8px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.14em', cursor: busy ? 'wait' : 'pointer' }}>
+            SALVAR URL
+          </button>
+          <button onClick={test} disabled={busy || !url.trim()} style={{ background: 'transparent', color: 'var(--pv-charcoal)', border: '2px solid var(--pv-charcoal)', padding: '8px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.14em', cursor: busy ? 'wait' : 'pointer' }}>
+            TESTAR
+          </button>
+        </div>
+        {savedMsg && <div style={{ marginTop: 10, fontSize: 12, color: 'var(--pv-green)', fontWeight: 700 }}>{savedMsg}</div>}
+        {testMsg && <div style={{ marginTop: 6, fontSize: 12, color: testMsg.startsWith('Falhou') ? 'var(--pv-red)' : 'var(--pv-green)', fontWeight: 700 }}>{testMsg}</div>}
+
+        <div style={{ marginTop: 22, paddingTop: 14, borderTop: '2px dashed rgba(28,22,18,0.18)' }}>
+          <div className="small-label">POSTAR MENSAGEM CUSTOMIZADA</div>
+          <textarea
+            value={customMsg}
+            onChange={e => setCustomMsg(e.target.value)}
+            placeholder="ex: BÔNUS SEMANAL LIBERADO! Vai lá pegar 500 PC."
+            rows={3}
+            maxLength={1900}
+            style={{ width: '100%', padding: 10, fontSize: 13, border: '2px solid var(--pv-charcoal)', background: 'var(--pv-bone)', fontFamily: 'inherit', marginTop: 6, boxSizing: 'border-box', resize: 'vertical' }}
+          />
+          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 10, color: 'rgba(28,22,18,0.5)', fontWeight: 700, letterSpacing: '0.12em' }}>{customMsg.length}/1900</span>
+            <button onClick={postCustom} disabled={busy || !customMsg.trim() || !url.trim()} style={{ marginLeft: 'auto', background: 'var(--pv-charcoal)', color: 'var(--pv-bone)', border: 'none', padding: '8px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.14em', cursor: busy ? 'wait' : 'pointer' }}>
+              POSTAR
+            </button>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 22, padding: 10, background: 'rgba(215,100,20,0.08)', borderLeft: '4px solid var(--pv-orange)', fontSize: 11, lineHeight: 1.5 }}>
+          <strong>Posts automáticos planejados</strong> (em breve): bônus semanal liberado,
+          fim de campeonato com Hall da Fama/Vergonha, recorde de aposta vencida.
+          Por enquanto: usa o post customizado pra avisos do canal.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ADMIN: NEWS PANEL ──────────────────────────────────────────────────────
+// Edita o array de notícias do INÍCIO. Salva em Firestore top-level `news`.
+// Quando `remoteNews === null` (vazio no Firestore), exporta o array hardcoded
+// `NEWS` como ponto de partida (admin não perde o conteúdo original).
+function NewsAdminPanel({ remoteNews }) {
+  // Estrutura de cada news: { id, title, subtitle, date, tag, image, body, at }
+  // `body` aqui é texto/markdown simples (renderizado com lineBreaks). Se quiser
+  // HTML rico, edita pelo arquivo direto.
+  const seed = remoteNews && remoteNews.length > 0
+    ? remoteNews
+    : NEWS.map(n => ({
+        id: n.id,
+        title: n.title || '',
+        subtitle: n.subtitle || '',
+        date: n.date || '',
+        tag: n.tag || '',
+        image: n.image || '',
+        body: '', // body original era JSX, não dá pra serializar — começa vazio
+        at: Date.now(),
+      }));
+  const [list, setList] = useState(seed);
+  const [editing, setEditing] = useState(null); // id da news em edição
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    if (remoteNews && remoteNews.length > 0) setList(remoteNews);
+  }, [remoteNews]);
+
+  const save = async () => {
+    setBusy(true); setMsg('');
+    try {
+      await saveRemoteNews(list);
+      setMsg('Salvo. Veja em INÍCIO.');
+    } catch (e) {
+      setMsg('Erro: ' + (e.message || e));
+    } finally { setBusy(false); }
+  };
+
+  const updateNews = (id, patch) => setList(list.map(n => n.id === id ? { ...n, ...patch } : n));
+  const removeNews = (id) => setList(list.filter(n => n.id !== id));
+  const addNews = () => {
+    const id = 'n-' + Date.now();
+    setList([{
+      id, title: 'NOVA NOTÍCIA', subtitle: '', date: new Date().toLocaleDateString('pt-BR'),
+      tag: 'ATUALIZAÇÃO', image: '', body: '', at: Date.now(),
+    }, ...list]);
+    setEditing(id);
+  };
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <div className="title">NEWS DO INÍCIO</div>
+        <div className="sub">{list.length} POST{list.length === 1 ? '' : 'S'}</div>
+      </div>
+      <div className="card-body">
+        <p style={{ marginTop: 0, lineHeight: 1.5, fontSize: 13 }}>
+          Edita as notícias que aparecem na aba INÍCIO. Texto do corpo aceita
+          quebras de linha simples (sem HTML). Imagem é o caminho relativo
+          (ex: <code>news/minha-news.jpg</code>) — coloca o arquivo na pasta
+          <code>apostas/news/</code> antes.
+        </p>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+          <button onClick={addNews} style={{ background: 'var(--pv-orange)', color: 'var(--pv-bone)', border: 'none', padding: '8px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.14em', cursor: 'pointer' }}>
+            + NOVA
+          </button>
+          <button onClick={save} disabled={busy} style={{ background: 'var(--pv-charcoal)', color: 'var(--pv-bone)', border: 'none', padding: '8px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.14em', cursor: busy ? 'wait' : 'pointer' }}>
+            {busy ? 'SALVANDO…' : 'SALVAR TUDO'}
+          </button>
+          {msg && <span style={{ alignSelf: 'center', fontSize: 12, color: msg.startsWith('Erro') ? 'var(--pv-red)' : 'var(--pv-green)', fontWeight: 700 }}>{msg}</span>}
+        </div>
+
+        {list.map(n => {
+          const open = editing === n.id;
+          return (
+            <div key={n.id} style={{ border: '2px solid var(--pv-charcoal)', marginBottom: 10, background: 'var(--pv-bone)' }}>
+              <div style={{ padding: 10, display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', background: open ? 'rgba(215,100,20,0.08)' : 'transparent' }} onClick={() => setEditing(open ? null : n.id)}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 800, fontSize: 13 }}>{n.title || '(sem título)'}</div>
+                  <div style={{ fontSize: 10, color: 'rgba(28,22,18,0.55)', letterSpacing: '0.12em', fontWeight: 700, marginTop: 2 }}>
+                    {n.date} · {n.tag}
+                  </div>
+                </div>
+                <Icon name={open ? 'caret-up' : 'caret-down'} size={13} />
+                <button onClick={(e) => { e.stopPropagation(); if (confirm('Remover notícia "' + n.title + '"?')) removeNews(n.id); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--pv-red)', padding: 4, display: 'inline-flex' }}>
+                  <Icon name="trash" size={14} />
+                </button>
+              </div>
+              {open && (
+                <div style={{ padding: 12, borderTop: '1.5px dashed rgba(28,22,18,0.18)' }}>
+                  <NewsField label="TÍTULO" value={n.title} onChange={v => updateNews(n.id, { title: v })} />
+                  <NewsField label="SUBTÍTULO" value={n.subtitle} onChange={v => updateNews(n.id, { subtitle: v })} />
+                  <NewsField label="DATA (ex: 21/05/2026)" value={n.date} onChange={v => updateNews(n.id, { date: v })} />
+                  <NewsField label="TAG (ex: ATUALIZAÇÃO, PROMO, EDIÇÃO)" value={n.tag} onChange={v => updateNews(n.id, { tag: v })} />
+                  <NewsField label="CAMINHO DA IMAGEM (opcional)" value={n.image} onChange={v => updateNews(n.id, { image: v })} placeholder="news/exemplo.jpg" />
+                  <NewsField label="CORPO (quebras de linha são preservadas)" value={n.body} onChange={v => updateNews(n.id, { body: v })} multiline />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function NewsField({ label, value, onChange, placeholder, multiline }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <label className="small-label">{label}</label>
+      {multiline ? (
+        <textarea
+          value={value || ''} onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          rows={6}
+          style={{ width: '100%', padding: 10, fontSize: 13, border: '1.5px solid rgba(28,22,18,0.4)', background: 'var(--pv-bone-2)', fontFamily: 'inherit', marginTop: 4, boxSizing: 'border-box', resize: 'vertical' }}
+        />
+      ) : (
+        <input
+          type="text" value={value || ''} onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          style={{ width: '100%', padding: 8, fontSize: 13, border: '1.5px solid rgba(28,22,18,0.4)', background: 'var(--pv-bone-2)', fontFamily: 'inherit', marginTop: 4, boxSizing: 'border-box' }}
+        />
+      )}
+    </div>
+  );
+}
+
+function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordWebhook, remoteNews }) {
+  // Tabs do admin: USUÁRIOS / TIMES / NEWS / DISCORD / BACKUP / PERIGO.
+  // PERIGO ficou em aba separada pra não ser clicado por engano.
   const [tab, setTab] = useState('usuarios');
   const playerTeam = reverseTeamMap(teamPlayers);
 
@@ -4386,9 +4696,14 @@ function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer }) {
       <div className="tabs" style={{ marginBottom: 14 }}>
         <button className={'tab ' + (tab === 'usuarios' ? 'active' : '')} onClick={() => setTab('usuarios')}>USUÁRIOS</button>
         <button className={'tab ' + (tab === 'times' ? 'active' : '')} onClick={() => setTab('times')}>TIMES</button>
+        <button className={'tab ' + (tab === 'news' ? 'active' : '')} onClick={() => setTab('news')}>NEWS</button>
+        <button className={'tab ' + (tab === 'discord' ? 'active' : '')} onClick={() => setTab('discord')}>DISCORD</button>
         <button className={'tab ' + (tab === 'backup' ? 'active' : '')} onClick={() => setTab('backup')}>BACKUP</button>
         <button className={'tab ' + (tab === 'perigo' ? 'active' : '')} onClick={() => setTab('perigo')} style={{ color: tab === 'perigo' ? '#c33' : 'rgba(195,51,51,0.6)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="warning" size={12} /> PERIGO</button>
       </div>
+
+      {tab === 'news' && <NewsAdminPanel remoteNews={remoteNews} />}
+      {tab === 'discord' && <DiscordAdminPanel webhook={discordWebhook} />}
 
       {tab === 'usuarios' && (
         <div className="card">
