@@ -1,0 +1,60 @@
+name: Build JSX
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apostas/apostas-app.jsx"
+
+# Permite que essa Action faça commit no repo (gera apostas-app.compiled.js)
+permissions:
+  contents: write
+
+# Evita 2 jobs rodando ao mesmo tempo (poderiam comitar em cima um do outro).
+concurrency:
+  group: build-jsx
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Compile JSX → JS
+    runs-on: ubuntu-latest
+    # IMPORTANTE: não roda em commits feitos pelo próprio bot (evita loop).
+    if: "!contains(github.event.head_commit.message, '[skip-ci-build]')"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Token de PAT seria mais robusto pra triggar outras Actions, mas
+          # pro nosso uso o GITHUB_TOKEN basta.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install esbuild
+        run: npm install --no-save esbuild@0.21
+
+      - name: Compile JSX to JS
+        run: |
+          npx esbuild apostas/apostas-app.jsx \
+            --loader:.jsx=jsx \
+            --target=es2018 \
+            --minify \
+            --banner:js="/* AUTO-GERADO PELO GITHUB ACTION — não editar diretamente. Fonte: apostas/apostas-app.jsx */" \
+            --outfile=apostas/apostas-app.compiled.js
+          echo "Tamanho gerado:"
+          ls -lh apostas/apostas-app.compiled.js
+
+      - name: Commit compiled JS (se mudou)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apostas/apostas-app.compiled.js
+          if git diff --staged --quiet; then
+            echo "Sem mudança no compilado, nada a commitar."
+          else
+            git commit -m "chore(build): recompila apostas-app.compiled.js [skip-ci-build]"
+            git push
+          fi

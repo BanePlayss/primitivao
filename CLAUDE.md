@@ -36,18 +36,46 @@ Sempre: criar um `case` novo no `Icon` ou reusar um existente.
 
 ## 2. Stack & arquitetura
 
-- React 18 + Babel standalone (sem build step) — tudo em
-  `apostas/apostas-app.jsx`.
+- React 18 — tudo em `apostas/apostas-app.jsx` (fonte).
+- Em **produção** (`apostas/index.html`): carrega `apostas-app.compiled.js`
+  (minificado, sem Babel runtime). É gerado pelo GitHub Action `build.yml`.
+- Em **dev** (`apostas/dev.html`): carrega `apostas-app.jsx` direto com
+  Babel standalone. Mais lento, mas iteração instantânea.
 - Firebase Firestore compat (`window.db`) com **transações** pra escrita.
-- Top-level fields: `interests`, `comments`, `teamPlayers`, `worldcup`.
+- Top-level fields: `interests`, `comments`, `teamPlayers`, `worldcup`,
+  `news`, `discord_webhook`.
 - Tudo via `commitBetDocUpdate(reducer)` com safety net + sentinel
   `{ __abort: true, result }` pra erros sem escrever.
+
+## 2.1 Workflow de desenvolvimento
+
+```
+# editar
+vim apostas/apostas-app.jsx
+
+# rodar localmente (dev mode, sem build)
+open apostas/dev.html
+
+# validar (idêntico ao CI)
+node -e "require('@babel/parser').parse(require('fs').readFileSync('apostas/apostas-app.jsx','utf8'), {sourceType:'script', plugins:['jsx']}); console.log('OK')"
+
+# (opcional) gerar build local pra testar produção
+npx esbuild apostas/apostas-app.jsx --loader:.jsx=jsx --target=es2018 --minify --outfile=apostas/apostas-app.compiled.js
+
+# commit + push — Action `build.yml` recompila e comita o .compiled.js
+git add apostas/apostas-app.jsx
+git commit -m "..."
+git push
+```
+
+**NUNCA** edite `apostas-app.compiled.js` direto. Ele é gerado e qualquer
+mudança vai ser sobrescrita pela próxima build.
 
 ## 3. Cache busting
 
 Toda mudança que afeta o JSX precisa:
-1. Bumpar `?v=YYYYMMDD-tag` em `<script src="apostas-app.jsx?v=...">` no
-   `index.html`.
+1. Bumpar `?v=YYYYMMDD-tag` em `<script src="apostas-app.compiled.js?v=...">`
+   no `index.html`.
 2. Atualizar o `console.log('%c PRIMITIVÃO v=... ', ...)` no topo do
    `apostas-app.jsx`.
 3. Avisar o usuário pra dar hard refresh (Ctrl+Shift+R).

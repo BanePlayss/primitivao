@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>PRIMITIVÃO 2026 — APOSTAS</title>
+  <title>[DEV] PRIMITIVÃO 2026 — APOSTAS</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="icon" type="image/png" href="primitivao-icon.png" />
   <link rel="apple-touch-icon" href="primitivao-icon.png" />
@@ -1495,14 +1495,13 @@
     window.db = firebase.firestore();
   </script>
 
-  <!-- React em modo produção pra performance. Pra debugar em dev, use dev.html. -->
-  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+  <!-- DEV MODE: carrega o .jsx direto via Babel standalone. Mais lento
+       (~2-3s parsing), mas dispensa rebuild. Pra produção, use index.html
+       que carrega o apostas-app.compiled.js já minificado. -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
 
-  <!-- Bump o ?v= a cada deploy importante pra forçar tabs antigos a recarregar.
-       O arquivo .compiled.js é gerado pelo GitHub Action `build.yml` a partir
-       do apostas-app.jsx — não editar direto. Pra desenvolver localmente
-       usa dev.html que carrega o .jsx com Babel standalone. -->
-  <script src="apostas-app.compiled.js?v=20260527-build"></script>
+  <script type="text/babel" src="apostas-app.jsx?v=dev"></script>
 </body>
 </html>
