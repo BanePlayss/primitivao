@@ -5098,6 +5098,11 @@ function formatEventForPrompt(e) {
       return `FIM DE TEMPORADA: Campeão ${e.champion} · Vice ${e.vice} · Penúltimo ${e.penultimo} · Lanterna ${e.lanterna} (artilheiro do líder: ${e.topScorerGoals} gols)`;
     case 'weekly_bonus':
       return `BÔNUS SEMANAL LIBERADO: ${e.amount} PC pra todo mundo reclamar (botão no topo da página)`;
+    case 'manual':
+      // Evento reportado pelo admin (polemica, manipulacao, fofoca, etc).
+      // Marcado explicitamente pro Jornalista entender que é narrativa social,
+      // nao dado de tabela.
+      return `EVENTO REPORTADO PELO REDATOR-CHEFE${e.severity ? ' [' + e.severity.toUpperCase() + ']' : ''}: ${e.text}`;
     default:
       return JSON.stringify(e);
   }
@@ -5169,14 +5174,36 @@ function parseJournalistResponse(text) {
   return result;
 }
 
+// Eventos manuais ficam em localStorage por enquanto (admin só, do mesmo
+// browser). Se quiser sincronizar entre dispositivos, mover pra Firestore.
+const MANUAL_EVENTS_KEY = 'primitivao_manual_events';
+const SEVERITIES = ['fofoca', 'polemica', 'escândalo'];
+
+function loadManualEvents() {
+  try { return JSON.parse(localStorage.getItem(MANUAL_EVENTS_KEY) || '[]'); }
+  catch (e) { return []; }
+}
+function saveManualEvents(arr) {
+  try { localStorage.setItem(MANUAL_EVENTS_KEY, JSON.stringify(arr)); }
+  catch (e) { /* ignora */ }
+}
+
 function JournalistAdminPanel({ cs, bets, users, remoteNews, weeklyReady }) {
-  const events = useMemo(() => detectJournalistEvents({ cs, bets, users, weeklyReady }), [cs, bets, users, weeklyReady]);
-  const [selectedIds, setSelectedIds] = useState(() => new Set(events.map(e => e.id)));
+  const autoEvents = useMemo(() => detectJournalistEvents({ cs, bets, users, weeklyReady }), [cs, bets, users, weeklyReady]);
+  const [manualEvents, setManualEvents] = useState(() => loadManualEvents());
+  const [manualText, setManualText] = useState('');
+  const [manualSeverity, setManualSeverity] = useState('polemica');
+  const [selectedIds, setSelectedIds] = useState(() => new Set([...autoEvents.map(e => e.id), ...loadManualEvents().map(e => e.id)]));
   const [response, setResponse] = useState('');
   const [parsed, setParsed] = useState(null);
   const [imagePath, setImagePath] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+
+  // Persiste mudanças nos eventos manuais
+  useEffect(() => { saveManualEvents(manualEvents); }, [manualEvents]);
+
+  const allEvents = [...autoEvents, ...manualEvents];
 
   const toggle = (id) => {
     const next = new Set(selectedIds);
@@ -5184,7 +5211,30 @@ function JournalistAdminPanel({ cs, bets, users, remoteNews, weeklyReady }) {
     setSelectedIds(next);
   };
 
-  const selectedEvents = events.filter(e => selectedIds.has(e.id));
+  const addManual = () => {
+    const text = manualText.trim();
+    if (!text) return;
+    const id = 'manual-' + Date.now();
+    setManualEvents(prev => [...prev, { type: 'manual', id, text, severity: manualSeverity, at: Date.now() }]);
+    setSelectedIds(prev => new Set([...prev, id]));
+    setManualText('');
+    showToast('Evento adicionado', 'success');
+  };
+
+  const removeManual = (id) => {
+    setManualEvents(prev => prev.filter(e => e.id !== id));
+    setSelectedIds(prev => {
+      const next = new Set(prev); next.delete(id); return next;
+    });
+  };
+
+  const clearManualHistory = () => {
+    if (manualEvents.length === 0) return;
+    if (!confirm(`Apagar todos os ${manualEvents.length} eventos manuais? (Não dá pra desfazer.)`)) return;
+    setManualEvents([]);
+  };
+
+  const selectedEvents = allEvents.filter(e => selectedIds.has(e.id));
   const prompt = selectedEvents.length > 0 ? buildJournalistPrompt(selectedEvents) : '';
 
   const copyPrompt = async () => {
@@ -5235,41 +5285,79 @@ function JournalistAdminPanel({ cs, bets, users, remoteNews, weeklyReady }) {
     <div className="card">
       <div className="card-head">
         <div className="title">JORNALISTA</div>
-        <div className="sub">{events.length} EVENTO{events.length === 1 ? '' : 'S'} DETECTADO{events.length === 1 ? '' : 'S'}</div>
+        <div className="sub">{autoEvents.length} AUTO · {manualEvents.length} MANUAL</div>
       </div>
       <div className="card-body">
         <p style={{ marginTop: 0, lineHeight: 1.5, fontSize: 13 }}>
-          O Jornalista varre o estado atual (resultados, apostas, próximos jogos)
-          e monta um prompt formatado pra você colar no Claude/ChatGPT/Midjourney.
-          Você gera a notícia + imagem fora, cola a resposta aqui, revisa e publica.
+          O Jornalista detecta eventos automaticamente (resultados, apostas, próximos jogos)
+          e você pode adicionar eventos manuais (polêmicas, fofocas, manipulação suspeita).
+          Tudo entra no prompt e você gera a notícia + imagem fora, cola a resposta aqui,
+          revisa e publica.
         </p>
 
-        {events.length === 0 && (
-          <div className="empty">
-            <div className="e1">SEM EVENTOS NOVOS</div>
-            <div className="e2">Quando rolar resultado, goleada, aposta gorda ou jogo nas próximas 48h, eles aparecem aqui.</div>
-          </div>
-        )}
+        {/* ──── EVENTOS MANUAIS (input + lista) ──── */}
+        <div className="small-label" style={{ marginTop: 14 }}>ADICIONAR EVENTO MANUAL (fofoca, polêmica, manipulação…)</div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+          <select value={manualSeverity} onChange={e => setManualSeverity(e.target.value)} style={{ padding: '8px 10px', border: '1.5px solid var(--pv-charcoal)', background: 'var(--pv-bone-2)', fontWeight: 800, fontSize: 11, letterSpacing: '0.14em', cursor: 'pointer' }}>
+            {SEVERITIES.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
+          </select>
+          <input
+            type="text" value={manualText} onChange={e => setManualText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addManual(); } }}
+            placeholder="ex: Celin segurou o jogo a tarde inteira e tomou 3 gols nos 5 min finais — entregada?"
+            style={{ flex: 1, minWidth: 240, padding: 8, fontSize: 13, border: '1.5px solid rgba(28,22,18,0.4)', background: 'var(--pv-bone-2)' }}
+          />
+          <button onClick={addManual} disabled={!manualText.trim()} style={{ background: 'var(--pv-orange)', color: 'var(--pv-bone)', border: 'none', padding: '0 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.14em', cursor: manualText.trim() ? 'pointer' : 'not-allowed' }}>
+            + ADICIONAR
+          </button>
+        </div>
+        <div style={{ fontSize: 10, color: 'rgba(28,22,18,0.55)', marginTop: 6, lineHeight: 1.4 }}>
+          Eventos manuais ficam guardados no seu navegador (não vão pro Firestore).
+          {manualEvents.length > 0 && (
+            <> · <button onClick={clearManualHistory} style={{ background: 'transparent', border: 'none', color: 'var(--pv-red)', fontWeight: 700, cursor: 'pointer', padding: 0, textDecoration: 'underline', font: 'inherit' }}>limpar histórico</button></>
+          )}
+        </div>
 
-        {events.length > 0 && (
+        {/* ──── LISTA UNIFICADA DE EVENTOS ──── */}
+        {allEvents.length === 0 ? (
+          <div className="empty" style={{ marginTop: 18 }}>
+            <div className="e1">SEM EVENTOS</div>
+            <div className="e2">Adicione um evento manual acima ou aguarde detecção automática (resultado, goleada, aposta gorda, próximo jogo).</div>
+          </div>
+        ) : (
           <>
-            <div className="small-label" style={{ marginTop: 14 }}>EVENTOS PRA INCLUIR NA MATÉRIA</div>
+            <div className="small-label" style={{ marginTop: 18 }}>EVENTOS PRA INCLUIR NA MATÉRIA ({selectedEvents.length}/{allEvents.length} selecionados)</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
-              {events.map(e => (
-                <label key={e.id} style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 8,
-                  padding: '8px 10px',
-                  background: selectedIds.has(e.id) ? 'rgba(215,100,20,0.10)' : 'rgba(0,0,0,0.03)',
-                  border: '1.5px solid ' + (selectedIds.has(e.id) ? 'var(--pv-orange)' : 'rgba(28,22,18,0.15)'),
-                  cursor: 'pointer', fontSize: 12, lineHeight: 1.4,
-                }}>
-                  <input type="checkbox" checked={selectedIds.has(e.id)} onChange={() => toggle(e.id)} style={{ marginTop: 2 }} />
-                  <div>
-                    <span style={{ fontSize: 9, letterSpacing: '0.2em', fontWeight: 800, color: 'var(--pv-orange)', marginRight: 6 }}>{e.type.replace(/_/g, ' ').toUpperCase()}</span>
-                    {formatEventForPrompt(e)}
-                  </div>
-                </label>
-              ))}
+              {allEvents.map(e => {
+                const isManual = e.type === 'manual';
+                return (
+                  <label key={e.id} style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 8,
+                    padding: '8px 10px',
+                    background: selectedIds.has(e.id) ? (isManual ? 'rgba(122,34,34,0.10)' : 'rgba(215,100,20,0.10)') : 'rgba(0,0,0,0.03)',
+                    border: '1.5px solid ' + (selectedIds.has(e.id) ? (isManual ? '#7a2222' : 'var(--pv-orange)') : 'rgba(28,22,18,0.15)'),
+                    cursor: 'pointer', fontSize: 12, lineHeight: 1.4,
+                  }}>
+                    <input type="checkbox" checked={selectedIds.has(e.id)} onChange={() => toggle(e.id)} style={{ marginTop: 2 }} />
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: 9, letterSpacing: '0.2em', fontWeight: 800, color: isManual ? '#7a2222' : 'var(--pv-orange)', marginRight: 6 }}>
+                        {isManual ? ('MANUAL · ' + (e.severity || 'evento').toUpperCase()) : e.type.replace(/_/g, ' ').toUpperCase()}
+                      </span>
+                      {formatEventForPrompt(e)}
+                    </div>
+                    {isManual && (
+                      <button
+                        type="button"
+                        onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); removeManual(e.id); }}
+                        title="Remover evento manual"
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#7a2222', padding: 2, display: 'inline-flex' }}
+                      >
+                        <Icon name="x" size={14} />
+                      </button>
+                    )}
+                  </label>
+                );
+              })}
             </div>
 
             <div className="small-label" style={{ marginTop: 18 }}>1. PROMPT PRA CLAUDE/CHATGPT</div>
