@@ -1,8 +1,13 @@
 # Avatares dos jogadores
 
-Cada jogador tem um PNG **estilo chibi/Xbox Avatar** — cabeça grande,
-corpo pequeno, vibe divertida, mas mantendo o rosto reconhecível.
+Cada jogador tem um PNG **corpo inteiro estilo Cartoon Network anos 2000**
+(Dexter's Lab / Codename Kids Next Door / Samurai Jack / Powerpuff Girls).
+Estilizado mas com atitude — nada de chibi fofo, nada de fofura kawaii.
 Paleta alinhada com o site (bege/laranja/charcoal).
+
+> **Importante:** a cabeça precisa ficar no **terço superior** do PNG.
+> O app faz crop nesse topo pra mostrar ícone pequeno na TopBar/comentários,
+> e mostra corpo inteiro no perfil/ranking/hall.
 
 ## Specs técnicas
 
@@ -34,72 +39,79 @@ avatars/vitinho.png
 ## Prompt definitivo (img2img — cola junto com a foto)
 
 ```
-Transform this photo into a chibi-style avatar inspired by Xbox Avatars
-and Nintendo Mii — playful, cartoony, friendly.
+Transform this photo into a full-body character illustration in the
+style of early-2000s Cartoon Network (Dexter's Laboratory, Codename
+Kids Next Door, Powerpuff Girls, Samurai Jack — Craig McCracken /
+Genndy Tartakovsky influence).
 
 KEEP RECOGNIZABLE: preserve the person's hairstyle, beard, glasses,
-skin tone, and general facial features. Should clearly read as them.
+skin tone, face shape. Apply cartoon stylization but the character
+should clearly read as them.
 
 STYLE:
-- Chibi proportions: head is ~40% of total height, large round eyes,
-  small simplified body
-- Clean vector-style flat shading, soft cel shading, no realistic
-  texture
-- Bold but smooth outline around silhouette (~2-3px equivalent)
-- Bright, friendly, expressive — slight cartoon exaggeration of
-  their actual features
-- Neutral standing pose, arms relaxed at sides or one slightly raised
-  in a wave/peace sign
+- Cartoon Network 2000s aesthetic: geometric simplified shapes,
+  thick clean outlines, flat color blocks with minimal shading
+- Slightly exaggerated proportions: head a bit larger than realistic,
+  hands/feet simplified
+- Confident or smug expression, with attitude — narrow eyes, smirk,
+  or determined look. NOT cute, NOT chibi, NOT wide innocent eyes.
+- Standing pose with attitude: arms crossed, hands on hips, slight
+  lean, casual stance. NO peace signs, NO waving, NO friendly poses.
 
-PALETTE: cream background #f4ead7, primary accent burnt orange #d76414
-in clothing or props, charcoal #1c1612 for outlines. Keep their natural
-hair and skin colors. Outfit: simple t-shirt in the team color (see
-below), plain pants in coordinated tones.
+PALETTE: cream background #f4ead7, burnt orange #d76414 as accent,
+charcoal #1c1612 for outlines. Outfit: simple t-shirt or jersey in
+[COLA AQUI A COR DO JOGADOR], plain jeans/shorts, sneakers.
 
 COMPOSITION:
-- HEAD CENTERED IN THE UPPER 60% OF THE FRAME (critical — this
-  avatar gets cropped to a small icon; face must stay visible)
-- Full body visible but cropped at mid-thigh
+- FULL BODY visible from head to feet
+- HEAD POSITIONED IN THE UPPER THIRD OF THE FRAME (critical — gets
+  cropped to small icon; face must stay visible)
+- Character centered horizontally
 - 1:1 square aspect ratio
-- Plain cream or transparent background, no shadows under feet, no
-  other elements
+- Plain cream background, NO floor/shadows under feet, NO other
+  elements, NO scene
 
-DO NOT INCLUDE: text, watermark, logos, busy background, realistic
-proportions, photorealistic textures, scary/horror style, multiple
-characters.
+DO NOT INCLUDE: text, watermark, busy background, photorealistic
+textures, anime style, chibi proportions, multiple characters,
+weapons, cute decorations, kid-friendly cheerfulness.
 
 Output: PNG 512×512, plain cream or transparent background.
 ```
 
-### Cor da camiseta por jogador (use o hex)
+### Cor da camiseta + pose sugerida por jogador
 
-| Jogador  | Cor da camiseta |
-| -------- | --------------- |
-| Bane     | `#1c1612` (charcoal) |
-| Mohamed  | `#c75418` (laranja queimado) |
-| Potato   | `#8b3a14` (marrom-laranja) |
-| Magreza  | `#2a201a` (marrom escuro) |
-| Celin    | `#e8800f` (laranja vivo) |
-| Juca     | `#d63c0a` (vermelho-laranja) |
-| Caco     | `#4a3020` (marrom) |
-| Vitinho  | `#6e4824` (marrom-claro) |
+| Jogador  | Cor da camiseta             | Pose sugerida                          |
+| -------- | --------------------------- | -------------------------------------- |
+| Bane     | `#1c1612` (charcoal)        | Braços cruzados, olhar firme           |
+| Mohamed  | `#c75418` (laranja queimado)| Mão na cabeça, expressão derrotada     |
+| Potato   | `#8b3a14` (marrom-laranja)  | Encostado tipo parede, mão no bolso    |
+| Magreza  | `#2a201a` (marrom escuro)   | Pose neutra firme, expressão séria     |
+| Celin    | `#e8800f` (laranja vivo)    | Smirk cínico, mão no queixo            |
+| Juca     | `#d63c0a` (vermelho-laranja)| Pose triunfante, peito estufado        |
+| Caco     | `#4a3020` (marrom)          | Pose relaxada, mão no bolso            |
+| Vitinho  | `#6e4824` (marrom-claro)    | Cabeça inclinada, olhar de moleque     |
+
+Adiciona a pose no fim do prompt: *"Pose: [pose acima]"*.
 
 ## Como rodar
 
-**Claude Design**: anexa foto + cola prompt. Se a primeira saída ainda
-estiver realista, pede: *"more chibi, bigger head, smaller body, more
-cartoony, like a Nintendo Mii."*
+**Claude Design**: anexa foto + cola prompt. Se a primeira saída
+estiver fofa ou anime, pede: *"Less cute, more attitude — like a
+Cartoon Network show. Bold geometric shapes, narrow eyes, smirk.
+Not anime, not chibi, not children's book."*
 
-**Midjourney**: `/imagine [URL_DA_FOTO] chibi avatar Xbox Mii style,
-big head small body, flat vector cel shading, cream background, full
-body, no text --ar 1:1 --style raw --iw 0.8` (`--iw 0.8` deixa o
-gerador cartoonizar mais; aumenta pra `1.2` se perder a fisionomia).
+**Midjourney**: `/imagine [URL_DA_FOTO] Cartoon Network 2000s style
+character, full body, Craig McCracken Genndy Tartakovsky inspired,
+bold outlines flat shading, geometric simplified shapes, confident
+pose, cream background --ar 1:1 --style raw --iw 0.6` (`--iw 0.6`
+deixa o gerador cartoonizar muito; aumenta pra `1.0` se perder
+fisionomia).
 
-**Stable Diffusion (img2img)**: denoise **0.75–0.85** (chibi muda
-proporção, precisa de denoise alto). CFG 7–8, 30+ steps.
+**Stable Diffusion (img2img)**: denoise **0.78–0.88** (estilo CN
+muda proporção bastante). CFG 7–8, 30+ steps.
 
-**DALL-E 3 (ChatGPT)**: cola foto + prompt; sem img2img puro, vai
-descrever a pessoa. Pra chibi funciona razoavelmente bem.
+**DALL-E 3 (ChatGPT)**: cola foto + prompt. Sem img2img puro mas
+o estilo CN sai bem porque é icônico.
 
 ## Dicas pra ficar coerente entre os 8
 
