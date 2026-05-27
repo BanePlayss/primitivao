@@ -2086,7 +2086,7 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
         <div className="nick">
           {!isAdmin && <Avatar nick={nick} teamPlayers={teamPlayers} size={36} />}
           {isAdmin && <span className="nick-tag" style={{ color: 'var(--pv-orange)', borderColor: 'var(--pv-orange)' }}>ADMIN</span>}
-          <span className="nick-tag">@{nick}</span>
+          <span className={isAdmin ? 'nick-tag' : 'nick-name'}>@{nick}</span>
         </div>
         <button className="logout-btn" onClick={onLogout}>SAIR</button>
       </div>

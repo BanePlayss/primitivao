@@ -542,6 +542,9 @@
     }
 
     .nick {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
       color: var(--pv-bone); font-weight: 800;
       letter-spacing: 0.1em; font-size: 13px;
     }
@@ -550,7 +553,13 @@
       padding: 4px 8px;
       background: rgba(244,234,215,0.08);
       border: 1px dashed rgba(244,234,215,0.3);
-      margin-right: 6px;
+    }
+    /* nick limpo quando tem avatar ao lado (user normal): só texto */
+    .nick-name {
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      font-size: 13px;
+      color: var(--pv-bone);
     }
     .logout-btn {
       background: transparent; color: var(--pv-bone);
@@ -1355,8 +1364,9 @@
       .pc-coin { width: 20px; height: 20px; font-size: 11px; }
       .pc-amt { font-size: 17px; }
       .pc-unit { font-size: 8px; letter-spacing: 0.16em; }
-      .nick { font-size: 11px; letter-spacing: 0.06em; }
-      .nick-tag { padding: 3px 6px; margin-right: 4px; font-size: 10px; }
+      .nick { font-size: 11px; letter-spacing: 0.06em; gap: 6px; }
+      .nick-tag { padding: 3px 6px; font-size: 10px; }
+      .nick-name { font-size: 11px; }
       .logout-btn { padding: 5px 10px; font-size: 10px; letter-spacing: 0.14em; }
 
       /* PAGE: menos respiro lateral */
@@ -1466,6 +1476,8 @@
       .brand-text .t2 { font-size: 8px; letter-spacing: 0.2em; }
       .pc-amt { font-size: 15px; }
       .nick-tag { font-size: 9px; padding: 2px 5px; }
+      .nick-name { font-size: 10px; }
+      .nick { gap: 5px; }
       .logout-btn { padding: 4px 8px; font-size: 9px; }
       .page { padding: 10px 10px; }
       .card-head .title { font-size: 12px; }
