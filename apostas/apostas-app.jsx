@@ -1,8 +1,73 @@
-// Apostas — single file React app.
-// Persiste em Firestore (compartilhado entre todos os dispositivos).
-// - primitivao/apostas : users, fixtures, bets (cupons parlay)
-// - primitivao/state   : classificação (mesmo doc do site antigo — dados mantidos)
+// =============================================================================
+// PRIMITIVÃO — apostas-app.jsx
+// =============================================================================
+// React single-file app servido via GitHub Pages.
+//   - dev:  apostas/dev.html  -> carrega este arquivo com Babel standalone
+//   - prod: apostas/index.html -> carrega apostas-app.compiled.js (esbuild)
+//
+// Persiste em Firestore (compartilhado entre todos os dispositivos):
+//   - primitivao/apostas : users, fixtures, bets (cupons parlay),
+//                          interests, comments, teamPlayers, worldcup,
+//                          news, discord_webhook
+//   - primitivao/state   : classificação (legado do site antigo)
+//
 // Sessão (quem está logado neste navegador) fica em localStorage.
+//
+// =============================================================================
+// ÍNDICE — pra navegar rápido, pulando pra L<numero>
+// =============================================================================
+// 1. CONSTANTS & DATA
+//    - DADOS BASE (TEAMS, MARKETS, NEWS, WEEKLY_PC, etc)
+//    - CAMPEONATOS (FIFA, MK, RL, etc)
+//    - COPA DO MUNDO (i18n de times, fases, scoring)
+//
+// 2. UTILITÁRIOS (puros, sem JSX)
+//    - STORAGE (localStorage helpers)
+//    - BACKUP / RESTORE / WIPE (JSON dump do estado)
+//    - TRANSAÇÕES (commitBetDocUpdate, mergeBetDocFields)
+//    - NORMALIZAÇÃO (compat com formato legado)
+//    - LÓGICA DE TICKETS (resolve resultados, paga payouts)
+//    - CLASSIFICAÇÃO (gera tabela a partir de jogos)
+//    - ODDS / MERCADOS / JOGOS (calcula odds a partir de cs.rounds)
+//    - ÍCONES (TeamMini)
+//
+// 3. APP ROOT
+//    - SHARE CUPOM (URL encoding, navigator.share)
+//    - TOAST (showToast + ToastHost)
+//    - DISCORD WEBHOOK (post + save URL)
+//    - NEWS REMOTAS (CRUD)
+//    - APP (estado raiz, snapshot Firestore, handlers)
+//
+// 4. NAVIGATION & SHELL
+//    - TOP BAR / TABS
+//    - CAMPEONATO SELECTOR / "em breve"
+//    - ICONES SVG (componente <Icon>)
+//
+// 5. AUTENTICAÇÃO
+//    - LOGIN (form + hash de senha)
+//
+// 6. VIEWS DE CONTEÚDO
+//    - INÍCIO (feed de notícias + comentários)
+//    - COPA DO MUNDO (palpites + grupos + bracket + ranking)
+//    - APOSTAR / CUPOM (slip + place bet)
+//    - TICKETS (histórico)
+//    - PERFIL (meu time, troféus, títulos)
+//    - RANKING (geral por PC)
+//    - HALL DA FAMA / VERGONHA
+//    - CLASSIFICAÇÃO (tabela)
+//
+// 7. ADMIN
+//    - ADMIN VIEW (USUÁRIOS, TIMES, NEWS, DISCORD, BACKUP, PERIGO)
+//
+// 8. MOUNT (ReactDOM.render no final)
+//
+// =============================================================================
+// REGRAS DO PROJETO (ver CLAUDE.md):
+//   - NUNCA usar emojis Unicode na UI — usar <Icon name="..." />
+//   - Toda mutação no Firestore via commitBetDocUpdate (transação)
+//   - Senha sempre hashada com hashPassword (SHA-256)
+//   - Bump ?v= no styles.css e apostas-app.compiled.js a cada mudança visível
+// =============================================================================
 
 const { useState, useEffect, useMemo, useRef } = React;
 

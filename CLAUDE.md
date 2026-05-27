@@ -47,6 +47,23 @@ Sempre: criar um `case` novo no `Icon` ou reusar um existente.
 - Tudo via `commitBetDocUpdate(reducer)` com safety net + sentinel
   `{ __abort: true, result }` pra erros sem escrever.
 
+## 2.0.1 Navegação no arquivo único
+
+`apostas-app.jsx` é grande (~5500 linhas) por design — mantém deploy
+trivial (cat para GH Pages). Pra navegar:
+
+1. **Tabela de conteúdo** está no topo do arquivo (linhas 1-70).
+   Lista as 8 grandes seções com offsets.
+2. **Banners de seção** padronizados:
+   `// ─── NOME DA SEÇÃO ─────────────────────────────────────────`
+   Use Ctrl+F com `// ─── ` pra pular entre eles.
+3. **Componentes JSX** são funções nomeadas. `grep -n "^function "`
+   lista todos rapidinho.
+
+Não fazer split em ES modules sem antes resolver: ordem de carregamento
+no `dev.html` (Babel standalone não tem `import/export`), build pipeline
+pro `compiled.js` continuar funcionando, e simplicidade pra editar.
+
 ## 2.1 Workflow de desenvolvimento
 
 ```
