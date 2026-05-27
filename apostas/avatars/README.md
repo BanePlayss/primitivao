@@ -1,7 +1,8 @@
 # Avatares dos jogadores
 
-Cada jogador tem um PNG cartoonizado no estilo **retrato sépia de manchete antiga**,
-coerente com a estética do site (Bagel Fat One + bege + laranja).
+Cada jogador tem um PNG **estilo chibi/Xbox Avatar** — cabeça grande,
+corpo pequeno, vibe divertida, mas mantendo o rosto reconhecível.
+Paleta alinhada com o site (bege/laranja/charcoal).
 
 ## Specs técnicas
 
@@ -33,49 +34,72 @@ avatars/vitinho.png
 ## Prompt definitivo (img2img — cola junto com a foto)
 
 ```
-Transform this photo into a vintage Brazilian newspaper headline
-portrait, in the style of a 1950s tabloid headline cut-out.
+Transform this photo into a chibi-style avatar inspired by Xbox Avatars
+and Nintendo Mii — playful, cartoony, friendly.
 
-KEEP RECOGNIZABLE: preserve the person's face shape, hair, beard,
-glasses, skin tone, and overall identity. The person should still
-look like themselves — only the rendering style changes.
+KEEP RECOGNIZABLE: preserve the person's hairstyle, beard, glasses,
+skin tone, and general facial features. Should clearly read as them.
 
 STYLE:
-- Sepia tones with subtle orange (#d76414) accent in shadows/highlights
-- Halftone newspaper print texture overlay, slightly grainy
-- High-contrast dramatic lighting, hard shadows
-- Cream paper background (#f4ead7), plain, no other elements
-- Slight desaturation, vintage feel
-- No glossy modern look, no skin smoothing
+- Chibi proportions: head is ~40% of total height, large round eyes,
+  small simplified body
+- Clean vector-style flat shading, soft cel shading, no realistic
+  texture
+- Bold but smooth outline around silhouette (~2-3px equivalent)
+- Bright, friendly, expressive — slight cartoon exaggeration of
+  their actual features
+- Neutral standing pose, arms relaxed at sides or one slightly raised
+  in a wave/peace sign
+
+PALETTE: cream background #f4ead7, primary accent burnt orange #d76414
+in clothing or props, charcoal #1c1612 for outlines. Keep their natural
+hair and skin colors. Outfit: simple t-shirt in the team color (see
+below), plain pants in coordinated tones.
 
 COMPOSITION:
-- Head and shoulders bust shot, centered
-- 1:1 square aspect ratio (512×512)
-- Subject facing forward or slightly to the left
-- Keep their natural expression — if smiling, keep it; if serious, keep it
+- HEAD CENTERED IN THE UPPER 60% OF THE FRAME (critical — this
+  avatar gets cropped to a small icon; face must stay visible)
+- Full body visible but cropped at mid-thigh
+- 1:1 square aspect ratio
+- Plain cream or transparent background, no shadows under feet, no
+  other elements
 
-DO NOT INCLUDE: text, watermark, logos, emoji, lens flare, modern
-UI elements, busy background, glasses reflection, multiple people.
+DO NOT INCLUDE: text, watermark, logos, busy background, realistic
+proportions, photorealistic textures, scary/horror style, multiple
+characters.
 
-Output: PNG 512×512, plain cream background.
+Output: PNG 512×512, plain cream or transparent background.
 ```
+
+### Cor da camiseta por jogador (use o hex)
+
+| Jogador  | Cor da camiseta |
+| -------- | --------------- |
+| Bane     | `#1c1612` (charcoal) |
+| Mohamed  | `#c75418` (laranja queimado) |
+| Potato   | `#8b3a14` (marrom-laranja) |
+| Magreza  | `#2a201a` (marrom escuro) |
+| Celin    | `#e8800f` (laranja vivo) |
+| Juca     | `#d63c0a` (vermelho-laranja) |
+| Caco     | `#4a3020` (marrom) |
+| Vitinho  | `#6e4824` (marrom-claro) |
 
 ## Como rodar
 
-**Claude Design**: anexa foto + cola prompt. Se o fundo vier poluído ou
-com texto, peça *"Refaça com fundo creme uniforme, sem texto."*
+**Claude Design**: anexa foto + cola prompt. Se a primeira saída ainda
+estiver realista, pede: *"more chibi, bigger head, smaller body, more
+cartoony, like a Nintendo Mii."*
 
-**Midjourney**: `/imagine [URL_DA_FOTO] vintage Brazilian newspaper
-headline portrait, sepia tones with #d76414 accents, halftone print
-texture, dramatic lighting, cream background, head and shoulders,
-no text --ar 1:1 --style raw --iw 1.5` (o `--iw 1.5` aumenta o peso
-da imagem de referência → preserva mais a fisionomia).
+**Midjourney**: `/imagine [URL_DA_FOTO] chibi avatar Xbox Mii style,
+big head small body, flat vector cel shading, cream background, full
+body, no text --ar 1:1 --style raw --iw 0.8` (`--iw 0.8` deixa o
+gerador cartoonizar mais; aumenta pra `1.2` se perder a fisionomia).
 
-**Stable Diffusion (img2img)**: denoise strength **0.55–0.70**, CFG 7–8,
-30+ steps. Menos que 0.55 fica realista demais; mais que 0.70 perde a cara.
+**Stable Diffusion (img2img)**: denoise **0.75–0.85** (chibi muda
+proporção, precisa de denoise alto). CFG 7–8, 30+ steps.
 
-**DALL-E 3 (ChatGPT)**: não tem img2img puro; cola foto e prompt, o
-ChatGPT vai descrever a pessoa pra ele. Resultado menos fiel.
+**DALL-E 3 (ChatGPT)**: cola foto + prompt; sem img2img puro, vai
+descrever a pessoa. Pra chibi funciona razoavelmente bem.
 
 ## Dicas pra ficar coerente entre os 8
 
