@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260527-icons ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260527-icons-full ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1650,22 +1650,26 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
         <button className={'pnav ' + (view === 'campeonatos' ? 'active' : '')} onClick={() => onView && onView('campeonatos')}>CAMPEONATOS</button>
         <button className={'pnav ' + (view === 'copa' ? 'active' : '')} onClick={() => onView && onView('copa')}>COPA DO MUNDO</button>
         <button className="pnav pnav-ext" onClick={goDiscord} title="Abre em nova aba">
-          DISCORD <span className="pnav-ext-icon">↗</span>
+          DISCORD <span className="pnav-ext-icon"><Icon name="arrow-up-right" size={12} /></span>
         </button>
       </nav>
       <div className="wallet">
         {!isAdmin && weeklyReady && (
           <button className="weekly-chip weekly-chip-ready" onClick={onClaimWeekly} title="Reclamar bônus semanal">
-            <span className="weekly-chip-icon">🎁</span>
-            <span className="weekly-chip-main">+{WEEKLY_PC} PC</span>
-            <span className="weekly-chip-sub">RECLAMAR</span>
+            <span className="weekly-chip-icon"><Icon name="gift" size={16} /></span>
+            <span className="weekly-chip-stack">
+              <span className="weekly-chip-main">+{WEEKLY_PC} PC</span>
+              <span className="weekly-chip-sub">RECLAMAR</span>
+            </span>
           </button>
         )}
         {!isAdmin && !weeklyReady && (
           <div className="weekly-chip weekly-chip-locked" title="Próximo bônus: segunda 10h BRT">
-            <span className="weekly-chip-icon">🔒</span>
-            <span className="weekly-chip-main">BÔNUS</span>
-            <span className="weekly-chip-sub">{countdown}</span>
+            <span className="weekly-chip-icon"><Icon name="lock" size={14} /></span>
+            <span className="weekly-chip-stack">
+              <span className="weekly-chip-main">BÔNUS</span>
+              <span className="weekly-chip-sub">{countdown}</span>
+            </span>
           </div>
         )}
         {!isAdmin && (
@@ -1768,8 +1772,8 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
         <div style={{ marginTop: 24 }}>
           {interested ? (
             <>
-              <div style={{ fontSize: 12, letterSpacing: '0.2em', fontWeight: 800, color: 'var(--pv-green, #2a8)', marginBottom: 8 }}>
-                ✓ INSCRIÇÃO REGISTRADA
+              <div style={{ fontSize: 12, letterSpacing: '0.2em', fontWeight: 800, color: 'var(--pv-green, #2a8)', marginBottom: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Icon name="check" size={14} /> INSCRIÇÃO REGISTRADA
               </div>
               <button onClick={handleClick} disabled={busy} style={{
                 background: 'transparent', border: '1.5px solid var(--pv-charcoal)',
@@ -1791,8 +1795,8 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
             </button>
           )}
           {errMsg && (
-            <div style={{ marginTop: 10, color: 'var(--pv-red, #c33)', fontSize: 12, fontWeight: 700 }}>
-              ✗ {errMsg}
+            <div style={{ marginTop: 10, color: 'var(--pv-red, #c33)', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Icon name="x" size={13} /> {errMsg}
             </div>
           )}
         </div>
@@ -1876,9 +1880,9 @@ function Tabs({ tab, setTab, isAdmin }) {
           aria-label="Menu de navegação"
           onClick={() => setOpen(o => !o)}
         >
-          <span className="tabs-hamb">{open ? '✕' : '☰'}</span>
+          <span className="tabs-hamb"><Icon name={open ? 'x' : 'menu'} size={18} /></span>
           <span className="tabs-current">{current.label}</span>
-          <span className="tabs-chev">{open ? '▴' : '▾'}</span>
+          <span className="tabs-chev"><Icon name={open ? 'caret-up' : 'caret-down'} size={12} /></span>
         </button>
         {open && (
           <div className="tabs-drawer" role="menu">
@@ -1944,20 +1948,20 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
     'aria-hidden': 'true',
   };
   switch (name) {
-    case 'star': // estrela 5 pontas — usado no banner
+    case 'star':
       return (
         <svg {...common} fill="currentColor" stroke="none">
           <path d="M12 2.5l2.95 5.97 6.59.96-4.77 4.65 1.13 6.57L12 17.55l-5.9 3.1 1.13-6.57L2.46 9.43l6.59-.96L12 2.5z" />
         </svg>
       );
-    case 'shield': // escudo com check — admin
+    case 'shield':
       return (
         <svg {...common}>
           <path d="M12 3 4 5.5v6c0 4.9 3.4 9 8 10.5 4.6-1.5 8-5.6 8-10.5v-6L12 3z" />
           <path d="M8.5 12l2.5 2.5L15.5 10" />
         </svg>
       );
-    case 'sparkle': // faísca — conta nova
+    case 'sparkle':
       return (
         <svg {...common}>
           <path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3z" fill="currentColor" stroke="none" />
@@ -1965,20 +1969,20 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
           <path d="M5 17.5v2.5M6.25 18.75h-2.5" />
         </svg>
       );
-    case 'check': // ✓ — conta encontrada
+    case 'check':
       return (
         <svg {...common} strokeWidth={2.4}>
           <path d="M4.5 12.5l4.5 4.5L19.5 6.5" />
         </svg>
       );
-    case 'eye': // mostrar senha
+    case 'eye':
       return (
         <svg {...common}>
           <path d="M2.5 12s3.5-7 9.5-7 9.5 7 9.5 7-3.5 7-9.5 7S2.5 12 2.5 12z" />
           <circle cx="12" cy="12" r="3" />
         </svg>
       );
-    case 'eye-off': // esconder senha
+    case 'eye-off':
       return (
         <svg {...common}>
           <path d="M10.6 6.1A11 11 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-3.4 3.9M6.9 7A17 17 0 0 0 2.5 12s3.5 6 9.5 6c1.5 0 2.9-.3 4.2-.9" />
@@ -1986,7 +1990,7 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
           <path d="M3 3l18 18" />
         </svg>
       );
-    case 'target': // alvo — mercados
+    case 'target':
       return (
         <svg {...common}>
           <circle cx="12" cy="12" r="9" />
@@ -1994,7 +1998,7 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
           <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
         </svg>
       );
-    case 'trophy': // troféu — campeonatos
+    case 'trophy':
       return (
         <svg {...common}>
           <path d="M6.5 4h11v4.5a5.5 5.5 0 0 1-11 0V4z" />
@@ -2003,7 +2007,7 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
           <path d="M12 14v4M8.5 21h7M9.5 18h5" />
         </svg>
       );
-    case 'globe': // globo — copa do mundo
+    case 'globe':
       return (
         <svg {...common}>
           <circle cx="12" cy="12" r="9" />
@@ -2012,20 +2016,222 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
           <path d="M12 3a14 14 0 0 0 0 18" />
         </svg>
       );
-    case 'coin': // moeda PC
+    case 'coin':
       return (
         <svg {...common}>
           <circle cx="12" cy="12" r="9" />
           <circle cx="12" cy="12" r="6.2" strokeDasharray="1.5 2" opacity="0.55" />
-          <text
-            x="12" y="15.4"
-            textAnchor="middle"
-            fontFamily="'JetBrains Mono', ui-monospace, monospace"
-            fontSize="8.5"
-            fontWeight="800"
-            fill="currentColor"
-            stroke="none"
-          >PC</text>
+          <text x="12" y="15.4" textAnchor="middle" fontFamily="'JetBrains Mono', ui-monospace, monospace" fontSize="8.5" fontWeight="800" fill="currentColor" stroke="none">PC</text>
+        </svg>
+      );
+    // ─── flechas ──
+    case 'arrow-right':
+      return <svg {...common}><path d="M5 12h14M13 6l6 6-6 6" /></svg>;
+    case 'arrow-up-right':
+      return <svg {...common}><path d="M7 17L17 7M9 7h8v8" /></svg>;
+    case 'arrow-down':
+      return <svg {...common}><path d="M12 5v14M6 13l6 6 6-6" /></svg>;
+    case 'refresh':
+      return (
+        <svg {...common}>
+          <path d="M3 12a9 9 0 0 1 15.5-6.3M21 12a9 9 0 0 1-15.5 6.3" />
+          <path d="M16 4v5h5M8 20v-5H3" />
+        </svg>
+      );
+    case 'caret-up':
+      return <svg {...common} fill="currentColor" stroke="none"><path d="M12 8l-7 8h14L12 8z" /></svg>;
+    case 'caret-down':
+      return <svg {...common} fill="currentColor" stroke="none"><path d="M12 16l7-8H5l7 8z" /></svg>;
+    // ─── status ──
+    case 'x':
+      return <svg {...common} strokeWidth={2.2}><path d="M6 6l12 12M18 6L6 18" /></svg>;
+    case 'warning':
+      return (
+        <svg {...common} strokeLinejoin="round">
+          <path d="M12 3.2 1.8 21h20.4L12 3.2z" />
+          <path d="M12 10v5" strokeWidth={2.2} />
+          <circle cx="12" cy="18" r="0.8" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'lock':
+      return (
+        <svg {...common}>
+          <rect x="4.5" y="11" width="15" height="10" rx="2" />
+          <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+        </svg>
+      );
+    case 'unlock':
+      return (
+        <svg {...common}>
+          <rect x="4.5" y="11" width="15" height="10" rx="2" />
+          <path d="M8 11V8a4 4 0 0 1 7.5-2" />
+        </svg>
+      );
+    // ─── conceitos ──
+    case 'flag':
+      return (
+        <svg {...common}>
+          <path d="M5 3v18" strokeWidth={2.2} />
+          <path d="M5 4h12l-2.5 4.5L17 13H5" />
+        </svg>
+      );
+    case 'question':
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7v.5" />
+          <circle cx="12" cy="17.3" r="0.8" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'medal':
+      return (
+        <svg {...common}>
+          <path d="M7 3l3 6M17 3l-3 6M5 3h4l3 6 3-6h4" />
+          <circle cx="12" cy="15.5" r="5.5" />
+          <text x="12" y="17.8" textAnchor="middle" fontFamily="'JetBrains Mono', ui-monospace, monospace" fontSize="6.5" fontWeight="800" fill="currentColor" stroke="none">2</text>
+        </svg>
+      );
+    case 'gift':
+      return (
+        <svg {...common}>
+          <rect x="3" y="9" width="18" height="12" rx="1" />
+          <path d="M3 14h18M12 9v12" />
+          <path d="M8 9c-2 0-3-1-3-2.5S6 4 7.5 4 12 9 12 9M16 9c2 0 3-1 3-2.5S18 4 16.5 4 12 9 12 9" />
+        </svg>
+      );
+    case 'menu':
+      return <svg {...common} strokeWidth={2.2}><path d="M4 7h16M4 12h16M4 17h16" /></svg>;
+    case 'skull':
+      return (
+        <svg {...common}>
+          <path d="M5 12a7 7 0 0 1 14 0v3a2 2 0 0 1-2 2v3h-2v-2h-2v2h-2v-2H9v2H7v-3a2 2 0 0 1-2-2v-3z" />
+          <circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none" />
+          <circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none" />
+          <path d="M11 16h2" />
+        </svg>
+      );
+    case 'fire':
+      return (
+        <svg {...common}>
+          <path d="M12 3s-1 3-3 5-3 4-3 7a6 6 0 0 0 12 0c0-2-1-3-2-4s-2-3-2-5c0 0-1 2-2 2s0-5 0-5z" />
+        </svg>
+      );
+    case 'book':
+      return (
+        <svg {...common}>
+          <path d="M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 0 0 4h12" />
+          <path d="M8 7h7M8 11h7" />
+        </svg>
+      );
+    case 'newspaper':
+      return (
+        <svg {...common}>
+          <path d="M3 6h13v14H5a2 2 0 0 1-2-2V6z" />
+          <path d="M16 9h4v9a2 2 0 0 1-2 2" />
+          <path d="M6 9h7M6 13h7M6 17h4" />
+        </svg>
+      );
+    case 'dice':
+      return (
+        <svg {...common}>
+          <rect x="3.5" y="3.5" width="17" height="17" rx="3" />
+          <circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none" />
+          <circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'user':
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 21a8 8 0 0 1 16 0" />
+        </svg>
+      );
+    case 'gamepad':
+      return (
+        <svg {...common}>
+          <path d="M3 13a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v2a3 3 0 0 1-5.5 1.7L15 16H9l-.5.7A3 3 0 0 1 3 15v-2z" />
+          <path d="M7 12v3M5.5 13.5h3" />
+          <circle cx="15" cy="12.5" r="0.9" fill="currentColor" stroke="none" />
+          <circle cx="17" cy="14.5" r="0.9" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'phone':
+      return (
+        <svg {...common}>
+          <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
+          <path d="M11 18.5h2" />
+        </svg>
+      );
+    case 'chart':
+      return (
+        <svg {...common}>
+          <path d="M3 21V4M3 21h18" strokeWidth={2.2} />
+          <rect x="6" y="13" width="3" height="6" fill="currentColor" stroke="none" />
+          <rect x="11" y="9" width="3" height="10" fill="currentColor" stroke="none" />
+          <rect x="16" y="6" width="3" height="13" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'pin':
+      return (
+        <svg {...common}>
+          <path d="M12 21s7-7 7-12a7 7 0 0 0-14 0c0 5 7 12 7 12z" />
+          <circle cx="12" cy="9" r="2.5" />
+        </svg>
+      );
+    case 'square-filled':
+      return <svg {...common}><rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor" stroke="none" /></svg>;
+    case 'chat':
+      return (
+        <svg {...common}>
+          <path d="M21 12a8 8 0 0 1-12 7l-5 1 1.5-4.5A8 8 0 1 1 21 12z" />
+        </svg>
+      );
+    case 'ticket':
+      return (
+        <svg {...common}>
+          <path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1a2 2 0 0 0 0 4v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1a2 2 0 0 0 0-4V9z" />
+          <path d="M9 7v10" strokeDasharray="1.5 2" />
+        </svg>
+      );
+    case 'flask':
+      return (
+        <svg {...common}>
+          <path d="M9 3v6L4.5 18.5A2 2 0 0 0 6.3 21.5h11.4A2 2 0 0 0 19.5 18.5L15 9V3" />
+          <path d="M7 3h10M7.2 14h9.6" />
+        </svg>
+      );
+    case 'tag':
+      return (
+        <svg {...common}>
+          <path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9-9-9z" />
+          <circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'trash':
+      return (
+        <svg {...common}>
+          <path d="M4 7h16" strokeWidth={2.2} />
+          <path d="M9.5 7V4h5v3" />
+          <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
+          <path d="M10 11v6M14 11v6" />
+        </svg>
+      );
+    case 'toilet': // privada — Hall da Vergonha (lanterna)
+      return (
+        <svg {...common}>
+          <path d="M5 4h14v2H5z" />
+          <path d="M6 6v3h12V6" />
+          <path d="M4.5 9h15l-1.5 7a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3L4.5 9z" />
+          <path d="M8 19l-1.5 3M16 19l1.5 3" />
+        </svg>
+      );
+    case 'toothbrush': // escova de dente — Hall da Vergonha (penultimo)
+      return (
+        <svg {...common}>
+          <rect x="2" y="11" width="11" height="2.5" rx="0.5" />
+          <rect x="13" y="9" width="6" height="6" rx="0.5" />
+          <path d="M15 9v-2.5M17 9v-2.5M16 9v-2.5" />
         </svg>
       );
     default:
@@ -2189,17 +2395,17 @@ const NEWS = [
           Edição especial do <strong>Primitivão Times</strong> com tudo o que
           tá rolando na temporada:
         </p>
-        <ul>
-          <li>⚠️ <strong>Celin manipulou?</strong> Segurou o jogo a tarde inteira pra não tomar gol — aos 88 min levou 3 e fechou Juca 4 × 0 Celin. <em>"Coincidência ou entregada?"</em></li>
-          <li>💀 <strong>Mohamed alcança −33 SG</strong> após derrota amarga contra o Magreza. 0 vitórias, 6 derrotas. Vai encerrar com −50?</li>
-          <li>🔥 <strong>Juca on fire!</strong> 4 jogos, 4 goleadas, 100% de zoeira.</li>
-          <li>📚 <strong>Magreza em modo carreira:</strong> nem piedade, nem desculpa.</li>
-          <li>🎯 <strong>Comissão do VARIMITIVÃO</strong> de plantão: <em>"errou de novo? não foi erro, foi intenção!"</em></li>
-          <li>📰 <strong>Futmercado bombando</strong> — rumores, trocas e negociações de padaria.</li>
-          <li>🏆 <strong>Próximo jogo:</strong> BANE × CACO. Dois títulos, um destino.</li>
+        <ul className="ic-list">
+          <li><Icon name="warning" size={14} /><span><strong>Celin manipulou?</strong> Segurou o jogo a tarde inteira pra não tomar gol — aos 88 min levou 3 e fechou Juca 4 × 0 Celin. <em>"Coincidência ou entregada?"</em></span></li>
+          <li><Icon name="skull" size={14} /><span><strong>Mohamed alcança −33 SG</strong> após derrota amarga contra o Magreza. 0 vitórias, 6 derrotas. Vai encerrar com −50?</span></li>
+          <li><Icon name="fire" size={14} /><span><strong>Juca on fire!</strong> 4 jogos, 4 goleadas, 100% de zoeira.</span></li>
+          <li><Icon name="book" size={14} /><span><strong>Magreza em modo carreira:</strong> nem piedade, nem desculpa.</span></li>
+          <li><Icon name="target" size={14} /><span><strong>Comissão do VARIMITIVÃO</strong> de plantão: <em>"errou de novo? não foi erro, foi intenção!"</em></span></li>
+          <li><Icon name="newspaper" size={14} /><span><strong>Futmercado bombando</strong> — rumores, trocas e negociações de padaria.</span></li>
+          <li><Icon name="trophy" size={14} /><span><strong>Próximo jogo:</strong> BANE × CACO. Dois títulos, um destino.</span></li>
         </ul>
         <p>
-          Acompanha tudo na aba <strong>CAMPEONATOS → FIFA</strong> — classificação,
+          Acompanha tudo na aba <strong>CAMPEONATOS <Icon name="arrow-right" size={11} className="inl-arrow" /> FIFA</strong> — classificação,
           jogos abertos e o Hall da Vergonha em tempo real.
         </p>
       </>
@@ -2242,15 +2448,15 @@ const NEWS = [
           resistiu! Em horas, o sistema voltou no ar com defesas reforçadas.
         </p>
         <p><strong>O que mudou:</strong></p>
-        <ul>
-          <li>🎲 Odds <strong>automáticas</strong> baseadas na classificação</li>
-          <li>🎯 5 mercados: 1X2, Ambos Marcam, Ninguém Marca, +3 Gols (mandante/visitante)</li>
-          <li>💰 Bônus semanal de <strong>500 PC</strong> (era 20!) — toda segunda 10h BRT</li>
-          <li>🏆 Hall da Fama e Hall da Vergonha por temporada</li>
-          <li>👤 Aba "Meu Perfil" com seu time, troféus e títulos</li>
-          <li>🎮 Mortal Kombat, Rocket League, LoL, CS, Golf With Your Friends, Copa do Mundo — chegando em breve</li>
-          <li>📱 Otimizado pra celular (com menu hamburger)</li>
-          <li>🔒 Defesas contra race conditions e backup automático diário</li>
+        <ul className="ic-list">
+          <li><Icon name="dice" size={14} /><span>Odds <strong>automáticas</strong> baseadas na classificação</span></li>
+          <li><Icon name="target" size={14} /><span>5 mercados: 1X2, Ambos Marcam, Ninguém Marca, +3 Gols (mandante/visitante)</span></li>
+          <li><Icon name="coin" size={14} /><span>Bônus semanal de <strong>500 PC</strong> (era 20!) — toda segunda 10h BRT</span></li>
+          <li><Icon name="trophy" size={14} /><span>Hall da Fama e Hall da Vergonha por temporada</span></li>
+          <li><Icon name="user" size={14} /><span>Aba "Meu Perfil" com seu time, troféus e títulos</span></li>
+          <li><Icon name="gamepad" size={14} /><span>Mortal Kombat, Rocket League, LoL, CS, Golf With Your Friends, Copa do Mundo — chegando em breve</span></li>
+          <li><Icon name="phone" size={14} /><span>Otimizado pra celular (com menu hamburger)</span></li>
+          <li><Icon name="lock" size={14} /><span>Defesas contra race conditions e backup automático diário</span></li>
         </ul>
       </>
     ),
@@ -2277,7 +2483,7 @@ const NEWS = [
           mundo no app.
         </p>
         <p>
-          Vá em <strong>CAMPEONATOS → FIFA → JOGOS</strong> pra apostar.
+          Vá em <strong>CAMPEONATOS <Icon name="arrow-right" size={11} className="inl-arrow" /> FIFA <Icon name="arrow-right" size={11} className="inl-arrow" /> JOGOS</strong> pra apostar.
         </p>
       </>
     ),
@@ -2315,8 +2521,8 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePi
 
       <div className="copa-subtabs">
         <button className={'copa-subtab ' + (subTab === 'jogos' ? 'active' : '')} onClick={() => setSubTab('jogos')}>JOGOS</button>
-        <button className={'copa-subtab ' + (subTab === 'grupos' ? 'active' : '')} onClick={() => setSubTab('grupos')}>📊 GRUPOS</button>
-        <button className={'copa-subtab ' + (subTab === 'ranking' ? 'active' : '')} onClick={() => setSubTab('ranking')}>🏆 RANKING DO BOLÃO</button>
+        <button className={'copa-subtab ' + (subTab === 'grupos' ? 'active' : '')} onClick={() => setSubTab('grupos')}><Icon name="chart" size={14} /> GRUPOS</button>
+        <button className={'copa-subtab ' + (subTab === 'ranking' ? 'active' : '')} onClick={() => setSubTab('ranking')}><Icon name="trophy" size={14} /> RANKING DO BOLÃO</button>
       </div>
 
       {subTab === 'jogos' && (
@@ -2444,7 +2650,7 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSa
             {allTeams.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           {teamFilter && (
-            <button className="copa-team-clear" onClick={() => setTeamFilter('')} title="Limpar filtro de time">✕</button>
+            <button className="copa-team-clear" onClick={() => setTeamFilter('')} title="Limpar filtro de time"><Icon name="x" size={12} /></button>
           )}
         </div>
       </div>
@@ -2506,7 +2712,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
     setBusy(true); setMsg('');
     try {
       await onSavePick(match.id, gh, ga);
-      setMsg('✓ palpite salvo');
+      setMsg('palpite salvo');
       setTimeout(() => setMsg(''), 2000);
     } catch (e) {
       setMsg('erro — tenta de novo');
@@ -2545,7 +2751,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
         <span className="wc-pickcount">{pickCount} palpite{pickCount === 1 ? '' : 's'}</span>
       </div>
       {match.ground && (
-        <div className="wc-ground">📍 {match.ground}</div>
+        <div className="wc-ground"><Icon name="pin" size={12} /> {match.ground}</div>
       )}
       <div className="wc-match-body">
         <div className="wc-team wc-team-home">
@@ -2602,7 +2808,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
           <button className="wc-save" onClick={handleSave} disabled={busy || !gh || !ga}>
             {busy ? 'SALVANDO…' : (myPick ? 'ATUALIZAR PALPITE' : 'SALVAR PALPITE')}
           </button>
-          {msg && <span className="wc-msg">{msg}</span>}
+          {msg && <span className="wc-msg">{msg === 'palpite salvo' && <Icon name="check" size={11} />} {msg}</span>}
         </div>
       )}
 
@@ -2663,7 +2869,7 @@ function CopaGrupos({ fixtures, results }) {
             <div key={g} className="card copa-group-card">
               <div className="card-head">
                 <div className="title">GRUPO {g}</div>
-                <div className="sub">{allDone ? '✓ COMPLETO' : `${st.reduce((a,t) => a + t.J, 0) / 2} de 6 jogos`}</div>
+                <div className="sub">{allDone ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="check" size={11} /> COMPLETO</span> : `${st.reduce((a,t) => a + t.J, 0) / 2} de 6 jogos`}</div>
               </div>
               <div className="card-body" style={{ overflowX: 'auto' }}>
                 <table className="std-table std-wc">
@@ -2702,9 +2908,9 @@ function CopaGrupos({ fixtures, results }) {
         })}
       </div>
       <p className="copa-grupos-legenda">
-        🟧 <strong>Top 2</strong> classificam direto pro mata-mata ·
-        🟨 <strong>3º</strong> pode passar entre os 8 melhores terceiros ·
-        ⬜ <strong>4º</strong> eliminado.
+        <span className="legenda-sq" style={{ color: '#d76414' }}><Icon name="square-filled" size={11} /></span> <strong>Top 2</strong> classificam direto pro mata-mata ·
+        <span className="legenda-sq" style={{ color: '#e3b94d' }}><Icon name="square-filled" size={11} /></span> <strong>3º</strong> pode passar entre os 8 melhores terceiros ·
+        <span className="legenda-sq" style={{ color: 'rgba(28,22,18,0.25)' }}><Icon name="square-filled" size={11} /></span> <strong>4º</strong> eliminado.
       </p>
     </div>
   );
@@ -2739,7 +2945,7 @@ function CopaRanking({ users, fixtures, results, picks, myNick }) {
   return (
     <div className="card">
       <div className="card-head">
-        <div className="title">🏆 RANKING DO BOLÃO</div>
+        <div className="title"><Icon name="trophy" size={16} /> RANKING DO BOLÃO</div>
         <div className="sub">{rows.length} JOGADORES · {fixtures.length} JOGOS NO TOTAL</div>
       </div>
       <div className="card-body">
@@ -2839,8 +3045,8 @@ function Comments({ newsId, list, sessionNick, isAdmin, onAdd, onDelete }) {
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
       >
-        💬 {open ? 'OCULTAR COMENTÁRIOS' : 'VER COMENTÁRIOS'} · {count}
-        <span className="comments-chev">{open ? '▴' : '▾'}</span>
+        <Icon name="chat" size={14} /> {open ? 'OCULTAR COMENTÁRIOS' : 'VER COMENTÁRIOS'} · {count}
+        <span className="comments-chev"><Icon name={open ? 'caret-up' : 'caret-down'} size={12} /></span>
       </button>
       {open && (
         <div className="comments-body">
@@ -2870,7 +3076,7 @@ function Comments({ newsId, list, sessionNick, isAdmin, onAdd, onDelete }) {
           )}
           {sorted.length === 0 && (
             <div className="comments-empty">
-              Ninguém comentou ainda. Seja o primeiro 🎯
+              Ninguém comentou ainda. Seja o primeiro <Icon name="target" size={13} />
             </div>
           )}
           {sorted.map(c => {
@@ -2886,7 +3092,7 @@ function Comments({ newsId, list, sessionNick, isAdmin, onAdd, onDelete }) {
                       className="comment-del"
                       title="Apagar"
                       onClick={() => handleDel(c.id)}
-                    >✕</button>
+                    ><Icon name="x" size={11} /></button>
                   )}
                 </div>
                 <div className="comment-text">{c.text}</div>
@@ -2990,7 +3196,7 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
               {isAdmin && lockedCount > 0 && (
                 <>
                   <span>·</span>
-                  <span style={{ color: '#c33' }}>🔒 <strong>{lockedCount}</strong> travado{lockedCount === 1 ? '' : 's'}</span>
+                  <span style={{ color: '#c33', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="lock" size={12} /> <strong>{lockedCount}</strong> travado{lockedCount === 1 ? '' : 's'}</span>
                 </>
               )}
             </div>
@@ -3068,7 +3274,7 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
                       })()}
                     </div>
                   </div>
-                  <span className="round-chev">{expanded ? '▴' : '▾'}</span>
+                  <span className="round-chev"><Icon name={expanded ? 'caret-up' : 'caret-down'} size={12} /></span>
                 </button>
                 {expanded && (
                   <div className="card-body">
@@ -3096,7 +3302,7 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
       {/* FAB mobile: aparece quando há pernas no slip, scrolla pro cupom */}
       {!isAdmin && slip.length > 0 && (
         <button className="cupom-fab" onClick={scrollToCupom} type="button">
-          🎫 <span className="cupom-fab-num">{slip.length}</span>
+          <Icon name="ticket" size={18} /> <span className="cupom-fab-num">{slip.length}</span>
           <span className="cupom-fab-label">VER CUPOM</span>
         </button>
       )}
@@ -3138,8 +3344,8 @@ function GameRow({ game, slip, onToggleLeg, canBet, isAdmin, onToggleLock }) {
           <div className="fixture-tag">
             RODADA {String(game.round).padStart(2, '0')}
             {isLocked && (
-              <span style={{ marginLeft: 8, color: '#c33', fontFamily: 'Space Grotesk', letterSpacing: '0.18em' }}>
-                · 🔒 TRAVADO
+              <span style={{ marginLeft: 8, color: '#c33', fontFamily: 'Space Grotesk', letterSpacing: '0.18em', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                · <Icon name="lock" size={11} /> TRAVADO
               </span>
             )}
           </div>
@@ -3166,8 +3372,9 @@ function GameRow({ game, slip, onToggleLeg, canBet, isAdmin, onToggleLock }) {
         <div style={{
           textAlign: 'center', marginTop: 6, fontSize: 10, letterSpacing: '0.22em',
           fontWeight: 800, color: 'var(--pv-orange)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
         }}>
-          {expanded ? '▲ FECHAR PALPITES' : '▼ VER PALPITES'}
+          <Icon name={expanded ? 'caret-up' : 'caret-down'} size={12} /> {expanded ? 'FECHAR PALPITES' : 'VER PALPITES'}
         </div>
       </button>
 
@@ -3184,7 +3391,7 @@ function GameRow({ game, slip, onToggleLeg, canBet, isAdmin, onToggleLock }) {
               fontSize: 10, cursor: 'pointer',
             }}
           >
-            {isLocked ? '🔓 DESTRAVAR APOSTAS' : '🔒 TRAVAR APOSTAS'}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name={isLocked ? 'unlock' : 'lock'} size={11} /> {isLocked ? 'DESTRAVAR APOSTAS' : 'TRAVAR APOSTAS'}</span>
           </button>
         </div>
       )}
@@ -3257,8 +3464,9 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
             border: '1.5px solid var(--pv-orange)', marginBottom: 10,
             fontSize: 11, fontWeight: 700, color: 'var(--pv-charcoal)',
             letterSpacing: '0.04em', lineHeight: 1.4,
+            display: 'flex', alignItems: 'flex-start', gap: 8,
           }}>
-            ⚠ {pruneMsg}
+            <Icon name="warning" size={14} /> <span>{pruneMsg}</span>
           </div>
         )}
 
@@ -3276,7 +3484,7 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
               {legLabel(l)}
             </div>
             <div className="cupom-leg-odd mono">{l.odds.toFixed(2)}</div>
-            <button className="cupom-leg-x" onClick={() => onRemoveLeg(l.fixtureId)}>✕</button>
+            <button className="cupom-leg-x" onClick={() => onRemoveLeg(l.fixtureId)}><Icon name="x" size={12} /></button>
           </div>
         ))}
 
@@ -3308,8 +3516,8 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
             </div>
 
             {multi && (
-              <div style={{ fontSize: 10, letterSpacing: '0.12em', color: 'rgba(28,22,18,0.6)', fontWeight: 700, marginTop: 10 }}>
-                ⚠ APOSTA CASADA: precisa acertar TODOS os {slip.length} palpites pra ganhar.
+              <div style={{ fontSize: 10, letterSpacing: '0.12em', color: 'rgba(28,22,18,0.6)', fontWeight: 700, marginTop: 10, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                <Icon name="warning" size={12} /> <span>APOSTA CASADA: precisa acertar TODOS os {slip.length} palpites pra ganhar.</span>
               </div>
             )}
 
@@ -3367,9 +3575,13 @@ function TicketsView({ bets, gamesById, cs, onCancel }) {
                   {t.legs.map((l, i) => {
                     const f = resolveGame(l.fixtureId);
                     const lg = { ...l, _fix: f };
-                    const ic = l.result === 'win' ? '✓ ' : l.result === 'lose' ? '✕ ' : '• ';
+                    const iconName = l.result === 'win' ? 'check' : l.result === 'lose' ? 'x' : null;
+                    const iconColor = l.result === 'win' ? '#3a7d2a' : l.result === 'lose' ? '#c33' : 'rgba(28,22,18,0.5)';
                     const label = f ? legLabel(lg) : '(jogo removido)';
-                    return <div key={i} style={{ fontWeight: 700, fontSize: 13, marginTop: 2 }}>{ic}{label} <span style={{ color: 'var(--pv-orange)' }}>@{l.odds.toFixed(2)}</span></div>;
+                    return <div key={i} style={{ fontWeight: 700, fontSize: 13, marginTop: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      {iconName ? <span style={{ color: iconColor, display: 'inline-flex' }}><Icon name={iconName} size={12} /></span> : <span style={{ color: iconColor }}>•</span>}
+                      <span>{label} <span style={{ color: 'var(--pv-orange)' }}>@{l.odds.toFixed(2)}</span></span>
+                    </div>;
                   })}
                 </div>
                 <div className={'status ' + t.status}>
@@ -3388,8 +3600,9 @@ function TicketsView({ bets, gamesById, cs, onCancel }) {
                   <div style={{
                     marginTop: 8, fontSize: 9, letterSpacing: '0.16em', fontWeight: 800,
                     color: '#c33', lineHeight: 1.3, maxWidth: 110,
+                    display: 'inline-flex', alignItems: 'flex-start', gap: 4,
                   }}>
-                    🔒 JOGO TRAVADO<br />NÃO DÁ PRA CANCELAR
+                    <Icon name="lock" size={10} /> <span>JOGO TRAVADO<br />NÃO DÁ PRA CANCELAR</span>
                   </div>
                 )}
               </div>
@@ -3438,7 +3651,7 @@ const TITLE_DEFS = [
   {
     id: 'beta_tester',
     name: 'BETA TESTER',
-    icon: '🧪',
+    icon: 'flask',
     desc: 'Jogou a primeira temporada do Primitivão (FIFA 2026 Season 1) — está vinculado a um time.',
     color: '#7a4dc9',
     check: ({ nick, teamPlayers }) => {
@@ -3477,7 +3690,7 @@ function TitleBadge({ titleId, size }) {
       whiteSpace: 'nowrap',
       lineHeight: 1.2,
     }}>
-      {t.icon} {t.name}
+      <Icon name={t.icon} size={big ? 13 : 11} /> {t.name}
     </span>
   );
 }
@@ -3544,7 +3757,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, isAdmin, onSele
           {!myTeam ? (
             <div className="empty">
               <div className="e1">SEM TIME VINCULADO</div>
-              <div className="e2">Peça pro admin te vincular a um time em ADMIN → TIMES.</div>
+              <div className="e2">Peça pro admin te vincular a um time em ADMIN <Icon name="arrow-right" size={11} className="inl-arrow" /> TIMES.</div>
             </div>
           ) : (
             <>
@@ -3577,7 +3790,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, isAdmin, onSele
       {/* TROFÉUS */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-head">
-          <div className="title">🏆 MEUS TROFÉUS</div>
+          <div className="title"><Icon name="trophy" size={16} /> MEUS TROFÉUS</div>
           <div className="sub">{myTrophies.length}</div>
         </div>
         <div className="card-body">
@@ -3660,7 +3873,7 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
   return (
     <div className="card" style={{ marginBottom: 14 }}>
       <div className="card-head">
-        <div className="title">🏷️ TÍTULOS</div>
+        <div className="title"><Icon name="tag" size={16} /> TÍTULOS</div>
         <div className="sub">{titulos.length} · CLIQUE PARA EXIBIR</div>
       </div>
       <div className="card-body">
@@ -3695,7 +3908,7 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 24, lineHeight: 1 }}>{t.icon}</span>
+                        <span style={{ lineHeight: 1, color: isSelected ? '#fff' : t.color, display: 'inline-flex' }}><Icon name={t.icon} size={24} /></span>
                         <span style={{
                           fontFamily: 'Bagel Fat One, Impact',
                           fontSize: 18, color: isSelected ? '#fff' : t.color, letterSpacing: '0.04em',
@@ -3707,8 +3920,9 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
                         <span style={{
                           fontSize: 9, letterSpacing: '0.18em', fontWeight: 800,
                           padding: '2px 6px', background: 'rgba(255,255,255,0.25)',
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
                         }}>
-                          ✓ EXIBINDO
+                          <Icon name="check" size={10} /> EXIBINDO
                         </span>
                       )}
                     </div>
@@ -3732,18 +3946,20 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
 function TrophyItem({ trophy }) {
   const c = CHAMP_BY_ID[trophy.champId];
   const meta = {
-    champion:  { icon: '🏆', label: 'CAMPEÃO',   color: '#c9a227', bg: '#fbf3d3' },
-    vice:      { icon: '🥈', label: 'VICE',       color: '#7a7a7a', bg: '#ececec' },
-    lanterna:  { icon: '🚽', label: 'LANTERNA',   color: '#7a2222', bg: '#fce4e4' },
-    penultimo: { icon: '🪥', label: 'PENÚLTIMO',  color: '#3e0f0f', bg: '#f0e2e2' },
-  }[trophy.kind] || { icon: '·', label: '', color: '#000', bg: '#eee' };
+    champion:  { icon: 'trophy',     label: 'CAMPEÃO',   color: '#c9a227', bg: '#fbf3d3' },
+    vice:      { icon: 'medal',      label: 'VICE',       color: '#7a7a7a', bg: '#ececec' },
+    lanterna:  { icon: 'toilet',     label: 'LANTERNA',   color: '#7a2222', bg: '#fce4e4' },
+    penultimo: { icon: 'toothbrush', label: 'PENÚLTIMO',  color: '#3e0f0f', bg: '#f0e2e2' },
+  }[trophy.kind] || { icon: null, label: '', color: '#000', bg: '#eee' };
   return (
     <div style={{
       flex: '0 0 calc(50% - 6px)', maxWidth: 220,
       background: meta.bg, border: `2px solid ${meta.color}`,
       padding: 12, textAlign: 'center',
     }}>
-      <div style={{ fontSize: 42, lineHeight: 1 }}>{meta.icon}</div>
+      <div style={{ lineHeight: 1, color: meta.color, display: 'flex', justifyContent: 'center' }}>
+        {meta.icon && <Icon name={meta.icon} size={42} />}
+      </div>
       <div style={{ marginTop: 4, fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, color: meta.color }}>
         {meta.label}
       </div>
@@ -3831,7 +4047,7 @@ function TrophyCard({ champ, slot1, slot2, theme }) {
     <div className="card" style={{ marginBottom: 14, borderTop: `3px solid ${accent}` }}>
       <div className="card-head" style={{ background: accent2, color: '#fff' }}>
         <div>
-          <div className="title" style={{ color: '#fff' }}>{isFame ? '🏆' : '🚽'} {champ.name.toUpperCase()}</div>
+          <div className="title" style={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}><Icon name={isFame ? 'trophy' : 'toilet'} size={18} /> {champ.name.toUpperCase()}</div>
           <div className="sub" style={{ color: 'rgba(255,255,255,0.7)' }}>{champ.season}</div>
         </div>
       </div>
@@ -3860,9 +4076,9 @@ function TrophyPodium({ slot, accent, size, theme }) {
   const big = size === 'big';
   // Ícones: 1º lugar (big) ganha "troféu"; 2º (small) ganha "medalha".
   const isFame = theme === 'fame';
-  const icon = big
-    ? (isFame ? '🏆' : '🚽') // troféu (ou troféu-vergonha)
-    : (isFame ? '🥈' : '🪥'); // medalha (ou escova-vergonha)
+  const iconName = big
+    ? (isFame ? 'trophy' : 'toilet')     // troféu (ou troféu-vergonha)
+    : (isFame ? 'medal'  : 'toothbrush'); // medalha (ou escova-vergonha)
   return (
     <div style={{
       padding: big ? '18px 14px' : '14px 12px',
@@ -3870,7 +4086,9 @@ function TrophyPodium({ slot, accent, size, theme }) {
       borderTop: `4px solid ${accent}`,
       textAlign: 'center',
     }}>
-      <div style={{ fontSize: big ? 64 : 44, lineHeight: 1 }}>{icon}</div>
+      <div style={{ lineHeight: 1, color: accent, display: 'flex', justifyContent: 'center' }}>
+        <Icon name={iconName} size={big ? 64 : 44} />
+      </div>
       <div style={{
         marginTop: 6, fontSize: big ? 11 : 10, letterSpacing: '0.22em',
         fontWeight: 800, color: accent,
@@ -4119,7 +4337,7 @@ function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer }) {
         <button className={'tab ' + (tab === 'usuarios' ? 'active' : '')} onClick={() => setTab('usuarios')}>USUÁRIOS</button>
         <button className={'tab ' + (tab === 'times' ? 'active' : '')} onClick={() => setTab('times')}>TIMES</button>
         <button className={'tab ' + (tab === 'backup' ? 'active' : '')} onClick={() => setTab('backup')}>BACKUP</button>
-        <button className={'tab ' + (tab === 'perigo' ? 'active' : '')} onClick={() => setTab('perigo')} style={{ color: tab === 'perigo' ? '#c33' : 'rgba(195,51,51,0.6)' }}>⚠ PERIGO</button>
+        <button className={'tab ' + (tab === 'perigo' ? 'active' : '')} onClick={() => setTab('perigo')} style={{ color: tab === 'perigo' ? '#c33' : 'rgba(195,51,51,0.6)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="warning" size={12} /> PERIGO</button>
       </div>
 
       {tab === 'usuarios' && (
@@ -4217,17 +4435,17 @@ function BackupPanel() {
           Um backup automático também é gerado todo dia pelo GitHub Action e fica em <code>backups/</code> no repo.
         </p>
         <button onClick={onClick} disabled={status === 'running'}
-          style={{ background: 'var(--pv-orange)', color: 'var(--pv-bone)', padding: '10px 20px', fontWeight: 800, border: 'none', letterSpacing: '0.16em', fontSize: 12, cursor: status === 'running' ? 'wait' : 'pointer' }}>
-          {status === 'running' ? 'GERANDO…' : '↓ BAIXAR BACKUP JSON'}
+          style={{ background: 'var(--pv-orange)', color: 'var(--pv-bone)', padding: '10px 20px', fontWeight: 800, border: 'none', letterSpacing: '0.16em', fontSize: 12, cursor: status === 'running' ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {status === 'running' ? 'GERANDO…' : <><Icon name="arrow-down" size={14} /> BAIXAR BACKUP JSON</>}
         </button>
         {status && status !== 'running' && status.ok && (
-          <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)' }}>
-            ✓ Backup baixado. {status.users} usuários, {status.bets} apostas.
+          <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="check" size={14} /> Backup baixado. {status.users} usuários, {status.bets} apostas.
           </p>
         )}
         {status && status !== 'running' && !status.ok && (
-          <p style={{ marginTop: 14, color: 'var(--pv-red, #c33)' }}>
-            ✗ Erro: {status.error}
+          <p style={{ marginTop: 14, color: 'var(--pv-red, #c33)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="x" size={14} /> Erro: {status.error}
           </p>
         )}
       </div>
@@ -4302,7 +4520,7 @@ function RestorePanel() {
   return (
     <div className="card" style={{ marginTop: 14 }}>
       <div className="card-head">
-        <div className="title">↻ RESTAURAR BACKUP</div>
+        <div className="title"><Icon name="refresh" size={16} /> RESTAURAR BACKUP</div>
         <div className="sub">UPLOAD DE JSON</div>
       </div>
       <div className="card-body">
@@ -4323,8 +4541,8 @@ function RestorePanel() {
         />
 
         {preview && preview.error && (
-          <div style={{ marginTop: 12, padding: 10, background: '#fce4e4', border: '1.5px solid #c33', color: '#7a2222', fontSize: 12, fontWeight: 700 }}>
-            ✗ {preview.error}
+          <div style={{ marginTop: 12, padding: 10, background: '#fce4e4', border: '1.5px solid #c33', color: '#7a2222', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="x" size={13} /> {preview.error}
           </div>
         )}
 
@@ -4349,22 +4567,23 @@ function RestorePanel() {
                 padding: '10px 20px', fontWeight: 800, border: 'none',
                 letterSpacing: '0.16em', fontSize: 12,
                 cursor: status === 'running' ? 'wait' : 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
               }}
             >
-              {status === 'running' ? 'RESTAURANDO…' : '↻ RESTAURAR (sobrescreve atual)'}
+              {status === 'running' ? 'RESTAURANDO…' : <><Icon name="refresh" size={13} /> RESTAURAR (sobrescreve atual)</>}
             </button>
           </div>
         )}
 
         {status && status !== 'running' && status.ok && (
-          <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)', fontWeight: 700 }}>
-            ✓ Backup restaurado. {status.applied.users} usuários, {status.applied.bets} apostas,{' '}
+          <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="check" size={14} /> Backup restaurado. {status.applied.users} usuários, {status.applied.bets} apostas,{' '}
             {status.applied.teams} vínculos de time, {status.applied.rounds} rodadas, {status.applied.interests} inscrições.
           </p>
         )}
         {status && status !== 'running' && !status.ok && (
-          <p style={{ marginTop: 14, color: 'var(--pv-red, #c33)', fontWeight: 700 }}>
-            ✗ {status.error}
+          <p style={{ marginTop: 14, color: 'var(--pv-red, #c33)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="x" size={14} /> {status.error}
           </p>
         )}
       </div>
@@ -4391,7 +4610,7 @@ function DangerZone() {
   return (
     <div className="card" style={{ marginTop: 20, border: '2px solid #c33' }}>
       <div className="card-head" style={{ background: '#3a0e0e' }}>
-        <div className="title" style={{ color: '#ff8a8a' }}>⚠ ZONA DE PERIGO</div>
+        <div className="title" style={{ color: '#ff8a8a', display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="warning" size={16} /> ZONA DE PERIGO</div>
         <div className="sub" style={{ color: '#ffb3b3' }}>OPERAÇÃO IRREVERSÍVEL</div>
       </div>
       <div className="card-body">
@@ -4429,19 +4648,20 @@ function DangerZone() {
               letterSpacing: '0.16em',
               fontSize: 12,
               cursor: canFire ? 'pointer' : 'not-allowed',
+              display: 'inline-flex', alignItems: 'center', gap: 8,
             }}
           >
-            {status === 'running' ? 'EXECUTANDO…' : '🗑 DELETAR TUDO AGORA'}
+            {status === 'running' ? 'EXECUTANDO…' : <><Icon name="trash" size={13} /> DELETAR TUDO AGORA</>}
           </button>
         </div>
         {status && status !== 'running' && status.ok && (
-          <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)' }}>
-            ✓ Tudo resetado. Backup baixado: {status.backedUp.users} usuários, {status.backedUp.bets} apostas salvos no arquivo.
+          <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="check" size={14} /> Tudo resetado. Backup baixado: {status.backedUp.users} usuários, {status.backedUp.bets} apostas salvos no arquivo.
           </p>
         )}
         {status && status !== 'running' && !status.ok && (
-          <p style={{ marginTop: 14, color: 'var(--pv-red, #c33)' }}>
-            ✗ {status.error}
+          <p style={{ marginTop: 14, color: 'var(--pv-red, #c33)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="x" size={14} /> {status.error}
           </p>
         )}
       </div>
