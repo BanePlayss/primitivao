@@ -101,7 +101,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260527-share-bracket ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260527-avatares ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -884,6 +884,54 @@ function TeamMini({ team, size = 36 }) {
         {t.short.charAt(0)}
       </text>
     </svg>
+  );
+}
+
+// ─── AVATAR ──────────────────────────────────────────────────────────────────
+// Renderiza o avatar do jogador (PNG estilo Cartoon Network corpo inteiro).
+// Avatar é por TIME (não por user), então só os 8 jogadores vinculados a
+// times da FIFA Season 1 têm. Admin e users sem time vinculado mostram
+// fallback (círculo com inicial do nick).
+//
+// Props:
+//   - teamId:   id do time (prioridade 1)
+//   - nick:     nick do user (usado pra resolver via teamPlayers se teamId não vier)
+//   - teamPlayers: map nick→teamId (pra resolver quando só passa nick)
+//   - size:     tamanho em px (lado do quadrado pra ícone, ou largura pro full)
+//   - fullBody: true mostra PNG inteiro; false mostra só a cabeça (crop top)
+//   - className: classe extra
+function Avatar({ teamId, nick, teamPlayers, size = 32, fullBody = false, className = '' }) {
+  // Resolve teamId via teamPlayers se não veio direto
+  let tid = teamId;
+  if (!tid && nick && teamPlayers) tid = teamPlayers[nick];
+
+  if (tid) {
+    const t = TEAM(tid);
+    // Verifica se o PNG existe via onError fallback
+    const src = `avatars/${tid}.png`;
+    if (fullBody) {
+      return (
+        <div className={'avatar avatar-full ' + className} style={{ width: size, height: size }}>
+          <img src={src} alt={t.name} onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.classList.add('avatar-fallback'); }} />
+          <span className="avatar-fallback-letter" style={{ background: t.color }}>{t.short.charAt(0)}</span>
+        </div>
+      );
+    }
+    // Ícone: crop top (mostra só a cabeça)
+    return (
+      <div className={'avatar avatar-icon ' + className} style={{ width: size, height: size }}>
+        <img src={src} alt={t.name} onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.classList.add('avatar-fallback'); }} />
+        <span className="avatar-fallback-letter" style={{ background: t.color, fontSize: size * 0.5 }}>{t.short.charAt(0)}</span>
+      </div>
+    );
+  }
+
+  // Fallback puro (sem time): círculo bege com inicial do nick
+  const letter = (nick || '?').charAt(0).toUpperCase();
+  return (
+    <div className={'avatar avatar-icon avatar-fallback-pure ' + className} style={{ width: size, height: size }}>
+      <span className="avatar-fallback-letter" style={{ fontSize: size * 0.5 }}>{letter}</span>
+    </div>
   );
 }
 
@@ -1857,6 +1905,7 @@ function App() {
         onClaimWeekly={claimWeekly}
         view={view}
         onView={setView}
+        teamPlayers={teamPlayers || {}}
       />
       <div className="below-topbar">
         {view === 'inicio' && (
@@ -1943,7 +1992,7 @@ function App() {
           />
         )}
         {tab === 'ranking' && (
-          <RankingView users={users} bets={bets} me={session.nick} />
+          <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} />
         )}
         {tab === 'fama' && (
           <HallDaFamaView cs={cs} teamPlayers={teamPlayers || {}} users={users} />
@@ -1983,7 +2032,7 @@ function App() {
 }
 
 // ─── TOP BAR / TABS ─────────────────────────────────────────────────────────
-function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly, view, onView }) {
+function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly, view, onView, teamPlayers }) {
   const days = Math.floor(weeklyIn / (24 * 60 * 60 * 1000));
   const hrs  = Math.floor((weeklyIn % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
   const mins = Math.floor((weeklyIn % (60 * 60 * 1000)) / (60 * 1000));
@@ -2035,6 +2084,7 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
           </div>
         )}
         <div className="nick">
+          {!isAdmin && <Avatar nick={nick} teamPlayers={teamPlayers} size={36} />}
           {isAdmin && <span className="nick-tag" style={{ color: 'var(--pv-orange)', borderColor: 'var(--pv-orange)' }}>ADMIN</span>}
           <span className="nick-tag">@{nick}</span>
         </div>
@@ -4314,12 +4364,13 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, isAdmin, onSele
 
   return (
     <div>
-      {/* HEADER */}
+      {/* HEADER COM AVATAR GRANDE */}
       <div className="card" style={{ marginBottom: 14 }}>
-        <div className="card-head">
+        <div className="card-head" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {myTeamId && <Avatar teamId={myTeamId} size={120} fullBody={true} className="profile-avatar" />}
           <div>
-            <div className="title">@{nick}</div>
-            <div className="sub">{isAdmin ? 'ADMIN' : `${me?.pc ?? 0} PC`}</div>
+            <div className="title" style={{ fontSize: 24 }}>@{nick}</div>
+            <div className="sub">{isAdmin ? 'ADMIN' : `${me?.pc ?? 0} PC`}{myTeam ? ` · ${myTeam.name}` : ''}</div>
           </div>
         </div>
       </div>
@@ -4570,7 +4621,7 @@ function Stat({ label, value, accent }) {
 }
 
 // ─── RANKING (apostadores por PC) ───────────────────────────────────────────
-function RankingView({ users, bets, me }) {
+function RankingView({ users, bets, me, teamPlayers }) {
   const rows = Object.entries(users).map(([nick, u]) => {
     const my = bets.filter(b => b.user === nick);
     return {
@@ -4586,8 +4637,9 @@ function RankingView({ users, bets, me }) {
       <div className="card-body">
         {rows.length === 0 && <div className="empty"><div className="e2">Ninguém cadastrado ainda.</div></div>}
         {rows.map((r, i) => (
-          <div key={r.nick} className={'lb-row ' + (r.nick === me ? 'me' : '')} style={{ gridTemplateColumns: '36px 1fr auto auto auto', gap: 16 }}>
+          <div key={r.nick} className={'lb-row ' + (r.nick === me ? 'me' : '')} style={{ gridTemplateColumns: '36px 44px 1fr auto auto auto', gap: 12 }}>
             <div className="lb-pos">{i + 1}</div>
+            <Avatar nick={r.nick} teamPlayers={teamPlayers} size={44} />
             <div>
               <div className="lb-nick">
                 @{r.nick}
@@ -4671,8 +4723,14 @@ function TrophyPodium({ slot, accent, size, theme }) {
       borderTop: `4px solid ${accent}`,
       textAlign: 'center',
     }}>
+      {/* Avatar em destaque (se vier teamId no slot) */}
+      {slot.teamId && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+          <Avatar teamId={slot.teamId} size={big ? 140 : 100} fullBody={true} />
+        </div>
+      )}
       <div style={{ lineHeight: 1, color: accent, display: 'flex', justifyContent: 'center' }}>
-        <Icon name={iconName} size={big ? 64 : 44} />
+        <Icon name={iconName} size={big ? 48 : 32} />
       </div>
       <div style={{
         marginTop: 6, fontSize: big ? 11 : 10, letterSpacing: '0.22em',
@@ -4705,15 +4763,15 @@ function buildSlots(view, standings) {
   if (view === 'fame') {
     const first = standings[0], second = standings[1];
     return [
-      { label: 'CAMPEÃO', name: first.name, detail: formatDetail(first) },
-      { label: 'VICE',    name: second.name, detail: formatDetail(second) },
+      { label: 'CAMPEÃO', name: first.name,  teamId: first.id,  detail: formatDetail(first) },
+      { label: 'VICE',    name: second.name, teamId: second.id, detail: formatDetail(second) },
     ];
   } else {
     const last = standings[standings.length - 1];
     const penult = standings[standings.length - 2];
     return [
-      { label: 'LANTERNA',  name: last.name,   detail: formatDetail(last)   },
-      { label: 'PENÚLTIMO', name: penult.name, detail: formatDetail(penult) },
+      { label: 'LANTERNA',  name: last.name,   teamId: last.id,   detail: formatDetail(last)   },
+      { label: 'PENÚLTIMO', name: penult.name, teamId: penult.id, detail: formatDetail(penult) },
     ];
   }
 }
