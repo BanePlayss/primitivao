@@ -232,6 +232,49 @@
       background: var(--pv-charcoal); color: var(--pv-bone);
       border-color: var(--pv-orange);
     }
+    /* select de time */
+    .copa-team-select-wrap {
+      display: inline-flex; align-items: stretch; margin-left: 4px;
+    }
+    .copa-team-select {
+      border: 2px solid var(--pv-charcoal);
+      background: var(--pv-bone); color: var(--pv-charcoal);
+      padding: 7px 10px;
+      font-family: inherit; font-weight: 800;
+      font-size: 11px; letter-spacing: 0.1em;
+      cursor: pointer;
+    }
+    .copa-team-clear {
+      border: 2px solid var(--pv-charcoal);
+      border-left: none;
+      background: var(--pv-bone);
+      padding: 0 10px;
+      font-family: inherit; font-weight: 800;
+      cursor: pointer;
+    }
+    .copa-team-clear:hover { background: var(--pv-charcoal); color: var(--pv-orange); }
+
+    /* Tabela de grupos da Copa */
+    .copa-grupos-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+    @media (max-width: 720px) { .copa-grupos-grid { grid-template-columns: 1fr; } }
+    .copa-group-card .card-head { padding: 10px 14px; }
+    .copa-group-card .card-head .title { font-size: 14px; }
+    .std-wc th, .std-wc td { padding: 7px 5px; font-size: 12px; }
+    .std-wc tr.glory { background: rgba(215,100,20,0.10); }
+    .std-wc tr.glory .std-pos { color: var(--pv-orange); }
+    .std-wc tr.third { background: rgba(215,100,20,0.04); }
+    .std-wc tr.third .std-pos { color: rgba(28,22,18,0.7); }
+    .std-wc tr.releg { color: rgba(28,22,18,0.5); }
+    .copa-grupos-legenda {
+      margin-top: 16px;
+      padding: 10px 14px;
+      background: rgba(28,22,18,0.04);
+      border-left: 4px solid var(--pv-orange);
+      font-size: 12px; line-height: 1.5;
+    }
     .wc-match-head {
       display: flex; justify-content: space-between; align-items: baseline;
       font-size: 10px; letter-spacing: 0.2em; font-weight: 800;
@@ -1285,6 +1328,6 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
   <!-- Bump o ?v= a cada deploy importante pra forçar tabs antigos a recarregar. -->
-  <script type="text/babel" src="apostas-app.jsx?v=20260527-copa-real"></script>
+  <script type="text/babel" src="apostas-app.jsx?v=20260527-copa-grupos"></script>
 </body>
 </html>

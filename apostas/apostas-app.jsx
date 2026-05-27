@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260527-copa-real ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260527-copa-grupos ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -157,21 +157,18 @@ function translateKnockoutSlot(slot) {
 }
 
 // Normaliza uma linha de match do JSON pra estrutura interna usada na UI.
-// Retorna { id, round, group, dateISO, date, time, home, away, flagHome, flagAway, ground, isKnockout }
 function normalizeWcMatch(raw, idx, teamsByName) {
   if (!raw) return null;
   const { date: brtDate, time: brtTime } = convertWcTime(raw.date, raw.time);
-  // Decide se é mata-mata (sem time real) — quando team1/2 é placeholder como "2A"
   const isPlaceholder = (s) => /^(\d+)([A-Z](?:\/[A-Z])*)$/.test(String(s || ''));
   const t1Real = !isPlaceholder(raw.team1);
   const t2Real = !isPlaceholder(raw.team2);
   const t1 = t1Real
-    ? { name: translateTeamName(raw.team1), flag: (teamsByName[raw.team1] || {}).flag_icon || '🏳️', isSlot: false }
-    : { name: translateKnockoutSlot(raw.team1), flag: '❓', isSlot: true };
+    ? { name: translateTeamName(raw.team1), flag: (teamsByName[raw.team1] || {}).flag_icon || '🏳️', isSlot: false, rawSlot: null, rawName: raw.team1 }
+    : { name: translateKnockoutSlot(raw.team1), flag: '❓', isSlot: true, rawSlot: raw.team1, rawName: null };
   const t2 = t2Real
-    ? { name: translateTeamName(raw.team2), flag: (teamsByName[raw.team2] || {}).flag_icon || '🏳️', isSlot: false }
-    : { name: translateKnockoutSlot(raw.team2), flag: '❓', isSlot: true };
-  // ID: usa num pro mata-mata, ou índice do array
+    ? { name: translateTeamName(raw.team2), flag: (teamsByName[raw.team2] || {}).flag_icon || '🏳️', isSlot: false, rawSlot: null, rawName: raw.team2 }
+    : { name: translateKnockoutSlot(raw.team2), flag: '❓', isSlot: true, rawSlot: raw.team2, rawName: null };
   const id = raw.num != null ? `wc-${raw.num}` : `wc-i${idx}`;
   const isKnockout = !raw.group;
   return {
@@ -183,11 +180,62 @@ function normalizeWcMatch(raw, idx, teamsByName) {
     date: brtDate,
     time: brtTime,
     home: t1.name, away: t2.name,
+    rawHome: t1.rawName, rawAway: t2.rawName, // nome em inglês (lookup interno)
     flagHome: t1.flag, flagAway: t2.flag,
     slotHome: t1.isSlot, slotAway: t2.isSlot,
+    rawSlotHome: t1.rawSlot, rawSlotAway: t2.rawSlot,
     ground: raw.ground || '',
     isKnockout,
   };
+}
+
+// Computa standings de um grupo (A-L) a partir das fixtures + results.
+function computeWcGroupStandings(group, fixtures, results) {
+  const matches = fixtures.filter(m => m.group === group && !m.isKnockout);
+  const rec = {};
+  // Inicializa todos os times do grupo
+  for (const m of matches) {
+    if (!rec[m.home]) rec[m.home] = { name: m.home, flag: m.flagHome, J: 0, V: 0, E: 0, D: 0, GP: 0, GC: 0, P: 0 };
+    if (!rec[m.away]) rec[m.away] = { name: m.away, flag: m.flagAway, J: 0, V: 0, E: 0, D: 0, GP: 0, GC: 0, P: 0 };
+  }
+  // Aplica resultados
+  for (const m of matches) {
+    const r = results[m.id];
+    if (!r) continue;
+    const t1 = rec[m.home], t2 = rec[m.away];
+    if (!t1 || !t2) continue;
+    const gh = parseInt(r.gh, 10), ga = parseInt(r.ga, 10);
+    if (Number.isNaN(gh) || Number.isNaN(ga)) continue;
+    t1.J++; t2.J++;
+    t1.GP += gh; t1.GC += ga;
+    t2.GP += ga; t2.GC += gh;
+    if (gh > ga) { t1.V++; t1.P += 3; t2.D++; }
+    else if (gh < ga) { t2.V++; t2.P += 3; t1.D++; }
+    else { t1.E++; t1.P++; t2.E++; t2.P++; }
+  }
+  return Object.values(rec).sort((a, b) => {
+    if (b.P !== a.P) return b.P - a.P;
+    const sgA = a.GP - a.GC, sgB = b.GP - b.GC;
+    if (sgB !== sgA) return sgB - sgA;
+    if (b.GP !== a.GP) return b.GP - a.GP;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+// Resolve slot tipo "1A", "2B" pra time real quando o grupo já está completo.
+// Retorna null se for multi-grupo (3A/B/C/D/F) ou se grupo ainda não terminou.
+function resolveWcSlot(rawSlot, standingsByGroup) {
+  if (!rawSlot) return null;
+  const m = String(rawSlot).match(/^(\d+)([A-Z])$/);
+  if (!m) return null; // multi-group ou formato inválido
+  const pos = parseInt(m[1], 10);
+  const group = m[2];
+  const st = standingsByGroup[group];
+  if (!st || st.length < pos) return null;
+  // Precisa que cada time do grupo tenha jogado os 3 jogos
+  if (!st.every(t => t.J === 3)) return null;
+  const t = st[pos - 1];
+  return { name: t.name, flag: t.flag };
 }
 
 function scoreWcPick(real, pick) {
@@ -2067,6 +2115,7 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePi
 
       <div className="copa-subtabs">
         <button className={'copa-subtab ' + (subTab === 'jogos' ? 'active' : '')} onClick={() => setSubTab('jogos')}>JOGOS</button>
+        <button className={'copa-subtab ' + (subTab === 'grupos' ? 'active' : '')} onClick={() => setSubTab('grupos')}>📊 GRUPOS</button>
         <button className={'copa-subtab ' + (subTab === 'ranking' ? 'active' : '')} onClick={() => setSubTab('ranking')}>🏆 RANKING DO BOLÃO</button>
       </div>
 
@@ -2083,6 +2132,10 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePi
         />
       )}
 
+      {subTab === 'grupos' && (
+        <CopaGrupos fixtures={fixtures || []} results={results} />
+      )}
+
       {subTab === 'ranking' && (
         <CopaRanking
           users={users}
@@ -2097,6 +2150,35 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePi
 }
 
 function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSavePick, onSetResult }) {
+  // States dos filtros (precisam vir antes de qualquer return)
+  const [stageFilter, setStageFilter] = useState('all'); // 'all' | 'group' | 'knockout'
+  const [teamFilter, setTeamFilter]   = useState('');     // nome PT do time, '' = todos
+
+  // Standings de cada grupo (memoizado)
+  const standingsByGroup = useMemo(() => {
+    const out = {};
+    const groups = Array.from(new Set(fixtures.filter(m => !m.isKnockout && m.group).map(m => m.group)));
+    for (const g of groups) out[g] = computeWcGroupStandings(g, fixtures, results);
+    return out;
+  }, [fixtures, results]);
+
+  // Resolve slots automaticamente (1A, 2B viram nome real do time)
+  const resolvedFixtures = useMemo(() => {
+    return fixtures.map(m => {
+      if (!m.slotHome && !m.slotAway) return m;
+      const next = { ...m };
+      if (m.slotHome && m.rawSlotHome) {
+        const r = resolveWcSlot(m.rawSlotHome, standingsByGroup);
+        if (r) { next.home = r.name; next.flagHome = r.flag; next.slotHome = false; next.resolvedHome = true; }
+      }
+      if (m.slotAway && m.rawSlotAway) {
+        const r = resolveWcSlot(m.rawSlotAway, standingsByGroup);
+        if (r) { next.away = r.name; next.flagAway = r.flag; next.slotAway = false; next.resolvedAway = true; }
+      }
+      return next;
+    });
+  }, [fixtures, standingsByGroup]);
+
   // Loading se ainda não carregou os dados
   if (!fixtures || fixtures.length === 0) {
     return (
@@ -2111,14 +2193,21 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSa
     );
   }
 
-  // Filtros: por fase
-  const [stageFilter, setStageFilter] = useState('all'); // 'all' | 'group' | 'knockout' | round name
+  // Lista de todos os times pro select (PT-BR, sem duplicatas, ordenado)
+  const allTeams = (() => {
+    const s = new Set();
+    for (const m of resolvedFixtures) {
+      if (!m.slotHome) s.add(m.home);
+      if (!m.slotAway) s.add(m.away);
+    }
+    return Array.from(s).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  })();
 
-  const filtered = fixtures.filter(m => {
-    if (stageFilter === 'all') return true;
-    if (stageFilter === 'group')    return !m.isKnockout;
-    if (stageFilter === 'knockout') return m.isKnockout;
-    return m.round === stageFilter;
+  const filtered = resolvedFixtures.filter(m => {
+    if (stageFilter === 'group'    && m.isKnockout) return false;
+    if (stageFilter === 'knockout' && !m.isKnockout) return false;
+    if (teamFilter && m.home !== teamFilter && m.away !== teamFilter) return false;
+    return true;
   });
 
   // Agrupa por round (na ordem canônica)
@@ -2126,14 +2215,12 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSa
     (acc[m.round] = acc[m.round] || []).push(m); return acc;
   }, {});
   const presentRounds = WC_STAGE_ORDER.filter(r => byRound[r] && byRound[r].length > 0);
-  // qualquer round que apareça mas não tá em WC_STAGE_ORDER (sanity)
   const extraRounds = Object.keys(byRound).filter(r => !WC_STAGE_ORDER.includes(r));
   const roundKeys = [...presentRounds, ...extraRounds];
 
-  // Stats pra header de filtros
-  const totalAll = fixtures.length;
-  const totalGroup = fixtures.filter(m => !m.isKnockout).length;
-  const totalKO = fixtures.filter(m => m.isKnockout).length;
+  const totalAll = resolvedFixtures.length;
+  const totalGroup = resolvedFixtures.filter(m => !m.isKnockout).length;
+  const totalKO = resolvedFixtures.filter(m => m.isKnockout).length;
 
   return (
     <div>
@@ -2151,6 +2238,15 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSa
         <button className={'copa-chip ' + (stageFilter === 'knockout' ? 'active' : '')} onClick={() => setStageFilter('knockout')}>
           MATA-MATA · {totalKO}
         </button>
+        <div className="copa-team-select-wrap">
+          <select className="copa-team-select" value={teamFilter} onChange={e => setTeamFilter(e.target.value)}>
+            <option value="">TODOS OS TIMES</option>
+            {allTeams.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          {teamFilter && (
+            <button className="copa-team-clear" onClick={() => setTeamFilter('')} title="Limpar filtro de time">✕</button>
+          )}
+        </div>
       </div>
 
       {roundKeys.length === 0 && (
@@ -2338,6 +2434,78 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function CopaGrupos({ fixtures, results }) {
+  if (!fixtures || fixtures.length === 0) {
+    return (
+      <div className="card"><div className="card-body"><div className="empty">
+        <div className="e1">CARREGANDO…</div>
+      </div></div></div>
+    );
+  }
+  // Lista todos os grupos presentes em fixtures (A-L)
+  const groups = Array.from(new Set(
+    fixtures.filter(m => !m.isKnockout && m.group).map(m => m.group)
+  )).sort();
+  const standingsByGroup = {};
+  for (const g of groups) standingsByGroup[g] = computeWcGroupStandings(g, fixtures, results);
+
+  return (
+    <div className="copa-grupos">
+      <div className="copa-grupos-grid">
+        {groups.map(g => {
+          const st = standingsByGroup[g];
+          const allDone = st.length > 0 && st.every(t => t.J === 3);
+          return (
+            <div key={g} className="card copa-group-card">
+              <div className="card-head">
+                <div className="title">GRUPO {g}</div>
+                <div className="sub">{allDone ? '✓ COMPLETO' : `${st.reduce((a,t) => a + t.J, 0) / 2} de 6 jogos`}</div>
+              </div>
+              <div className="card-body" style={{ overflowX: 'auto' }}>
+                <table className="std-table std-wc">
+                  <thead>
+                    <tr>
+                      <th>#</th><th style={{ textAlign: 'left' }}>TIME</th>
+                      <th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th><th>P</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {st.map((t, i) => {
+                      const sg = t.GP - t.GC;
+                      // Top 2 classificam direto; 3º pode classificar entre os melhores 8 terceiros
+                      const cls = i < 2 ? 'glory' : (i === 2 ? 'third' : 'releg');
+                      return (
+                        <tr key={t.name} className={cls}>
+                          <td className="std-pos">{String(i + 1).padStart(2, '0')}</td>
+                          <td>
+                            <span style={{ marginRight: 6, fontSize: 16 }}>{t.flag}</span>
+                            <span style={{ fontWeight: 800 }}>{t.name}</span>
+                          </td>
+                          <td>{t.J}</td>
+                          <td style={{ fontWeight: 800 }}>{t.V}</td>
+                          <td>{t.E}</td>
+                          <td style={{ color: 'rgba(28,22,18,0.45)' }}>{t.D}</td>
+                          <td>{sg > 0 ? '+' + sg : sg}</td>
+                          <td style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 16 }}>{t.P}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="copa-grupos-legenda">
+        🟧 <strong>Top 2</strong> classificam direto pro mata-mata ·
+        🟨 <strong>3º</strong> pode passar entre os 8 melhores terceiros ·
+        ⬜ <strong>4º</strong> eliminado.
+      </p>
     </div>
   );
 }
