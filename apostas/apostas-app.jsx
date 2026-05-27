@@ -1956,6 +1956,7 @@ function App() {
             bets={bets} users={users} adjustPc={adjustPc}
             teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
             discordWebhook={discordWebhook} remoteNews={remoteNews}
+            cs={cs} weeklyReady={weeklyReady}
           />
         )}
           </div>
@@ -4909,6 +4910,428 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers }) {
 }
 
 // ─── ADMIN ──────────────────────────────────────────────────────────────────
+// ─── ADMIN: JORNALISTA (persona automática de noticias) ───────────────────
+// Detecta eventos no estado atual, monta prompts prontos pra colar em
+// Claude/ChatGPT/Midjourney externo, e parseia a resposta de volta pra
+// virar uma news publicada.
+
+// Converte date "DD/MM" + time "HH:MM" pra Date. Assume ano corrente.
+function parseGameTimestamp(game, year) {
+  if (!game || !game.date || !game.time) return null;
+  const [dd, mm] = String(game.date).split('/');
+  const [hh, mn] = String(game.time).split(':');
+  if (!dd || !mm || !hh) return null;
+  const y = year || new Date().getFullYear();
+  return new Date(y, parseInt(mm, 10) - 1, parseInt(dd, 10), parseInt(hh, 10), parseInt(mn || '0', 10));
+}
+
+// Calcula sequencias de vitorias/derrotas (em jogos consecutivos do time)
+function computeStreaks(rounds) {
+  const teamHistory = {};
+  TEAMS.forEach(t => { teamHistory[t.id] = []; });
+  (rounds || []).forEach(round => {
+    round.forEach(m => {
+      const gh = parseInt(m.gh, 10);
+      const ga = parseInt(m.ga, 10);
+      if (Number.isNaN(gh) || Number.isNaN(ga)) return;
+      const wH = gh > ga ? 'W' : gh < ga ? 'L' : 'D';
+      const wA = wH === 'W' ? 'L' : wH === 'L' ? 'W' : 'D';
+      if (teamHistory[m.home]) teamHistory[m.home].push(wH);
+      if (teamHistory[m.away]) teamHistory[m.away].push(wA);
+    });
+  });
+  const streaks = [];
+  Object.entries(teamHistory).forEach(([teamId, hist]) => {
+    if (hist.length === 0) return;
+    // Pega o final da sequencia (jogos mais recentes)
+    const last = hist[hist.length - 1];
+    if (last === 'D') return;
+    let count = 0;
+    for (let i = hist.length - 1; i >= 0; i--) {
+      if (hist[i] === last) count++; else break;
+    }
+    streaks.push({ team: teamId, kind: last === 'W' ? 'win' : 'loss', count });
+  });
+  return streaks;
+}
+
+// Detecta todos os eventos noticiaveis no estado atual.
+// Retorna array tipado pra o prompt builder formatar.
+function detectJournalistEvents({ cs, bets, users, weeklyReady }) {
+  const events = [];
+  const rounds = (cs && cs.rounds) || [];
+  const now = new Date();
+
+  // 1. Proximos jogos (proximas 24h)
+  rounds.forEach((round, ri) => {
+    if (!Array.isArray(round)) return;
+    round.forEach((m, gi) => {
+      if (m.gh !== '' && m.ga !== '') return;
+      const ts = parseGameTimestamp(m);
+      if (!ts) return;
+      const hoursAway = (ts - now) / 3600000;
+      if (hoursAway > 0 && hoursAway <= 48) {
+        events.push({
+          type: 'upcoming_match',
+          id: `up-r${ri}g${gi}`,
+          round: ri + 1,
+          home: TEAM(m.home).name,
+          away: TEAM(m.away).name,
+          date: m.date, time: m.time, day: m.day,
+          hoursAway: Math.round(hoursAway),
+          isToday: ts.toDateString() === now.toDateString(),
+        });
+      }
+    });
+  });
+
+  // 2. Resultados da ultima rodada completa
+  let lastCompleteIdx = -1;
+  for (let i = rounds.length - 1; i >= 0; i--) {
+    const r = rounds[i];
+    if (Array.isArray(r) && r.length > 0 && r.every(g => g.gh !== '' && g.ga !== '')) {
+      lastCompleteIdx = i; break;
+    }
+  }
+  if (lastCompleteIdx >= 0) {
+    const round = rounds[lastCompleteIdx];
+    events.push({
+      type: 'round_complete',
+      id: `rc-${lastCompleteIdx}`,
+      roundNum: lastCompleteIdx + 1,
+      games: round.map(m => ({
+        home: TEAM(m.home).name, away: TEAM(m.away).name,
+        gh: parseInt(m.gh, 10), ga: parseInt(m.ga, 10),
+      })),
+    });
+    // 3. Goleadas dentro dessa rodada
+    round.forEach((m, gi) => {
+      const gh = parseInt(m.gh, 10);
+      const ga = parseInt(m.ga, 10);
+      const diff = Math.abs(gh - ga);
+      if (diff >= 4) {
+        events.push({
+          type: 'rout',
+          id: `rout-r${lastCompleteIdx}g${gi}`,
+          winner: gh > ga ? TEAM(m.home).name : TEAM(m.away).name,
+          loser:  gh > ga ? TEAM(m.away).name : TEAM(m.home).name,
+          gh, ga, diff,
+        });
+      }
+    });
+  }
+
+  // 4. Apostas gordas vencidas (>= 500 PC)
+  const bigWins = (bets || [])
+    .filter(b => b.status === 'won' && (b.payout || 0) >= 500)
+    .sort((a, b) => (b.settledAt || 0) - (a.settledAt || 0))
+    .slice(0, 3);
+  bigWins.forEach(b => {
+    events.push({
+      type: 'big_win',
+      id: `bw-${b.id}`,
+      user: b.user,
+      stake: b.amount,
+      payout: b.payout,
+      legCount: (b.legs || []).length || 1,
+      odds: b.combinedOdds || 0,
+    });
+  });
+
+  // 5. Sequencias
+  const streaks = computeStreaks(rounds);
+  streaks.filter(s => s.count >= 3).forEach(s => {
+    const teamObj = TEAMS.find(t => t.id === s.team);
+    events.push({
+      type: 'streak',
+      id: `streak-${s.team}-${s.kind}`,
+      team: teamObj ? teamObj.name : s.team,
+      kind: s.kind, // 'win' | 'loss'
+      count: s.count,
+    });
+  });
+
+  // 6. Fim de temporada
+  const allDone = rounds.length > 0 && rounds.every(r => Array.isArray(r) && r.length > 0 && r.every(g => g.gh !== '' && g.ga !== ''));
+  if (allDone) {
+    const st = computeStandings(rounds).sort((a, b) => b.p - a.p || (b.gp - b.gc) - (a.gp - a.gc));
+    if (st.length >= 2) {
+      events.push({
+        type: 'season_end',
+        id: 'season-end',
+        champion: st[0].name,
+        vice:     st[1].name,
+        lanterna: st[st.length - 1].name,
+        penultimo: st[st.length - 2].name,
+        topScorerTeam: st[0].name,
+        topScorerGoals: st[0].gp,
+      });
+    }
+  }
+
+  // 7. Bonus semanal disponivel
+  if (weeklyReady) {
+    events.push({
+      type: 'weekly_bonus',
+      id: 'weekly-bonus',
+      amount: WEEKLY_PC,
+    });
+  }
+
+  return events;
+}
+
+// Formata um evento como linha legivel pro prompt
+function formatEventForPrompt(e) {
+  switch (e.type) {
+    case 'upcoming_match':
+      return `JOGO PROXIMO: ${e.home} × ${e.away} — Rodada ${e.round}, ${e.day} ${e.date} às ${e.time}` + (e.isToday ? ' (HOJE)' : ` (em ${e.hoursAway}h)`);
+    case 'round_complete':
+      return `RODADA ${e.roundNum} FECHADA: ` + e.games.map(g => `${g.home} ${g.gh}×${g.ga} ${g.away}`).join(' · ');
+    case 'rout':
+      return `GOLEADA: ${e.winner} ${Math.max(e.gh, e.ga)}×${Math.min(e.gh, e.ga)} ${e.loser} (diferença de ${e.diff} gols)`;
+    case 'big_win':
+      return `APOSTA GORDA: @${e.user} acertou ${e.legCount} palpite${e.legCount > 1 ? 's' : ''} e levou ${e.payout} PC (apostou ${e.stake} PC, odds ${e.odds.toFixed(2)}x)`;
+    case 'streak':
+      return `SEQUÊNCIA: ${e.team} ${e.kind === 'win' ? 'venceu' : 'perdeu'} ${e.count} jogos seguidos`;
+    case 'season_end':
+      return `FIM DE TEMPORADA: Campeão ${e.champion} · Vice ${e.vice} · Penúltimo ${e.penultimo} · Lanterna ${e.lanterna} (artilheiro do líder: ${e.topScorerGoals} gols)`;
+    case 'weekly_bonus':
+      return `BÔNUS SEMANAL LIBERADO: ${e.amount} PC pra todo mundo reclamar (botão no topo da página)`;
+    default:
+      return JSON.stringify(e);
+  }
+}
+
+const JOURNALIST_VOICE = `Você é o JORNALISTA OFICIAL do Primitivão Times, um pequeno bolão de amigos.
+
+Estilo: manchete sensacionalista de jornal popular brasileiro. Irônico, dramático, com trocadilhos e zoeira. Pegue inspiração em manchetes do tipo:
+- "Mohamed alcança −33 SG e sonha com −50"
+- "Juca on fire! 4 jogos, 4 goleadas, 100% de zoeira"
+- "Comissão do VARIMITIVÃO de plantão: 'errou de novo? não foi erro, foi intenção!'"
+- "Magreza humilha Caco em modo carreira"
+
+REGRAS DURAS:
+- Use os nomes EXATOS dos jogadores: Bane, Mohamed, Potato, Magreza, Celin, Juca, Caco, Vitinho. Não invente outros.
+- Não use emojis (regra do site).
+- Não invente fatos — só use os EVENTOS DETECTADOS abaixo. Pode interpretar com humor, mas sem mentir dado numérico.
+- Tom: zoeira de amigo, sem ofender de verdade. Pode chamar de "lanterna", "afundado", "humilhado", mas nada pesado.
+- Português Brasil informal, frases curtas, verbos no presente sempre que possível.`;
+
+function buildJournalistPrompt(selectedEvents) {
+  const today = new Date().toLocaleDateString('pt-BR');
+  const tags = ['RODADA', 'GOLEADA', 'RECORDE', 'PRÉVIA', 'ATUALIZAÇÃO', 'EDIÇÃO', 'PROMO'];
+  return `${JOURNALIST_VOICE}
+
+EVENTOS DETECTADOS (gere UMA única matéria cobrindo tudo, ou destaque o mais marcante):
+${selectedEvents.map((e, i) => `${i + 1}. ${formatEventForPrompt(e)}`).join('\n')}
+
+Devolva EXATAMENTE neste formato (JSON puro entre \`\`\`json e \`\`\`, depois o IMAGE_PROMPT em linha separada):
+
+\`\`\`json
+{
+  "title": "manchete impactante em CAPS, max 60 chars",
+  "subtitle": "linha de apoio explicando o lance, max 120 chars",
+  "tag": "uma de: ${tags.join(' | ')}",
+  "date": "${today}",
+  "body": "Texto da matéria em 3 a 5 parágrafos. Use \\n\\n entre parágrafos. Sem markdown, sem emoji."
+}
+\`\`\`
+
+IMAGE_PROMPT: "Descrição em INGLÊS pra gerar imagem horizontal 16:9 em DALL-E/Midjourney/Claude. Estilo: vintage Brazilian newspaper headline, sepia tones with orange #d76414 accents, dramatic composition, no real faces (use silhouettes or generic figures), include relevant visual elements from the events above. Format: 'vintage newspaper headline, [descrição do evento principal], orange and cream color palette, dramatic lighting, photorealistic but stylized'"`;
+}
+
+// Parseia a resposta do LLM externo. Aceita JSON entre fences ou direto.
+function parseJournalistResponse(text) {
+  const result = { title: '', subtitle: '', tag: 'NOVA', date: '', body: '', imagePrompt: '' };
+  if (!text) return result;
+
+  // Pega JSON (com ou sem fences)
+  const fence = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/i);
+  const inline = text.match(/\{[\s\S]*?"title"[\s\S]*?\}/);
+  const jsonStr = (fence && fence[1]) || (inline && inline[0]) || '';
+  if (jsonStr) {
+    try {
+      const j = JSON.parse(jsonStr);
+      if (j.title)    result.title    = String(j.title).trim();
+      if (j.subtitle) result.subtitle = String(j.subtitle).trim();
+      if (j.tag)      result.tag      = String(j.tag).trim().toUpperCase();
+      if (j.date)     result.date     = String(j.date).trim();
+      if (j.body)     result.body     = String(j.body).trim();
+    } catch (e) { /* segue com o que pegou */ }
+  }
+
+  // Pega IMAGE_PROMPT (linha solta)
+  const ip = text.match(/IMAGE_PROMPT:\s*["']?([^\n"'][^\n]*?)["']?\s*$/m);
+  if (ip) result.imagePrompt = ip[1].trim().replace(/^["']|["']$/g, '');
+
+  if (!result.date) result.date = new Date().toLocaleDateString('pt-BR');
+  return result;
+}
+
+function JournalistAdminPanel({ cs, bets, users, remoteNews, weeklyReady }) {
+  const events = useMemo(() => detectJournalistEvents({ cs, bets, users, weeklyReady }), [cs, bets, users, weeklyReady]);
+  const [selectedIds, setSelectedIds] = useState(() => new Set(events.map(e => e.id)));
+  const [response, setResponse] = useState('');
+  const [parsed, setParsed] = useState(null);
+  const [imagePath, setImagePath] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const toggle = (id) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelectedIds(next);
+  };
+
+  const selectedEvents = events.filter(e => selectedIds.has(e.id));
+  const prompt = selectedEvents.length > 0 ? buildJournalistPrompt(selectedEvents) : '';
+
+  const copyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      showToast('Prompt copiado pra área de transferência', 'success');
+    } catch (e) {
+      showToast('Não consegui copiar — selecione e copie manualmente', 'error');
+    }
+  };
+
+  const parse = () => {
+    const p = parseJournalistResponse(response);
+    if (!p.title) {
+      showToast('Não achei o JSON na resposta. Confere o formato.', 'error');
+      return;
+    }
+    setParsed(p);
+  };
+
+  const publish = async () => {
+    if (!parsed) return;
+    setBusy(true); setMsg('');
+    try {
+      const id = 'j-' + Date.now();
+      const newNews = {
+        id,
+        title:    parsed.title,
+        subtitle: parsed.subtitle,
+        date:     parsed.date,
+        tag:      parsed.tag,
+        image:    imagePath || '',
+        body:     parsed.body,
+        at:       Date.now(),
+      };
+      const existing = Array.isArray(remoteNews) ? remoteNews : [];
+      await saveRemoteNews([newNews, ...existing]);
+      showToast('Notícia publicada! Veja em INÍCIO.', 'success');
+      setMsg('Publicada. Limpa e gera a próxima.');
+      setResponse(''); setParsed(null); setImagePath('');
+    } catch (e) {
+      setMsg('Erro: ' + (e.message || e));
+      showToast('Falha ao publicar', 'error');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <div className="title">JORNALISTA</div>
+        <div className="sub">{events.length} EVENTO{events.length === 1 ? '' : 'S'} DETECTADO{events.length === 1 ? '' : 'S'}</div>
+      </div>
+      <div className="card-body">
+        <p style={{ marginTop: 0, lineHeight: 1.5, fontSize: 13 }}>
+          O Jornalista varre o estado atual (resultados, apostas, próximos jogos)
+          e monta um prompt formatado pra você colar no Claude/ChatGPT/Midjourney.
+          Você gera a notícia + imagem fora, cola a resposta aqui, revisa e publica.
+        </p>
+
+        {events.length === 0 && (
+          <div className="empty">
+            <div className="e1">SEM EVENTOS NOVOS</div>
+            <div className="e2">Quando rolar resultado, goleada, aposta gorda ou jogo nas próximas 48h, eles aparecem aqui.</div>
+          </div>
+        )}
+
+        {events.length > 0 && (
+          <>
+            <div className="small-label" style={{ marginTop: 14 }}>EVENTOS PRA INCLUIR NA MATÉRIA</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+              {events.map(e => (
+                <label key={e.id} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 8,
+                  padding: '8px 10px',
+                  background: selectedIds.has(e.id) ? 'rgba(215,100,20,0.10)' : 'rgba(0,0,0,0.03)',
+                  border: '1.5px solid ' + (selectedIds.has(e.id) ? 'var(--pv-orange)' : 'rgba(28,22,18,0.15)'),
+                  cursor: 'pointer', fontSize: 12, lineHeight: 1.4,
+                }}>
+                  <input type="checkbox" checked={selectedIds.has(e.id)} onChange={() => toggle(e.id)} style={{ marginTop: 2 }} />
+                  <div>
+                    <span style={{ fontSize: 9, letterSpacing: '0.2em', fontWeight: 800, color: 'var(--pv-orange)', marginRight: 6 }}>{e.type.replace(/_/g, ' ').toUpperCase()}</span>
+                    {formatEventForPrompt(e)}
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            <div className="small-label" style={{ marginTop: 18 }}>1. PROMPT PRA CLAUDE/CHATGPT</div>
+            <textarea
+              value={prompt} readOnly
+              rows={8}
+              style={{ width: '100%', padding: 10, fontSize: 12, fontFamily: 'JetBrains Mono, monospace', border: '2px solid var(--pv-charcoal)', background: 'var(--pv-bone-2)', marginTop: 6, boxSizing: 'border-box', resize: 'vertical' }}
+              onClick={e => e.target.select()}
+            />
+            <button onClick={copyPrompt} style={{ marginTop: 6, background: 'var(--pv-orange)', color: 'var(--pv-bone)', border: 'none', padding: '8px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.14em', cursor: 'pointer' }}>
+              COPIAR PROMPT
+            </button>
+
+            <div className="small-label" style={{ marginTop: 18 }}>2. COLA A RESPOSTA DA IA AQUI</div>
+            <textarea
+              value={response} onChange={e => setResponse(e.target.value)}
+              placeholder='Cola aqui o JSON entre ```json e ``` + a linha IMAGE_PROMPT'
+              rows={10}
+              style={{ width: '100%', padding: 10, fontSize: 12, fontFamily: 'JetBrains Mono, monospace', border: '2px solid var(--pv-charcoal)', background: 'var(--pv-bone)', marginTop: 6, boxSizing: 'border-box', resize: 'vertical' }}
+            />
+            <button onClick={parse} disabled={!response.trim()} style={{ marginTop: 6, background: 'transparent', color: 'var(--pv-charcoal)', border: '2px solid var(--pv-charcoal)', padding: '8px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.14em', cursor: response.trim() ? 'pointer' : 'not-allowed' }}>
+              PARSEAR RESPOSTA
+            </button>
+
+            {parsed && (
+              <div style={{ marginTop: 18, padding: 14, border: '2px solid var(--pv-orange)', background: 'var(--pv-bone)' }}>
+                <div className="small-label">3. PRÉVIEW</div>
+                <div style={{ fontSize: 10, letterSpacing: '0.2em', fontWeight: 800, color: 'var(--pv-orange)', marginTop: 8 }}>{parsed.tag} · {parsed.date}</div>
+                <h3 style={{ fontFamily: 'Bungee Inline, Impact, sans-serif', fontSize: 20, margin: '6px 0', letterSpacing: '0.04em' }}>{parsed.title}</h3>
+                <p style={{ fontStyle: 'italic', color: 'rgba(28,22,18,0.7)', margin: '0 0 10px' }}>{parsed.subtitle}</p>
+                <div style={{ fontSize: 12, lineHeight: 1.5, whiteSpace: 'pre-wrap', borderTop: '1px dashed rgba(28,22,18,0.2)', paddingTop: 10 }}>{parsed.body}</div>
+
+                {parsed.imagePrompt && (
+                  <>
+                    <div className="small-label" style={{ marginTop: 14 }}>PROMPT DE IMAGEM (cola em DALL-E / Midjourney / Claude Design)</div>
+                    <textarea readOnly value={parsed.imagePrompt} rows={3} onClick={e => e.target.select()} style={{ width: '100%', padding: 8, fontSize: 11, fontFamily: 'JetBrains Mono, monospace', border: '1.5px solid rgba(28,22,18,0.3)', background: 'var(--pv-bone-2)', marginTop: 6, boxSizing: 'border-box', resize: 'vertical' }} />
+                  </>
+                )}
+
+                <div className="small-label" style={{ marginTop: 14 }}>4. CAMINHO DA IMAGEM (opcional)</div>
+                <input
+                  type="text" value={imagePath} onChange={e => setImagePath(e.target.value)}
+                  placeholder="ex: news/jornalista-2026-05-27.jpg"
+                  style={{ width: '100%', padding: 8, fontSize: 12, border: '1.5px solid rgba(28,22,18,0.4)', background: 'var(--pv-bone-2)', marginTop: 6, boxSizing: 'border-box' }}
+                />
+                <div style={{ fontSize: 10, color: 'rgba(28,22,18,0.6)', marginTop: 4, lineHeight: 1.4 }}>
+                  Gera a imagem no DALL-E/Midjourney/Claude Design, salva em <code>apostas/news/</code> com esse nome, commita no git, e cola o caminho acima. Pode publicar sem imagem (fica só texto).
+                </div>
+
+                <button onClick={publish} disabled={busy} style={{ marginTop: 14, background: 'var(--pv-charcoal)', color: 'var(--pv-bone)', border: 'none', padding: '10px 20px', fontWeight: 800, fontSize: 13, letterSpacing: '0.14em', cursor: busy ? 'wait' : 'pointer' }}>
+                  {busy ? 'PUBLICANDO…' : 'PUBLICAR NOTÍCIA'}
+                </button>
+                {msg && <div style={{ marginTop: 8, fontSize: 12, color: msg.startsWith('Erro') ? 'var(--pv-red)' : 'var(--pv-green)', fontWeight: 700 }}>{msg}</div>}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── ADMIN: DISCORD PANEL ──────────────────────────────────────────────────
 function DiscordAdminPanel({ webhook }) {
   const [url, setUrl] = useState(webhook || '');
@@ -5141,8 +5564,8 @@ function NewsField({ label, value, onChange, placeholder, multiline }) {
   );
 }
 
-function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordWebhook, remoteNews }) {
-  // Tabs do admin: USUÁRIOS / TIMES / NEWS / DISCORD / BACKUP / PERIGO.
+function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, weeklyReady }) {
+  // Tabs do admin: USUÁRIOS / TIMES / NEWS / JORNALISTA / DISCORD / BACKUP / PERIGO.
   // PERIGO ficou em aba separada pra não ser clicado por engano.
   const [tab, setTab] = useState('usuarios');
   const playerTeam = reverseTeamMap(teamPlayers);
@@ -5153,12 +5576,14 @@ function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordW
         <button className={'tab ' + (tab === 'usuarios' ? 'active' : '')} onClick={() => setTab('usuarios')}>USUÁRIOS</button>
         <button className={'tab ' + (tab === 'times' ? 'active' : '')} onClick={() => setTab('times')}>TIMES</button>
         <button className={'tab ' + (tab === 'news' ? 'active' : '')} onClick={() => setTab('news')}>NEWS</button>
+        <button className={'tab ' + (tab === 'jornalista' ? 'active' : '')} onClick={() => setTab('jornalista')}>JORNALISTA</button>
         <button className={'tab ' + (tab === 'discord' ? 'active' : '')} onClick={() => setTab('discord')}>DISCORD</button>
         <button className={'tab ' + (tab === 'backup' ? 'active' : '')} onClick={() => setTab('backup')}>BACKUP</button>
         <button className={'tab ' + (tab === 'perigo' ? 'active' : '')} onClick={() => setTab('perigo')} style={{ color: tab === 'perigo' ? '#c33' : 'rgba(195,51,51,0.6)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="warning" size={12} /> PERIGO</button>
       </div>
 
       {tab === 'news' && <NewsAdminPanel remoteNews={remoteNews} />}
+      {tab === 'jornalista' && <JournalistAdminPanel cs={cs} bets={bets} users={users} remoteNews={remoteNews} weeklyReady={weeklyReady} />}
       {tab === 'discord' && <DiscordAdminPanel webhook={discordWebhook} />}
 
       {tab === 'usuarios' && (
