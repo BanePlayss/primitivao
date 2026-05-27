@@ -1,0 +1,26 @@
+{
+  "name": "Primitivão — Apostas & Bolão",
+  "short_name": "Primitivão",
+  "description": "Bolão, apostas e zoeira do grupo Primitivão Times.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#1c1612",
+  "theme_color": "#d76414",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "primitivao-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "primitivao-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

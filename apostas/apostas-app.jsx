@@ -36,7 +36,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260527-discord-news ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260527-pwa ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -823,6 +823,47 @@ function TeamMini({ team, size = 36 }) {
 }
 
 // ─── APP ────────────────────────────────────────────────────────────────────
+// ─── TOAST ──────────────────────────────────────────────────────────────────
+// Sistema simples de toasts: dispara via `window.showToast(msg, type)` e
+// renderiza pelo <ToastHost /> montado no App. Usa CustomEvent pra evitar
+// prop drilling. Tipos: 'success' | 'error' | 'info' (padrão).
+function showToast(msg, type) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('primitivao:toast', {
+    detail: { msg: String(msg || ''), type: type || 'info', id: Math.random().toString(36).slice(2) },
+  }));
+}
+if (typeof window !== 'undefined') window.showToast = showToast;
+
+function ToastHost() {
+  const [toasts, setToasts] = useState([]);
+  useEffect(() => {
+    const onToast = (e) => {
+      const t = e.detail;
+      setToasts(prev => [...prev, t]);
+      setTimeout(() => setToasts(prev => prev.filter(x => x.id !== t.id)), 4200);
+    };
+    window.addEventListener('primitivao:toast', onToast);
+    return () => window.removeEventListener('primitivao:toast', onToast);
+  }, []);
+  if (toasts.length === 0) return null;
+  return (
+    <div className="toast-host" role="status" aria-live="polite">
+      {toasts.map(t => {
+        const iconName = t.type === 'success' ? 'check'
+          : t.type === 'error'   ? 'x'
+          : 'sparkle';
+        return (
+          <div key={t.id} className={'toast toast-' + t.type}>
+            <Icon name={iconName} size={16} />
+            <span>{t.msg}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── DISCORD WEBHOOK ────────────────────────────────────────────────────────
 // Posta uma mensagem no canal do Discord configurado em `discord_webhook`
 // (top-level field do doc do Firestore). Retorna { ok, err? }.
@@ -1726,6 +1767,7 @@ function App() {
         <Sidebar tab={tab} setTab={setTab} isAdmin={isAdmin} />
         </>)}
       </div>
+      <ToastHost />
     </>
   );
 }
