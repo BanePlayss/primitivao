@@ -1,10 +1,14 @@
-// Publica uma news direto no Firestore (top-level field `news` do doc
-// primitivao/apostas), usando o Firebase Web SDK.
+// Publica/sincroniza o array de news no Firestore (top-level field `news`
+// do doc primitivao/apostas), usando o Firebase Web SDK.
 //
-// Autenticação: não precisa de service account — as Firestore rules
-// permitem update se o payload passar na validação estrutural (campo
-// `json` continua string, tamanho compatível, etc), e como esse script
-// só adiciona ao array `news` sem mexer no resto, passa direto.
+// IMPORTANTE: este script faz SET COMPLETO do array `news`. Se você
+// adicionou news pelo painel admin que não estão aqui, elas serão perdidas.
+// Pra adicionar uma nova mantendo as outras, edite o array NEWS abaixo
+// com TODAS as news que devem ficar no site, em ordem cronológica
+// decrescente (mais nova primeiro).
+//
+// Autenticação: não precisa de service account. Firestore rules permitem
+// update se o payload passar na validação estrutural.
 //
 // Uso: node scripts/publish-news.mjs
 
@@ -21,28 +25,99 @@ const firebaseConfig = {
 };
 
 // ────────────────────────────────────────────────────────────────
-// EDITAR AQUI: o conteúdo da news que vai ser publicada
+// EDITAR AQUI: array completo de news (mais nova primeiro).
+// Markdown suportado no body: **negrito**, listas com "- linha",
+// parágrafos separados por linha em branco.
 // ────────────────────────────────────────────────────────────────
-const NEW_NEWS = {
-  id: 'avatares-lancamento-' + Date.now(),
-  title: 'NASCEM OS 8 CARTOONS DO PRIMITIVÃO',
-  subtitle: 'Cada jogador agora tem versão oficial em estilo Cartoon Network — saíram direto do Dexter\'s Laboratory pro topo da sua tela.',
-  tag: 'EDIÇÃO',
-  date: '27/05/2026',
-  image: 'news/lancamento_avatares.jpg',
-  body: `A redação do PRIMITIVÃO TIMES não acreditou: depois de meses de campeonato sem rosto, finalmente cada jogador tem o que merece — um AVATAR oficial em estilo Cartoon Network anos 2000, daqueles bem Dexter, Powerpuff, Samurai Jack.
+const NEWS = [
+  {
+    id: 'avatares-lancamento',
+    title: 'NASCEM OS 8 CARTOONS DO PRIMITIVÃO',
+    subtitle: 'Cada jogador agora tem versão oficial em estilo Cartoon Network — saíram direto do Dexter\'s Laboratory pro topo da sua tela.',
+    tag: 'EDIÇÃO',
+    date: '27/05/2026',
+    image: 'news/lancamento_avatares.jpg',
+    body: `A redação do **PRIMITIVÃO TIMES** não acreditou: depois de meses de campeonato sem rosto, finalmente cada jogador tem o que merece — um AVATAR oficial em estilo Cartoon Network anos 2000, daqueles bem Dexter, Powerpuff, Samurai Jack.
 
 Cada uma das oito feras agora aparece personalizada no topo da página, no Ranking Geral e no Hall da Fama (ou da Vergonha, conforme o caso).
 
-Bane apareceu de braços cruzados, olhar firme — postura de quem já viu tudo. Mohamed surgiu com a mão na cabeça e expressão de derrota — coincidência ou efeito colateral direto dos −33 SG? Juca veio no modo triunfante, peito estufado, como se cada gol da goleada ainda tivesse sido marcado por ele agora. Celin estampa aquele smirk cínico que deixa todo mundo na dúvida se é zoeira de amigo ou tramoia em andamento.
+**Bane** apareceu de braços cruzados, olhar firme — postura de quem já viu tudo. **Mohamed** surgiu com a mão na cabeça e expressão de derrota — coincidência ou efeito colateral direto dos −33 SG? **Juca** veio no modo triunfante, peito estufado, como se cada gol da goleada ainda tivesse sido marcado por ele agora. **Celin** estampa aquele smirk cínico que deixa todo mundo na dúvida se é zoeira de amigo ou tramoia em andamento.
 
-Magreza tá lá em modo carreira, expressão séria, sem tempo pra brincadeira. Potato encostado tipo parede, mão no bolso, vibe descolada. Caco relaxado também, postura de quem leva tudo na esportiva. E Vitinho? Cabeça inclinada, olhar de moleque que sabe das coisas e não vai contar pra ninguém.
+**Magreza** tá lá em modo carreira, expressão séria, sem tempo pra brincadeira. **Potato** encostado tipo parede, mão no bolso, vibe descolada. **Caco** relaxado também, postura de quem leva tudo na esportiva. E **Vitinho**? Cabeça inclinada, olhar de moleque que sabe das coisas e não vai contar pra ninguém.
 
-Cada um saiu vestindo a cor oficial do seu time. Detalhe importante: em breve vai abrir uma LOJA pra usar os PCs (que tanto custaram pra acumular) na compra de itens cosméticos — chapéus, molduras, distintivos. E o melhor: alguns itens lendários NÃO vão estar à venda. Coroa do rei só pinga pra quem for campeão da temporada. Lanterna estampada só sobra pro último colocado do Hall da Vergonha. Mereceu — usou.
+Cada um saiu vestindo a cor oficial do seu time. Detalhe importante: em breve vai abrir uma **LOJA** pra usar os PCs (que tanto custaram pra acumular) na compra de itens cosméticos — chapéus, molduras, distintivos. E o melhor: alguns itens lendários NÃO vão estar à venda. Coroa do rei só pinga pra quem for campeão da temporada. Lanterna estampada só sobra pro último colocado do Hall da Vergonha. Mereceu — usou.
 
 Bora ver como cada um ficou? Olha no topo da página agora.`,
-  at: Date.now(),
-};
+    at: Date.parse('2026-05-27T18:00:00-03:00'),
+  },
+  {
+    id: 'edicao-08-escandalo',
+    title: 'ESCÂNDALO EM CAMPO! CELIN MANIPULOU O RESULTADO??',
+    subtitle: 'Juca 4 × 0 Celin · aos 88 min Celin "desaba" e leva 3 gols num lance só. Coincidência ou entregada?',
+    tag: 'PRIMITIVÃO TIMES · VOL. 08',
+    date: '25/05/2026',
+    image: 'news/edicao-08-escandalo.jpg',
+    body: `Edição especial do **Primitivão Times** com tudo o que tá rolando na temporada:
+
+- **Celin manipulou?** Segurou o jogo a tarde inteira pra não tomar gol — aos 88 min levou 3 e fechou Juca 4 × 0 Celin. "Coincidência ou entregada?"
+- **Mohamed alcança −33 SG** após derrota amarga contra o Magreza. 0 vitórias, 6 derrotas. Vai encerrar com −50?
+- **Juca on fire!** 4 jogos, 4 goleadas, 100% de zoeira.
+- **Magreza em modo carreira:** nem piedade, nem desculpa.
+- **Comissão do VARIMITIVÃO** de plantão: "errou de novo? não foi erro, foi intenção!"
+- **Futmercado bombando** — rumores, trocas e negociações de padaria.
+- **Próximo jogo:** BANE × CACO. Dois títulos, um destino.
+
+Acompanha tudo na aba **CAMPEONATOS → FIFA** — classificação, jogos abertos e o Hall da Vergonha em tempo real.`,
+    at: Date.parse('2026-05-25T12:00:00-03:00'),
+  },
+  {
+    id: 'bonus-semanal',
+    title: '+500 PC NA CONTA, MEU FILHO!',
+    subtitle: 'O xamã liberou o cofre — não esquece de checar antes da rodada.',
+    tag: 'PROMO',
+    date: '22/05/2026',
+    image: 'news/bonus-semanal.jpg',
+    body: `Todo dia **segunda-feira às 10h da manhã (BRT)** o cofre do xamã se abre e libera **500 PC de graça** pra cada jogador. É só clicar no chip **+500 PC RECLAMAR** que aparece lá no topo da página, ao lado do seu saldo.
+
+Não perdeu? Confere também o site toda segunda — quem não reclama fica de fora até a próxima.`,
+    at: Date.parse('2026-05-22T10:00:00-03:00'),
+  },
+  {
+    id: 'primitivao-resiste',
+    title: 'PRIMITIVÃO RESISTE!',
+    subtitle: 'Vândalo digital apaga base de apostadores — sistema renasce maior e melhor.',
+    tag: 'ATUALIZAÇÃO',
+    date: '21/05/2026',
+    image: 'news/primitivao-resiste.jpg',
+    body: `Na calada da noite, um invasor mal-intencionado conseguiu apagar todos os usuários e inscrições do Primitivão. Mas o cofre PC resistiu! Em horas, o sistema voltou no ar com defesas reforçadas.
+
+**O que mudou:**
+
+- Odds **automáticas** baseadas na classificação
+- 5 mercados: 1X2, Ambos Marcam, Ninguém Marca, +3 Gols (mandante/visitante)
+- Bônus semanal de **500 PC** (era 20!) — toda segunda 10h BRT
+- Hall da Fama e Hall da Vergonha por temporada
+- Aba "Meu Perfil" com seu time, troféus e títulos
+- Mortal Kombat, Rocket League, LoL, CS, Golf With Your Friends, Copa do Mundo — chegando em breve
+- Otimizado pra celular (com menu hamburger)
+- Defesas contra race conditions e backup automático diário`,
+    at: Date.parse('2026-05-21T20:00:00-03:00'),
+  },
+  {
+    id: 'fifa-s1',
+    title: 'TEMPORADA EM ANDAMENTO: FIFA 2026 SEASON 1',
+    subtitle: 'A primeira temporada já está rolando — confira os jogos da rodada atual.',
+    tag: 'CAMPEONATO',
+    date: '18/05/2026',
+    image: '',
+    body: `A primeira temporada oficial do Primitivão tá no ar. 8 jogadores, 7 rodadas, 28 jogos. Apostas abertas em cada partida até o admin travar (geralmente quando a bola vai rolar).
+
+As **odds são calculadas em tempo real** a partir da classificação: quanto mais forte um time (pontos + saldo de gol), menor a odd dele vencer. Quando uma rodada inteira termina, as odds da próxima rodada são recalculadas automaticamente pra todo mundo no app.
+
+Vá em **CAMPEONATOS → FIFA → JOGOS** pra apostar.`,
+    at: Date.parse('2026-05-18T19:00:00-03:00'),
+  },
+];
 
 // ────────────────────────────────────────────────────────────────
 
@@ -57,19 +132,8 @@ if (!snap.exists()) {
   process.exit(1);
 }
 
-const current = snap.data() || {};
-const currentNews = Array.isArray(current.news) ? current.news : [];
+await setDoc(ref, { news: NEWS }, { merge: true });
 
-// Confere se já tem uma news com mesmo id (idempotência manual)
-const dup = currentNews.find(n => n.id && n.id.startsWith('avatares-lancamento-'));
-if (dup) {
-  console.log('Já tem news de avatares no Firestore (id=' + dup.id + '). Saindo sem mexer.');
-  process.exit(0);
-}
-
-const updatedNews = [NEW_NEWS, ...currentNews];
-await setDoc(ref, { news: updatedNews }, { merge: true });
-
-console.log('OK: news publicada com id=' + NEW_NEWS.id);
-console.log('Total de news agora: ' + updatedNews.length);
+console.log('OK: ' + NEWS.length + ' news sincronizadas no Firestore.');
+NEWS.forEach((n, i) => console.log(`  ${i + 1}. ${n.date}  ${n.title}`));
 process.exit(0);

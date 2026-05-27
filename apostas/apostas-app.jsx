@@ -101,7 +101,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260527-avatares ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260527-news-markdown ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3613,22 +3613,59 @@ function InicioView({ session, isAdmin, comments, onAdd, onDelete, remoteNews })
   );
 }
 
-// Renderiza corpo de notícia em texto puro (do admin), respeitando quebras
-// de linha duplas como parágrafos e simples como <br/>. Sem HTML/markdown
-// — texto literal pra não abrir XSS via input do admin.
+// Renderiza corpo de notícia em texto + markdown leve. Suporta:
+//   - parágrafos (separados por \n\n)
+//   - listas: linhas começando com "- " viram <ul><li>
+//   - bold: **texto** vira <strong>
+//   - links: [texto](url) vira <a>
+// Sem HTML cru — texto sanitizado pra evitar XSS via input do admin.
+function renderInline(text) {
+  // Quebra em segmentos preservando bold e links
+  const parts = [];
+  let i = 0;
+  const re = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g;
+  let m, last = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    const tok = m[0];
+    if (tok.startsWith('**')) {
+      parts.push(<strong key={i++}>{tok.slice(2, -2)}</strong>);
+    } else {
+      const linkM = tok.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (linkM) parts.push(<a key={i++} href={linkM[2]} target="_blank" rel="noopener noreferrer">{linkM[1]}</a>);
+    }
+    last = m.index + tok.length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
+
 function NewsBodyText({ text }) {
   if (!text) return null;
-  const paragraphs = String(text).split(/\n\s*\n/);
-  return paragraphs.map((p, i) => (
-    <p key={i}>
-      {p.split('\n').map((ln, j, arr) => (
-        <React.Fragment key={j}>
-          {ln}
-          {j < arr.length - 1 && <br />}
-        </React.Fragment>
-      ))}
-    </p>
-  ));
+  const blocks = String(text).split(/\n\s*\n/);
+  return blocks.map((block, bi) => {
+    const lines = block.split('\n');
+    const isList = lines.every(l => l.trim().startsWith('- '));
+    if (isList && lines.length > 0) {
+      return (
+        <ul key={bi}>
+          {lines.map((l, i) => (
+            <li key={i}>{renderInline(l.replace(/^\s*-\s+/, ''))}</li>
+          ))}
+        </ul>
+      );
+    }
+    return (
+      <p key={bi}>
+        {lines.map((ln, j, arr) => (
+          <React.Fragment key={j}>
+            {renderInline(ln)}
+            {j < arr.length - 1 && <br />}
+          </React.Fragment>
+        ))}
+      </p>
+    );
+  });
 }
 
 function Comments({ newsId, list, sessionNick, isAdmin, onAdd, onDelete }) {
