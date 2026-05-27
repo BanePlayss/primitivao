@@ -36,7 +36,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260527-pwa ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260527-share-bracket ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -823,6 +823,119 @@ function TeamMini({ team, size = 36 }) {
 }
 
 // ─── APP ────────────────────────────────────────────────────────────────────
+// Modal de preview de cupom compartilhado (chega via ?cupom=...).
+// Mostra as legs e oferece "USAR" pra jogar tudo no slip atual.
+function SharedSlipModal({ slip, gamesById, onUse, onClose }) {
+  if (!slip || slip.length === 0) return null;
+  const legs = slip.map(s => ({ ...s, _fix: gamesById ? gamesById[s.fixtureId] : null }));
+  const combined = slip.reduce((p, l) => p + l.odds, 0);
+  const missing = legs.filter(l => !l._fix).length;
+  return (
+    <div className="shared-slip-backdrop" onClick={onClose}>
+      <div className="shared-slip-modal" onClick={e => e.stopPropagation()}>
+        <div className="shared-slip-head">
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: '0.28em', fontWeight: 800, color: 'var(--pv-orange)' }}>CUPOM COMPARTILHADO</div>
+            <div style={{ fontFamily: 'Bungee Inline, Impact, sans-serif', fontSize: 20, letterSpacing: '0.04em', marginTop: 4 }}>
+              {slip.length} PALPITE{slip.length === 1 ? '' : 'S'} · {combined.toFixed(2)}x
+            </div>
+          </div>
+          <button onClick={onClose} className="shared-slip-close" aria-label="Fechar">
+            <Icon name="x" size={18} />
+          </button>
+        </div>
+        <div className="shared-slip-body">
+          {legs.map((l, i) => (
+            <div key={i} className="cupom-leg" style={{ opacity: l._fix ? 1 : 0.5 }}>
+              <div className="cupom-leg-txt">
+                <div className="cupom-leg-mkt">{MARKET_TITLE[l.market] || l.market}</div>
+                {l._fix ? legLabel(l) : <em style={{ color: 'rgba(28,22,18,0.55)' }}>jogo não está mais disponível</em>}
+              </div>
+              <div className="cupom-leg-odd mono">{l.odds.toFixed(2)}</div>
+            </div>
+          ))}
+          {missing > 0 && (
+            <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(195,51,51,0.10)', borderLeft: '4px solid #c33', fontSize: 11, lineHeight: 1.4 }}>
+              <Icon name="warning" size={12} /> {missing} {missing === 1 ? 'jogo' : 'jogos'} desse cupom já não estão disponíveis — serão ignorados se você usar.
+            </div>
+          )}
+        </div>
+        <div className="shared-slip-foot">
+          <button className="btn-secondary" onClick={onClose}>FECHAR</button>
+          <button className="btn-primary" onClick={() => { onUse(legs.filter(l => l._fix).map(({ _fix, ...rest }) => rest)); onClose(); }}>
+            USAR NO MEU CUPOM
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SHARE CUPOM ────────────────────────────────────────────────────────────
+// Codifica o slip em string compacta pra mandar via URL.
+// Formato: base64(JSON([{f:fixtureId, m:market, p:pick, o:odds}, ...]))
+function encodeSlipForUrl(slip) {
+  try {
+    const compact = (slip || []).map(l => ({
+      f: l.fixtureId, m: l.market, p: l.pick, o: Number(l.odds.toFixed(2)),
+    }));
+    const json = JSON.stringify(compact);
+    // btoa não aceita unicode direto — encodeURIComponent + unescape pra UTF8
+    return btoa(unescape(encodeURIComponent(json)));
+  } catch (e) {
+    return '';
+  }
+}
+
+function decodeSlipFromUrl(encoded) {
+  try {
+    if (!encoded) return null;
+    const json = decodeURIComponent(escape(atob(encoded)));
+    const parsed = JSON.parse(json);
+    if (!Array.isArray(parsed)) return null;
+    return parsed
+      .filter(x => x && typeof x === 'object' && x.f && x.m && x.p != null)
+      .map(x => ({
+        fixtureId: String(x.f),
+        market:    String(x.m),
+        pick:      String(x.p),
+        odds:      Number(x.o) || 0,
+      }));
+  } catch (e) {
+    return null;
+  }
+}
+
+function buildShareUrl(slip) {
+  const enc = encodeSlipForUrl(slip);
+  if (!enc) return '';
+  const base = window.location.origin + window.location.pathname;
+  return `${base}?cupom=${enc}`;
+}
+
+// Tenta navigator.share (mobile) com fallback pra clipboard.
+async function shareSlip(slip) {
+  const url = buildShareUrl(slip);
+  if (!url) return { ok: false, err: 'slip vazio' };
+  const title = `Cupom do Primitivão · ${slip.length} palpite${slip.length === 1 ? '' : 's'}`;
+  const text = `Olha esse cupom que montei no Primitivão (${slip.length} palpite${slip.length === 1 ? '' : 's'})`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text, url });
+      return { ok: true, method: 'share' };
+    } catch (e) {
+      if (e.name === 'AbortError') return { ok: false, aborted: true };
+      // fall back to clipboard
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    return { ok: true, method: 'clipboard' };
+  } catch (e) {
+    return { ok: false, err: 'clipboard bloqueado' };
+  }
+}
+
 // ─── TOAST ──────────────────────────────────────────────────────────────────
 // Sistema simples de toasts: dispara via `window.showToast(msg, type)` e
 // renderiza pelo <ToastHost /> montado no App. Usa CustomEvent pra evitar
@@ -936,6 +1049,24 @@ function App() {
   // VIEW principal: 'inicio' (noticias/feed) ou 'campeonatos' (selector+tabs).
   // 'discord' não é uma view — abre link externo direto.
   const [view, setView] = useState('inicio');
+  // Cupom compartilhado por URL (?cupom=...) — quando setado, mostra modal
+  // de preview com botão "USAR" que joga as legs no slip atual.
+  const [sharedSlip, setSharedSlip] = useState(null);
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const encoded = params.get('cupom');
+      if (!encoded) return;
+      const decoded = decodeSlipFromUrl(encoded);
+      if (decoded && decoded.length > 0) {
+        setSharedSlip(decoded);
+      }
+      // Limpa o param da URL pro user não recarregar e abrir de novo.
+      params.delete('cupom');
+      const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash;
+      window.history.replaceState({}, '', newUrl);
+    } catch (e) { /* ignora */ }
+  }, []);
 
   // Dados estáticos da Copa do Mundo 2026 (carregados de JSON).
   const [wcData, setWcData] = useState({ matches: [], teamsByName: {} });
@@ -1767,6 +1898,19 @@ function App() {
         <Sidebar tab={tab} setTab={setTab} isAdmin={isAdmin} />
         </>)}
       </div>
+      {sharedSlip && (
+        <SharedSlipModal
+          slip={sharedSlip}
+          gamesById={gamesById}
+          onClose={() => setSharedSlip(null)}
+          onUse={(legs) => {
+            setSlip(legs);
+            setTab('apostar');
+            setView('campeonatos');
+            showToast(`${legs.length} palpite${legs.length === 1 ? '' : 's'} adicionado${legs.length === 1 ? '' : 's'} ao seu cupom`, 'success');
+          }}
+        />
+      )}
       <ToastHost />
     </>
   );
@@ -2675,6 +2819,7 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePi
       <div className="copa-subtabs">
         <button className={'copa-subtab ' + (subTab === 'jogos' ? 'active' : '')} onClick={() => setSubTab('jogos')}>JOGOS</button>
         <button className={'copa-subtab ' + (subTab === 'grupos' ? 'active' : '')} onClick={() => setSubTab('grupos')}><Icon name="chart" size={14} /> GRUPOS</button>
+        <button className={'copa-subtab ' + (subTab === 'bracket' ? 'active' : '')} onClick={() => setSubTab('bracket')}><Icon name="trophy" size={14} /> MATA-MATA</button>
         <button className={'copa-subtab ' + (subTab === 'ranking' ? 'active' : '')} onClick={() => setSubTab('ranking')}><Icon name="trophy" size={14} /> RANKING DO BOLÃO</button>
       </div>
 
@@ -2693,6 +2838,10 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePi
 
       {subTab === 'grupos' && (
         <CopaGrupos fixtures={fixtures || []} results={results} />
+      )}
+
+      {subTab === 'bracket' && (
+        <CopaBracket fixtures={fixtures || []} results={results} />
       )}
 
       {subTab === 'ranking' && (
@@ -3070,6 +3219,7 @@ function CopaGrupos({ fixtures, results }) {
 }
 
 function CopaRanking({ users, fixtures, results, picks, myNick }) {
+  const [openNick, setOpenNick] = useState(null);
   if (!fixtures || fixtures.length === 0) {
     return (
       <div className="card"><div className="card-body"><div className="empty">
@@ -3096,26 +3246,195 @@ function CopaRanking({ users, fixtures, results, picks, myNick }) {
   }).sort((a, b) => b.pts - a.pts || b.exactos - a.exactos);
 
   return (
+    <>
+      <div className="card">
+        <div className="card-head">
+          <div className="title"><Icon name="trophy" size={16} /> RANKING DO BOLÃO</div>
+          <div className="sub">{rows.length} JOGADORES · {fixtures.length} JOGOS · CLIQUE NO NICK PRA VER PALPITES</div>
+        </div>
+        <div className="card-body">
+          {rows.length === 0 && <div className="empty"><div className="e2">Ninguém cadastrado ainda.</div></div>}
+          {rows.map((r, i) => (
+            <button
+              key={r.nick}
+              className={'wc-rank-row wc-rank-row-btn ' + (r.nick === myNick ? 'me' : '')}
+              onClick={() => setOpenNick(r.nick)}
+              type="button"
+            >
+              <div className="wc-rank-pos">{i + 1}</div>
+              <div className="wc-rank-nick">@{r.nick}</div>
+              <div className="wc-rank-stats">
+                <span title="Placares exatos (3 pts)">{r.exactos} <small>×3</small></span>
+                <span title="Resultados certos (1 pt)">{r.certos} <small>×1</small></span>
+                <span title="Erros (0 pt)">{r.errados} <small>×0</small></span>
+                <span title="Total palpitado">{r.palpitados} <small>palp</small></span>
+              </div>
+              <div className="wc-rank-pts">{r.pts}<small>pts</small></div>
+            </button>
+          ))}
+        </div>
+      </div>
+      {openNick && (
+        <CopaPicksModal
+          nick={openNick}
+          picks={picks[openNick] || {}}
+          fixtures={fixtures}
+          results={results}
+          onClose={() => setOpenNick(null)}
+        />
+      )}
+    </>
+  );
+}
+
+// Modal que mostra todos os palpites de um jogador da Copa, agrupados por
+// fase (grupo / oitavas / quartas / ...).
+function CopaPicksModal({ nick, picks, fixtures, results, onClose }) {
+  const grouped = useMemo(() => {
+    const byFase = {};
+    for (const m of fixtures) {
+      const fase = m.group ? `GRUPO ${m.group}` : (m.roundLabel || 'MATA-MATA');
+      if (!byFase[fase]) byFase[fase] = [];
+      byFase[fase].push(m);
+    }
+    return byFase;
+  }, [fixtures]);
+
+  const myPickCount = Object.keys(picks).length;
+  let totalPts = 0;
+  fixtures.forEach(m => {
+    const r = results[m.id]; const p = picks[m.id];
+    if (r && p) totalPts += scoreWcPick(r, p);
+  });
+
+  return (
+    <div className="shared-slip-backdrop" onClick={onClose}>
+      <div className="shared-slip-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
+        <div className="shared-slip-head">
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: '0.28em', fontWeight: 800, color: 'var(--pv-orange)' }}>PALPITES DO BOLÃO</div>
+            <div style={{ fontFamily: 'Bungee Inline, Impact, sans-serif', fontSize: 22, letterSpacing: '0.04em', marginTop: 4 }}>
+              @{nick}
+            </div>
+            <div style={{ fontSize: 11, marginTop: 4, opacity: 0.85 }}>
+              {myPickCount} palpite{myPickCount === 1 ? '' : 's'} · {totalPts} pt{totalPts === 1 ? '' : 's'}
+            </div>
+          </div>
+          <button onClick={onClose} className="shared-slip-close" aria-label="Fechar">
+            <Icon name="x" size={18} />
+          </button>
+        </div>
+        <div className="shared-slip-body">
+          {Object.entries(grouped).map(([fase, ms]) => {
+            const pickedInFase = ms.filter(m => picks[m.id]);
+            if (pickedInFase.length === 0) return null;
+            return (
+              <div key={fase} style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 10, letterSpacing: '0.2em', fontWeight: 800, color: 'var(--pv-orange)', marginBottom: 6 }}>{fase}</div>
+                {pickedInFase.map(m => {
+                  const p = picks[m.id];
+                  const r = results[m.id];
+                  const pts = r ? scoreWcPick(r, p) : null;
+                  const cor = pts === 3 ? '#3a7d2a' : pts === 1 ? '#c98a14' : pts === 0 ? '#c33' : 'rgba(28,22,18,0.5)';
+                  return (
+                    <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, padding: '7px 0', borderBottom: '1px dashed rgba(28,22,18,0.12)', alignItems: 'center', fontSize: 12 }}>
+                      <div>
+                        <span style={{ fontWeight: 700 }}>{m.home}</span>
+                        {' '}<span style={{ opacity: 0.5 }}>×</span>{' '}
+                        <span style={{ fontWeight: 700 }}>{m.away}</span>
+                      </div>
+                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800 }}>
+                        {p.gh}–{p.ga}
+                        {r && <span style={{ marginLeft: 6, opacity: 0.5 }}>({r.gh}–{r.ga})</span>}
+                      </div>
+                      <div style={{ color: cor, fontSize: 10, letterSpacing: '0.14em', fontWeight: 800, width: 36, textAlign: 'right' }}>
+                        {pts === null ? '—' : pts === 3 ? 'EXATO' : pts === 1 ? 'CERTO' : 'ERROU'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+          {myPickCount === 0 && (
+            <div className="empty">
+              <div className="e2">@{nick} ainda não palpitou em nenhum jogo.</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Bracket visual do mata-mata: organiza os jogos knockout em colunas por fase
+// (32avos / oitavas / quartas / semis / 3o lugar + final). Cada match card
+// mostra times + placar, fica destacado quando ja tem resultado.
+function CopaBracket({ fixtures, results }) {
+  const knockoutMatches = useMemo(() => fixtures.filter(m => m.isKnockout), [fixtures]);
+  if (knockoutMatches.length === 0) {
+    return (
+      <div className="card"><div className="card-body"><div className="empty">
+        <div className="e1">SEM MATA-MATA AINDA</div>
+        <div className="e2">A fase de mata-mata aparece aqui quando os jogos forem cadastrados.</div>
+      </div></div></div>
+    );
+  }
+
+  // Ordem das fases (chave bruta do JSON pra label exibido)
+  const PHASES = [
+    { key: 'Round of 32',           label: '32-AVOS' },
+    { key: 'Round of 16',           label: 'OITAVAS' },
+    { key: 'Quarter-final',         label: 'QUARTAS' },
+    { key: 'Semi-final',            label: 'SEMIFINAL' },
+    { key: 'Match for third place', label: '3º LUGAR' },
+    { key: 'Final',                 label: 'FINAL' },
+  ];
+
+  const byPhase = {};
+  PHASES.forEach(p => { byPhase[p.key] = []; });
+  knockoutMatches.forEach(m => {
+    if (byPhase[m.round]) byPhase[m.round].push(m);
+  });
+  const phasesWithGames = PHASES.filter(p => byPhase[p.key].length > 0);
+
+  return (
     <div className="card">
       <div className="card-head">
-        <div className="title"><Icon name="trophy" size={16} /> RANKING DO BOLÃO</div>
-        <div className="sub">{rows.length} JOGADORES · {fixtures.length} JOGOS NO TOTAL</div>
+        <div className="title"><Icon name="trophy" size={16} /> BRACKET DO MATA-MATA</div>
+        <div className="sub">{knockoutMatches.length} JOGOS · {phasesWithGames.length} FASES</div>
       </div>
-      <div className="card-body">
-        {rows.length === 0 && <div className="empty"><div className="e2">Ninguém cadastrado ainda.</div></div>}
-        {rows.map((r, i) => (
-          <div key={r.nick} className={'wc-rank-row ' + (r.nick === myNick ? 'me' : '')}>
-            <div className="wc-rank-pos">{i + 1}</div>
-            <div className="wc-rank-nick">@{r.nick}</div>
-            <div className="wc-rank-stats">
-              <span title="Placares exatos (3 pts)">{r.exactos} <small>×3</small></span>
-              <span title="Resultados certos (1 pt)">{r.certos} <small>×1</small></span>
-              <span title="Erros (0 pt)">{r.errados} <small>×0</small></span>
-              <span title="Total palpitado">{r.palpitados} <small>palp</small></span>
+      <div className="card-body" style={{ overflowX: 'auto' }}>
+        <div className="bracket-grid" style={{ gridTemplateColumns: `repeat(${phasesWithGames.length}, minmax(180px, 1fr))` }}>
+          {phasesWithGames.map(p => (
+            <div key={p.key} className="bracket-col">
+              <div className="bracket-col-head">{p.label}</div>
+              {byPhase[p.key].map(m => {
+                const r = results[m.id];
+                const played = !!r;
+                const winnerHome = played && r.gh > r.ga;
+                const winnerAway = played && r.ga > r.gh;
+                const isPlaceholderHome = String(m.home || '').includes('º G');
+                const isPlaceholderAway = String(m.away || '').includes('º G');
+                return (
+                  <div key={m.id} className={'bracket-match ' + (played ? 'played' : '')}>
+                    <div className="bracket-date">{m.date} · {m.time}</div>
+                    <div className={'bracket-team ' + (winnerHome ? 'winner' : '') + (isPlaceholderHome ? ' slot' : '')}>
+                      <TeamFlag flag={m.flagHome} size={16} />
+                      <span className="bracket-team-name">{m.home}</span>
+                      <span className="bracket-score">{played ? r.gh : '–'}</span>
+                    </div>
+                    <div className={'bracket-team ' + (winnerAway ? 'winner' : '') + (isPlaceholderAway ? ' slot' : '')}>
+                      <TeamFlag flag={m.flagAway} size={16} />
+                      <span className="bracket-team-name">{m.away}</span>
+                      <span className="bracket-score">{played ? r.ga : '–'}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="wc-rank-pts">{r.pts}<small>pts</small></div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -3705,6 +4024,20 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
                 {busy ? 'APOSTANDO…' : `APOSTAR ${amt} PC`}
               </button>
             </div>
+            <button
+              type="button"
+              className="cupom-share"
+              onClick={async () => {
+                const r = await shareSlip(slip);
+                if (r.ok) {
+                  showToast(r.method === 'share' ? 'Cupom compartilhado!' : 'Link copiado!', 'success');
+                } else if (!r.aborted) {
+                  showToast('Falha ao compartilhar: ' + (r.err || 'erro'), 'error');
+                }
+              }}
+            >
+              <Icon name="arrow-up-right" size={13} /> COMPARTILHAR CUPOM
+            </button>
           </>
         )}
       </div>
