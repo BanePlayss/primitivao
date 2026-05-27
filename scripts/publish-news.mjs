@@ -36,7 +36,7 @@ const NEWS = [
     subtitle: 'Cada jogador agora tem versão oficial em estilo Cartoon Network — saíram direto do Dexter\'s Laboratory pro topo da sua tela.',
     tag: 'EDIÇÃO',
     date: '27/05/2026',
-    image: 'news/lancamento_avatares.jpg',
+    image: 'news/avatares_times.jpg',
     body: `A redação do **PRIMITIVÃO TIMES** não acreditou: depois de meses de campeonato sem rosto, finalmente cada jogador tem o que merece — um AVATAR oficial em estilo Cartoon Network anos 2000, daqueles bem Dexter, Powerpuff, Samurai Jack.
 
 Cada uma das oito feras agora aparece personalizada no topo da página, no Ranking Geral e no Hall da Fama (ou da Vergonha, conforme o caso).
