@@ -2598,7 +2598,15 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
 function TeamFlag({ flag, size = 26 }) {
   if (flag === '__flag_default__') return <Icon name="flag" size={Math.round(size * 0.75)} />;
   if (flag === '__flag_unknown__') return <Icon name="question" size={Math.round(size * 0.75)} />;
-  return <span style={{ fontSize: size, lineHeight: 1 }}>{flag}</span>;
+  // Font Twemoji garante que Firefox no Windows renderize bandeiras de país
+  // (Segoe UI Emoji não tem essa range — mostra "MX" ao invés de 🇲🇽).
+  return (
+    <span style={{
+      fontSize: size,
+      lineHeight: 1,
+      fontFamily: '"Twemoji Country Flags", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif',
+    }}>{flag}</span>
+  );
 }
 
 // ─── LOGIN ──────────────────────────────────────────────────────────────────

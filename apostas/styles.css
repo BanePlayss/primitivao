@@ -293,7 +293,15 @@
     }
     .wc-team { display: flex; align-items: center; gap: 10px; }
     .wc-team-away { flex-direction: row-reverse; }
-    .wc-flag { font-size: 26px; line-height: 1; }
+    .wc-flag {
+      font-size: 26px; line-height: 1;
+      /* Twemoji vem primeiro, fallback pra fonts nativas de emoji */
+      font-family: "Twemoji Country Flags", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    }
+    .bracket-team .pico-icon ~ span,
+    .bracket-team > span:first-child:not(.bracket-team-name):not(.bracket-score) {
+      font-family: "Twemoji Country Flags", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    }
     .wc-name { font-weight: 800; font-size: 14px; letter-spacing: 0.02em; }
     .wc-inputs { display: flex; align-items: center; gap: 6px; }
     .wc-score-in {
@@ -1469,6 +1477,18 @@
 
       .odd-btn .val { font-size: 16px; }
       .odd-btn .lab { font-size: 7px; }
+    }
+
+    /* ──── FONT POLYFILL: bandeiras de país ──── */
+    /* Firefox no Windows não renderiza emoji de bandeira de país por default
+       (Microsoft removeu do Segoe UI Emoji). Carrega a Twemoji Country Flags
+       só pro range U+1F1E6-U+1F1FF (Regional Indicators) — fonts do sistema
+       continuam sendo usadas pro resto. */
+    @font-face {
+      font-family: "Twemoji Country Flags";
+      unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074, U+E0077, U+E007F;
+      src: url("https://cdn.jsdelivr.net/npm/country-flag-emoji-polyfill@0.1/dist/TwemojiCountryFlags.woff2") format("woff2");
+      font-display: swap;
     }
 
     /* ──── BRACKET MATA-MATA ──── */
