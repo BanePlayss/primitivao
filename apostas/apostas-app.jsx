@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260526-comments ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260526-copa ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -34,8 +34,37 @@ const CHAMPIONSHIPS = [
   { id: 'lol',  name: 'Primitivão — League of Legends 2026',     season: 'Season 1', tag: 'LoL',  status: 'soon'   },
   { id: 'cs',   name: 'Primitivão — Counter-Strike 2026',        season: 'Season 1', tag: 'CS',   status: 'soon'   },
   { id: 'gwyf', name: 'Primitivão — Golf With Your Friends 2026', season: 'Season 1', tag: 'GWYF', status: 'soon'   },
-  { id: 'copa', name: 'Primitivão — Copa do Mundo 2026',         season: 'Season 1', tag: 'COPA', status: 'soon'   },
 ];
+
+// ─── COPA DO MUNDO (bolão separado, sem PC) ────────────────────────────────
+// Lista hardcoded de jogos da fase de grupos da Copa do Mundo FIFA 2026.
+// Admin pode adicionar/editar via console futuramente OU expandir esse array.
+// Pontuação do bolão: 3 pts (placar exato) | 1 pt (só o resultado certo) | 0.
+const WORLDCUP_FIXTURES = [
+  { id: 'wc01', group: 'A', round: 'R1', date: '11/06', time: '21:00', home: 'México',     away: 'Marrocos',     flagHome: '🇲🇽', flagAway: '🇲🇦' },
+  { id: 'wc02', group: 'B', round: 'R1', date: '12/06', time: '13:00', home: 'Canadá',     away: 'Equador',      flagHome: '🇨🇦', flagAway: '🇪🇨' },
+  { id: 'wc03', group: 'C', round: 'R1', date: '12/06', time: '16:00', home: 'EUA',        away: 'Coreia do Sul',flagHome: '🇺🇸', flagAway: '🇰🇷' },
+  { id: 'wc04', group: 'D', round: 'R1', date: '13/06', time: '13:00', home: 'Brasil',     away: 'Sérvia',       flagHome: '🇧🇷', flagAway: '🇷🇸' },
+  { id: 'wc05', group: 'E', round: 'R1', date: '13/06', time: '16:00', home: 'Inglaterra', away: 'Camarões',     flagHome: '🏴', flagAway: '🇨🇲' },
+  { id: 'wc06', group: 'F', round: 'R1', date: '13/06', time: '21:00', home: 'Argentina',  away: 'Polônia',      flagHome: '🇦🇷', flagAway: '🇵🇱' },
+  { id: 'wc07', group: 'G', round: 'R1', date: '14/06', time: '13:00', home: 'França',     away: 'Croácia',      flagHome: '🇫🇷', flagAway: '🇭🇷' },
+  { id: 'wc08', group: 'H', round: 'R1', date: '14/06', time: '16:00', home: 'Espanha',    away: 'Senegal',      flagHome: '🇪🇸', flagAway: '🇸🇳' },
+  { id: 'wc09', group: 'A', round: 'R2', date: '17/06', time: '13:00', home: 'México',     away: 'Egito',        flagHome: '🇲🇽', flagAway: '🇪🇬' },
+  { id: 'wc10', group: 'B', round: 'R2', date: '17/06', time: '16:00', home: 'Canadá',     away: 'Japão',        flagHome: '🇨🇦', flagAway: '🇯🇵' },
+  { id: 'wc11', group: 'C', round: 'R2', date: '17/06', time: '21:00', home: 'EUA',        away: 'Portugal',     flagHome: '🇺🇸', flagAway: '🇵🇹' },
+  { id: 'wc12', group: 'D', round: 'R2', date: '18/06', time: '13:00', home: 'Brasil',     away: 'Holanda',      flagHome: '🇧🇷', flagAway: '🇳🇱' },
+];
+function scoreWcPick(real, pick) {
+  if (!real || !pick) return 0;
+  const rgh = parseInt(real.gh, 10), rga = parseInt(real.ga, 10);
+  const pgh = parseInt(pick.gh, 10), pga = parseInt(pick.ga, 10);
+  if ([rgh, rga, pgh, pga].some(Number.isNaN)) return 0;
+  if (rgh === pgh && rga === pga) return 3; // placar exato
+  const r = rgh > rga ? 'H' : rgh < rga ? 'A' : 'D';
+  const p = pgh > pga ? 'H' : pgh < pga ? 'A' : 'D';
+  if (r === p) return 1; // só o resultado
+  return 0;
+}
 const CHAMP_BY_ID = Object.fromEntries(CHAMPIONSHIPS.map(c => [c.id, c]));
 
 const START_PC = 50;
@@ -211,6 +240,7 @@ async function downloadFullBackup() {
     const rawApostas = betSnap.exists ? betSnap.data() : {};
     const topLevelInterests = rawApostas.interests;
     const topLevelComments  = rawApostas.comments;
+    const topLevelWorldcup  = rawApostas.worldcup;
     const apostasData = apostas.data ? { ...apostas.data } : null;
     if (apostasData) {
       apostasData.interests = (topLevelInterests && typeof topLevelInterests === 'object')
@@ -219,15 +249,17 @@ async function downloadFullBackup() {
       apostasData.comments = (topLevelComments && typeof topLevelComments === 'object')
         ? topLevelComments
         : (apostasData.comments || {});
+      apostasData.worldcup = (topLevelWorldcup && typeof topLevelWorldcup === 'object')
+        ? topLevelWorldcup
+        : (apostasData.worldcup || { results: {}, picks: {} });
     }
     const payload = {
       exportedAt: new Date().toISOString(),
-      version: 4,
+      version: 5,
       source: 'browser-admin',
       apostas:       apostasData,
       classificacao: classificacao.data,
-      // metadados crus pra nunca perder dado mesmo se o parse falhar.
-      _raw: { apostas, classificacao, topLevelInterests, topLevelComments },
+      _raw: { apostas, classificacao, topLevelInterests, topLevelComments, topLevelWorldcup },
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -269,13 +301,13 @@ async function restoreFromBackup(payload) {
   try {
     const writes = [];
     if (apostas != null) {
-      // Separa interests + comments do resto: gravamos como campos top-level
-      // pra não competir com outras escritas (race condition).
-      const { interests, comments, ...rest } = apostas;
+      // Separa campos top-level (interests/comments/worldcup) do json.
+      const { interests, comments, worldcup, ...rest } = apostas;
       writes.push(BET_DOC().set({
         json: JSON.stringify(rest),
         interests: (interests && typeof interests === 'object') ? interests : {},
         comments:  (comments  && typeof comments  === 'object') ? comments  : {},
+        worldcup:  (worldcup  && typeof worldcup  === 'object') ? worldcup  : { results: {}, picks: {} },
         updatedAt: Date.now(),
       }));
     }
@@ -317,6 +349,7 @@ async function wipeAllData() {
         json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], teamPlayers: {} }),
         interests: {}, // campo top-level — separado do json
         comments:  {}, // campo top-level — separado do json
+        worldcup:  { results: {}, picks: {} }, // bolão da Copa
         updatedAt: Date.now(),
       }),
       CLASSIF_DOC().set({
@@ -592,8 +625,8 @@ function TeamMini({ team, size = 36 }) {
 
 // ─── APP ────────────────────────────────────────────────────────────────────
 function App() {
-  const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {}, comments: {} });
-  const { users, fixtures, bets, interests, teamPlayers, comments } = shared;
+  const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {}, comments: {}, worldcup: { results: {}, picks: {} } });
+  const { users, fixtures, bets, interests, teamPlayers, comments, worldcup } = shared;
 
   // cs: classificação compartilhada via primitivao/state. State é mantido no App
   // (e não em ClassificacaoView) para que: (a) ApostarView possa derivar jogos +
@@ -644,6 +677,10 @@ function App() {
         }
         const topComments = docData.comments;
         const comments = (topComments && typeof topComments === 'object') ? topComments : {};
+        const topWc = docData.worldcup;
+        const worldcup = (topWc && typeof topWc === 'object')
+          ? { results: topWc.results || {}, picks: topWc.picks || {} }
+          : { results: {}, picks: {} };
         isApplyingRemoteRef.current = true;
         setShared({
           users:        remote.users && typeof remote.users === 'object' ? remote.users : {},
@@ -651,6 +688,7 @@ function App() {
           bets:         Array.isArray(remote.bets) ? remote.bets.map(normBet) : [],
           interests,
           comments,
+          worldcup,
           teamPlayers:  remote.teamPlayers && typeof remote.teamPlayers === 'object' ? remote.teamPlayers : {},
         });
         hasLoadedRef.current = true; setSynced(true);
@@ -675,7 +713,7 @@ function App() {
       // Write-back transacional: lê remote, faz MERGE com local (campo a
       // campo, vide mergeBetDocFields), grava resultado. Protege contra
       // outras tabs sobrescreverem campos que esta tab não modificou.
-      const { interests: _drop1, comments: _drop2, ...localNoInterests } = shared;
+      const { interests: _d1, comments: _d2, worldcup: _d3, ...localNoInterests } = shared;
       commitBetDocUpdate(remote => ({
         next: mergeBetDocFields(remote, localNoInterests),
       })).catch(e => console.warn('Firestore write failed', e));
@@ -1108,6 +1146,69 @@ function App() {
     }
   };
 
+  // ── COPA DO MUNDO (bolão) ─────────────────────────────────────────────────
+  // Mesmo padrão de top-level field + transação atômica.
+  // worldcup: { results: { matchId: {gh,ga,at} }, picks: { nick: { matchId: {gh,ga,at} } } }
+  const saveWorldcupPick = async (matchId, gh, ga) => {
+    if (!session || !session.nick) return;
+    const nick = session.nick;
+    const pgh = parseInt(gh, 10), pga = parseInt(ga, 10);
+    if (Number.isNaN(pgh) || Number.isNaN(pga)) return;
+    if (pgh < 0 || pga < 0) return;
+    const ref = BET_DOC();
+    let newState = null;
+    try {
+      await window.db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const cur = (snap.exists && snap.data().worldcup && typeof snap.data().worldcup === 'object')
+          ? snap.data().worldcup : {};
+        // Não permite alterar palpite se o admin já lançou o placar real
+        if (cur.results && cur.results[matchId]) return;
+        const picks = { ...(cur.picks || {}) };
+        const userPicks = { ...(picks[nick] || {}) };
+        userPicks[matchId] = { gh: pgh, ga: pga, at: Date.now() };
+        picks[nick] = userPicks;
+        const next = { results: cur.results || {}, picks };
+        newState = next;
+        tx.set(ref, { worldcup: next, updatedAt: Date.now() }, { merge: true });
+      });
+      if (newState) setShared(s => ({ ...s, worldcup: newState }));
+    } catch (e) {
+      console.warn('saveWorldcupPick failed', e);
+      throw e;
+    }
+  };
+
+  const setWorldcupResult = async (matchId, gh, ga) => {
+    if (!isAdmin) return;
+    const ref = BET_DOC();
+    let newState = null;
+    try {
+      await window.db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const cur = (snap.exists && snap.data().worldcup && typeof snap.data().worldcup === 'object')
+          ? snap.data().worldcup : { results: {}, picks: {} };
+        const results = { ...(cur.results || {}) };
+        if (gh === '' && ga === '') {
+          // limpar resultado
+          delete results[matchId];
+        } else {
+          const pgh = parseInt(gh, 10), pga = parseInt(ga, 10);
+          if (Number.isNaN(pgh) || Number.isNaN(pga)) return;
+          if (pgh < 0 || pga < 0) return;
+          results[matchId] = { gh: pgh, ga: pga, at: Date.now() };
+        }
+        const next = { results, picks: cur.picks || {} };
+        newState = next;
+        tx.set(ref, { worldcup: next, updatedAt: Date.now() }, { merge: true });
+      });
+      if (newState) setShared(s => ({ ...s, worldcup: newState }));
+    } catch (e) {
+      console.warn('setWorldcupResult failed', e);
+      throw e;
+    }
+  };
+
   // Vincula um nick a um teamId via transação (cada nick = um time).
   const setTeamPlayer = async (teamId, nick) => {
     const cleaned = (nick || '').trim().toLowerCase();
@@ -1232,6 +1333,20 @@ function App() {
             </div>
           </div>
         )}
+        {view === 'copa' && (
+          <div className="content-area">
+            <div className="page">
+              <CopaDoMundoView
+                session={session}
+                isAdmin={isAdmin}
+                users={users}
+                worldcup={worldcup || { results: {}, picks: {} }}
+                onSavePick={saveWorldcupPick}
+                onSetResult={setWorldcupResult}
+              />
+            </div>
+          </div>
+        )}
         {view === 'campeonatos' && (<>
         <div className="content-area">
           <div className="page">
@@ -1329,6 +1444,7 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
       <nav className="primary-nav" aria-label="Navegação principal">
         <button className={'pnav ' + (view === 'inicio' ? 'active' : '')} onClick={() => onView && onView('inicio')}>INÍCIO</button>
         <button className={'pnav ' + (view === 'campeonatos' ? 'active' : '')} onClick={() => onView && onView('campeonatos')}>CAMPEONATOS</button>
+        <button className={'pnav ' + (view === 'copa' ? 'active' : '')} onClick={() => onView && onView('copa')}>COPA DO MUNDO</button>
         <button className="pnav pnav-ext" onClick={goDiscord} title="Abre em nova aba">
           DISCORD <span className="pnav-ext-icon">↗</span>
         </button>
@@ -1773,6 +1889,280 @@ const NEWS = [
     ),
   },
 ];
+
+// ─── COPA DO MUNDO (bolão) ─────────────────────────────────────────────────
+function CopaDoMundoView({ session, isAdmin, users, worldcup, onSavePick, onSetResult }) {
+  const [subTab, setSubTab] = useState('jogos'); // 'jogos' | 'ranking'
+  const results = worldcup?.results || {};
+  const picks   = worldcup?.picks   || {};
+  const myNick  = session?.nick;
+  const myPicks = (myNick && picks[myNick]) || {};
+
+  return (
+    <div className="copa-view">
+      <div className="copa-hero">
+        <div className="copa-hero-tag">BOLÃO</div>
+        <div className="copa-hero-title">COPA DO MUNDO 2026</div>
+        <div className="copa-hero-sub">
+          Palpite o placar de cada jogo. 3 pts por placar exato · 1 pt por
+          acertar só o vencedor/empate · 0 por errar. <strong>Sem PC envolvido</strong> — é só por glória e zoeira.
+        </div>
+      </div>
+
+      <div className="copa-subtabs">
+        <button className={'copa-subtab ' + (subTab === 'jogos' ? 'active' : '')} onClick={() => setSubTab('jogos')}>JOGOS</button>
+        <button className={'copa-subtab ' + (subTab === 'ranking' ? 'active' : '')} onClick={() => setSubTab('ranking')}>🏆 RANKING DO BOLÃO</button>
+      </div>
+
+      {subTab === 'jogos' && (
+        <CopaJogos
+          fixtures={WORLDCUP_FIXTURES}
+          results={results}
+          myPicks={myPicks}
+          allPicks={picks}
+          myNick={myNick}
+          isAdmin={isAdmin}
+          onSavePick={onSavePick}
+          onSetResult={onSetResult}
+        />
+      )}
+
+      {subTab === 'ranking' && (
+        <CopaRanking
+          users={users}
+          fixtures={WORLDCUP_FIXTURES}
+          results={results}
+          picks={picks}
+          myNick={myNick}
+        />
+      )}
+    </div>
+  );
+}
+
+function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSavePick, onSetResult }) {
+  // Agrupa por rodada (R1, R2, etc.)
+  const byRound = fixtures.reduce((acc, m) => {
+    (acc[m.round] = acc[m.round] || []).push(m); return acc;
+  }, {});
+  const roundKeys = Object.keys(byRound).sort();
+
+  return (
+    <div>
+      {!myNick && (
+        <div className="copa-warn">Você precisa estar logado pra palpitar.</div>
+      )}
+      {roundKeys.map(rk => (
+        <div key={rk} className="card copa-round-card">
+          <div className="card-head">
+            <div className="title">FASE DE GRUPOS · {rk}</div>
+            <div className="sub">{byRound[rk].length} JOGOS</div>
+          </div>
+          <div className="card-body">
+            {byRound[rk].map(m => (
+              <CopaMatchCard
+                key={m.id}
+                match={m}
+                result={results[m.id]}
+                myPick={myPicks[m.id]}
+                allPicks={allPicks}
+                isAdmin={isAdmin}
+                canBet={!!myNick}
+                onSavePick={onSavePick}
+                onSetResult={onSetResult}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSavePick, onSetResult }) {
+  const closed = !!result; // admin já lançou o placar real -> congela
+  const [gh, setGh] = useState(myPick ? String(myPick.gh) : '');
+  const [ga, setGa] = useState(myPick ? String(myPick.ga) : '');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg]   = useState('');
+
+  // Admin pra setar resultado
+  const [adminGh, setAdminGh] = useState(result ? String(result.gh) : '');
+  const [adminGa, setAdminGa] = useState(result ? String(result.ga) : '');
+  const [adminBusy, setAdminBusy] = useState(false);
+
+  const handleSave = async () => {
+    if (busy || closed) return;
+    setBusy(true); setMsg('');
+    try {
+      await onSavePick(match.id, gh, ga);
+      setMsg('✓ palpite salvo');
+      setTimeout(() => setMsg(''), 2000);
+    } catch (e) {
+      setMsg('erro — tenta de novo');
+    } finally { setBusy(false); }
+  };
+
+  const handleSetResult = async () => {
+    if (adminBusy) return;
+    setAdminBusy(true);
+    try { await onSetResult(match.id, adminGh, adminGa); }
+    finally { setAdminBusy(false); }
+  };
+  const handleClearResult = async () => {
+    if (adminBusy) return;
+    setAdminBusy(true);
+    try {
+      await onSetResult(match.id, '', '');
+      setAdminGh(''); setAdminGa('');
+    } finally { setAdminBusy(false); }
+  };
+
+  // Conta quantos palpitaram nesse jogo
+  const pickCount = Object.values(allPicks || {}).reduce(
+    (acc, up) => acc + (up && up[match.id] ? 1 : 0), 0
+  );
+
+  // Score do meu palpite (se já tem resultado)
+  let myScore = null;
+  if (result && myPick) myScore = scoreWcPick(result, myPick);
+
+  return (
+    <div className={'wc-match ' + (closed ? 'closed' : '')}>
+      <div className="wc-match-head">
+        <span className="wc-tag">GRUPO {match.group} · {match.date} · {match.time}</span>
+        <span className="wc-pickcount">{pickCount} palpite{pickCount === 1 ? '' : 's'}</span>
+      </div>
+      <div className="wc-match-body">
+        <div className="wc-team wc-team-home">
+          <span className="wc-flag">{match.flagHome}</span>
+          <span className="wc-name">{match.home}</span>
+        </div>
+        <div className="wc-inputs">
+          <input
+            className="wc-score-in"
+            type="number" min="0" max="20"
+            value={closed ? '' : gh}
+            placeholder={closed && result ? String(result.gh) : '–'}
+            onChange={e => setGh(e.target.value)}
+            disabled={closed || !canBet || busy}
+            aria-label={`Palpite gols ${match.home}`}
+          />
+          <span className="wc-x">×</span>
+          <input
+            className="wc-score-in"
+            type="number" min="0" max="20"
+            value={closed ? '' : ga}
+            placeholder={closed && result ? String(result.ga) : '–'}
+            onChange={e => setGa(e.target.value)}
+            disabled={closed || !canBet || busy}
+            aria-label={`Palpite gols ${match.away}`}
+          />
+        </div>
+        <div className="wc-team wc-team-away">
+          <span className="wc-name">{match.away}</span>
+          <span className="wc-flag">{match.flagAway}</span>
+        </div>
+      </div>
+
+      {closed && (
+        <div className="wc-result-strip">
+          <span className="wc-result-label">RESULTADO REAL:</span>
+          <span className="wc-result-score">{result.gh} × {result.ga}</span>
+          {myPick && (
+            <span className={'wc-myscore wc-myscore-' + myScore}>
+              SEU PALPITE: {myPick.gh}×{myPick.ga} · {myScore} pt{myScore === 1 ? '' : 's'}
+            </span>
+          )}
+        </div>
+      )}
+
+      {!closed && canBet && (
+        <div className="wc-actions">
+          <button className="wc-save" onClick={handleSave} disabled={busy || !gh || !ga}>
+            {busy ? 'SALVANDO…' : (myPick ? 'ATUALIZAR PALPITE' : 'SALVAR PALPITE')}
+          </button>
+          {msg && <span className="wc-msg">{msg}</span>}
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="wc-admin">
+          <span className="wc-admin-label">ADMIN — PLACAR REAL:</span>
+          <input
+            className="wc-score-in wc-admin-in"
+            type="number" min="0" max="20"
+            value={adminGh}
+            onChange={e => setAdminGh(e.target.value)}
+            placeholder="–"
+          />
+          <span className="wc-x">×</span>
+          <input
+            className="wc-score-in wc-admin-in"
+            type="number" min="0" max="20"
+            value={adminGa}
+            onChange={e => setAdminGa(e.target.value)}
+            placeholder="–"
+          />
+          <button className="wc-admin-btn" onClick={handleSetResult} disabled={adminBusy}>
+            {result ? 'ATUALIZAR' : 'LANÇAR'}
+          </button>
+          {result && (
+            <button className="wc-admin-btn wc-admin-clear" onClick={handleClearResult} disabled={adminBusy}>
+              LIMPAR
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CopaRanking({ users, fixtures, results, picks, myNick }) {
+  // Pra cada user, soma pontos de cada jogo com placar real
+  const rows = Object.keys(users).map(nick => {
+    const up = picks[nick] || {};
+    let pts = 0, exactos = 0, certos = 0, errados = 0, palpitados = 0;
+    for (const m of fixtures) {
+      const r = results[m.id];
+      const p = up[m.id];
+      if (p) palpitados++;
+      if (r && p) {
+        const s = scoreWcPick(r, p);
+        pts += s;
+        if (s === 3) exactos++;
+        else if (s === 1) certos++;
+        else errados++;
+      }
+    }
+    return { nick, pts, exactos, certos, errados, palpitados };
+  }).sort((a, b) => b.pts - a.pts || b.exactos - a.exactos);
+
+  return (
+    <div className="card">
+      <div className="card-head">
+        <div className="title">🏆 RANKING DO BOLÃO</div>
+        <div className="sub">{rows.length} JOGADORES</div>
+      </div>
+      <div className="card-body">
+        {rows.length === 0 && <div className="empty"><div className="e2">Ninguém cadastrado ainda.</div></div>}
+        {rows.map((r, i) => (
+          <div key={r.nick} className={'wc-rank-row ' + (r.nick === myNick ? 'me' : '')}>
+            <div className="wc-rank-pos">{i + 1}</div>
+            <div className="wc-rank-nick">@{r.nick}</div>
+            <div className="wc-rank-stats">
+              <span title="Placares exatos (3 pts)">{r.exactos} <small>×3</small></span>
+              <span title="Resultados certos (1 pt)">{r.certos} <small>×1</small></span>
+              <span title="Erros (0 pt)">{r.errados} <small>×0</small></span>
+              <span title="Total palpitado">{r.palpitados} <small>palp</small></span>
+            </div>
+            <div className="wc-rank-pts">{r.pts}<small>pts</small></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function InicioView({ session, isAdmin, comments, onAdd, onDelete }) {
   return (

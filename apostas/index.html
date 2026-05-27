@@ -151,6 +151,156 @@
       letter-spacing: 0.12em; font-weight: 700;
     }
 
+    /* ──── COPA DO MUNDO (bolão) ──── */
+    .copa-view { max-width: 880px; margin: 0 auto; }
+    .copa-hero {
+      padding: 20px 24px;
+      background: var(--pv-charcoal); color: var(--pv-bone);
+      border-left: 6px solid var(--pv-orange);
+      margin-bottom: 18px;
+    }
+    .copa-hero-tag {
+      font-size: 10px; letter-spacing: 0.32em; font-weight: 800;
+      color: var(--pv-orange);
+    }
+    .copa-hero-title {
+      font-family: "Bungee Inline", Impact, sans-serif;
+      font-size: 28px; letter-spacing: 0.05em; margin-top: 4px;
+    }
+    .copa-hero-sub {
+      font-size: 12px; color: rgba(244,234,215,0.75); margin-top: 8px;
+      letter-spacing: 0.04em; line-height: 1.5;
+    }
+    .copa-subtabs {
+      display: flex; gap: 0; margin-bottom: 14px;
+      border-bottom: 3px solid var(--pv-charcoal);
+    }
+    .copa-subtab {
+      background: transparent; border: none;
+      padding: 10px 18px;
+      font-weight: 800; letter-spacing: 0.16em; font-size: 12px;
+      color: rgba(28,22,18,0.5);
+      border-bottom: 3px solid transparent;
+      margin-bottom: -3px;
+      font-family: inherit; cursor: pointer;
+    }
+    .copa-subtab.active {
+      color: var(--pv-charcoal);
+      border-bottom-color: var(--pv-orange);
+      background: rgba(215,100,20,0.08);
+    }
+    .copa-round-card { margin-bottom: 16px; }
+    .copa-warn {
+      padding: 12px 16px;
+      background: rgba(215,100,20,0.15);
+      border-left: 4px solid var(--pv-orange);
+      font-size: 13px; font-weight: 700; margin-bottom: 14px;
+    }
+    .wc-match {
+      border: 2px solid var(--pv-charcoal);
+      padding: 14px;
+      margin-bottom: 12px;
+      background: var(--pv-bone);
+    }
+    .wc-match.closed { background: rgba(199,84,24,0.06); }
+    .wc-match-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 10px; letter-spacing: 0.2em; font-weight: 800;
+      color: rgba(28,22,18,0.55); margin-bottom: 10px;
+    }
+    .wc-tag { color: var(--pv-orange); font-family: "Bungee Inline", sans-serif; letter-spacing: 0.06em; }
+    .wc-pickcount { font-size: 9px; }
+    .wc-match-body {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 12px;
+    }
+    .wc-team { display: flex; align-items: center; gap: 10px; }
+    .wc-team-away { flex-direction: row-reverse; }
+    .wc-flag { font-size: 26px; line-height: 1; }
+    .wc-name { font-weight: 800; font-size: 14px; letter-spacing: 0.02em; }
+    .wc-inputs { display: flex; align-items: center; gap: 6px; }
+    .wc-score-in {
+      width: 44px; height: 44px;
+      text-align: center;
+      border: 2px solid var(--pv-charcoal);
+      background: var(--pv-bone);
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      font-size: 22px;
+    }
+    .wc-score-in:focus { outline: none; background: rgba(215,100,20,0.15); }
+    .wc-score-in:disabled { opacity: 0.55; cursor: not-allowed; }
+    .wc-x { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 20px; color: var(--pv-orange); }
+    .wc-actions {
+      margin-top: 10px;
+      display: flex; gap: 10px; align-items: center;
+    }
+    .wc-save {
+      background: var(--pv-orange); color: var(--pv-bone);
+      border: 2px solid var(--pv-charcoal);
+      padding: 8px 14px; font-weight: 800; letter-spacing: 0.14em; font-size: 11px;
+      font-family: inherit; cursor: pointer;
+    }
+    .wc-save:disabled { opacity: 0.4; cursor: not-allowed; }
+    .wc-msg { font-size: 11px; color: var(--pv-green); font-weight: 700; letter-spacing: 0.06em; }
+    .wc-result-strip {
+      margin-top: 10px; padding: 10px;
+      background: var(--pv-charcoal); color: var(--pv-bone);
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .wc-result-label {
+      font-size: 9px; letter-spacing: 0.24em; font-weight: 800; color: var(--pv-orange);
+    }
+    .wc-result-score {
+      font-family: "Bagel Fat One", Impact, sans-serif; font-size: 22px;
+      color: var(--pv-orange);
+    }
+    .wc-myscore {
+      margin-left: auto; font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
+      padding: 4px 10px;
+    }
+    .wc-myscore-0 { background: rgba(255,255,255,0.12); color: rgba(244,234,215,0.65); }
+    .wc-myscore-1 { background: rgba(255,255,255,0.18); color: var(--pv-bone); }
+    .wc-myscore-3 { background: var(--pv-orange); color: var(--pv-charcoal); }
+    .wc-admin {
+      margin-top: 10px; padding: 8px 10px;
+      background: rgba(28,22,18,0.06);
+      border-left: 3px solid var(--pv-orange);
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .wc-admin-label { font-size: 9px; font-weight: 800; letter-spacing: 0.2em; color: var(--pv-orange); }
+    .wc-admin-in { width: 36px; height: 36px; font-size: 16px; }
+    .wc-admin-btn {
+      padding: 6px 10px; font-weight: 800; letter-spacing: 0.14em; font-size: 10px;
+      background: var(--pv-charcoal); color: var(--pv-bone); border: none; cursor: pointer;
+      font-family: inherit;
+    }
+    .wc-admin-clear { background: transparent; color: var(--pv-charcoal); border: 1.5px solid var(--pv-charcoal); }
+
+    .wc-rank-row {
+      display: grid;
+      grid-template-columns: 36px 1fr auto auto;
+      gap: 12px; align-items: center;
+      padding: 10px 4px;
+      border-bottom: 1px dashed rgba(28,22,18,0.18);
+    }
+    .wc-rank-row:last-child { border-bottom: none; }
+    .wc-rank-row.me { background: rgba(215,100,20,0.10); padding-left: 8px; padding-right: 8px; }
+    .wc-rank-pos { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 18px; color: var(--pv-orange); text-align: center; }
+    .wc-rank-nick { font-weight: 800; letter-spacing: 0.04em; }
+    .wc-rank-stats { display: flex; gap: 12px; font-size: 11px; font-weight: 700; color: rgba(28,22,18,0.6); }
+    .wc-rank-stats small { letter-spacing: 0.12em; font-weight: 800; opacity: 0.6; }
+    .wc-rank-pts { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 22px; color: var(--pv-charcoal); }
+    .wc-rank-pts small { font-family: "Space Grotesk", sans-serif; font-size: 9px; letter-spacing: 0.2em; font-weight: 800; opacity: 0.6; margin-left: 3px; }
+
+    @media (max-width: 720px) {
+      .wc-match-body { grid-template-columns: 1fr; gap: 8px; }
+      .wc-team, .wc-team-away { justify-content: center; flex-direction: row; }
+      .wc-inputs { justify-content: center; }
+      .wc-rank-stats { display: none; } /* mobile: simplifica ranking */
+    }
+
     /* Comentários (uma seção embaixo de cada news-card) */
     .comments-section { border-top: 2px dashed rgba(28,22,18,0.15); }
     .comments-toggle {
@@ -1106,6 +1256,6 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
   <!-- Bump o ?v= a cada deploy importante pra forçar tabs antigos a recarregar. -->
-  <script type="text/babel" src="apostas-app.jsx?v=20260526-comments"></script>
+  <script type="text/babel" src="apostas-app.jsx?v=20260526-copa"></script>
 </body>
 </html>
