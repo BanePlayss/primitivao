@@ -4661,6 +4661,14 @@ function NewsAdminPanel({ remoteNews }) {
           (ex: <code>news/minha-news.jpg</code>) — coloca o arquivo na pasta
           <code>apostas/news/</code> antes.
         </p>
+        {(!remoteNews || remoteNews.length === 0) && (
+          <div style={{ padding: 10, background: 'rgba(215,100,20,0.10)', borderLeft: '4px solid var(--pv-orange)', fontSize: 12, lineHeight: 1.5, marginBottom: 14 }}>
+            <strong>Atenção:</strong> as 3 notícias originais têm corpo em JSX
+            no código e foram clonadas aqui SEM o corpo. Se você clicar SALVAR
+            TUDO agora, elas vão aparecer no INÍCIO com texto vazio. Edite o
+            corpo de cada uma antes de salvar.
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
           <button onClick={addNews} style={{ background: 'var(--pv-orange)', color: 'var(--pv-bone)', border: 'none', padding: '8px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.14em', cursor: 'pointer' }}>
             + NOVA
