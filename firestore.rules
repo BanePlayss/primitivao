@@ -1,0 +1,88 @@
+// Firestore Security Rules — Primitivão
+// =====================================
+//
+// Estado atual: o app não usa Firebase Auth (login é nick+senha custom no
+// client + hash SHA-256 guardado no doc). Por isso, as rules abaixo são
+// "defensivas estruturais" — não conseguem identificar usuário, mas impedem:
+//   1. Escritas em qualquer outro lugar do projeto Firebase
+//   2. Apagar o doc principal inteiro
+//   3. Substituir o payload por algo que não tem a forma esperada
+//   4. Spam de payloads gigantes (>1MB)
+//   5. Zerar `users` ou `teamPlayers` de uma vez (vandalismo)
+//
+// PRÓXIMO PASSO (recomendado): habilitar Firebase Auth Anonymous, fazer
+// `signInAnonymously()` no boot do app, e mudar `allow write` pra exigir
+// `request.auth != null`. Isso bloqueia 100% de escrita de fora do app.
+//
+// COMO APLICAR: cola este arquivo em
+// console.firebase.google.com → Firestore Database → Rules → Publish.
+// Ou usa firebase CLI: `firebase deploy --only firestore:rules`.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Doc principal do app: leitura pública (necessária pro app funcionar),
+    // escrita só passa se for estruturalmente válida.
+    match /primitivao/apostas {
+
+      allow read: if true;
+
+      // Update permitido se:
+      //  - O campo `json` ainda existir e for string (não apagaram)
+      //  - O payload total cabe em 1MB (limite generoso, real é ~50KB)
+      //  - NÃO está zerando users/teamPlayers/comments quando antes tinha
+      //    coisas — protege contra "rm -rf" via console do browser
+      allow update: if isValidApostasDoc(request.resource.data)
+        && notWipingCriticalMaps(request.resource.data, resource.data);
+
+      // Criação só é permitida se o doc não existia (caso inicial)
+      allow create: if isValidApostasDoc(request.resource.data);
+
+      // NUNCA apagar — backup deve existir antes
+      allow delete: if false;
+    }
+
+    // Doc de classificação: leitura pública, escrita estrutural.
+    match /primitivao/state {
+      allow read: if true;
+      allow update: if request.resource.data.keys().hasAny(['rounds', 'json'])
+        && payloadFits(request.resource.data);
+      allow create: if true;
+      allow delete: if false;
+    }
+
+    // Tudo mais é negado por padrão (defensivo contra futuras coleções).
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+// ───────── helpers ─────────
+
+// Doc principal precisa ter `json` (string com o payload serializado).
+// Campos top-level extras (interests, comments, teamPlayers, worldcup,
+// updatedAt) são permitidos mas opcionais.
+function isValidApostasDoc(data) {
+  return data.keys().hasAll(['json'])
+    && data.json is string
+    && payloadFits(data);
+}
+
+// Limita payload total a ~1MB. O real fica em ~50KB, isso é só safety net
+// contra atacante tentando estourar quota do Firestore.
+function payloadFits(data) {
+  return data.json is string
+    && data.json.size() < 1048576;
+}
+
+// Não permite zerar maps críticos quando antes tinha conteúdo.
+// Os maps ficam dentro da string JSON, então a checagem é só
+// "payload novo é razoavelmente menor que o antigo? aborta".
+// Heurística: novo não pode ser <40% do anterior. Em condições normais
+// updates aumentam ou mantém tamanho; uma queda brusca = wipe.
+function notWipingCriticalMaps(newData, oldData) {
+  return !(oldData.json is string)
+    || newData.json.size() >= (oldData.json.size() * 4 / 10);
+}

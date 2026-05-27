@@ -1,0 +1,92 @@
+name: Lint JSX
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apostas/apostas-app.jsx"
+      - "apostas/index.html"
+      - ".github/workflows/lint.yml"
+  pull_request:
+    branches: [main]
+
+jobs:
+  babel-parse:
+    name: Babel parse check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Babel parser
+        run: npm install --no-save @babel/parser@7
+
+      - name: Parse apostas-app.jsx
+        run: |
+          node -e "
+            const fs = require('fs');
+            const src = fs.readFileSync('apostas/apostas-app.jsx', 'utf8');
+            try {
+              require('@babel/parser').parse(src, {
+                sourceType: 'script',
+                plugins: ['jsx'],
+              });
+              console.log('OK — JSX parses cleanly');
+            } catch (e) {
+              console.error('PARSE ERROR:');
+              console.error('  ' + e.message);
+              if (e.loc) {
+                const lines = src.split('\n');
+                const ln = e.loc.line;
+                const col = e.loc.column;
+                console.error('  contexto:');
+                for (let i = Math.max(1, ln - 2); i <= Math.min(lines.length, ln + 2); i++) {
+                  const marker = i === ln ? ' >> ' : '    ';
+                  console.error(marker + i.toString().padStart(5) + '  ' + lines[i - 1]);
+                  if (i === ln) console.error('         ' + ' '.repeat(col) + '^');
+                }
+              }
+              process.exit(1);
+            }
+          "
+
+  no-emojis:
+    name: No emojis in UI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for emojis in JSX
+        run: |
+          node -e "
+            const fs = require('fs');
+            const src = fs.readFileSync('apostas/apostas-app.jsx', 'utf8');
+            // Match emojis but ignore those in single-line comments and JSDoc
+            const lines = src.split('\n');
+            const re = /[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{2700}-\u{27BF}★☆⚙⚠⚡⚽⚾⛳⛔]/gu;
+            const found = [];
+            lines.forEach((line, i) => {
+              // skip pure comment lines (// or /* */)
+              const trimmed = line.trim();
+              if (trimmed.startsWith('//') || trimmed.startsWith('*')) return;
+              // skip lines containing flag emojis (allowed — bandeiras nacionais)
+              if (/[\u{1F1E6}-\u{1F1FF}]/u.test(line)) return;
+              const m = line.match(re);
+              if (m) found.push({ line: i + 1, chars: m, text: line.trim().slice(0, 100) });
+            });
+            if (found.length > 0) {
+              console.error('Emojis encontrados no JSX (use <Icon> em vez disso):');
+              found.forEach(f => {
+                console.error('  linha ' + f.line + ': ' + f.chars.join(' ') + '  → ' + f.text);
+              });
+              console.error('');
+              console.error('Regra do projeto: nada de emojis Unicode na UI.');
+              console.error('Adicione um case novo no componente <Icon> e use <Icon name=\"...\" />');
+              process.exit(1);
+            }
+            console.log('OK — sem emojis na UI');
+          "

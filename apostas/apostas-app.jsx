@@ -20,12 +20,23 @@ const TEAMS = [
 const TEAM = (id) => TEAMS.find(t => t.id === id) || TEAMS[0];
 
 const ADMIN_NICK = 'admin';
-const ADMIN_PASS = 'primitivaoseguro';
+// Senha do admin guardada como hash SHA-256 (texto = 'primitivaoseguro').
+// Pra trocar: gera o hash com `echo -n "novasenha" | sha256sum` e cola aqui.
+const ADMIN_PASS_HASH = '969c1c616baed41d32c81907be42da9185cff6193cb6d067c94a32ab933c7ab9';
+
+// Hash SHA-256 de uma string usando Web Crypto. Retorna hex.
+async function hashPassword(text) {
+  const enc = new TextEncoder().encode(String(text || ''));
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260527-icons-full ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260527-secure-hash ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -163,12 +174,16 @@ function normalizeWcMatch(raw, idx, teamsByName) {
   const isPlaceholder = (s) => /^(\d+)([A-Z](?:\/[A-Z])*)$/.test(String(s || ''));
   const t1Real = !isPlaceholder(raw.team1);
   const t2Real = !isPlaceholder(raw.team2);
+  // sentinels usados pela função renderFlag() abaixo — emoji real seria
+  // 🏳️/❓, mas a regra do projeto é "sem emojis na UI" (ver CLAUDE.md).
+  const FLAG_DEFAULT = '__flag_default__';
+  const FLAG_UNKNOWN = '__flag_unknown__';
   const t1 = t1Real
-    ? { name: translateTeamName(raw.team1), flag: (teamsByName[raw.team1] || {}).flag_icon || '🏳️', isSlot: false, rawSlot: null, rawName: raw.team1 }
-    : { name: translateKnockoutSlot(raw.team1), flag: '❓', isSlot: true, rawSlot: raw.team1, rawName: null };
+    ? { name: translateTeamName(raw.team1), flag: (teamsByName[raw.team1] || {}).flag_icon || FLAG_DEFAULT, isSlot: false, rawSlot: null, rawName: raw.team1 }
+    : { name: translateKnockoutSlot(raw.team1), flag: FLAG_UNKNOWN, isSlot: true, rawSlot: raw.team1, rawName: null };
   const t2 = t2Real
-    ? { name: translateTeamName(raw.team2), flag: (teamsByName[raw.team2] || {}).flag_icon || '🏳️', isSlot: false, rawSlot: null, rawName: raw.team2 }
-    : { name: translateKnockoutSlot(raw.team2), flag: '❓', isSlot: true, rawSlot: raw.team2, rawName: null };
+    ? { name: translateTeamName(raw.team2), flag: (teamsByName[raw.team2] || {}).flag_icon || FLAG_DEFAULT, isSlot: false, rawSlot: null, rawName: raw.team2 }
+    : { name: translateKnockoutSlot(raw.team2), flag: FLAG_UNKNOWN, isSlot: true, rawSlot: raw.team2, rawName: null };
   const id = raw.num != null ? `wc-${raw.num}` : `wc-i${idx}`;
   const isKnockout = !raw.group;
   return {
@@ -1088,11 +1103,16 @@ function App() {
 
   // Login/signup via transação: cadastro atomico contra remote — evita perder
   // user novo se outro write concorrer.
+  //
+  // Senhas agora são guardadas como hash SHA-256 (campo `senhaHash`). Contas
+  // antigas que ainda têm `senha` em texto puro são migradas no próximo login
+  // bem-sucedido (compara texto -> grava hash, apaga `senha`).
   const handleAuth = async (nick, senha) => {
     nick = nick.trim().toLowerCase();
     if (!nick || !senha) return 'Preencha nick e senha';
+    const senhaHash = await hashPassword(senha);
     if (nick === ADMIN_NICK) {
-      if (senha !== ADMIN_PASS) return 'Senha de admin incorreta';
+      if (senhaHash !== ADMIN_PASS_HASH) return 'Senha de admin incorreta';
       setSession({ nick }); return null;
     }
     try {
@@ -1100,10 +1120,30 @@ function App() {
         const remoteUsers = remote.users || {};
         const existing = remoteUsers[nick];
         if (existing) {
-          if (existing.senha !== senha) return { __abort: true, result: { err: 'Senha incorreta' } };
-          return { __abort: true, result: { ok: true } }; // login válido, sem write
+          // Conta nova (já hash) — compara hash
+          if (existing.senhaHash) {
+            if (existing.senhaHash !== senhaHash) {
+              return { __abort: true, result: { err: 'Senha incorreta' } };
+            }
+            return { __abort: true, result: { ok: true } };
+          }
+          // Conta legada (texto puro) — valida + migra pra hash
+          if (existing.senha) {
+            if (existing.senha !== senha) {
+              return { __abort: true, result: { err: 'Senha incorreta' } };
+            }
+            const migrated = { ...existing, senhaHash };
+            delete migrated.senha;
+            return { ...remote, users: { ...remoteUsers, [nick]: migrated } };
+          }
+          // Sem nenhum dos dois? Conta corrompida.
+          return { __abort: true, result: { err: 'Conta inválida — fala com o admin' } };
         }
-        return { ...remote, users: { ...remoteUsers, [nick]: { senha, pc: START_PC, joined: Date.now(), lastWeekly: 0 } } };
+        // Conta nova: grava só o hash
+        return {
+          ...remote,
+          users: { ...remoteUsers, [nick]: { senhaHash, pc: START_PC, joined: Date.now(), lastWeekly: 0 } },
+        };
       });
       if (result && result.err) return result.err;
       setSession({ nick });
@@ -2239,6 +2279,16 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
   }
 }
 
+// Renderiza a bandeira de um time da Copa. Aceita:
+//  - String emoji unicode (ex: '🇧🇷')         — renderiza o emoji
+//  - '__flag_default__'  (time sem bandeira)  — renderiza <Icon name="flag">
+//  - '__flag_unknown__'  (slot por definir)   — renderiza <Icon name="question">
+function TeamFlag({ flag, size = 26 }) {
+  if (flag === '__flag_default__') return <Icon name="flag" size={Math.round(size * 0.75)} />;
+  if (flag === '__flag_unknown__') return <Icon name="question" size={Math.round(size * 0.75)} />;
+  return <span style={{ fontSize: size, lineHeight: 1 }}>{flag}</span>;
+}
+
 // ─── LOGIN ──────────────────────────────────────────────────────────────────
 function Login({ onAuth, isNewNick }) {
   const [nick, setNick] = useState('');
@@ -2755,7 +2805,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
       )}
       <div className="wc-match-body">
         <div className="wc-team wc-team-home">
-          <span className="wc-flag">{match.flagHome}</span>
+          <span className="wc-flag"><TeamFlag flag={match.flagHome} /></span>
           <span className="wc-name">{match.home}</span>
         </div>
         <div className="wc-inputs">
@@ -2781,7 +2831,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
         </div>
         <div className="wc-team wc-team-away">
           <span className="wc-name">{match.away}</span>
-          <span className="wc-flag">{match.flagAway}</span>
+          <span className="wc-flag"><TeamFlag flag={match.flagAway} /></span>
         </div>
       </div>
 
@@ -2888,7 +2938,7 @@ function CopaGrupos({ fixtures, results }) {
                         <tr key={t.name} className={cls}>
                           <td className="std-pos">{String(i + 1).padStart(2, '0')}</td>
                           <td>
-                            <span style={{ marginRight: 6, fontSize: 16 }}>{t.flag}</span>
+                            <span style={{ marginRight: 6, display: 'inline-flex', verticalAlign: 'middle' }}><TeamFlag flag={t.flag} size={16} /></span>
                             <span style={{ fontWeight: 800 }}>{t.name}</span>
                           </td>
                           <td>{t.J}</td>
