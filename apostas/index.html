@@ -891,6 +891,11 @@
       min-height: calc(100vh - 0px);
       display: flex; align-items: center; justify-content: center;
       padding: 24px;
+      background:
+        radial-gradient(circle at 12% 12%, rgba(215,100,20,0.18), transparent 38%),
+        radial-gradient(circle at 88% 88%, rgba(215,100,20,0.12), transparent 42%),
+        radial-gradient(circle at 50% 0%, rgba(28,22,18,0.05), transparent 50%),
+        var(--pv-bone);
     }
     .login-card {
       width: 100%; max-width: 420px;
@@ -900,6 +905,128 @@
       padding: 32px 28px;
       text-align: center;
     }
+    /* ===== Login v2 ===== */
+    .login-card-v2 {
+      max-width: 460px;
+      padding: 0 0 24px;
+      overflow: hidden; /* p/ tarja superior encostar nas bordas */
+      position: relative;
+    }
+    .login-banner {
+      background: var(--pv-charcoal);
+      color: var(--pv-bone);
+      padding: 8px 0;
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 800; letter-spacing: 0.4em; font-size: 11px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      border-bottom: 3px solid var(--pv-orange);
+    }
+    .login-banner-star { color: var(--pv-orange); }
+    .login-card-v2 .login-logo {
+      width: 140px; height: 140px;
+      margin: 22px auto 4px; display: block; object-fit: contain;
+      filter: drop-shadow(3px 3px 0 var(--pv-charcoal));
+    }
+    .login-wordmark {
+      margin: 4px 0 0;
+      font-family: "Bagel Fat One", "Bungee Inline", Impact, sans-serif;
+      font-size: 44px;
+      letter-spacing: 0.02em;
+      color: var(--pv-charcoal);
+      line-height: 1;
+    }
+    .login-tagline {
+      margin-top: 8px;
+      display: inline-block;
+      padding: 4px 12px;
+      background: var(--pv-orange);
+      color: var(--pv-bone);
+      font-weight: 800; letter-spacing: 0.2em; font-size: 11px;
+    }
+    .login-tagline span { display: inline-block; }
+    .login-meta {
+      margin-top: 14px;
+      font-size: 10px; letter-spacing: 0.24em; font-weight: 800;
+      color: var(--pv-charcoal);
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 12px;
+      border: 1.5px dashed rgba(28,22,18,0.35);
+    }
+    .login-meta-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--pv-green, #4d6a2e);
+      box-shadow: 0 0 0 0 rgba(77,106,46,0.6);
+      animation: pulse-dot 1.6s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(77,106,46,0.6); }
+      50%      { box-shadow: 0 0 0 6px rgba(77,106,46,0); }
+    }
+    .login-mode {
+      margin: 14px 20px 0;
+      padding: 8px 12px;
+      font-size: 11px; letter-spacing: 0.12em; font-weight: 800;
+      border: 2px solid;
+      transition: background 0.15s;
+    }
+    .login-mode.enter  { color: var(--pv-green, #4d6a2e); border-color: var(--pv-green, #4d6a2e); background: rgba(77,106,46,0.08); }
+    .login-mode.create { color: var(--pv-orange);        border-color: var(--pv-orange);        background: rgba(215,100,20,0.10); }
+    .login-mode.admin  { color: var(--pv-charcoal);      border-color: var(--pv-charcoal);      background: rgba(28,22,18,0.06); }
+    .login-card-v2 .field { margin: 14px 28px 0; text-align: left; }
+    .login-card-v2 .field input {
+      width: 100%; margin-top: 6px;
+      padding: 12px 14px;
+      background: var(--pv-bone-2);
+      border: 2px solid var(--pv-charcoal);
+      font-size: 16px; font-weight: 700;
+      box-sizing: border-box;
+    }
+    .login-card-v2 .field input:focus { outline: none; border-color: var(--pv-orange); background: var(--pv-bone); }
+    .pass-wrap { position: relative; }
+    .pass-toggle {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      background: transparent; border: none;
+      width: 34px; height: 34px;
+      font-size: 16px; cursor: pointer;
+      opacity: 0.65;
+    }
+    .pass-toggle:hover { opacity: 1; }
+    .pass-wrap input { padding-right: 42px; }
+    .login-card-v2 .login-btn {
+      margin: 22px 28px 0;
+      width: calc(100% - 56px);
+      padding: 16px;
+      background: var(--pv-orange); color: var(--pv-bone);
+      border: 3px solid var(--pv-charcoal);
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      font-size: 18px; letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: transform 0.08s;
+    }
+    .login-card-v2 .login-btn:hover:not(:disabled) {
+      background: var(--pv-charcoal); color: var(--pv-orange);
+    }
+    .login-card-v2 .login-btn:active:not(:disabled) { transform: translate(2px, 2px); }
+    .login-card-v2 .login-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .login-card-v2 .login-msg {
+      margin: 10px 28px 0; min-height: 18px;
+      font-size: 12px; color: var(--pv-red); font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .login-features {
+      margin: 22px 28px 0;
+      padding-top: 16px;
+      border-top: 2px dashed rgba(28,22,18,0.18);
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .login-feature {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
+      color: rgba(28,22,18,0.7);
+    }
+    .lf-ic { font-size: 16px; }
+    /* legacy (mantém compat com a versao antiga se algo ainda usar) */
     .login-card .logo-svg { width: 120px; height: 120px; margin: 0 auto 8px; display: block; object-fit: contain; }
     .login-card .lh1 { font-family: "Bungee Inline", Impact, sans-serif; font-size: 28px; letter-spacing: 0.04em; }
     .login-card .lh2 { font-size: 11px; letter-spacing: 0.36em; font-weight: 800; color: var(--pv-orange); margin-top: 4px; }
@@ -1275,6 +1402,18 @@
       .login-btn { font-size: 16px; padding: 12px; }
       .field input { font-size: 16px; padding: 9px 10px; }
 
+      /* LOGIN v2 mobile: ajustes proporcionais */
+      .login-card-v2 { padding: 0 0 18px; }
+      .login-card-v2 .login-logo { width: 110px; height: 110px; margin: 16px auto 2px; }
+      .login-wordmark { font-size: 34px; }
+      .login-tagline { font-size: 10px; letter-spacing: 0.16em; padding: 3px 10px; }
+      .login-meta { font-size: 9px; letter-spacing: 0.18em; padding: 5px 10px; }
+      .login-card-v2 .field { margin-left: 20px; margin-right: 20px; }
+      .login-card-v2 .login-btn { margin-left: 20px; margin-right: 20px; width: calc(100% - 40px); }
+      .login-card-v2 .login-msg { margin-left: 20px; margin-right: 20px; }
+      .login-features { margin-left: 20px; margin-right: 20px; grid-template-columns: 1fr; gap: 8px; }
+      .login-mode { margin-left: 14px; margin-right: 14px; font-size: 10px; }
+
       /* EMPTY STATE */
       .empty { padding: 22px 12px; }
       .empty .e1 { font-size: 18px; }
@@ -1328,6 +1467,6 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
   <!-- Bump o ?v= a cada deploy importante pra forçar tabs antigos a recarregar. -->
-  <script type="text/babel" src="apostas-app.jsx?v=20260527-fix-parse"></script>
+  <script type="text/babel" src="apostas-app.jsx?v=20260527-login-v2"></script>
 </body>
 </html>

@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260527-fix-parse ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260527-login-v2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1933,8 +1933,14 @@ function Login({ onAuth, isNewNick }) {
   const [senha, setSenha] = useState('');
   const [senha2, setSenha2] = useState('');
   const [msg, setMsg] = useState('');
-  const isNew = isNewNick ? isNewNick(nick) : false;
+  const [showPass, setShowPass] = useState(false);
+  const [showPass2, setShowPass2] = useState(false);
   const [busy, setBusy] = useState(false);
+  const trimmedNick = nick.trim().toLowerCase();
+  const isNew = isNewNick && trimmedNick ? isNewNick(trimmedNick) : false;
+  const isAdminNick = trimmedNick === 'admin';
+  const showModeBadge = trimmedNick.length > 0;
+
   const submit = async (e) => {
     e && e.preventDefault();
     if (busy) return;
@@ -1951,30 +1957,107 @@ function Login({ onAuth, isNewNick }) {
       setBusy(false);
     }
   };
+
   return (
     <div className="login-stage">
-      <form className="login-card" onSubmit={submit}>
-        <img className="logo-svg" src="primitivao-icon.png" alt="Primitivão" />
-        <div className="lh1">CASA DE APOSTAS</div>
-        <div className="lh2">PRIMITIVO COINS · PC</div>
+      <form className="login-card login-card-v2" onSubmit={submit}>
+        {/* TARJA decorativa superior (estilo manchete) */}
+        <div className="login-banner">
+          <span className="login-banner-star">★</span>
+          PRIMITIVÃO TIMES
+          <span className="login-banner-star">★</span>
+        </div>
+
+        <img className="login-logo" src="primitivao-icon.png" alt="Primitivão" />
+
+        <h1 className="login-wordmark">PRIMITIVÃO</h1>
+        <div className="login-tagline">
+          <span>BOLÃO</span> · <span>APOSTAS</span> · <span>ZOEIRA</span>
+        </div>
+
+        <div className="login-meta">
+          <span className="login-meta-dot" />
+          TEMPORADA AO VIVO · FIFA 2026 SEASON 1
+        </div>
+
+        {showModeBadge && (
+          <div className={'login-mode ' + (isAdminNick ? 'admin' : isNew ? 'create' : 'enter')}>
+            {isAdminNick
+              ? '🛡 ENTRANDO COMO ADMIN'
+              : isNew
+                ? '✨ CONTA NOVA · vamos criar pra você'
+                : '✓ CONTA ENCONTRADA · vai entrar'}
+          </div>
+        )}
+
         <div className="field">
           <label>NICK</label>
-          <input value={nick} onChange={e => { setNick(e.target.value); setMsg(''); }} placeholder="seu apelido" autoFocus autoCapitalize="off" autoCorrect="off" />
+          <input
+            value={nick}
+            onChange={e => { setNick(e.target.value); setMsg(''); }}
+            placeholder="seu apelido"
+            autoFocus autoCapitalize="off" autoCorrect="off"
+            spellCheck={false}
+          />
         </div>
+
         <div className="field">
           <label>SENHA</label>
-          <input type="password" value={senha} onChange={e => setSenha(e.target.value)} placeholder="••••••" />
+          <div className="pass-wrap">
+            <input
+              type={showPass ? 'text' : 'password'}
+              value={senha}
+              onChange={e => setSenha(e.target.value)}
+              placeholder="••••••"
+            />
+            <button
+              type="button"
+              className="pass-toggle"
+              onClick={() => setShowPass(s => !s)}
+              tabIndex={-1}
+              aria-label={showPass ? 'Esconder senha' : 'Mostrar senha'}
+            >
+              {showPass ? '🙈' : '👁'}
+            </button>
+          </div>
         </div>
+
         {isNew && (
           <div className="field">
             <label>CONFIRMAR SENHA</label>
-            <input type="password" value={senha2} onChange={e => setSenha2(e.target.value)} placeholder="••••••" />
+            <div className="pass-wrap">
+              <input
+                type={showPass2 ? 'text' : 'password'}
+                value={senha2}
+                onChange={e => setSenha2(e.target.value)}
+                placeholder="••••••"
+              />
+              <button
+                type="button"
+                className="pass-toggle"
+                onClick={() => setShowPass2(s => !s)}
+                tabIndex={-1}
+                aria-label={showPass2 ? 'Esconder senha' : 'Mostrar senha'}
+              >
+                {showPass2 ? '🙈' : '👁'}
+              </button>
+            </div>
           </div>
         )}
-        <button type="submit" className="login-btn" disabled={busy}>
-          {busy ? 'AGUARDE…' : (isNew ? 'CRIAR CONTA' : 'ENTRAR')}
+
+        <button type="submit" className="login-btn" disabled={busy || !nick.trim() || !senha}>
+          {busy ? 'AGUARDE…' : (isAdminNick ? 'ENTRAR COMO ADMIN' : isNew ? 'CRIAR CONTA' : 'ENTRAR')}
         </button>
+
         <div className="login-msg">{msg}</div>
+
+        {/* Feature highlights no rodapé */}
+        <div className="login-features">
+          <div className="login-feature"><span className="lf-ic">🎯</span><span>5 mercados</span></div>
+          <div className="login-feature"><span className="lf-ic">🏆</span><span>7 campeonatos</span></div>
+          <div className="login-feature"><span className="lf-ic">🌍</span><span>bolão da Copa</span></div>
+          <div className="login-feature"><span className="lf-ic">💰</span><span>+500 PC/sem</span></div>
+        </div>
       </form>
     </div>
   );
