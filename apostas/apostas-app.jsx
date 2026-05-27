@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260526-copa ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260527-copa-real ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -37,34 +37,160 @@ const CHAMPIONSHIPS = [
 ];
 
 // ─── COPA DO MUNDO (bolão separado, sem PC) ────────────────────────────────
-// Lista hardcoded de jogos da fase de grupos da Copa do Mundo FIFA 2026.
-// Admin pode adicionar/editar via console futuramente OU expandir esse array.
+// Dados completos carregados de apostas/world-cup/*.json (104 jogos + 48 times).
 // Pontuação do bolão: 3 pts (placar exato) | 1 pt (só o resultado certo) | 0.
-const WORLDCUP_FIXTURES = [
-  { id: 'wc01', group: 'A', round: 'R1', date: '11/06', time: '21:00', home: 'México',     away: 'Marrocos',     flagHome: '🇲🇽', flagAway: '🇲🇦' },
-  { id: 'wc02', group: 'B', round: 'R1', date: '12/06', time: '13:00', home: 'Canadá',     away: 'Equador',      flagHome: '🇨🇦', flagAway: '🇪🇨' },
-  { id: 'wc03', group: 'C', round: 'R1', date: '12/06', time: '16:00', home: 'EUA',        away: 'Coreia do Sul',flagHome: '🇺🇸', flagAway: '🇰🇷' },
-  { id: 'wc04', group: 'D', round: 'R1', date: '13/06', time: '13:00', home: 'Brasil',     away: 'Sérvia',       flagHome: '🇧🇷', flagAway: '🇷🇸' },
-  { id: 'wc05', group: 'E', round: 'R1', date: '13/06', time: '16:00', home: 'Inglaterra', away: 'Camarões',     flagHome: '🏴', flagAway: '🇨🇲' },
-  { id: 'wc06', group: 'F', round: 'R1', date: '13/06', time: '21:00', home: 'Argentina',  away: 'Polônia',      flagHome: '🇦🇷', flagAway: '🇵🇱' },
-  { id: 'wc07', group: 'G', round: 'R1', date: '14/06', time: '13:00', home: 'França',     away: 'Croácia',      flagHome: '🇫🇷', flagAway: '🇭🇷' },
-  { id: 'wc08', group: 'H', round: 'R1', date: '14/06', time: '16:00', home: 'Espanha',    away: 'Senegal',      flagHome: '🇪🇸', flagAway: '🇸🇳' },
-  { id: 'wc09', group: 'A', round: 'R2', date: '17/06', time: '13:00', home: 'México',     away: 'Egito',        flagHome: '🇲🇽', flagAway: '🇪🇬' },
-  { id: 'wc10', group: 'B', round: 'R2', date: '17/06', time: '16:00', home: 'Canadá',     away: 'Japão',        flagHome: '🇨🇦', flagAway: '🇯🇵' },
-  { id: 'wc11', group: 'C', round: 'R2', date: '17/06', time: '21:00', home: 'EUA',        away: 'Portugal',     flagHome: '🇺🇸', flagAway: '🇵🇹' },
-  { id: 'wc12', group: 'D', round: 'R2', date: '18/06', time: '13:00', home: 'Brasil',     away: 'Holanda',      flagHome: '🇧🇷', flagAway: '🇳🇱' },
-];
-function scoreWcPick(real, pick) {
-  if (!real || !pick) return 0;
-  const rgh = parseInt(real.gh, 10), rga = parseInt(real.ga, 10);
-  const pgh = parseInt(pick.gh, 10), pga = parseInt(pick.ga, 10);
-  if ([rgh, rga, pgh, pga].some(Number.isNaN)) return 0;
-  if (rgh === pgh && rga === pga) return 3; // placar exato
-  const r = rgh > rga ? 'H' : rgh < rga ? 'A' : 'D';
-  const p = pgh > pga ? 'H' : pgh < pga ? 'A' : 'D';
-  if (r === p) return 1; // só o resultado
-  return 0;
+
+// Tradução de nomes de times pra PT-BR (cobre os 48 times da Copa 2026).
+const WC_TEAM_TRANSLATIONS = {
+  'Mexico': 'México',
+  'South Africa': 'África do Sul',
+  'South Korea': 'Coreia do Sul',
+  'Czech Republic': 'Tchéquia',
+  'Canada': 'Canadá',
+  'Bosnia & Herzegovina': 'Bósnia e Herzegovina',
+  'Qatar': 'Catar',
+  'Switzerland': 'Suíça',
+  'USA': 'EUA',
+  'United States': 'EUA',
+  'United States of America': 'EUA',
+  'Iceland': 'Islândia',
+  'Norway': 'Noruega',
+  'Algeria': 'Argélia',
+  'Argentina': 'Argentina',
+  'Saudi Arabia': 'Arábia Saudita',
+  'Egypt': 'Egito',
+  'Uruguay': 'Uruguai',
+  'France': 'França',
+  'Iran': 'Irã',
+  'Cape Verde': 'Cabo Verde',
+  'Senegal': 'Senegal',
+  'Germany': 'Alemanha',
+  'Spain': 'Espanha',
+  'Sweden': 'Suécia',
+  'Curaçao': 'Curaçao',
+  'England': 'Inglaterra',
+  'Republic of Ireland': 'Irlanda',
+  'Ireland': 'Irlanda',
+  'Italy': 'Itália',
+  "Côte d'Ivoire": 'Costa do Marfim',
+  'Ivory Coast': 'Costa do Marfim',
+  "Cote d'Ivoire": 'Costa do Marfim',
+  'New Zealand': 'Nova Zelândia',
+  'Croatia': 'Croácia',
+  'Morocco': 'Marrocos',
+  'Brazil': 'Brasil',
+  'Australia': 'Austrália',
+  'Tunisia': 'Tunísia',
+  'Portugal': 'Portugal',
+  'Cameroon': 'Camarões',
+  'Belgium': 'Bélgica',
+  'Greece': 'Grécia',
+  'Japan': 'Japão',
+  'Netherlands': 'Holanda',
+  'Holland': 'Holanda',
+  'Ecuador': 'Equador',
+  'Colombia': 'Colômbia',
+  'Türkiye': 'Turquia',
+  'Turkey': 'Turquia',
+  'Serbia': 'Sérvia',
+  'Paraguay': 'Paraguai',
+  'Ghana': 'Gana',
+  'Austria': 'Áustria',
+  'Jordan': 'Jordânia',
+  'Poland': 'Polônia',
+  'Uzbekistan': 'Uzbequistão',
+  'Panama': 'Panamá',
+  'Nigeria': 'Nigéria',
+  'Denmark': 'Dinamarca',
+  'Scotland': 'Escócia',
+  'Wales': 'País de Gales',
+};
+function translateTeamName(name) {
+  if (!name) return name;
+  return WC_TEAM_TRANSLATIONS[name] || name;
 }
+
+// Tradução de fases/rodadas pra PT-BR.
+function translateRound(round) {
+  if (!round) return '';
+  const m = round.match(/^Matchday\s+(\d+)$/);
+  if (m) return `RODADA ${m[1]}`;
+  const map = {
+    'Round of 32':           'OITAVAS DE 32',
+    'Round of 16':           'OITAVAS DE FINAL',
+    'Quarter-final':         'QUARTAS DE FINAL',
+    'Semi-final':            'SEMIFINAL',
+    'Match for third place': 'DISPUTA DE 3º LUGAR',
+    'Final':                 'FINAL',
+  };
+  return map[round] || round.toUpperCase();
+}
+
+// Converte "13:00 UTC-6" + "2026-06-11" pra { date, time } em BRT (UTC-3).
+function convertWcTime(dateISO, timeStr) {
+  const m = String(timeStr || '').match(/^(\d{1,2}):(\d{2})\s*UTC([+-]\d+)$/);
+  if (!m) {
+    const [y, mo, d] = String(dateISO || '').split('-');
+    return { date: d && mo ? `${d}/${mo}` : '', time: timeStr || '' };
+  }
+  const h = parseInt(m[1], 10), min = parseInt(m[2], 10), off = parseInt(m[3], 10);
+  // BRT (UTC-3) = (h - off) - 3, sem fazer drift de dia errado
+  let brtH = h - off - 3;
+  let dayDelta = 0;
+  while (brtH < 0)   { brtH += 24; dayDelta--; }
+  while (brtH >= 24) { brtH -= 24; dayDelta++; }
+  const dt = new Date(dateISO + 'T00:00:00Z');
+  dt.setUTCDate(dt.getUTCDate() + dayDelta);
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const hh = String(brtH).padStart(2, '0');
+  const mn = String(min).padStart(2, '0');
+  return { date: `${dd}/${mm}`, time: `${hh}:${mn}` };
+}
+
+// Traduz slot de mata-mata ("2A", "1E", "3A/B/C/D/F") pra label legível.
+function translateKnockoutSlot(slot) {
+  if (!slot) return '';
+  const m1 = String(slot).match(/^(\d+)([A-Z](?:\/[A-Z])*)$/);
+  if (!m1) return slot;
+  return `${m1[1]}º G ${m1[2]}`;
+}
+
+// Normaliza uma linha de match do JSON pra estrutura interna usada na UI.
+// Retorna { id, round, group, dateISO, date, time, home, away, flagHome, flagAway, ground, isKnockout }
+function normalizeWcMatch(raw, idx, teamsByName) {
+  if (!raw) return null;
+  const { date: brtDate, time: brtTime } = convertWcTime(raw.date, raw.time);
+  // Decide se é mata-mata (sem time real) — quando team1/2 é placeholder como "2A"
+  const isPlaceholder = (s) => /^(\d+)([A-Z](?:\/[A-Z])*)$/.test(String(s || ''));
+  const t1Real = !isPlaceholder(raw.team1);
+  const t2Real = !isPlaceholder(raw.team2);
+  const t1 = t1Real
+    ? { name: translateTeamName(raw.team1), flag: (teamsByName[raw.team1] || {}).flag_icon || '🏳️', isSlot: false }
+    : { name: translateKnockoutSlot(raw.team1), flag: '❓', isSlot: true };
+  const t2 = t2Real
+    ? { name: translateTeamName(raw.team2), flag: (teamsByName[raw.team2] || {}).flag_icon || '🏳️', isSlot: false }
+    : { name: translateKnockoutSlot(raw.team2), flag: '❓', isSlot: true };
+  // ID: usa num pro mata-mata, ou índice do array
+  const id = raw.num != null ? `wc-${raw.num}` : `wc-i${idx}`;
+  const isKnockout = !raw.group;
+  return {
+    id,
+    round: raw.round || '',
+    roundLabel: translateRound(raw.round),
+    group: raw.group ? raw.group.replace(/^Group\s*/i, '') : '',
+    dateISO: raw.date,
+    date: brtDate,
+    time: brtTime,
+    home: t1.name, away: t2.name,
+    flagHome: t1.flag, flagAway: t2.flag,
+    slotHome: t1.isSlot, slotAway: t2.isSlot,
+    ground: raw.ground || '',
+    isKnockout,
+  };
+}
+
+function scoreWcPick(real, pick) {
 const CHAMP_BY_ID = Object.fromEntries(CHAMPIONSHIPS.map(c => [c.id, c]));
 
 const START_PC = 50;
@@ -645,6 +771,25 @@ function App() {
   // VIEW principal: 'inicio' (noticias/feed) ou 'campeonatos' (selector+tabs).
   // 'discord' não é uma view — abre link externo direto.
   const [view, setView] = useState('inicio');
+
+  // Dados estáticos da Copa do Mundo 2026 (carregados de JSON).
+  const [wcData, setWcData] = useState({ matches: [], teamsByName: {} });
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      fetch('world-cup/worldcup.json').then(r => r.json()),
+      fetch('world-cup/worldcup.teams.json').then(r => r.json()),
+    ]).then(([w, t]) => {
+      if (cancelled) return;
+      const teamsByName = {};
+      (Array.isArray(t) ? t : []).forEach(team => { teamsByName[team.name] = team; });
+      const matches = (w?.matches || [])
+        .map((m, i) => normalizeWcMatch(m, i, teamsByName))
+        .filter(Boolean);
+      setWcData({ matches, teamsByName });
+    }).catch(e => console.warn('Falha ao carregar dados da Copa:', e));
+    return () => { cancelled = true; };
+  }, []);
 
   const hasLoadedRef        = useRef(false);
   const isApplyingRemoteRef = useRef(false);
@@ -1341,6 +1486,7 @@ function App() {
                 isAdmin={isAdmin}
                 users={users}
                 worldcup={worldcup || { results: {}, picks: {} }}
+                fixtures={wcData.matches}
                 onSavePick={saveWorldcupPick}
                 onSetResult={setWorldcupResult}
               />
@@ -1891,7 +2037,14 @@ const NEWS = [
 ];
 
 // ─── COPA DO MUNDO (bolão) ─────────────────────────────────────────────────
-function CopaDoMundoView({ session, isAdmin, users, worldcup, onSavePick, onSetResult }) {
+// Ordem canônica das fases pra exibir na ordem certa.
+const WC_STAGE_ORDER = [
+  'Matchday 1','Matchday 2','Matchday 3','Matchday 4','Matchday 5','Matchday 6','Matchday 7','Matchday 8','Matchday 9',
+  'Matchday 10','Matchday 11','Matchday 12','Matchday 13','Matchday 14','Matchday 15','Matchday 16','Matchday 17',
+  'Round of 32','Round of 16','Quarter-final','Semi-final','Match for third place','Final',
+];
+
+function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePick, onSetResult }) {
   const [subTab, setSubTab] = useState('jogos'); // 'jogos' | 'ranking'
   const results = worldcup?.results || {};
   const picks   = worldcup?.picks   || {};
@@ -1905,7 +2058,10 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, onSavePick, onSetR
         <div className="copa-hero-title">COPA DO MUNDO 2026</div>
         <div className="copa-hero-sub">
           Palpite o placar de cada jogo. 3 pts por placar exato · 1 pt por
-          acertar só o vencedor/empate · 0 por errar. <strong>Sem PC envolvido</strong> — é só por glória e zoeira.
+          acertar só o vencedor/empate · 0 por errar. <strong>Sem PC envolvido</strong> — só por glória e zoeira.
+          {fixtures && fixtures.length > 0 && (
+            <> · <strong>{fixtures.length}</strong> jogos cadastrados.</>
+          )}
         </div>
       </div>
 
@@ -1916,7 +2072,7 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, onSavePick, onSetR
 
       {subTab === 'jogos' && (
         <CopaJogos
-          fixtures={WORLDCUP_FIXTURES}
+          fixtures={fixtures || []}
           results={results}
           myPicks={myPicks}
           allPicks={picks}
@@ -1930,7 +2086,7 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, onSavePick, onSetR
       {subTab === 'ranking' && (
         <CopaRanking
           users={users}
-          fixtures={WORLDCUP_FIXTURES}
+          fixtures={fixtures || []}
           results={results}
           picks={picks}
           myNick={myNick}
@@ -1941,46 +2097,104 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, onSavePick, onSetR
 }
 
 function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSavePick, onSetResult }) {
-  // Agrupa por rodada (R1, R2, etc.)
-  const byRound = fixtures.reduce((acc, m) => {
+  // Loading se ainda não carregou os dados
+  if (!fixtures || fixtures.length === 0) {
+    return (
+      <div className="card">
+        <div className="card-body">
+          <div className="empty">
+            <div className="e1">CARREGANDO…</div>
+            <div className="e2">Buscando jogos da Copa do Mundo 2026.</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Filtros: por fase
+  const [stageFilter, setStageFilter] = useState('all'); // 'all' | 'group' | 'knockout' | round name
+
+  const filtered = fixtures.filter(m => {
+    if (stageFilter === 'all') return true;
+    if (stageFilter === 'group')    return !m.isKnockout;
+    if (stageFilter === 'knockout') return m.isKnockout;
+    return m.round === stageFilter;
+  });
+
+  // Agrupa por round (na ordem canônica)
+  const byRound = filtered.reduce((acc, m) => {
     (acc[m.round] = acc[m.round] || []).push(m); return acc;
   }, {});
-  const roundKeys = Object.keys(byRound).sort();
+  const presentRounds = WC_STAGE_ORDER.filter(r => byRound[r] && byRound[r].length > 0);
+  // qualquer round que apareça mas não tá em WC_STAGE_ORDER (sanity)
+  const extraRounds = Object.keys(byRound).filter(r => !WC_STAGE_ORDER.includes(r));
+  const roundKeys = [...presentRounds, ...extraRounds];
+
+  // Stats pra header de filtros
+  const totalAll = fixtures.length;
+  const totalGroup = fixtures.filter(m => !m.isKnockout).length;
+  const totalKO = fixtures.filter(m => m.isKnockout).length;
 
   return (
     <div>
       {!myNick && (
         <div className="copa-warn">Você precisa estar logado pra palpitar.</div>
       )}
-      {roundKeys.map(rk => (
-        <div key={rk} className="card copa-round-card">
-          <div className="card-head">
-            <div className="title">FASE DE GRUPOS · {rk}</div>
-            <div className="sub">{byRound[rk].length} JOGOS</div>
+
+      <div className="copa-filters">
+        <button className={'copa-chip ' + (stageFilter === 'all' ? 'active' : '')} onClick={() => setStageFilter('all')}>
+          TODOS · {totalAll}
+        </button>
+        <button className={'copa-chip ' + (stageFilter === 'group' ? 'active' : '')} onClick={() => setStageFilter('group')}>
+          FASE DE GRUPOS · {totalGroup}
+        </button>
+        <button className={'copa-chip ' + (stageFilter === 'knockout' ? 'active' : '')} onClick={() => setStageFilter('knockout')}>
+          MATA-MATA · {totalKO}
+        </button>
+      </div>
+
+      {roundKeys.length === 0 && (
+        <div className="card"><div className="card-body"><div className="empty">
+          <div className="e2">Nenhum jogo bate com esse filtro.</div>
+        </div></div></div>
+      )}
+
+      {roundKeys.map(rk => {
+        const matches = byRound[rk];
+        const isKO = matches[0]?.isKnockout;
+        const label = translateRound(rk);
+        return (
+          <div key={rk} className="card copa-round-card">
+            <div className="card-head">
+              <div className="title">{isKO ? '' : 'FASE DE GRUPOS · '}{label}</div>
+              <div className="sub">{matches.length} JOGO{matches.length === 1 ? '' : 'S'}</div>
+            </div>
+            <div className="card-body">
+              {matches.map(m => (
+                <CopaMatchCard
+                  key={m.id}
+                  match={m}
+                  result={results[m.id]}
+                  myPick={myPicks[m.id]}
+                  allPicks={allPicks}
+                  isAdmin={isAdmin}
+                  canBet={!!myNick}
+                  onSavePick={onSavePick}
+                  onSetResult={onSetResult}
+                />
+              ))}
+            </div>
           </div>
-          <div className="card-body">
-            {byRound[rk].map(m => (
-              <CopaMatchCard
-                key={m.id}
-                match={m}
-                result={results[m.id]}
-                myPick={myPicks[m.id]}
-                allPicks={allPicks}
-                isAdmin={isAdmin}
-                canBet={!!myNick}
-                onSavePick={onSavePick}
-                onSetResult={onSetResult}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
 function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSavePick, onSetResult }) {
   const closed = !!result; // admin já lançou o placar real -> congela
+  // Se algum time é placeholder (mata-mata não decidido), bloqueia palpite
+  const isPlaceholder = match.slotHome || match.slotAway;
   const [gh, setGh] = useState(myPick ? String(myPick.gh) : '');
   const [ga, setGa] = useState(myPick ? String(myPick.ga) : '');
   const [busy, setBusy] = useState(false);
@@ -1992,7 +2206,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
   const [adminBusy, setAdminBusy] = useState(false);
 
   const handleSave = async () => {
-    if (busy || closed) return;
+    if (busy || closed || isPlaceholder) return;
     setBusy(true); setMsg('');
     try {
       await onSavePick(match.id, gh, ga);
@@ -2023,16 +2237,20 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
     (acc, up) => acc + (up && up[match.id] ? 1 : 0), 0
   );
 
-  // Score do meu palpite (se já tem resultado)
   let myScore = null;
   if (result && myPick) myScore = scoreWcPick(result, myPick);
 
+  const tagPrefix = match.isKnockout ? match.roundLabel : `GRUPO ${match.group}`;
+
   return (
-    <div className={'wc-match ' + (closed ? 'closed' : '')}>
+    <div className={'wc-match ' + (closed ? 'closed' : '') + (isPlaceholder ? ' placeholder' : '')}>
       <div className="wc-match-head">
-        <span className="wc-tag">GRUPO {match.group} · {match.date} · {match.time}</span>
+        <span className="wc-tag">{tagPrefix} · {match.date} · {match.time}</span>
         <span className="wc-pickcount">{pickCount} palpite{pickCount === 1 ? '' : 's'}</span>
       </div>
+      {match.ground && (
+        <div className="wc-ground">📍 {match.ground}</div>
+      )}
       <div className="wc-match-body">
         <div className="wc-team wc-team-home">
           <span className="wc-flag">{match.flagHome}</span>
@@ -2045,7 +2263,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
             value={closed ? '' : gh}
             placeholder={closed && result ? String(result.gh) : '–'}
             onChange={e => setGh(e.target.value)}
-            disabled={closed || !canBet || busy}
+            disabled={closed || !canBet || busy || isPlaceholder}
             aria-label={`Palpite gols ${match.home}`}
           />
           <span className="wc-x">×</span>
@@ -2055,7 +2273,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
             value={closed ? '' : ga}
             placeholder={closed && result ? String(result.ga) : '–'}
             onChange={e => setGa(e.target.value)}
-            disabled={closed || !canBet || busy}
+            disabled={closed || !canBet || busy || isPlaceholder}
             aria-label={`Palpite gols ${match.away}`}
           />
         </div>
@@ -2064,6 +2282,12 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
           <span className="wc-flag">{match.flagAway}</span>
         </div>
       </div>
+
+      {isPlaceholder && !closed && (
+        <div className="wc-placeholder-note">
+          Times ainda não definidos — palpites liberam quando classificação resolver o slot.
+        </div>
+      )}
 
       {closed && (
         <div className="wc-result-strip">
@@ -2077,7 +2301,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
         </div>
       )}
 
-      {!closed && canBet && (
+      {!closed && canBet && !isPlaceholder && (
         <div className="wc-actions">
           <button className="wc-save" onClick={handleSave} disabled={busy || !gh || !ga}>
             {busy ? 'SALVANDO…' : (myPick ? 'ATUALIZAR PALPITE' : 'SALVAR PALPITE')}
@@ -2086,7 +2310,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
         </div>
       )}
 
-      {isAdmin && (
+      {isAdmin && !isPlaceholder && (
         <div className="wc-admin">
           <span className="wc-admin-label">ADMIN — PLACAR REAL:</span>
           <input
@@ -2119,7 +2343,13 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
 }
 
 function CopaRanking({ users, fixtures, results, picks, myNick }) {
-  // Pra cada user, soma pontos de cada jogo com placar real
+  if (!fixtures || fixtures.length === 0) {
+    return (
+      <div className="card"><div className="card-body"><div className="empty">
+        <div className="e1">CARREGANDO…</div>
+      </div></div></div>
+    );
+  }
   const rows = Object.keys(users).map(nick => {
     const up = picks[nick] || {};
     let pts = 0, exactos = 0, certos = 0, errados = 0, palpitados = 0;
@@ -2142,7 +2372,7 @@ function CopaRanking({ users, fixtures, results, picks, myNick }) {
     <div className="card">
       <div className="card-head">
         <div className="title">🏆 RANKING DO BOLÃO</div>
-        <div className="sub">{rows.length} JOGADORES</div>
+        <div className="sub">{rows.length} JOGADORES · {fixtures.length} JOGOS NO TOTAL</div>
       </div>
       <div className="card-body">
         {rows.length === 0 && <div className="empty"><div className="e2">Ninguém cadastrado ainda.</div></div>}
