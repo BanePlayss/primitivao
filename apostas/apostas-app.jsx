@@ -25,7 +25,7 @@ const ADMIN_PASS = 'primitivaoseguro';
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260527-login-v2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260527-icons ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1927,6 +1927,112 @@ function Sidebar({ tab, setTab, isAdmin }) {
   );
 }
 
+// ─── ICONES SVG PERSONALIZADOS ──────────────────────────────────────────────
+function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
+  const s = size;
+  const sw = strokeWidth;
+  const common = {
+    width: s,
+    height: s,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: sw,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    className: 'pico-icon ' + className,
+    'aria-hidden': 'true',
+  };
+  switch (name) {
+    case 'star': // estrela 5 pontas — usado no banner
+      return (
+        <svg {...common} fill="currentColor" stroke="none">
+          <path d="M12 2.5l2.95 5.97 6.59.96-4.77 4.65 1.13 6.57L12 17.55l-5.9 3.1 1.13-6.57L2.46 9.43l6.59-.96L12 2.5z" />
+        </svg>
+      );
+    case 'shield': // escudo com check — admin
+      return (
+        <svg {...common}>
+          <path d="M12 3 4 5.5v6c0 4.9 3.4 9 8 10.5 4.6-1.5 8-5.6 8-10.5v-6L12 3z" />
+          <path d="M8.5 12l2.5 2.5L15.5 10" />
+        </svg>
+      );
+    case 'sparkle': // faísca — conta nova
+      return (
+        <svg {...common}>
+          <path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3z" fill="currentColor" stroke="none" />
+          <path d="M19 4.5v2.5M20.25 5.75h-2.5" />
+          <path d="M5 17.5v2.5M6.25 18.75h-2.5" />
+        </svg>
+      );
+    case 'check': // ✓ — conta encontrada
+      return (
+        <svg {...common} strokeWidth={2.4}>
+          <path d="M4.5 12.5l4.5 4.5L19.5 6.5" />
+        </svg>
+      );
+    case 'eye': // mostrar senha
+      return (
+        <svg {...common}>
+          <path d="M2.5 12s3.5-7 9.5-7 9.5 7 9.5 7-3.5 7-9.5 7S2.5 12 2.5 12z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      );
+    case 'eye-off': // esconder senha
+      return (
+        <svg {...common}>
+          <path d="M10.6 6.1A11 11 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-3.4 3.9M6.9 7A17 17 0 0 0 2.5 12s3.5 6 9.5 6c1.5 0 2.9-.3 4.2-.9" />
+          <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+          <path d="M3 3l18 18" />
+        </svg>
+      );
+    case 'target': // alvo — mercados
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="5" />
+          <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'trophy': // troféu — campeonatos
+      return (
+        <svg {...common}>
+          <path d="M6.5 4h11v4.5a5.5 5.5 0 0 1-11 0V4z" />
+          <path d="M6.5 6H4.5a2 2 0 0 0 0 4h2.2" />
+          <path d="M17.5 6h2a2 2 0 0 1 0 4h-2.2" />
+          <path d="M12 14v4M8.5 21h7M9.5 18h5" />
+        </svg>
+      );
+    case 'globe': // globo — copa do mundo
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M3 12h18" />
+          <path d="M12 3a14 14 0 0 1 0 18" />
+          <path d="M12 3a14 14 0 0 0 0 18" />
+        </svg>
+      );
+    case 'coin': // moeda PC
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="6.2" strokeDasharray="1.5 2" opacity="0.55" />
+          <text
+            x="12" y="15.4"
+            textAnchor="middle"
+            fontFamily="'JetBrains Mono', ui-monospace, monospace"
+            fontSize="8.5"
+            fontWeight="800"
+            fill="currentColor"
+            stroke="none"
+          >PC</text>
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
 // ─── LOGIN ──────────────────────────────────────────────────────────────────
 function Login({ onAuth, isNewNick }) {
   const [nick, setNick] = useState('');
@@ -1963,9 +2069,9 @@ function Login({ onAuth, isNewNick }) {
       <form className="login-card login-card-v2" onSubmit={submit}>
         {/* TARJA decorativa superior (estilo manchete) */}
         <div className="login-banner">
-          <span className="login-banner-star">★</span>
+          <span className="login-banner-star"><Icon name="star" size={14} /></span>
           PRIMITIVÃO TIMES
-          <span className="login-banner-star">★</span>
+          <span className="login-banner-star"><Icon name="star" size={14} /></span>
         </div>
 
         <img className="login-logo" src="primitivao-icon.png" alt="Primitivão" />
@@ -1982,11 +2088,12 @@ function Login({ onAuth, isNewNick }) {
 
         {showModeBadge && (
           <div className={'login-mode ' + (isAdminNick ? 'admin' : isNew ? 'create' : 'enter')}>
-            {isAdminNick
-              ? '🛡 ENTRANDO COMO ADMIN'
+            <Icon name={isAdminNick ? 'shield' : isNew ? 'sparkle' : 'check'} size={14} />
+            <span>{isAdminNick
+              ? 'ENTRANDO COMO ADMIN'
               : isNew
-                ? '✨ CONTA NOVA · vamos criar pra você'
-                : '✓ CONTA ENCONTRADA · vai entrar'}
+                ? 'CONTA NOVA · vamos criar pra você'
+                : 'CONTA ENCONTRADA · vai entrar'}</span>
           </div>
         )}
 
@@ -2017,7 +2124,7 @@ function Login({ onAuth, isNewNick }) {
               tabIndex={-1}
               aria-label={showPass ? 'Esconder senha' : 'Mostrar senha'}
             >
-              {showPass ? '🙈' : '👁'}
+              <Icon name={showPass ? 'eye-off' : 'eye'} size={18} />
             </button>
           </div>
         </div>
@@ -2039,7 +2146,7 @@ function Login({ onAuth, isNewNick }) {
                 tabIndex={-1}
                 aria-label={showPass2 ? 'Esconder senha' : 'Mostrar senha'}
               >
-                {showPass2 ? '🙈' : '👁'}
+                <Icon name={showPass2 ? 'eye-off' : 'eye'} size={18} />
               </button>
             </div>
           </div>
@@ -2053,10 +2160,10 @@ function Login({ onAuth, isNewNick }) {
 
         {/* Feature highlights no rodapé */}
         <div className="login-features">
-          <div className="login-feature"><span className="lf-ic">🎯</span><span>5 mercados</span></div>
-          <div className="login-feature"><span className="lf-ic">🏆</span><span>7 campeonatos</span></div>
-          <div className="login-feature"><span className="lf-ic">🌍</span><span>bolão da Copa</span></div>
-          <div className="login-feature"><span className="lf-ic">💰</span><span>+500 PC/sem</span></div>
+          <div className="login-feature"><span className="lf-ic"><Icon name="target" size={22} /></span><span>5 mercados</span></div>
+          <div className="login-feature"><span className="lf-ic"><Icon name="trophy" size={22} /></span><span>7 campeonatos</span></div>
+          <div className="login-feature"><span className="lf-ic"><Icon name="globe" size={22} /></span><span>bolão da Copa</span></div>
+          <div className="login-feature"><span className="lf-ic"><Icon name="coin" size={22} /></span><span>+500 PC/sem</span></div>
         </div>
       </form>
     </div>

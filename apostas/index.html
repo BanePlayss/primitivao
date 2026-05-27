@@ -921,7 +921,8 @@
       display: flex; align-items: center; justify-content: center; gap: 10px;
       border-bottom: 3px solid var(--pv-orange);
     }
-    .login-banner-star { color: var(--pv-orange); }
+    .login-banner-star { color: var(--pv-orange); display: inline-flex; }
+    .pico-icon { display: inline-block; vertical-align: middle; flex-shrink: 0; }
     .login-card-v2 .login-logo {
       width: 140px; height: 140px;
       margin: 22px auto 4px; display: block; object-fit: contain;
@@ -968,7 +969,9 @@
       font-size: 11px; letter-spacing: 0.12em; font-weight: 800;
       border: 2px solid;
       transition: background 0.15s;
+      display: inline-flex; align-items: center; gap: 8px; justify-content: center;
     }
+    .login-mode .pico-icon { flex-shrink: 0; }
     .login-mode.enter  { color: var(--pv-green, #4d6a2e); border-color: var(--pv-green, #4d6a2e); background: rgba(77,106,46,0.08); }
     .login-mode.create { color: var(--pv-orange);        border-color: var(--pv-orange);        background: rgba(215,100,20,0.10); }
     .login-mode.admin  { color: var(--pv-charcoal);      border-color: var(--pv-charcoal);      background: rgba(28,22,18,0.06); }
@@ -987,10 +990,13 @@
       position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
       background: transparent; border: none;
       width: 34px; height: 34px;
-      font-size: 16px; cursor: pointer;
-      opacity: 0.65;
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: var(--pv-charcoal);
+      opacity: 0.55;
+      padding: 0;
     }
-    .pass-toggle:hover { opacity: 1; }
+    .pass-toggle:hover { opacity: 1; color: var(--pv-orange); }
     .pass-wrap input { padding-right: 42px; }
     .login-card-v2 .login-btn {
       margin: 22px 28px 0;
@@ -1021,11 +1027,19 @@
       gap: 10px;
     }
     .login-feature {
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center; gap: 10px;
       font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
       color: rgba(28,22,18,0.7);
     }
-    .lf-ic { font-size: 16px; }
+    .lf-ic {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px;
+      background: var(--pv-bone-2);
+      border: 2px solid var(--pv-charcoal);
+      color: var(--pv-orange);
+      flex-shrink: 0;
+    }
+    .login-feature:hover .lf-ic { background: var(--pv-orange); color: var(--pv-bone); }
     /* legacy (mantém compat com a versao antiga se algo ainda usar) */
     .login-card .logo-svg { width: 120px; height: 120px; margin: 0 auto 8px; display: block; object-fit: contain; }
     .login-card .lh1 { font-family: "Bungee Inline", Impact, sans-serif; font-size: 28px; letter-spacing: 0.04em; }
@@ -1467,6 +1481,6 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
   <!-- Bump o ?v= a cada deploy importante pra forçar tabs antigos a recarregar. -->
-  <script type="text/babel" src="apostas-app.jsx?v=20260527-login-v2"></script>
+  <script type="text/babel" src="apostas-app.jsx?v=20260527-icons"></script>
 </body>
 </html>
