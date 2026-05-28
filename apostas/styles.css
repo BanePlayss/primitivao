@@ -1625,17 +1625,72 @@
     .loja-btn.unequip:hover:not(:disabled) { background: #2a8f3f; color: var(--pv-bone); }
 
     /* ──── AVATAR: MOLDURAS (cosmetic frame) ──── */
+    /* Cada moldura tem múltiplos anéis + glow externo pra parecer
+       metal trabalhado, não só uma borda chapada. */
+
+    /* Bronze — anel duplo, calor de cobre velho */
     .avatar.has-frame.avatar-frame-frame-bronze {
-      border-color: #b87333;
-      box-shadow: 0 0 0 2px #8b5a2b inset;
+      border-color: #c98a4d;
+      border-width: 3px;
+      box-shadow:
+        0 0 0 2px #6b3e1a inset,                /* ring interno escuro */
+        0 0 0 3px rgba(201,138,77,0.7),         /* ring externo médio */
+        0 0 0 5px rgba(107,62,26,0.4),          /* ring externo escuro */
+        0 0 10px rgba(184,115,51,0.55);         /* glow morno */
     }
+
+    /* Prata — anel triplo com brilho metálico polido */
     .avatar.has-frame.avatar-frame-frame-silver {
-      border-color: #c0c0c0;
-      box-shadow: 0 0 0 2px #888 inset;
+      border-color: #e6e6e6;
+      border-width: 3px;
+      box-shadow:
+        0 0 0 2px #888 inset,                   /* ring interno cinza */
+        0 0 0 3px rgba(192,192,192,0.85),       /* ring 1 prata claro */
+        0 0 0 5px rgba(110,110,110,0.55),       /* ring 2 cinza médio */
+        0 0 0 7px rgba(200,200,200,0.3),        /* ring 3 leve */
+        0 0 14px rgba(220,220,220,0.7);         /* glow frio */
+    }
+
+    /* Ouro — anel quádruplo + pulse animado + glow intenso */
+    @keyframes gold-frame-pulse {
+      0%, 100% {
+        box-shadow:
+          0 0 0 2px #6b5616 inset,
+          0 0 0 3px rgba(212,175,55,0.9),
+          0 0 0 5px rgba(158,128,36,0.6),
+          0 0 0 7px rgba(212,175,55,0.4),
+          0 0 18px rgba(212,175,55,0.7),
+          0 0 4px rgba(255,220,100,0.5) inset;
+      }
+      50% {
+        box-shadow:
+          0 0 0 2px #6b5616 inset,
+          0 0 0 3px rgba(255,200,60,1),
+          0 0 0 5px rgba(212,175,55,0.85),
+          0 0 0 7px rgba(212,175,55,0.55),
+          0 0 32px rgba(255,210,80,1),
+          0 0 8px rgba(255,235,160,0.8) inset;
+      }
     }
     .avatar.has-frame.avatar-frame-frame-gold {
-      border-color: #d4af37;
-      box-shadow: 0 0 0 2px #9e8024 inset, 0 0 12px rgba(212,175,55,0.6);
+      border-color: #ffd96b;
+      border-width: 3px;
+      animation: gold-frame-pulse 2.8s ease-in-out infinite;
+    }
+    /* Pra avatares grandes (perfil/hall) — efeito de raios saindo do ouro */
+    .avatar-full.has-frame.avatar-frame-frame-gold::before {
+      content: '';
+      position: absolute;
+      inset: -10px;
+      border-radius: inherit;
+      background: radial-gradient(circle, rgba(255,210,80,0.25) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: -1;
+      animation: gold-frame-aura 3.5s ease-in-out infinite;
+    }
+    @keyframes gold-frame-aura {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50%      { opacity: 1;   transform: scale(1.08); }
     }
 
     /* ──── AVATAR: DISTINTIVO (badge no canto) ──── */
