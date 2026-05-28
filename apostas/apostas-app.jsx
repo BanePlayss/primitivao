@@ -928,7 +928,7 @@ function TeamMini({ team, size = 36 }) {
 //   - size:     tamanho em px (lado do quadrado pra ícone, ou largura pro full)
 //   - fullBody: true mostra PNG inteiro; false mostra só a cabeça (crop top)
 //   - className: classe extra
-function Avatar({ teamId, nick, teamPlayers, size = 32, fullBody = false, className = '' }) {
+function Avatar({ teamId, nick, teamPlayers, cosmetics, size = 32, fullBody = false, className = '' }) {
   // Resolve teamId via teamPlayers se não veio direto.
   // teamPlayers tem formato { teamId: nick } — precisa inverter pra achar o
   // teamId a partir do nick.
@@ -943,23 +943,42 @@ function Avatar({ teamId, nick, teamPlayers, size = 32, fullBody = false, classN
     }
   }
 
+  // Items equipados (frame, badge) — opcionais. Se cosmetics não vier,
+  // não renderiza nada extra (compat com chamadas antigas).
+  const cosm = cosmetics || {};
+  const frameItem = cosm.frame ? ITEM_BY_ID[cosm.frame] : null;
+  const badgeItem = cosm.badge ? ITEM_BY_ID[cosm.badge] : null;
+  const frameClass = frameItem ? ' has-frame avatar-frame-' + frameItem.id : '';
+
+  const renderBadge = () => {
+    if (!badgeItem) return null;
+    // Tamanho proporcional ao avatar (mínimo 14px, máximo 32px)
+    const bSize = Math.max(14, Math.min(32, Math.round(size * 0.32)));
+    return (
+      <span className="avatar-badge" style={{ background: badgeItem.color, width: bSize + 8, height: bSize + 8 }} title={badgeItem.name}>
+        <Icon name={badgeItem.icon} size={bSize - 2} />
+      </span>
+    );
+  };
+
   if (tid) {
     const t = TEAM(tid);
-    // Verifica se o PNG existe via onError fallback
     const src = `avatars/${tid}.png`;
     if (fullBody) {
       return (
-        <div className={'avatar avatar-full ' + className} style={{ width: size, height: size }}>
+        <div className={'avatar avatar-full ' + className + frameClass} style={{ width: size, height: size }}>
           <img src={src} alt={t.name} onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.classList.add('avatar-fallback'); }} />
           <span className="avatar-fallback-letter" style={{ background: t.color }}>{t.short.charAt(0)}</span>
+          {renderBadge()}
         </div>
       );
     }
     // Ícone: crop top (mostra só a cabeça)
     return (
-      <div className={'avatar avatar-icon ' + className} style={{ width: size, height: size }}>
+      <div className={'avatar avatar-icon ' + className + frameClass} style={{ width: size, height: size }}>
         <img src={src} alt={t.name} onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.classList.add('avatar-fallback'); }} />
         <span className="avatar-fallback-letter" style={{ background: t.color, fontSize: size * 0.5 }}>{t.short.charAt(0)}</span>
+        {renderBadge()}
       </div>
     );
   }
@@ -967,8 +986,9 @@ function Avatar({ teamId, nick, teamPlayers, size = 32, fullBody = false, classN
   // Fallback puro (sem time): círculo bege com inicial do nick
   const letter = (nick || '?').charAt(0).toUpperCase();
   return (
-    <div className={'avatar avatar-icon avatar-fallback-pure ' + className} style={{ width: size, height: size }}>
+    <div className={'avatar avatar-icon avatar-fallback-pure ' + className + frameClass} style={{ width: size, height: size }}>
       <span className="avatar-fallback-letter" style={{ fontSize: size * 0.5 }}>{letter}</span>
+      {renderBadge()}
     </div>
   );
 }
@@ -1904,6 +1924,56 @@ function App() {
     } catch (e) { console.warn('adjustPc failed', e); }
   };
 
+  // LOJA: compra de item (debita PC + adiciona ao inventory)
+  const buyItem = async (itemId) => {
+    const item = ITEM_BY_ID[itemId];
+    if (!item || !item.price) return { err: 'item inválido' };
+    if (!session?.nick) return { err: 'precisa logar' };
+    const userNick = session.nick;
+    try {
+      const res = await commitBetDocUpdate(remote => {
+        const u = (remote.users || {})[userNick];
+        if (!u) return { __abort: true, result: { err: 'usuário não encontrado' } };
+        const inv = Array.isArray(u.inventory) ? u.inventory : [];
+        if (inv.includes(itemId)) return { __abort: true, result: { err: 'você já tem esse item' } };
+        if ((u.pc || 0) < item.price) return { __abort: true, result: { err: 'PC insuficiente' } };
+        const next = {
+          ...u,
+          pc: u.pc - item.price,
+          inventory: [...inv, itemId],
+        };
+        return { ...remote, users: { ...remote.users, [userNick]: next } };
+      });
+      return res || {};
+    } catch (e) {
+      console.warn('buyItem failed', e);
+      return { err: 'falha de conexão' };
+    }
+  };
+
+  // LOJA: equipar/desequipar item num slot
+  const equipItem = async (slot, itemId) => {
+    if (!session?.nick) return;
+    const userNick = session.nick;
+    try {
+      await commitBetDocUpdate(remote => {
+        const u = (remote.users || {})[userNick];
+        if (!u) return null;
+        // Valida: itemId precisa existir e estar no inventário efetivo
+        if (itemId) {
+          const item = ITEM_BY_ID[itemId];
+          if (!item || item.slot !== slot) return null;
+          const ctx = { bets: remote.bets || [], teamPlayers: remote.teamPlayers || {}, cs };
+          const inv = effectiveInventory(userNick, u, ctx);
+          if (!inv.includes(itemId)) return null;
+        }
+        const cosmetics = { ...(u.cosmetics || {}), [slot]: itemId };
+        if (!itemId) delete cosmetics[slot];
+        return { ...remote, users: { ...remote.users, [userNick]: { ...u, cosmetics } } };
+      });
+    } catch (e) { console.warn('equipItem failed', e); }
+  };
+
   if (!synced || cs === null) {
     return (
       <div className="login-stage">
@@ -1944,6 +2014,7 @@ function App() {
         view={view}
         onView={setView}
         teamPlayers={teamPlayers || {}}
+        myCosmetics={me?.cosmetics || {}}
       />
       <div className="below-topbar">
         <div className="content-area">
@@ -1970,7 +2041,7 @@ function App() {
               />
             )}
             {view === 'hall' && (
-              <HallView cs={cs} />
+              <HallView cs={cs} users={users} teamPlayers={teamPlayers || {}} />
             )}
             {view === 'campeonatos' && (<>
             <ChampionshipSelector
@@ -2027,6 +2098,15 @@ function App() {
         {tab === 'ranking' && (
           <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} />
         )}
+        {tab === 'loja' && (
+          <LojaView
+            nick={session.nick}
+            me={me}
+            ctx={{ bets, users, teamPlayers: teamPlayers || {}, cs }}
+            onBuy={buyItem}
+            onEquip={equipItem}
+          />
+        )}
         {tab === 'admin' && isAdmin && (
           <AdminView
             bets={bets} users={users} adjustPc={adjustPc}
@@ -2063,7 +2143,7 @@ function App() {
 }
 
 // ─── TOP BAR / TABS ─────────────────────────────────────────────────────────
-function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly, view, onView, teamPlayers }) {
+function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly, view, onView, teamPlayers, myCosmetics }) {
   const days = Math.floor(weeklyIn / (24 * 60 * 60 * 1000));
   const hrs  = Math.floor((weeklyIn % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
   const mins = Math.floor((weeklyIn % (60 * 60 * 1000)) / (60 * 1000));
@@ -2116,7 +2196,7 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
           </div>
         )}
         <div className="nick">
-          {!isAdmin && <Avatar nick={nick} teamPlayers={teamPlayers} size={36} />}
+          {!isAdmin && <Avatar nick={nick} teamPlayers={teamPlayers} cosmetics={myCosmetics} size={36} />}
           {isAdmin && <span className="nick-tag" style={{ color: 'var(--pv-orange)', borderColor: 'var(--pv-orange)' }}>ADMIN</span>}
           <span className={isAdmin ? 'nick-tag' : 'nick-name'}>@{nick}</span>
         </div>
@@ -2260,6 +2340,7 @@ function getTabItems(isAdmin) {
     { id: 'perfil',   label: 'MEU PERFIL' },
     { id: 'tickets',  label: 'MEUS TICKETS' },
     { id: 'ranking',  label: 'RANKING' },
+    { id: 'loja',     label: 'LOJA' },
   ];
   if (isAdmin) globalItems.push({ id: 'admin', label: 'ADMIN' });
   return { champItems, globalItems };
@@ -4429,6 +4510,113 @@ const TITLE_DEFS = [
     },
   },
 ];
+// ─── ITEMS COSMÉTICOS (LOJA) ────────────────────────────────────────────────
+// MVP: 2 slots (frame + badge). Cada item tem 1 dos modos:
+//   - price (number)  → comprável com PC na loja
+//   - drop  (fn(ctx)) → desbloqueia automaticamente quando condição é true
+// Os 2 modos são mutuamente exclusivos: ou compra ou ganha por conquista.
+const ITEMS = [
+  // ── MOLDURAS ──
+  {
+    id: 'frame-bronze',
+    slot: 'frame',
+    name: 'Moldura Bronze',
+    desc: 'Pra começar com estilo.',
+    icon: 'shield',
+    color: '#b87333',
+    rarity: 'comum',
+    price: 200,
+  },
+  {
+    id: 'frame-silver',
+    slot: 'frame',
+    name: 'Moldura Prata',
+    desc: 'Discreta, elegante, com pegada.',
+    icon: 'shield',
+    color: '#a8a8a8',
+    rarity: 'rara',
+    price: 700,
+  },
+  {
+    id: 'frame-gold',
+    slot: 'frame',
+    name: 'Moldura Ouro',
+    desc: 'Reservada pra quem termina a temporada em 1º lugar.',
+    icon: 'trophy',
+    color: '#d4af37',
+    rarity: 'lendaria',
+    drop: ({ nick, cs, teamPlayers }) => {
+      const reverse = reverseTeamMap(teamPlayers || {});
+      const tid = reverse[nick];
+      if (!tid) return false;
+      const { status, standings } = computeChampStandings('fifa', cs);
+      if (status !== 'closed' || !standings || standings.length === 0) return false;
+      return standings[0]?.id === tid;
+    },
+  },
+  // ── DISTINTIVOS ──
+  {
+    id: 'badge-beta',
+    slot: 'badge',
+    name: 'Beta Tester',
+    desc: 'Estava aqui na primeira temporada FIFA Season 1.',
+    icon: 'flask',
+    color: '#7a4dc9',
+    rarity: 'comum',
+    drop: ({ nick, teamPlayers }) => {
+      const players = Object.values(teamPlayers || {});
+      return players.includes(nick);
+    },
+  },
+  {
+    id: 'badge-high-roller',
+    slot: 'badge',
+    name: 'High Roller',
+    desc: 'Apostou 100.000 PC ou mais num cupom.',
+    icon: 'coin',
+    color: '#c9a227',
+    rarity: 'rara',
+    drop: ({ nick, bets }) => {
+      const all = Array.isArray(bets) ? bets : [];
+      return all.some(b => b.user === nick && Number(b.amount) >= 100000);
+    },
+  },
+  {
+    id: 'badge-quebrou',
+    slot: 'badge',
+    name: 'Quebrou a Banca',
+    desc: 'Apostou 100k+ E venceu. Lenda viva.',
+    icon: 'coin-stack',
+    color: '#2a8f3f',
+    rarity: 'lendaria',
+    drop: ({ nick, bets }) => {
+      const all = Array.isArray(bets) ? bets : [];
+      return all.some(b => b.user === nick && Number(b.amount) >= 100000 && b.status === 'won');
+    },
+  },
+];
+
+const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+const ITEM_SLOTS = [
+  { id: 'frame',  label: 'MOLDURA',    short: 'frame' },
+  { id: 'badge',  label: 'DISTINTIVO', short: 'badge' },
+];
+
+// Retorna items dropados automaticamente pra esse nick (excluindo os com price).
+function itemsDroppedFor(nick, ctx) {
+  return ITEMS.filter(i => i.drop && (() => {
+    try { return !!i.drop({ nick, ...ctx }); } catch (_) { return false; }
+  })());
+}
+
+// Inventário efetivo = itens comprados (no inventory) ∪ itens dropados.
+// Útil pra UI da loja decidir o que está "tem/equipado/locked".
+function effectiveInventory(nick, userRecord, ctx) {
+  const bought = Array.isArray(userRecord?.inventory) ? userRecord.inventory : [];
+  const drops  = itemsDroppedFor(nick, ctx).map(i => i.id);
+  return Array.from(new Set([...bought, ...drops]));
+}
+
 function titlesForNick(nick, ctx) {
   return TITLE_DEFS.filter(t => {
     try { return !!t.check({ nick, ...ctx }); }
@@ -4501,7 +4689,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, isAdmin, onSele
       {/* HEADER COM AVATAR GRANDE */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-head" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {myTeamId && <Avatar teamId={myTeamId} size={120} fullBody={true} className="profile-avatar" />}
+          {myTeamId && <Avatar teamId={myTeamId} cosmetics={me?.cosmetics} size={120} fullBody={true} className="profile-avatar" />}
           <div>
             <div className="title" style={{ fontSize: 24 }}>@{nick}</div>
             <div className="sub">{isAdmin ? 'ADMIN' : `${me?.pc ?? 0} PC`}{myTeam ? ` · ${myTeam.name}` : ''}</div>
@@ -4646,6 +4834,128 @@ function computeTitleOwners(ctx) {
   return result;
 }
 
+// ─── LOJA (items cosméticos) ────────────────────────────────────────────────
+function LojaView({ nick, me, ctx, onBuy, onEquip }) {
+  const [busy, setBusy] = useState({}); // { itemId: 'buy' | 'equip' }
+  const inv = useMemo(() => effectiveInventory(nick, me, ctx), [nick, me, ctx]);
+  const equipped = me?.cosmetics || {};
+  const pc = me?.pc || 0;
+
+  const handleBuy = async (item) => {
+    if (busy[item.id]) return;
+    setBusy(b => ({ ...b, [item.id]: 'buy' }));
+    try {
+      const r = await onBuy(item.id);
+      if (r && r.err) {
+        showToast(r.err, 'error');
+      } else {
+        showToast(`Comprou ${item.name}!`, 'success');
+      }
+    } finally {
+      setBusy(b => { const next = { ...b }; delete next[item.id]; return next; });
+    }
+  };
+
+  const handleEquip = async (item, equip) => {
+    if (busy[item.id]) return;
+    setBusy(b => ({ ...b, [item.id]: 'equip' }));
+    try {
+      await onEquip(item.slot, equip ? item.id : null);
+      showToast(equip ? `Equipou ${item.name}` : `Desequipou ${item.name}`, 'success');
+    } finally {
+      setBusy(b => { const next = { ...b }; delete next[item.id]; return next; });
+    }
+  };
+
+  return (
+    <div>
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <div className="title"><Icon name="trophy" size={16} /> LOJA</div>
+          <div className="sub">SEU SALDO: {pc} PC</div>
+        </div>
+        <div className="card-body">
+          <p style={{ marginTop: 0, lineHeight: 1.5, fontSize: 13 }}>
+            Compra molduras com PC e equipa distintivos desbloqueados por conquista.
+            Items equipados aparecem no seu avatar em todo o site (TopBar, Ranking, Perfil, Hall).
+          </p>
+        </div>
+      </div>
+
+      {ITEM_SLOTS.map(slot => {
+        const items = ITEMS.filter(i => i.slot === slot.id);
+        return (
+          <div key={slot.id} className="card" style={{ marginBottom: 14 }}>
+            <div className="card-head">
+              <div className="title">{slot.label}</div>
+              <div className="sub">{items.length} ITEMS</div>
+            </div>
+            <div className="card-body">
+              <div className="loja-grid">
+                {items.map(item => {
+                  const owned = inv.includes(item.id);
+                  const isEquipped = equipped[slot.id] === item.id;
+                  const isDrop = !!item.drop;
+                  const canAfford = !item.price || pc >= item.price;
+                  const action = busy[item.id];
+                  return (
+                    <div key={item.id} className={'loja-item rarity-' + item.rarity + (owned ? ' owned' : ' locked')}>
+                      <div className="loja-item-head">
+                        <span className="loja-item-ic" style={{ color: item.color }}>
+                          {owned ? <Icon name={item.icon} size={28} /> : <Icon name="lock" size={24} />}
+                        </span>
+                        <div className="loja-item-meta">
+                          <div className="loja-item-name" style={{ color: owned ? item.color : 'rgba(28,22,18,0.5)' }}>
+                            {item.name}
+                          </div>
+                          <div className="loja-item-rarity">{item.rarity}</div>
+                        </div>
+                      </div>
+                      <div className="loja-item-desc">{item.desc}</div>
+                      <div className="loja-item-foot">
+                        {!owned && isDrop && (
+                          <div className="loja-item-tag locked">DESBLOQUEIA POR CONQUISTA</div>
+                        )}
+                        {!owned && !isDrop && (
+                          <button
+                            className="loja-btn buy"
+                            disabled={!canAfford || !!action}
+                            onClick={() => handleBuy(item)}
+                          >
+                            {action === 'buy' ? 'COMPRANDO…' : (canAfford ? `COMPRAR · ${item.price} PC` : `SEM PC (precisa ${item.price})`)}
+                          </button>
+                        )}
+                        {owned && !isEquipped && (
+                          <button
+                            className="loja-btn equip"
+                            disabled={!!action}
+                            onClick={() => handleEquip(item, true)}
+                          >
+                            {action === 'equip' ? 'EQUIPANDO…' : 'EQUIPAR'}
+                          </button>
+                        )}
+                        {owned && isEquipped && (
+                          <button
+                            className="loja-btn unequip"
+                            disabled={!!action}
+                            onClick={() => handleEquip(item, false)}
+                          >
+                            {action === 'equip' ? 'TIRANDO…' : <><Icon name="check" size={12} /> EQUIPADO · TIRAR</>}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
   const earnedIds = useMemo(() => new Set(titlesForNick(nick, ctx || {}).map(t => t.id)), [nick, ctx]);
   const owners = useMemo(() => computeTitleOwners(ctx || {}), [ctx]);
@@ -4783,6 +5093,7 @@ function RankingView({ users, bets, me, teamPlayers }) {
     return {
       nick, pc: u.pc, apostas: my.length,
       title: u.title || null,
+      cosmetics: u.cosmetics || {},
       vit: my.filter(b => b.status === 'won').length,
       der: my.filter(b => b.status === 'lost').length,
     };
@@ -4795,7 +5106,7 @@ function RankingView({ users, bets, me, teamPlayers }) {
         {rows.map((r, i) => (
           <div key={r.nick} className={'lb-row ' + (r.nick === me ? 'me' : '')} style={{ gridTemplateColumns: '36px 44px 1fr auto auto auto', gap: 12 }}>
             <div className="lb-pos">{i + 1}</div>
-            <Avatar nick={r.nick} teamPlayers={teamPlayers} size={44} />
+            <Avatar nick={r.nick} teamPlayers={teamPlayers} cosmetics={r.cosmetics} size={44} />
             <div>
               <div className="lb-nick">
                 @{r.nick}
@@ -4882,7 +5193,7 @@ function TrophyPodium({ slot, accent, size, theme }) {
       {/* Avatar em destaque (se vier teamId no slot) */}
       {slot.teamId && (
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-          <Avatar teamId={slot.teamId} size={big ? 140 : 100} fullBody={true} />
+          <Avatar teamId={slot.teamId} cosmetics={slot.cosmetics} size={big ? 140 : 100} fullBody={true} />
         </div>
       )}
       <div style={{ lineHeight: 1, color: accent, display: 'flex', justifyContent: 'center' }}>
@@ -4912,32 +5223,39 @@ function TrophyPodium({ slot, accent, size, theme }) {
   );
 }
 
-function buildSlots(view, standings) {
+function buildSlots(view, standings, users, teamPlayers) {
   // view: 'fame' (campeão+vice) | 'shame' (último+penúltimo)
   if (!standings || standings.length < 2) return [null, null];
   const formatDetail = (s) => `${s.p} pts · ${s.v}v ${s.e}e ${s.d}d · SG ${(s.gp - s.gc) >= 0 ? '+' : ''}${s.gp - s.gc}`;
+  const cosmeticsFor = (teamId) => {
+    if (!teamPlayers || !users) return null;
+    const nick = teamPlayers[teamId];
+    if (!nick) return null;
+    const u = users[nick];
+    return u?.cosmetics || null;
+  };
   if (view === 'fame') {
     const first = standings[0], second = standings[1];
     return [
-      { label: 'CAMPEÃO', name: first.name,  teamId: first.id,  detail: formatDetail(first) },
-      { label: 'VICE',    name: second.name, teamId: second.id, detail: formatDetail(second) },
+      { label: 'CAMPEÃO', name: first.name,  teamId: first.id,  cosmetics: cosmeticsFor(first.id),  detail: formatDetail(first) },
+      { label: 'VICE',    name: second.name, teamId: second.id, cosmetics: cosmeticsFor(second.id), detail: formatDetail(second) },
     ];
   } else {
     const last = standings[standings.length - 1];
     const penult = standings[standings.length - 2];
     return [
-      { label: 'LANTERNA',  name: last.name,   teamId: last.id,   detail: formatDetail(last)   },
-      { label: 'PENÚLTIMO', name: penult.name, teamId: penult.id, detail: formatDetail(penult) },
+      { label: 'LANTERNA',  name: last.name,   teamId: last.id,   cosmetics: cosmeticsFor(last.id),   detail: formatDetail(last)   },
+      { label: 'PENÚLTIMO', name: penult.name, teamId: penult.id, cosmetics: cosmeticsFor(penult.id), detail: formatDetail(penult) },
     ];
   }
 }
 
-function HallDaFamaView({ cs }) {
+function HallDaFamaView({ cs, users, teamPlayers }) {
   return (
     <div>
       {CHAMPIONSHIPS.map(c => {
         const { status, standings } = computeChampStandings(c.id, cs);
-        const [slot1, slot2] = status === 'closed' ? buildSlots('fame', standings) : [null, null];
+        const [slot1, slot2] = status === 'closed' ? buildSlots('fame', standings, users, teamPlayers) : [null, null];
         return (
           <TrophyCard
             key={c.id}
@@ -4952,12 +5270,12 @@ function HallDaFamaView({ cs }) {
   );
 }
 
-function HallDaVergonhaView({ cs }) {
+function HallDaVergonhaView({ cs, users, teamPlayers }) {
   return (
     <div>
       {CHAMPIONSHIPS.map(c => {
         const { status, standings } = computeChampStandings(c.id, cs);
-        const [slot1, slot2] = status === 'closed' ? buildSlots('shame', standings) : [null, null];
+        const [slot1, slot2] = status === 'closed' ? buildSlots('shame', standings, users, teamPlayers) : [null, null];
         return (
           <TrophyCard
             key={c.id}
@@ -4974,7 +5292,7 @@ function HallDaVergonhaView({ cs }) {
 
 // HallView — view unificada que combina Hall da Fama + Hall da Vergonha
 // com subTabs. Acessada pelo primary-nav do TopBar (view='hall').
-function HallView({ cs }) {
+function HallView({ cs, users, teamPlayers }) {
   const [subTab, setSubTab] = useState('fama'); // 'fama' | 'vergonha'
   return (
     <div>
@@ -5000,8 +5318,8 @@ function HallView({ cs }) {
           <Icon name="toilet" size={14} /> HALL DA VERGONHA
         </button>
       </div>
-      {subTab === 'fama'     && <HallDaFamaView cs={cs} />}
-      {subTab === 'vergonha' && <HallDaVergonhaView cs={cs} />}
+      {subTab === 'fama'     && <HallDaFamaView cs={cs} users={users} teamPlayers={teamPlayers} />}
+      {subTab === 'vergonha' && <HallDaVergonhaView cs={cs} users={users} teamPlayers={teamPlayers} />}
     </div>
   );
 }

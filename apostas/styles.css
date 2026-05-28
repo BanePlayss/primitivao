@@ -1491,6 +1491,111 @@
       .odd-btn .lab { font-size: 7px; }
     }
 
+    /* ──── LOJA ──── */
+    .loja-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .loja-item {
+      padding: 12px;
+      border: 2px solid var(--pv-charcoal);
+      background: var(--pv-bone);
+      display: flex; flex-direction: column;
+      transition: transform 0.08s;
+    }
+    .loja-item.locked {
+      background: rgba(28,22,18,0.04);
+      border-color: rgba(28,22,18,0.18);
+      filter: grayscale(0.6);
+    }
+    .loja-item.owned:hover { transform: translateY(-2px); }
+    .loja-item.rarity-comum    { border-left: 6px solid #b87333; }
+    .loja-item.rarity-rara     { border-left: 6px solid #a8a8a8; }
+    .loja-item.rarity-lendaria { border-left: 6px solid #d4af37; box-shadow: 0 0 0 1px rgba(212,175,55,0.3); }
+    .loja-item-head { display: flex; align-items: center; gap: 10px; }
+    .loja-item-ic {
+      width: 44px; height: 44px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.04);
+      border: 1.5px solid currentColor;
+      flex-shrink: 0;
+    }
+    .loja-item-meta { flex: 1; min-width: 0; }
+    .loja-item-name {
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      font-size: 16px; letter-spacing: 0.04em; line-height: 1.1;
+    }
+    .loja-item-rarity {
+      font-size: 9px; letter-spacing: 0.22em; font-weight: 800;
+      color: rgba(28,22,18,0.5); text-transform: uppercase; margin-top: 2px;
+    }
+    .loja-item-desc {
+      margin-top: 10px;
+      font-size: 11px; line-height: 1.45;
+      color: rgba(28,22,18,0.7); font-weight: 600;
+      flex: 1;
+    }
+    .loja-item.locked .loja-item-desc { color: rgba(28,22,18,0.45); }
+    .loja-item-foot { margin-top: 12px; }
+    .loja-item-tag.locked {
+      display: inline-block;
+      padding: 4px 8px;
+      background: rgba(28,22,18,0.08);
+      border: 1px dashed rgba(28,22,18,0.3);
+      font-size: 9px; letter-spacing: 0.18em; font-weight: 800;
+      color: rgba(28,22,18,0.55);
+    }
+    .loja-btn {
+      width: 100%; padding: 9px 12px;
+      font-family: inherit; font-weight: 800;
+      font-size: 11px; letter-spacing: 0.14em;
+      border: 2px solid var(--pv-charcoal);
+      cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .loja-btn.buy {
+      background: var(--pv-orange); color: var(--pv-bone); border-color: var(--pv-orange);
+    }
+    .loja-btn.buy:hover:not(:disabled) {
+      background: var(--pv-charcoal); border-color: var(--pv-charcoal);
+    }
+    .loja-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .loja-btn.equip { background: transparent; color: var(--pv-charcoal); }
+    .loja-btn.equip:hover:not(:disabled) { background: var(--pv-charcoal); color: var(--pv-bone); }
+    .loja-btn.unequip {
+      background: rgba(42,143,63,0.10); color: #2a8f3f; border-color: #2a8f3f;
+    }
+    .loja-btn.unequip:hover:not(:disabled) { background: #2a8f3f; color: var(--pv-bone); }
+
+    /* ──── AVATAR: MOLDURAS (cosmetic frame) ──── */
+    .avatar.has-frame.avatar-frame-frame-bronze {
+      border-color: #b87333;
+      box-shadow: 0 0 0 2px #8b5a2b inset;
+    }
+    .avatar.has-frame.avatar-frame-frame-silver {
+      border-color: #c0c0c0;
+      box-shadow: 0 0 0 2px #888 inset;
+    }
+    .avatar.has-frame.avatar-frame-frame-gold {
+      border-color: #d4af37;
+      box-shadow: 0 0 0 2px #9e8024 inset, 0 0 12px rgba(212,175,55,0.6);
+    }
+
+    /* ──── AVATAR: DISTINTIVO (badge no canto) ──── */
+    .avatar { position: relative; }
+    .avatar-badge {
+      position: absolute;
+      bottom: -2px; right: -2px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 2px solid var(--pv-bone);
+      border-radius: 50%;
+      color: var(--pv-bone);
+      box-shadow: 1px 1px 0 rgba(0,0,0,0.3);
+      z-index: 2;
+    }
+    .avatar-full .avatar-badge { bottom: 4px; right: 4px; }
+
     /* ──── HALL (FAMA + VERGONHA) ──── */
     .hall-hero {
       padding: 20px 24px;
