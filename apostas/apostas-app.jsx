@@ -2247,6 +2247,7 @@ function App() {
                 worldcup={worldcup}
                 isAdmin={isAdmin}
                 onSelectTitle={setSelectedTitle}
+                onEquip={equipItem}
               />
             )}
             {view === 'tickets' && (
@@ -4983,7 +4984,78 @@ function TitleBadge({ titleId, size }) {
   );
 }
 
-function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle }) {
+// Coleção do jogador no perfil: molduras + distintivos que ele JÁ TEM
+// (comprados ou dropados), com botão pra equipar/tirar direto daqui.
+function ColecaoCard({ nick, me, previewTeamId, ctx, onEquip }) {
+  const [busy, setBusy] = useState({});
+  const inv = useMemo(() => effectiveInventory(nick, me, ctx), [nick, me, ctx]);
+  const owned = inv.map(id => ITEM_BY_ID[id]).filter(Boolean);
+  const frames = owned.filter(i => i.slot === 'frame');
+  const badges = owned.filter(i => i.slot === 'badge');
+  const equipped = me?.cosmetics || {};
+
+  const handleEquip = async (item, equip) => {
+    if (busy[item.id] || !onEquip) return;
+    setBusy(b => ({ ...b, [item.id]: true }));
+    try {
+      await onEquip(item.slot, equip ? item.id : null);
+      showToast(equip ? `Equipou ${item.name}` : `Tirou ${item.name}`, 'success');
+    } finally {
+      setBusy(b => { const n = { ...b }; delete n[item.id]; return n; });
+    }
+  };
+
+  const renderItem = (item) => {
+    const isEquipped = equipped[item.slot] === item.id;
+    return (
+      <div key={item.id} className={'colecao-item rarity-' + item.rarity + (isEquipped ? ' equipped' : '')}>
+        <Avatar teamId={previewTeamId} nick={nick} cosmetics={{ [item.slot]: item.id }} size={item.slot === 'frame' ? 56 : 48} />
+        <div className="colecao-item-name" style={{ color: item.color }}>{item.name}</div>
+        <button
+          className={'colecao-equip ' + (isEquipped ? 'on' : '')}
+          disabled={!!busy[item.id]}
+          onClick={() => handleEquip(item, !isEquipped)}
+        >
+          {busy[item.id] ? '…' : (isEquipped ? <><Icon name="check" size={11} /> EQUIPADO</> : 'EQUIPAR')}
+        </button>
+      </div>
+    );
+  };
+
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <div className="card-head">
+        <div className="title"><Icon name="star" size={16} /> MINHA COLEÇÃO</div>
+        <div className="sub">{owned.length} ITEM{owned.length === 1 ? '' : 'S'} DESBLOQUEADO{owned.length === 1 ? '' : 'S'}</div>
+      </div>
+      <div className="card-body">
+        {owned.length === 0 ? (
+          <div className="empty">
+            <div className="e1">COLEÇÃO VAZIA</div>
+            <div className="e2">Compre molduras e distintivos na LOJA, ou desbloqueie por conquista. Eles aparecem aqui pra equipar.</div>
+          </div>
+        ) : (
+          <>
+            {frames.length > 0 && (
+              <>
+                <div className="small-label" style={{ marginTop: 0 }}>MOLDURAS ({frames.length})</div>
+                <div className="colecao-grid">{frames.map(renderItem)}</div>
+              </>
+            )}
+            {badges.length > 0 && (
+              <>
+                <div className="small-label" style={{ marginTop: 14 }}>DISTINTIVOS ({badges.length})</div>
+                <div className="colecao-grid">{badges.map(renderItem)}</div>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip }) {
   const playerTeam = reverseTeamMap(teamPlayers);
   const myTeamId = playerTeam[nick];
   const myTeam = myTeamId ? TEAM(myTeamId) : null;
@@ -5035,6 +5107,17 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
         selectedTitle={me?.title || null}
         onSelectTitle={onSelectTitle}
       />
+
+      {/* MINHA COLEÇÃO — molduras e distintivos desbloqueados, equipar daqui */}
+      {!isAdmin && (
+        <ColecaoCard
+          nick={nick}
+          me={me}
+          previewTeamId={myTeamId}
+          ctx={{ bets, teamPlayers, cs, worldcup }}
+          onEquip={onEquip}
+        />
+      )}
 
       {/* TIME */}
       <div className="card" style={{ marginBottom: 14 }}>
