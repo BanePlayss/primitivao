@@ -31,6 +31,99 @@ const firebaseConfig = {
 // ────────────────────────────────────────────────────────────────
 const NEWS = [
   {
+    id: 'mk-edicao-01-regras',
+    title: 'REGRAS DO MORTAL KOMBAT — EDIÇÃO 01',
+    subtitle: 'Ida e volta, MD2 na fase de grupos, chave privilegiada pros top 8, MD5 no mata-mata e os 2 últimos confrontos VALE-TUDO. Segura aí.',
+    tag: 'REGRAS · MK EDIÇÃO 01',
+    date: '28/05/2026',
+    image: 'news/mk-s1-r01.jpg',
+    body: `A engrenagem do primeiro **MK do Primitivão** tá montada. Inscrição até **DOMINGO 23H59**. Mas pra você não cair de paraquedas no torneio, segura aí as regras.
+
+**FORMATO GERAL**
+
+3 fases:
+
+- **FASE DE GRUPOS IDA** — todos contra todos
+- **FASE DE GRUPOS VOLTA** — todos contra todos (de novo)
+- **MATA-MATA** — top 8 ganham CHAVE PRIVILEGIADA
+
+A quantidade de jogos por jogador depende da galera:
+
+- 15 inscritos → 28 jogos só na fase de grupos
+- 20 inscritos → 38 jogos só na fase de grupos
+
+**ESCOLHA DOS 3 PERSONAGENS**
+
+Cada jogador escolhe **3 personagens pro turno**. Dentro do turno os 3 são fixos — não dá pra trocar porque tá perdendo.
+
+**PODE TROCAR EM 2 MOMENTOS:**
+
+- Quando termina a IDA, antes da VOLTA começar
+- Quando termina a VOLTA, antes do MATA-MATA começar
+
+Estratégia é livre entre as fases — você ajusta seu pool baseado no que viu rolar.
+
+**FASE DE GRUPOS — UM CONFRONTO**
+
+Exemplo:
+
+- **Bane Quebra Bundas**: Sub-Zero, Tanya, Rain
+- **Mohamed Quebra Pintos**: Smoke, Scorpion, Raiden
+
+**REGRA DO MANDANTE:** quem está EM CASA escolhe os 2 jogos do confronto. É **MD2** (melhor de 2 jogos). Cada jogo, 3 rounds.
+
+Exemplo — Bane recebe Mohamed em casa. Bane escolhe:
+
+- Sub-Zero × Raiden
+- Tanya × Scorpion
+
+"Ah Bane, mas assim eu nunca jogo com Smoke!" **NEGATIVO.** Quando VOCÊ estiver em casa, escolhe o que quiser. Aqui na minha casa não é bagunça.
+
+Quando Mohamed receber Bane (a volta), **ELE** escolhe os 2 jogos. Assim ao longo do turno você joga com todos os 3 personagens — só não vai jogar sempre com o que quiser.
+
+**MATA-MATA — CHAVE PRIVILEGIADA**
+
+Termina a fase de grupos, entra o mata-mata. Os **TOP 8** entram em CHAVE PRIVILEGIADA — todos jogam, mas os 8 melhores têm vantagem na escolha. *(Lembrete: pode redefinir seus 3 personagens aqui antes do primeiro confronto.)*
+
+**FORMATO:** MD5 (melhor de 5 jogos)
+
+**QUEM ESCOLHE O QUÊ:**
+
+- Os **3 primeiros confrontos**: quem terminou em POSIÇÃO MELHOR na fase de grupos escolhe
+- Os **2 últimos confrontos**: LIVRES — pode repetir personagem à vontade (essa é a virada de mesa)
+
+**EXEMPLO PRÁTICO — Bane 6º × Mohamed 10º:**
+
+Bane escolhe os 3 primeiros:
+
+- Sub-Zero × Raiden → Bane ganha
+- Tanya × Scorpion → Bane ganha
+- Rain × Smoke → Mohamed ganha
+
+Parcial: **Bane 2 × 1 Mohamed.**
+
+Agora os 2 últimos são LIVRES. Mohamed pode escolher Smoke 2x seguidas. Bane pode escolher Sub-Zero 2x seguidas:
+
+- Sub-Zero × Smoke
+- Sub-Zero × Smoke
+
+Quem vencer 3 jogos primeiro leva. **Por que isso é fundamental?** Quem terminou em primeiro NÃO pode dormir só porque pegou placar inicial. Os 2 últimos jogos viram VALE-TUDO com main pick contra main pick. Final pode virar a qualquer momento.
+
+**RESUMO**
+
+- 3 personagens POR TURNO (pode trocar entre fases)
+- Mandante escolhe os 2 jogos (MD2) na fase de grupos
+- Top 8 ganha chave privilegiada
+- Mata-mata é MD5
+- 3 primeiros confrontos: melhor classificado escolhe
+- 2 últimos: LIVRES (vale tudo)
+- Pode TROCAR personagens antes da VOLTA e antes do MATA-MATA
+- Inscrições até **DOMINGO 23H59**
+
+**ONDE SE INSCREVER:** https://baneplayss.github.io/primitivao/apostas/ → aba CAMPEONATOS → MORTAL KOMBAT → QUERO PARTICIPAR`,
+    at: Date.parse('2026-05-28T14:45:00-03:00'),
+  },
+  {
     id: 'mk-edicao-01-inscricoes',
     title: 'MORTAL KOMBAT · EDIÇÃO 01 — INSCRIÇÕES NO ÚLTIMO ROUND!',
     subtitle: 'Domingo às 23h59 baixa o pano. Quem não entrou ainda corre, porque o primeiro torneio de MK do Primitivão tá saindo do papel.',
