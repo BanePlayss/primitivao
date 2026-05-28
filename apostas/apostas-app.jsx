@@ -5861,6 +5861,7 @@ function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordW
       {tab === 'backup' && (
         <>
           <BackupPanel />
+          <HistoricBackupsPanel />
           <RestorePanel />
         </>
       )}
@@ -5874,11 +5875,46 @@ function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordW
 
 function BackupPanel() {
   const [status, setStatus] = useState(null); // null | 'running' | {ok, users?, bets?, error?}
+  // Stats ao vivo do que tem pra backupar — busca direto do Firestore
+  // (sem download) ao montar o componente.
+  const [preview, setPreview] = useState(null); // { users, bets, wcPicks, wcResults, comments, news, interests }
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await BET_DOC().get();
+        if (cancelled || !snap.exists) return;
+        const data = snap.data() || {};
+        const parsed = (typeof data.json === 'string') ? (() => {
+          try { return JSON.parse(data.json); } catch (_) { return {}; }
+        })() : {};
+        const wc = data.worldcup || parsed.worldcup || {};
+        setPreview({
+          users:     Object.keys(parsed.users || {}).length,
+          bets:      (parsed.bets || []).length,
+          teams:     Object.keys(parsed.teamPlayers || {}).length,
+          interests: Object.values(data.interests || parsed.interests || {})
+                            .reduce((s, x) => s + Object.keys(x || {}).length, 0),
+          comments:  Object.values(data.comments || {})
+                            .reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0),
+          wcPicks:   Object.values(wc.picks || {})
+                            .reduce((s, perUser) => s + Object.keys(perUser || {}).length, 0),
+          wcPickers: Object.keys(wc.picks || {}).length,
+          wcResults: Object.keys(wc.results || {}).length,
+          news:      Array.isArray(data.news) ? data.news.length : 0,
+        });
+      } catch (e) { /* fail silent — botão continua funcionando */ }
+    })();
+    return () => { cancelled = true; };
+  }, [status]); // refresh após download bem-sucedido
+
   const onClick = async () => {
     setStatus('running');
     const result = await downloadFullBackup();
     setStatus(result);
   };
+
   return (
     <div className="card">
       <div className="card-head">
@@ -5887,10 +5923,32 @@ function BackupPanel() {
       </div>
       <div className="card-body">
         <p style={{ marginTop: 0, lineHeight: 1.5 }}>
-          Gera um arquivo <code>.json</code> com <strong>todos os dados do site</strong>: usuários,
-          apostas, jogos e classificação. Guarde em local seguro (Drive, e-mail pra você mesmo, etc).
-          Um backup automático também é gerado todo dia pelo GitHub Action e fica em <code>backups/</code> no repo.
+          Gera um arquivo <code>.json</code> com <strong>todos os dados do site</strong>:
+          usuários, apostas (cupons), classificação, vínculos de time, inscrições,
+          comentários, news, palpites e resultados do bolão da Copa do Mundo, e
+          URL do webhook do Discord. Guarde em local seguro (Drive, email pra você mesmo).
         </p>
+
+        {preview && (
+          <div style={{
+            marginBottom: 14, padding: 12,
+            background: 'rgba(0,0,0,0.04)', border: '1.5px solid rgba(28,22,18,0.2)',
+            fontSize: 12, lineHeight: 1.7,
+          }}>
+            <div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, marginBottom: 6, color: 'var(--pv-orange)' }}>O QUE VAI NO BACKUP AGORA</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 6 }}>
+              <div>· <strong>{preview.users}</strong> usuários</div>
+              <div>· <strong>{preview.bets}</strong> apostas (tickets)</div>
+              <div>· <strong>{preview.teams}</strong> times vinculados</div>
+              <div>· <strong>{preview.interests}</strong> inscrições</div>
+              <div>· <strong>{preview.comments}</strong> comentários</div>
+              <div>· <strong>{preview.wcPicks}</strong> palpites da Copa ({preview.wcPickers} jogadores)</div>
+              <div>· <strong>{preview.wcResults}</strong> resultados da Copa</div>
+              <div>· <strong>{preview.news}</strong> news publicadas</div>
+            </div>
+          </div>
+        )}
+
         <button onClick={onClick} disabled={status === 'running'}
           style={{ background: 'var(--pv-orange)', color: 'var(--pv-bone)', padding: '10px 20px', fontWeight: 800, border: 'none', letterSpacing: '0.16em', fontSize: 12, cursor: status === 'running' ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           {status === 'running' ? 'GERANDO…' : <><Icon name="arrow-down" size={14} /> BAIXAR BACKUP JSON</>}
@@ -5905,6 +5963,120 @@ function BackupPanel() {
             <Icon name="x" size={14} /> Erro: {status.error}
           </p>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── BACKUPS HISTÓRICOS ─────────────────────────────────────────────────────
+// Lista os snapshots diários do GitHub Action (pasta `backups/` no repo)
+// e permite baixar qualquer um direto pelo painel admin.
+function HistoricBackupsPanel() {
+  const [files, setFiles] = useState(null); // null | { error } | array
+  const [busy, setBusy] = useState({}); // {nome: true} enquanto baixa
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('https://api.github.com/repos/BanePlayss/primitivao/contents/backups?ref=main');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (cancelled) return;
+        const jsons = (Array.isArray(data) ? data : [])
+          .filter(f => f.name && f.name.endsWith('.json'))
+          .map(f => ({
+            name: f.name,
+            size: f.size || 0,
+            downloadUrl: f.download_url,
+            // Tenta extrair data do nome (YYYY-MM-DD ou primitivao-backup-YYYY-MM-DDTHH-MM-SS)
+            sortKey: (f.name.match(/\d{4}-\d{2}-\d{2}/) || [''])[0],
+          }))
+          .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
+        setFiles(jsons);
+      } catch (e) {
+        if (!cancelled) setFiles({ error: e.message || String(e) });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const downloadOne = async (file) => {
+    setBusy(b => ({ ...b, [file.name]: true })); setMsg('');
+    try {
+      const res = await fetch(file.downloadUrl);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = file.name;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setMsg(`Baixou ${file.name}.`);
+    } catch (e) {
+      setMsg('Erro: ' + (e.message || e));
+    } finally {
+      setBusy(b => { const next = { ...b }; delete next[file.name]; return next; });
+    }
+  };
+
+  return (
+    <div className="card" style={{ marginTop: 14 }}>
+      <div className="card-head">
+        <div className="title">BACKUPS HISTÓRICOS</div>
+        <div className="sub">SNAPSHOTS DIÁRIOS DO GITHUB ACTION</div>
+      </div>
+      <div className="card-body">
+        <p style={{ marginTop: 0, lineHeight: 1.5, fontSize: 13 }}>
+          Backups gerados automaticamente todo dia às 07:00 UTC (04:00 BRT) pelo
+          GitHub Action. Cada um é um snapshot completo do estado naquele momento
+          (incluindo palpites da Copa). Clica em DOWNLOAD pra baixar e usar no
+          RESTAURAR BACKUP abaixo.
+        </p>
+
+        {files === null && (
+          <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.55)' }}>Carregando lista do GitHub…</div>
+        )}
+        {files && files.error && (
+          <div style={{ padding: 10, background: 'rgba(195,51,51,0.10)', borderLeft: '4px solid #c33', fontSize: 12, color: '#7a2222', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="warning" size={13} /> Falha ao listar backups do GitHub: {files.error}
+          </div>
+        )}
+        {Array.isArray(files) && files.length === 0 && (
+          <div className="empty"><div className="e2">Nenhum backup ainda.</div></div>
+        )}
+        {Array.isArray(files) && files.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 360, overflowY: 'auto' }}>
+            {files.map(f => (
+              <div key={f.name} style={{
+                display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, alignItems: 'center',
+                padding: '8px 10px',
+                borderBottom: '1px dashed rgba(28,22,18,0.15)',
+                fontSize: 12,
+              }}>
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>{f.name}</div>
+                <div style={{ fontSize: 10, color: 'rgba(28,22,18,0.55)', letterSpacing: '0.12em', fontWeight: 700 }}>
+                  {(f.size / 1024).toFixed(0)}KB
+                </div>
+                <button
+                  onClick={() => downloadOne(f)}
+                  disabled={!!busy[f.name]}
+                  style={{
+                    background: 'transparent', color: 'var(--pv-charcoal)',
+                    border: '1.5px solid var(--pv-charcoal)',
+                    padding: '5px 10px', fontWeight: 800, fontSize: 10, letterSpacing: '0.14em',
+                    cursor: busy[f.name] ? 'wait' : 'pointer',
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                  }}
+                >
+                  <Icon name="arrow-down" size={11} /> {busy[f.name] ? 'BAIXANDO…' : 'DOWNLOAD'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {msg && <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: msg.startsWith('Erro') ? 'var(--pv-red)' : 'var(--pv-green)' }}>{msg}</div>}
       </div>
     </div>
   );
