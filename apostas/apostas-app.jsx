@@ -1946,9 +1946,9 @@ function App() {
         teamPlayers={teamPlayers || {}}
       />
       <div className="below-topbar">
-        {view === 'inicio' && (
-          <div className="content-area">
-            <div className="page">
+        <div className="content-area">
+          <div className="page">
+            {view === 'inicio' && (
               <InicioView
                 session={session}
                 isAdmin={isAdmin}
@@ -1957,12 +1957,8 @@ function App() {
                 onDelete={deleteComment}
                 remoteNews={remoteNews}
               />
-            </div>
-          </div>
-        )}
-        {view === 'copa' && (
-          <div className="content-area">
-            <div className="page">
+            )}
+            {view === 'copa' && (
               <CopaDoMundoView
                 session={session}
                 isAdmin={isAdmin}
@@ -1972,12 +1968,8 @@ function App() {
                 onSavePick={saveWorldcupPick}
                 onSetResult={setWorldcupResult}
               />
-            </div>
-          </div>
-        )}
-        {view === 'campeonatos' && (<>
-        <div className="content-area">
-          <div className="page">
+            )}
+            {view === 'campeonatos' && (<>
             <ChampionshipSelector
               value={championship}
               onChange={setChampionship}
@@ -2046,10 +2038,14 @@ function App() {
             cs={cs} weeklyReady={weeklyReady}
           />
         )}
+            </>)}
           </div>
         </div>
-        <Sidebar tab={tab} setTab={setTab} isAdmin={isAdmin} />
-        </>)}
+        <Sidebar
+          tab={tab} view={view}
+          setTab={setTab} setView={setView}
+          isAdmin={isAdmin}
+        />
       </div>
       {sharedSlip && (
         <SharedSlipModal
@@ -2352,8 +2348,15 @@ function Tabs({ tab, setTab, isAdmin }) {
 
 // Sidebar VERTICAL à direita no desktop. Renderiza só os itens GLOBAIS.
 // Escondida no mobile (hamburger drawer cobre).
-function Sidebar({ tab, setTab, isAdmin }) {
+function Sidebar({ tab, view, setTab, setView, isAdmin }) {
   const { globalItems } = getTabItems(isAdmin);
+  // Item ativo só fica destacado quando estamos na view 'campeonatos'
+  // (porque é onde o conteúdo do item — perfil, tickets, etc — renderiza).
+  const isInCampeonatos = view === 'campeonatos';
+  const goTo = (itemId) => {
+    setTab(itemId);
+    if (!isInCampeonatos && setView) setView('campeonatos');
+  };
   return (
     <aside className="app-sidebar">
       <div className="sidebar-nav">
@@ -2361,8 +2364,8 @@ function Sidebar({ tab, setTab, isAdmin }) {
         {globalItems.map(it => (
           <button
             key={it.id}
-            className={'sidebar-tab ' + (tab === it.id ? 'active' : '')}
-            onClick={() => setTab(it.id)}
+            className={'sidebar-tab ' + (isInCampeonatos && tab === it.id ? 'active' : '')}
+            onClick={() => goTo(it.id)}
           >
             {it.label}
           </button>
