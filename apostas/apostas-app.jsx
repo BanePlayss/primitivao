@@ -505,6 +505,8 @@ async function downloadFullBackup() {
     const topLevelInterests = rawApostas.interests;
     const topLevelComments  = rawApostas.comments;
     const topLevelWorldcup  = rawApostas.worldcup;
+    const topLevelNews      = rawApostas.news;
+    const topLevelWebhook   = rawApostas.discord_webhook;
     const apostasData = apostas.data ? { ...apostas.data } : null;
     if (apostasData) {
       apostasData.interests = (topLevelInterests && typeof topLevelInterests === 'object')
@@ -513,17 +515,23 @@ async function downloadFullBackup() {
       apostasData.comments = (topLevelComments && typeof topLevelComments === 'object')
         ? topLevelComments
         : (apostasData.comments || {});
+      // Copa do Mundo (CRITICO — palpites do bolão)
       apostasData.worldcup = (topLevelWorldcup && typeof topLevelWorldcup === 'object')
-        ? topLevelWorldcup
+        ? { results: topLevelWorldcup.results || {}, picks: topLevelWorldcup.picks || {} }
         : (apostasData.worldcup || { results: {}, picks: {} });
+      if (Array.isArray(topLevelNews)) apostasData.news = topLevelNews;
+      if (typeof topLevelWebhook === 'string') apostasData.discord_webhook = topLevelWebhook;
     }
+    const wcPicks = Object.values(apostasData?.worldcup?.picks || {})
+                          .reduce((s, perUser) => s + Object.keys(perUser || {}).length, 0);
+    const wcResults = Object.keys(apostasData?.worldcup?.results || {}).length;
     const payload = {
       exportedAt: new Date().toISOString(),
-      version: 5,
+      version: 6,
       source: 'browser-admin',
       apostas:       apostasData,
       classificacao: classificacao.data,
-      _raw: { apostas, classificacao, topLevelInterests, topLevelComments, topLevelWorldcup },
+      _raw: { apostas, classificacao, topLevelInterests, topLevelComments, topLevelWorldcup, topLevelNews, topLevelWebhook },
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -533,7 +541,13 @@ async function downloadFullBackup() {
     a.download = `primitivao-backup-${ts}.json`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    return { ok: true, users: Object.keys(payload.apostas?.users || {}).length, bets: (payload.apostas?.bets || []).length };
+    return {
+      ok: true,
+      users: Object.keys(payload.apostas?.users || {}).length,
+      bets:  (payload.apostas?.bets || []).length,
+      wcPicks, wcResults,
+      news:  Array.isArray(apostasData?.news) ? apostasData.news.length : 0,
+    };
   } catch (e) {
     console.error('Backup failed', e);
     return { ok: false, error: String(e && e.message || e) };
@@ -565,15 +579,21 @@ async function restoreFromBackup(payload) {
   try {
     const writes = [];
     if (apostas != null) {
-      // Separa campos top-level (interests/comments/worldcup) do json.
-      const { interests, comments, worldcup, ...rest } = apostas;
-      writes.push(BET_DOC().set({
+      // Separa campos top-level (que ficam siblings do `json` stringificado).
+      const { interests, comments, worldcup, news, discord_webhook, ...rest } = apostas;
+      const wcSafe = (worldcup && typeof worldcup === 'object')
+        ? { results: worldcup.results || {}, picks: worldcup.picks || {} }
+        : { results: {}, picks: {} };
+      const setPayload = {
         json: JSON.stringify(rest),
         interests: (interests && typeof interests === 'object') ? interests : {},
         comments:  (comments  && typeof comments  === 'object') ? comments  : {},
-        worldcup:  (worldcup  && typeof worldcup  === 'object') ? worldcup  : { results: {}, picks: {} },
+        worldcup:  wcSafe,
         updatedAt: Date.now(),
-      }));
+      };
+      if (Array.isArray(news)) setPayload.news = news;
+      if (typeof discord_webhook === 'string') setPayload.discord_webhook = discord_webhook;
+      writes.push(BET_DOC().set(setPayload));
     }
     if (classificacao != null) {
       writes.push(CLASSIF_DOC().set({
@@ -582,6 +602,9 @@ async function restoreFromBackup(payload) {
       }));
     }
     await Promise.all(writes);
+    const wcPicksRestored = Object.values(apostas?.worldcup?.picks || {})
+                                  .reduce((s, perUser) => s + Object.keys(perUser || {}).length, 0);
+    const wcResultsRestored = Object.keys(apostas?.worldcup?.results || {}).length;
     return {
       ok: true,
       applied: {
@@ -590,6 +613,11 @@ async function restoreFromBackup(payload) {
         teams:     Object.keys(apostas?.teamPlayers || {}).length,
         interests: Object.values(apostas?.interests || {})
                           .reduce((s, x) => s + Object.keys(x || {}).length, 0),
+        comments:  Object.values(apostas?.comments || {})
+                          .reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0),
+        wcPicks:   wcPicksRestored,
+        wcResults: wcResultsRestored,
+        news:      Array.isArray(apostas?.news) ? apostas.news.length : 0,
         rounds:    (classificacao?.rounds || []).length,
       },
     };
@@ -5869,7 +5897,7 @@ function BackupPanel() {
         </button>
         {status && status !== 'running' && status.ok && (
           <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Icon name="check" size={14} /> Backup baixado. {status.users} usuários, {status.bets} apostas.
+            <Icon name="check" size={14} /> Backup baixado. {status.users} usuários, {status.bets} apostas, {status.wcPicks || 0} palpites da Copa ({status.wcResults || 0} resultados), {status.news || 0} news.
           </p>
         )}
         {status && status !== 'running' && !status.ok && (
@@ -5919,6 +5947,13 @@ function RestorePanel() {
         teams:     Object.keys(apostas?.teamPlayers || {}).length,
         interests: Object.values(apostas?.interests || {})
                           .reduce((s, x) => s + Object.keys(x || {}).length, 0),
+        comments:  Object.values(apostas?.comments || {})
+                          .reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0),
+        wcPicks:   Object.values(apostas?.worldcup?.picks || {})
+                          .reduce((s, perUser) => s + Object.keys(perUser || {}).length, 0),
+        wcPickers: Object.keys(apostas?.worldcup?.picks || {}).length,
+        wcResults: Object.keys(apostas?.worldcup?.results || {}).length,
+        news:      Array.isArray(apostas?.news) ? apostas.news.length : 0,
         rounds:    (classificacao?.rounds || []).length,
         exportedAt: data.exportedAt || '(sem data)',
         version:   data.version || 1,
@@ -5983,9 +6018,17 @@ function RestorePanel() {
               · <strong>{preview.bets}</strong> apostas (tickets)<br />
               · <strong>{preview.teams}</strong> times vinculados a usuários<br />
               · <strong>{preview.interests}</strong> inscrições em campeonatos<br />
+              · <strong>{preview.comments || 0}</strong> comentários em news<br />
+              · <strong>Copa do Mundo:</strong> {preview.wcPicks || 0} palpites de {preview.wcPickers || 0} jogadores · {preview.wcResults || 0} resultados<br />
+              · <strong>{preview.news || 0}</strong> news publicadas<br />
               · <strong>{preview.rounds}</strong> rodadas de classificação<br />
               · Exportado em: <code>{preview.exportedAt}</code> (v{preview.version})
             </div>
+            {preview.version < 4 && (
+              <div style={{ marginTop: 10, padding: 8, background: 'rgba(215,100,20,0.10)', borderLeft: '4px solid var(--pv-orange)', fontSize: 11, lineHeight: 1.4, color: 'var(--pv-charcoal)' }}>
+                <Icon name="warning" size={11} /> Backup antigo (v{preview.version}). Pode não conter os palpites da Copa do Mundo, comentários ou news (campos top-level adicionados a partir da v4).
+              </div>
+            )}
 
             <button
               onClick={onRestore}
@@ -6005,9 +6048,15 @@ function RestorePanel() {
         )}
 
         {status && status !== 'running' && status.ok && (
-          <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Icon name="check" size={14} /> Backup restaurado. {status.applied.users} usuários, {status.applied.bets} apostas,{' '}
-            {status.applied.teams} vínculos de time, {status.applied.rounds} rodadas, {status.applied.interests} inscrições.
+          <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)', fontWeight: 700, display: 'flex', alignItems: 'flex-start', gap: 6, lineHeight: 1.5 }}>
+            <Icon name="check" size={14} />
+            <span>
+              Backup restaurado. {status.applied.users} usuários, {status.applied.bets} apostas,{' '}
+              {status.applied.teams} vínculos de time, {status.applied.rounds} rodadas,{' '}
+              {status.applied.interests} inscrições, {status.applied.comments || 0} comentários,{' '}
+              {status.applied.wcPicks || 0} palpites da Copa ({status.applied.wcResults || 0} resultados),{' '}
+              {status.applied.news || 0} news.
+            </span>
           </p>
         )}
         {status && status !== 'running' && !status.ok && (
