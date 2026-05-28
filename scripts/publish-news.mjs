@@ -31,6 +31,34 @@ const firebaseConfig = {
 // ────────────────────────────────────────────────────────────────
 const NEWS = [
   {
+    id: 'mk-edicao-01-inscricoes',
+    title: 'MORTAL KOMBAT · EDIÇÃO 01 — INSCRIÇÕES NO ÚLTIMO ROUND!',
+    subtitle: 'Domingo às 23h59 baixa o pano. Quem não entrou ainda corre, porque o primeiro torneio de MK do Primitivão tá saindo do papel.',
+    tag: 'EDIÇÃO 01 · MORTAL KOMBAT',
+    date: '28/05/2026',
+    image: 'news/mk-s1-r01.jpg',
+    body: `**MORTAL KOMBAT TÁ NA HORA, MEU FILHO.**
+
+A **EDIÇÃO 01** do Mortal Kombat do Primitivão tá saindo do papel — e as inscrições **se encerram DOMINGO ÀS 23H59**. Quem não entrar até lá vai ficar de fora vendo os outros se matarem em modo Fatality.
+
+**COMO FUNCIONA:**
+
+- **Eliminatória direta** — perdeu, foi
+- **Melhor de 3 lutas** por confronto
+- **Personagens livres** — escolhe quem quiser, ninguém marca presença
+- **Chaves sorteadas** após o fechamento das inscrições
+- **Fatality obrigatória ao vencer** — quem não terminar o oponente perde o respeito
+
+**PRÊMIO:** o campeão leva o **badge FATALITY MASTER** — primeiro e único da Edição 01. Vai aparecer estampado no avatar pra eternidade (ou até a Edição 02). Quem perder a final ainda leva um **badge VICE-FIGHTER** de consolação.
+
+**JÁ TÁ DENTRO?** A lista tá crescendo. Mas só sai do papel domingo às 23h59 — depois disso, sem choro, sem retorno, sem segundo round. Fica esperto.
+
+**COMO ENTRAR:** corre no **DISCORD** e fala com a comissão. Em 30 segundos você tá inscrito.
+
+Domingo o sangue corre. **Quem vai aparecer pro First Blood?**`,
+    at: Date.parse('2026-05-28T01:30:00-03:00'),
+  },
+  {
     id: 'ultima-rodada-vol-09',
     title: 'ÚLTIMA RODADA — VOL. 09 DO PRIMITIVÃO TIMES',
     subtitle: 'Bane ripou todo mundo nas apostas, Juca já é campeão e Mohamed FC afunda em −33. Segunda tem FIFA pra fechar a temporada.',
