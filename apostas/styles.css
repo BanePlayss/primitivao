@@ -1491,6 +1491,129 @@
       .odd-btn .lab { font-size: 7px; }
     }
 
+    /* ──── TÍTULOS (PERFIL) ──── */
+    .titulos-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .titulo-card-wrap {
+      position: relative;
+    }
+    .titulo-card {
+      width: 100%;
+      padding: 12px 14px;
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+      transition: transform 0.08s;
+    }
+    .titulo-card:hover:not(.locked) {
+      transform: translateY(-2px);
+    }
+    .titulo-card.locked {
+      background: rgba(28,22,18,0.05);
+      border: 2px solid rgba(28,22,18,0.18);
+      border-left: 6px solid rgba(28,22,18,0.25);
+      color: rgba(28,22,18,0.45);
+      cursor: not-allowed;
+      filter: grayscale(1);
+    }
+    .titulo-head {
+      display: flex; align-items: center; gap: 8px;
+      justify-content: space-between;
+    }
+    .titulo-head-left {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .titulo-ic {
+      line-height: 1;
+      display: inline-flex;
+      color: rgba(28,22,18,0.55);
+    }
+    .titulo-name {
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      font-size: 18px;
+      letter-spacing: 0.04em;
+      color: rgba(28,22,18,0.55);
+    }
+    .titulo-card.locked .titulo-name { color: rgba(28,22,18,0.45); }
+    .titulo-exibindo {
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      font-weight: 800;
+      padding: 2px 6px;
+      background: rgba(255,255,255,0.25);
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .titulo-desc {
+      margin-top: 6px;
+      font-size: 11px;
+      line-height: 1.4;
+      color: rgba(28,22,18,0.7);
+      font-weight: 600;
+    }
+    .titulo-card.locked .titulo-desc { color: rgba(28,22,18,0.45); }
+    .titulo-owners-count {
+      margin-top: 8px;
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      font-weight: 800;
+      color: rgba(28,22,18,0.4);
+      text-transform: uppercase;
+    }
+    .titulo-card.locked .titulo-owners-count { color: rgba(28,22,18,0.4); }
+    /* Tooltip — aparece no hover do wrap */
+    .titulo-tooltip {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 8px);
+      transform: translateX(-50%);
+      background: var(--pv-charcoal);
+      color: var(--pv-bone);
+      border: 2px solid var(--pv-orange);
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      min-width: 180px;
+      max-width: 280px;
+      box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+      z-index: 100;
+    }
+    .titulo-tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%; left: 50%; transform: translateX(-50%);
+      border: 8px solid transparent;
+      border-top-color: var(--pv-orange);
+    }
+    .titulo-card-wrap:hover .titulo-tooltip { opacity: 1; }
+    .titulo-tooltip-head {
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      color: var(--pv-orange);
+      font-weight: 800;
+      padding-bottom: 6px;
+      margin-bottom: 6px;
+      border-bottom: 1px dashed rgba(244,234,215,0.3);
+    }
+    .titulo-tooltip ul {
+      list-style: none; margin: 0; padding: 0;
+      display: flex; flex-direction: column; gap: 3px;
+      max-height: 200px; overflow-y: auto;
+    }
+    .titulo-tooltip li {
+      padding: 2px 0;
+    }
+    .titulo-tooltip li.me {
+      color: var(--pv-orange);
+      font-weight: 800;
+    }
+
     /* ──── AVATARES ──── */
     .avatar {
       position: relative;

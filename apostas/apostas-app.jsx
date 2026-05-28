@@ -2465,6 +2465,33 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
           <text x="12" y="15.4" textAnchor="middle" fontFamily="'JetBrains Mono', ui-monospace, monospace" fontSize="8.5" fontWeight="800" fill="currentColor" stroke="none">PC</text>
         </svg>
       );
+    case 'coin-stack':
+      // 3 moedas empilhadas com brilho na de cima — "quebrou a banca"
+      return (
+        <svg {...common}>
+          <ellipse cx="12" cy="19" rx="8" ry="2" />
+          <path d="M4 19v-3M20 19v-3" />
+          <ellipse cx="12" cy="16" rx="8" ry="2" />
+          <path d="M4 16v-3M20 16v-3" />
+          <ellipse cx="12" cy="13" rx="8" ry="2" />
+          <path d="M4 13v-3M20 13v-3" />
+          <ellipse cx="12" cy="10" rx="8" ry="2" fill="currentColor" stroke="none" opacity="0.15" />
+          <ellipse cx="12" cy="10" rx="8" ry="2" />
+          {/* brilho/cifrão na de cima */}
+          <path d="M9.5 9.6q1 -0.9 2.5 -0.9 t 2.5 0.9" strokeWidth={sw * 0.8} />
+        </svg>
+      );
+    case 'coin-fire':
+      // moeda com chamas em cima — "queimou X PC"
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="16" r="5.5" />
+          <circle cx="12" cy="16" r="3.2" strokeDasharray="1.2 1.8" opacity="0.55" />
+          {/* chamas saindo de cima */}
+          <path d="M9 9c0-2 1.5-3 2-5 0.8 1.5 1.5 2 1.5 3.5 0.5-0.8 1-1 1.5-2 0.5 1.5 1.5 2.5 1.5 4.5 0 1.5-1 2.5-3 2.5s-3.5-1-3.5-2.5z" fill="currentColor" stroke="none" opacity="0.85" />
+          <path d="M9 9c0-2 1.5-3 2-5 0.8 1.5 1.5 2 1.5 3.5 0.5-0.8 1-1 1.5-2 0.5 1.5 1.5 2.5 1.5 4.5 0 1.5-1 2.5-3 2.5s-3.5-1-3.5-2.5z" />
+        </svg>
+      );
     // ─── flechas ──
     case 'arrow-right':
       return <svg {...common}><path d="M5 12h14M13 6l6 6-6 6" /></svg>;
@@ -4380,6 +4407,28 @@ const TITLE_DEFS = [
       return all.some(b => b.user === nick && Number(b.amount) >= 100000);
     },
   },
+  {
+    id: 'high_roller_win',
+    name: 'QUEBROU A BANCA',
+    icon: 'coin-stack',
+    desc: 'Apostou 100k+ PC E venceu. A casa chorou.',
+    color: '#2a8f3f', // verde esmeralda
+    check: ({ nick, bets }) => {
+      const all = Array.isArray(bets) ? bets : [];
+      return all.some(b => b.user === nick && Number(b.amount) >= 100000 && b.status === 'won');
+    },
+  },
+  {
+    id: 'high_roller_loss',
+    name: 'QUEIMOU 100K',
+    icon: 'coin-fire',
+    desc: 'Apostou 100k+ PC E perdeu. Adeus, dinheirinho.',
+    color: '#c33', // vermelho
+    check: ({ nick, bets }) => {
+      const all = Array.isArray(bets) ? bets : [];
+      return all.some(b => b.user === nick && Number(b.amount) >= 100000 && b.status === 'lost');
+    },
+  },
 ];
 function titlesForNick(nick, ctx) {
   return TITLE_DEFS.filter(t => {
@@ -4586,80 +4635,102 @@ function MatchRow({ g, myTeamId }) {
   );
 }
 
+// Retorna { titleId: [nicks que possuem] } pra todos os titulos do catalogo.
+function computeTitleOwners(ctx) {
+  const result = {};
+  TITLE_DEFS.forEach(t => { result[t.id] = []; });
+  const users = (ctx && ctx.users) || {};
+  Object.keys(users).forEach(nick => {
+    const earned = titlesForNick(nick, ctx || {});
+    earned.forEach(t => { result[t.id].push(nick); });
+  });
+  return result;
+}
+
 function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
-  const titulos = titlesForNick(nick, ctx || {});
-  const handleClick = (id) => {
-    if (!onSelectTitle) return;
+  const earnedIds = useMemo(() => new Set(titlesForNick(nick, ctx || {}).map(t => t.id)), [nick, ctx]);
+  const owners = useMemo(() => computeTitleOwners(ctx || {}), [ctx]);
+  const ownedCount = TITLE_DEFS.filter(t => earnedIds.has(t.id)).length;
+
+  const handleClick = (id, isLocked) => {
+    if (isLocked || !onSelectTitle) return;
     onSelectTitle(selectedTitle === id ? null : id);
   };
+
   return (
     <div className="card" style={{ marginBottom: 14 }}>
       <div className="card-head">
         <div className="title"><Icon name="tag" size={16} /> TÍTULOS</div>
-        <div className="sub">{titulos.length} · CLIQUE PARA EXIBIR</div>
+        <div className="sub">{ownedCount}/{TITLE_DEFS.length} CONQUISTADOS · HOVER PRA VER QUEM TEM</div>
       </div>
       <div className="card-body">
-        {titulos.length === 0 ? (
-          <div className="empty">
-            <div className="e1">SEM TÍTULOS</div>
-            <div className="e2">Vai conquistando títulos conforme participar dos campeonatos.</div>
-          </div>
-        ) : (
-          <>
-            <p style={{ marginTop: 0, marginBottom: 12, fontSize: 11, color: 'rgba(28,22,18,0.65)', lineHeight: 1.4 }}>
-              Clica num título pra exibi-lo publicamente no seu nome (CLASSIFICAÇÃO + RANKING). Clica de novo pra esconder.
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-              {titulos.map(t => {
-                const isSelected = selectedTitle === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => handleClick(t.id)}
-                    style={{
-                      flex: '0 0 calc(50% - 5px)', maxWidth: 280, minWidth: 200,
-                      padding: '12px 14px',
-                      textAlign: 'left',
-                      background: isSelected ? t.color : t.color + '15',
-                      border: `2px solid ${t.color}`,
-                      borderLeft: `6px solid ${t.color}`,
-                      cursor: 'pointer',
-                      color: isSelected ? '#fff' : 'inherit',
-                      font: 'inherit',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ lineHeight: 1, color: isSelected ? '#fff' : t.color, display: 'inline-flex' }}><Icon name={t.icon} size={24} /></span>
-                        <span style={{
-                          fontFamily: 'Bagel Fat One, Impact',
-                          fontSize: 18, color: isSelected ? '#fff' : t.color, letterSpacing: '0.04em',
-                        }}>
-                          {t.name}
-                        </span>
-                      </div>
-                      {isSelected && (
-                        <span style={{
-                          fontSize: 9, letterSpacing: '0.18em', fontWeight: 800,
-                          padding: '2px 6px', background: 'rgba(255,255,255,0.25)',
-                          display: 'inline-flex', alignItems: 'center', gap: 4,
-                        }}>
-                          <Icon name="check" size={10} /> EXIBINDO
-                        </span>
-                      )}
+        <p style={{ marginTop: 0, marginBottom: 12, fontSize: 11, color: 'rgba(28,22,18,0.65)', lineHeight: 1.4 }}>
+          Clica num título que você conquistou pra exibi-lo publicamente no seu nome (CLASSIFICAÇÃO + RANKING).
+          Títulos bloqueados (cinza com cadeado) aparecem pra todo mundo ver o que dá pra desbloquear.
+        </p>
+        <div className="titulos-grid">
+          {TITLE_DEFS.map(t => {
+            const isLocked = !earnedIds.has(t.id);
+            const isSelected = !isLocked && selectedTitle === t.id;
+            const titleOwners = owners[t.id] || [];
+            return (
+              <div key={t.id} className={'titulo-card-wrap' + (isLocked ? ' locked' : '')}>
+                <button
+                  className={'titulo-card' + (isSelected ? ' selected' : '') + (isLocked ? ' locked' : '')}
+                  onClick={() => handleClick(t.id, isLocked)}
+                  style={!isLocked ? {
+                    background: isSelected ? t.color : t.color + '15',
+                    border: `2px solid ${t.color}`,
+                    borderLeft: `6px solid ${t.color}`,
+                    color: isSelected ? '#fff' : 'inherit',
+                  } : undefined}
+                >
+                  <div className="titulo-head">
+                    <div className="titulo-head-left">
+                      <span className="titulo-ic" style={!isLocked ? { color: isSelected ? '#fff' : t.color } : undefined}>
+                        {isLocked ? <Icon name="lock" size={22} /> : <Icon name={t.icon} size={24} />}
+                      </span>
+                      <span className="titulo-name" style={!isLocked ? {
+                        color: isSelected ? '#fff' : t.color,
+                      } : undefined}>
+                        {t.name}
+                      </span>
                     </div>
-                    <div style={{
-                      marginTop: 6, fontSize: 11, lineHeight: 1.4,
-                      color: isSelected ? 'rgba(255,255,255,0.9)' : 'rgba(28,22,18,0.7)', fontWeight: 600,
-                    }}>
-                      {t.desc}
+                    {isSelected && (
+                      <span className="titulo-exibindo">
+                        <Icon name="check" size={10} /> EXIBINDO
+                      </span>
+                    )}
+                  </div>
+                  <div className="titulo-desc" style={isSelected ? { color: 'rgba(255,255,255,0.9)' } : undefined}>
+                    {t.desc}
+                  </div>
+                  <div className="titulo-owners-count">
+                    {titleOwners.length === 0
+                      ? 'Ninguém tem ainda'
+                      : titleOwners.length === 1
+                        ? '1 jogador tem'
+                        : `${titleOwners.length} jogadores têm`}
+                  </div>
+                </button>
+                {titleOwners.length > 0 && (
+                  <div className="titulo-tooltip">
+                    <div className="titulo-tooltip-head">
+                      POSSUEM ESTE TÍTULO ({titleOwners.length})
                     </div>
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
+                    <ul>
+                      {titleOwners.map(n => (
+                        <li key={n} className={n === nick ? 'me' : ''}>
+                          @{n}{n === nick ? ' (você)' : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
