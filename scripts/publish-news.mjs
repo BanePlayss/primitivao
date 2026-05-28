@@ -31,6 +31,29 @@ const firebaseConfig = {
 // ────────────────────────────────────────────────────────────────
 const NEWS = [
   {
+    id: 'ultima-rodada-vol-09',
+    title: 'ÚLTIMA RODADA — VOL. 09 DO PRIMITIVÃO TIMES',
+    subtitle: 'Bane ripou todo mundo nas apostas, Juca já é campeão e Mohamed FC afunda em −33. Segunda tem FIFA pra fechar a temporada.',
+    tag: 'PRIMITIVÃO TIMES · VOL. 09',
+    date: '28/05/2026',
+    image: 'news/last_edition.jpg',
+    body: `**ÚLTIMA RODADA E O JOGO DE HOJE PEGOU FOGO!**
+
+**BANE 4 × 3 CACO** — SETE gols, coração na boca e decisão no detalhe. O Caco veio com sangue no olho, brigou no placar do início ao fim, mas o Bane foi mais frio na hora de carimbar e levou o jogo mais quente da rodada.
+
+E não parou no campo, não: o **Bane RIPOU TODO MUNDO NAS APOSTAS** também. Levou o jogo e levou a banca junto. Dia perfeito.
+
+E pra fechar em grande estilo... **SAIU A EDIÇÃO FINAL DO PRIMITIVÃO TIMES — VOL. 09!** Olha o que tá bombando na tabela:
+
+- **JUCA JÁ É CAMPEÃO MATEMÁTICO!** 18 pts, 100% de aproveitamento, +36 de saldo. Título no bolso, não tem mais jeito.
+- **POTATO** segura o vice quase certo com 13 pts — só um milagre tira.
+- A **DISPUTA PELO 3º** incendiou: Magreza (10) na frente, Celin (9) colado. Decidido no detalhe.
+- E lá no fundo do poço... **MOHAMED FC AFUNDA EM −33** de saldo. Lanterna matemático, 0 ponto, 6 derrota. Vexame carimbado e moldurado.
+
+E o aviso que importa: **SEGUNDA TEM FIFA!** TODOS NO DISCORD pra fechar essa temporada com a resenha que ela merece.`,
+    at: Date.parse('2026-05-28T00:45:00-03:00'),
+  },
+  {
     id: 'avatares-lancamento',
     title: 'NASCEM OS 8 CARTOONS DO PRIMITIVÃO',
     subtitle: 'Cada jogador agora tem versão oficial em estilo Cartoon Network — saíram direto do Dexter\'s Laboratory pro topo da sua tela.',
