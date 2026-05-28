@@ -929,9 +929,19 @@ function TeamMini({ team, size = 36 }) {
 //   - fullBody: true mostra PNG inteiro; false mostra só a cabeça (crop top)
 //   - className: classe extra
 function Avatar({ teamId, nick, teamPlayers, size = 32, fullBody = false, className = '' }) {
-  // Resolve teamId via teamPlayers se não veio direto
+  // Resolve teamId via teamPlayers se não veio direto.
+  // teamPlayers tem formato { teamId: nick } — precisa inverter pra achar o
+  // teamId a partir do nick.
   let tid = teamId;
-  if (!tid && nick && teamPlayers) tid = teamPlayers[nick];
+  if (!tid && nick && teamPlayers) {
+    const nickLc = String(nick).toLowerCase();
+    for (const [tIdCandidate, n] of Object.entries(teamPlayers)) {
+      if (n && String(n).toLowerCase() === nickLc) {
+        tid = tIdCandidate;
+        break;
+      }
+    }
+  }
 
   if (tid) {
     const t = TEAM(tid);
