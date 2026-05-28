@@ -972,6 +972,88 @@ function TeamMini({ team, size = 36 }) {
 //   - size:     tamanho em px (lado do quadrado pra ícone, ou largura pro full)
 //   - fullBody: true mostra PNG inteiro; false mostra só a cabeça (crop top)
 //   - className: classe extra
+// Molduras decorativas estilo "summoner frame" (inspirado em LoL), mas na
+// paleta do site. SVG inline, viewBox 0 0 100 100 — o avatar circular fica
+// no centro (~raio 38) e a moldura desenha o anel + ornamentos (chifres,
+// asas, gemas) em volta. So aparece no modo icone (avatar circular).
+function FrameDeco({ frameId }) {
+  const common = {
+    viewBox: '0 0 100 100',
+    className: 'frame-deco',
+    'aria-hidden': 'true',
+    preserveAspectRatio: 'xMidYMid meet',
+  };
+  switch (frameId) {
+    // BRONZE — comum: anel duplo + 2 chifres curtos no topo + gema embaixo
+    case 'frame-bronze':
+      return (
+        <svg {...common}>
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#6b3e1a" strokeWidth="6" />
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#c98a4d" strokeWidth="3" />
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#e9c08a" strokeWidth="1" opacity="0.7" />
+          {/* chifres topo */}
+          <path d="M34 12 Q40 2 46 11 L42 19 Q38 14 34 12 Z" fill="#c98a4d" stroke="#6b3e1a" strokeWidth="1.5" strokeLinejoin="round" />
+          <path d="M66 12 Q60 2 54 11 L58 19 Q62 14 66 12 Z" fill="#c98a4d" stroke="#6b3e1a" strokeWidth="1.5" strokeLinejoin="round" />
+          {/* gema base */}
+          <circle cx="50" cy="93" r="6" fill="#e9c08a" stroke="#6b3e1a" strokeWidth="2" />
+          <circle cx="50" cy="93" r="2.2" fill="#fff" opacity="0.7" />
+        </svg>
+      );
+    // PRATA — rara: anel triplo + asas laterais + gemas no topo
+    case 'frame-silver':
+      return (
+        <svg {...common}>
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#6e6e6e" strokeWidth="6" />
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#cfcfcf" strokeWidth="3" />
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#ffffff" strokeWidth="1" opacity="0.8" />
+          {/* asa esquerda */}
+          <path d="M9 50 Q2 40 8 34 Q10 42 16 44 Q8 46 12 52 Q6 54 9 50 Z" fill="#cfcfcf" stroke="#6e6e6e" strokeWidth="1.5" strokeLinejoin="round" />
+          <path d="M12 58 Q5 54 9 48 Q13 54 18 54 Q12 58 16 62 Q11 62 12 58 Z" fill="#bcbcbc" stroke="#6e6e6e" strokeWidth="1.2" strokeLinejoin="round" />
+          {/* asa direita (espelhada) */}
+          <path d="M91 50 Q98 40 92 34 Q90 42 84 44 Q92 46 88 52 Q94 54 91 50 Z" fill="#cfcfcf" stroke="#6e6e6e" strokeWidth="1.5" strokeLinejoin="round" />
+          <path d="M88 58 Q95 54 91 48 Q87 54 82 54 Q88 58 84 62 Q89 62 88 58 Z" fill="#bcbcbc" stroke="#6e6e6e" strokeWidth="1.2" strokeLinejoin="round" />
+          {/* gema topo */}
+          <circle cx="50" cy="8" r="5.5" fill="#eaf2ff" stroke="#6e6e6e" strokeWidth="2" />
+          <circle cx="50" cy="8" r="2" fill="#fff" />
+          {/* gemas base laterais */}
+          <circle cx="36" cy="90" r="3" fill="#cfcfcf" stroke="#6e6e6e" strokeWidth="1.2" />
+          <circle cx="64" cy="90" r="3" fill="#cfcfcf" stroke="#6e6e6e" strokeWidth="1.2" />
+        </svg>
+      );
+    // OURO — lendaria: anel grosso + chifres grandes + picos radiais + gemas + glow
+    case 'frame-gold':
+      return (
+        <svg {...common} className="frame-deco frame-deco-gold">
+          {/* picos radiais sutis */}
+          <g stroke="#9e8024" strokeWidth="1.5" opacity="0.8">
+            <line x1="50" y1="2" x2="50" y2="9" />
+            <line x1="18" y1="18" x2="23" y2="23" />
+            <line x1="82" y1="18" x2="77" y2="23" />
+            <line x1="6" y1="50" x2="13" y2="50" />
+            <line x1="94" y1="50" x2="87" y2="50" />
+          </g>
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#6b5616" strokeWidth="7" />
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#d4af37" strokeWidth="4" />
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#ffe9a8" strokeWidth="1.4" opacity="0.9" />
+          {/* chifres grandes topo */}
+          <path d="M30 14 Q34 -2 44 9 Q40 4 38 13 Q42 12 46 16 L40 22 Q34 17 30 14 Z" fill="#d4af37" stroke="#6b5616" strokeWidth="1.6" strokeLinejoin="round" />
+          <path d="M70 14 Q66 -2 56 9 Q60 4 62 13 Q58 12 54 16 L60 22 Q66 17 70 14 Z" fill="#d4af37" stroke="#6b5616" strokeWidth="1.6" strokeLinejoin="round" />
+          {/* asas laterais douradas */}
+          <path d="M8 52 Q0 42 7 35 Q9 44 17 45 Q9 48 13 55 Q6 56 8 52 Z" fill="#d4af37" stroke="#6b5616" strokeWidth="1.4" strokeLinejoin="round" />
+          <path d="M92 52 Q100 42 93 35 Q91 44 83 45 Q91 48 87 55 Q94 56 92 52 Z" fill="#d4af37" stroke="#6b5616" strokeWidth="1.4" strokeLinejoin="round" />
+          {/* gema central base (grande) */}
+          <path d="M50 86 l7 6 -7 8 -7 -8 Z" fill="#ffcf5a" stroke="#6b5616" strokeWidth="2" strokeLinejoin="round" />
+          <circle cx="50" cy="93" r="2.4" fill="#fff" opacity="0.85" />
+          {/* gemas menores laterais base */}
+          <circle cx="32" cy="86" r="3" fill="#ffe9a8" stroke="#6b5616" strokeWidth="1.4" />
+          <circle cx="68" cy="86" r="3" fill="#ffe9a8" stroke="#6b5616" strokeWidth="1.4" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
 function Avatar({ teamId, nick, teamPlayers, cosmetics, size = 32, fullBody = false, className = '' }) {
   // Resolve teamId via teamPlayers se não veio direto.
   // teamPlayers tem formato { teamId: nick } — precisa inverter pra achar o
@@ -1005,6 +1087,19 @@ function Avatar({ teamId, nick, teamPlayers, cosmetics, size = 32, fullBody = fa
     );
   };
 
+  // Helper: envolve um avatar-icon com a moldura SVG decorativa quando há
+  // frameItem. No fullBody mantém o tratamento de borda/glow via frameClass.
+  const wrapWithFrameDeco = (iconEl) => {
+    if (!frameItem) return iconEl;
+    return (
+      <span className={'avatar-framed ' + className} style={{ width: size, height: size }}>
+        {iconEl}
+        <FrameDeco frameId={frameItem.id} />
+        {renderBadge()}
+      </span>
+    );
+  };
+
   if (tid) {
     const t = TEAM(tid);
     const src = `avatars/${tid}.png`;
@@ -1017,24 +1112,28 @@ function Avatar({ teamId, nick, teamPlayers, cosmetics, size = 32, fullBody = fa
         </div>
       );
     }
-    // Ícone: crop top (mostra só a cabeça)
-    return (
-      <div className={'avatar avatar-icon ' + className + frameClass} style={{ width: size, height: size }}>
+    // Ícone: crop top (mostra só a cabeça). Com moldura decorativa, o avatar
+    // circular vai DENTRO de .avatar-framed (sem frameClass de borda) e o SVG
+    // da moldura desenha o anel + ornamentos por cima.
+    const iconEl = (
+      <div className={'avatar avatar-icon ' + (frameItem ? 'avatar-icon-inner' : className)} style={frameItem ? undefined : { width: size, height: size }}>
         <img src={src} alt={t.name} onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.classList.add('avatar-fallback'); }} />
         <span className="avatar-fallback-letter" style={{ background: t.color, fontSize: size * 0.5 }}>{t.short.charAt(0)}</span>
-        {renderBadge()}
+        {!frameItem && renderBadge()}
       </div>
     );
+    return wrapWithFrameDeco(iconEl);
   }
 
   // Fallback puro (sem time): círculo bege com inicial do nick
   const letter = (nick || '?').charAt(0).toUpperCase();
-  return (
-    <div className={'avatar avatar-icon avatar-fallback-pure ' + className + frameClass} style={{ width: size, height: size }}>
+  const fbEl = (
+    <div className={'avatar avatar-icon avatar-fallback-pure ' + (frameItem ? 'avatar-icon-inner' : className)} style={frameItem ? undefined : { width: size, height: size }}>
       <span className="avatar-fallback-letter" style={{ fontSize: size * 0.5 }}>{letter}</span>
-      {renderBadge()}
+      {!frameItem && renderBadge()}
     </div>
   );
+  return wrapWithFrameDeco(fbEl);
 }
 
 // ─── APP ────────────────────────────────────────────────────────────────────

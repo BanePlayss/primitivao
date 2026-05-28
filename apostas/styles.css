@@ -1624,6 +1624,48 @@
     }
     .loja-btn.unequip:hover:not(:disabled) { background: #2a8f3f; color: var(--pv-bone); }
 
+    /* ──── AVATAR: MOLDURA DECORATIVA SVG (estilo summoner frame) ──── */
+    /* Wrapper que contém o avatar circular interno + o SVG da moldura
+       por cima. Só usado no modo ícone (avatar circular). */
+    .avatar-framed {
+      position: relative;
+      display: inline-block;
+      flex-shrink: 0;
+      overflow: visible;
+      vertical-align: middle;
+    }
+    /* Avatar circular dentro da moldura: menor pra moldura abraçar a borda */
+    .avatar-framed .avatar-icon-inner {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 78%; height: 78%;
+      border: none;          /* a moldura SVG faz a borda */
+    }
+    /* SVG da moldura: cobre o wrapper, extravasa de leve, fica por cima */
+    .frame-deco {
+      position: absolute;
+      inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      overflow: visible;
+      z-index: 3;
+      filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35));
+    }
+    /* Ouro: glow pulsante na moldura inteira */
+    .frame-deco-gold {
+      animation: frame-gold-glow 2.8s ease-in-out infinite;
+    }
+    @keyframes frame-gold-glow {
+      0%, 100% { filter: drop-shadow(0 0 2px rgba(212,175,55,0.5)); }
+      50%      { filter: drop-shadow(0 0 7px rgba(255,210,80,0.95)); }
+    }
+    /* Badge dentro do wrapper de moldura */
+    .avatar-framed .avatar-badge {
+      bottom: 2%; right: 2%;
+      z-index: 4;
+    }
+
     /* ──── AVATAR: MOLDURAS (cosmetic frame) ──── */
     /* Cada moldura tem múltiplos anéis + glow externo pra parecer
        metal trabalhado, não só uma borda chapada. */
