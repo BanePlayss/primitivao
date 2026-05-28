@@ -1547,6 +1547,55 @@
       .odd-btn .lab { font-size: 7px; }
     }
 
+    /* ──── ADMIN: CATÁLOGO ──── */
+    .catalogo-icons {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+      gap: 8px;
+    }
+    .catalogo-icon-cell {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      padding: 10px 6px;
+      border: 1.5px solid rgba(28,22,18,0.15);
+      background: rgba(0,0,0,0.02);
+      color: var(--pv-charcoal);
+    }
+    .catalogo-icon-cell span {
+      font-size: 9px; letter-spacing: 0.04em; font-weight: 700;
+      color: rgba(28,22,18,0.6);
+      text-align: center; word-break: break-all; line-height: 1.2;
+    }
+    .catalogo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 10px;
+    }
+    .catalogo-card {
+      padding: 12px;
+      border: 1.5px solid rgba(28,22,18,0.18);
+      border-left: 5px solid var(--pv-charcoal);
+      background: var(--pv-bone);
+    }
+    .catalogo-card.rarity-lendaria { box-shadow: 0 0 0 1px rgba(212,175,55,0.3); }
+    .catalogo-card-head {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+    }
+    .catalogo-card-name {
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      font-size: 15px; letter-spacing: 0.03em; line-height: 1.1;
+    }
+    .catalogo-card-meta {
+      font-size: 9px; letter-spacing: 0.16em; font-weight: 800;
+      color: rgba(28,22,18,0.5); text-transform: uppercase; margin-top: 3px;
+    }
+    .catalogo-card-desc {
+      font-size: 11px; line-height: 1.45; color: rgba(28,22,18,0.7); font-weight: 600;
+    }
+    .catalogo-card-id {
+      margin-top: 6px; font-size: 9px; font-family: "JetBrains Mono", monospace;
+      color: rgba(28,22,18,0.4);
+    }
+
     /* ──── LOJA ──── */
     .loja-grid {
       display: grid;

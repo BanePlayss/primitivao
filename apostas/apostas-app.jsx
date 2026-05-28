@@ -6549,6 +6549,123 @@ function NewsField({ label, value, onChange, placeholder, multiline }) {
   );
 }
 
+// Lista de todos os ícones desenhados no componente <Icon> (pra galeria).
+const ALL_ICON_NAMES = [
+  'star', 'shield', 'sparkle', 'check', 'eye', 'eye-off', 'target', 'trophy',
+  'globe', 'coin', 'coin-stack', 'coin-fire', 'arrow-right', 'arrow-up-right',
+  'arrow-down', 'refresh', 'caret-up', 'caret-down', 'x', 'warning', 'lock',
+  'unlock', 'flag', 'question', 'medal', 'gift', 'menu', 'skull', 'fire',
+  'book', 'newspaper', 'dice', 'user', 'gamepad', 'phone', 'chart', 'pin',
+  'square-filled', 'chat', 'ticket', 'flask', 'tag', 'trash', 'toilet',
+  'toothbrush', 'crown', 'bolt', 'heart', 'football', 'sword', 'whistle',
+  'snowflake', 'rocket',
+];
+
+// ─── ADMIN: CATÁLOGO (galeria de tudo — QA visual) ──────────────────────────
+// Mostra TODOS os ícones, títulos, distintivos e molduras renderizados.
+// Admin não tem time/inventário, então sem isso ele nunca veria o catálogo.
+// Aqui tudo aparece desbloqueado, só pra conferência.
+function CatalogoAdminPanel({ cs, teamPlayers }) {
+  const badges = ITEMS.filter(i => i.slot === 'badge');
+  const frames = ITEMS.filter(i => i.slot === 'frame');
+  // Avatar exemplo pro preview de moldura/badge — usa um time real qualquer.
+  const sampleTeam = (TEAMS[0] && TEAMS[0].id) || 'bane';
+
+  const origemTxt = (item) => item.price != null ? `${item.price} PC` : 'conquista';
+
+  return (
+    <div>
+      {/* ÍCONES */}
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <div className="title">ÍCONES</div>
+          <div className="sub">{ALL_ICON_NAMES.length} DISPONÍVEIS</div>
+        </div>
+        <div className="card-body">
+          <div className="catalogo-icons">
+            {ALL_ICON_NAMES.map(n => (
+              <div key={n} className="catalogo-icon-cell" title={n}>
+                <Icon name={n} size={24} />
+                <span>{n}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* TÍTULOS */}
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <div className="title">TÍTULOS</div>
+          <div className="sub">{TITLE_DEFS.length} NO CATÁLOGO</div>
+        </div>
+        <div className="card-body">
+          <div className="catalogo-grid">
+            {TITLE_DEFS.map(t => (
+              <div key={t.id} className="catalogo-card" style={{ borderLeftColor: t.color }}>
+                <div className="catalogo-card-head">
+                  <span style={{ color: t.color, display: 'inline-flex' }}><Icon name={t.icon} size={22} /></span>
+                  <span className="catalogo-card-name" style={{ color: t.color }}>{t.name}</span>
+                </div>
+                <div className="catalogo-card-desc">{t.desc}</div>
+                <div className="catalogo-card-id">id: {t.id}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* DISTINTIVOS */}
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <div className="title">DISTINTIVOS</div>
+          <div className="sub">{badges.length} NO CATÁLOGO</div>
+        </div>
+        <div className="card-body">
+          <div className="catalogo-grid">
+            {badges.map(b => (
+              <div key={b.id} className={'catalogo-card rarity-' + b.rarity} style={{ borderLeftColor: b.color }}>
+                <div className="catalogo-card-head">
+                  <Avatar teamId={sampleTeam} cosmetics={{ badge: b.id }} size={48} />
+                  <div>
+                    <div className="catalogo-card-name" style={{ color: b.color }}>{b.name}</div>
+                    <div className="catalogo-card-meta">{b.rarity} · {origemTxt(b)}</div>
+                  </div>
+                </div>
+                <div className="catalogo-card-desc">{b.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* MOLDURAS */}
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <div className="title">MOLDURAS</div>
+          <div className="sub">{frames.length} NO CATÁLOGO</div>
+        </div>
+        <div className="card-body">
+          <div className="catalogo-grid">
+            {frames.map(f => (
+              <div key={f.id} className={'catalogo-card rarity-' + f.rarity} style={{ borderLeftColor: f.color }}>
+                <div className="catalogo-card-head">
+                  <Avatar teamId={sampleTeam} cosmetics={{ frame: f.id }} size={56} />
+                  <div>
+                    <div className="catalogo-card-name" style={{ color: f.color }}>{f.name}</div>
+                    <div className="catalogo-card-meta">{f.rarity} · {origemTxt(f)}</div>
+                  </div>
+                </div>
+                <div className="catalogo-card-desc">{f.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, weeklyReady }) {
   // Tabs do admin: USUÁRIOS / TIMES / NEWS / JORNALISTA / DISCORD / BACKUP / PERIGO.
   // PERIGO ficou em aba separada pra não ser clicado por engano.
@@ -6562,6 +6679,7 @@ function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordW
         <button className={'tab ' + (tab === 'times' ? 'active' : '')} onClick={() => setTab('times')}>TIMES</button>
         <button className={'tab ' + (tab === 'news' ? 'active' : '')} onClick={() => setTab('news')}>NEWS</button>
         <button className={'tab ' + (tab === 'jornalista' ? 'active' : '')} onClick={() => setTab('jornalista')}>JORNALISTA</button>
+        <button className={'tab ' + (tab === 'catalogo' ? 'active' : '')} onClick={() => setTab('catalogo')}>CATÁLOGO</button>
         <button className={'tab ' + (tab === 'discord' ? 'active' : '')} onClick={() => setTab('discord')}>DISCORD</button>
         <button className={'tab ' + (tab === 'backup' ? 'active' : '')} onClick={() => setTab('backup')}>BACKUP</button>
         <button className={'tab ' + (tab === 'perigo' ? 'active' : '')} onClick={() => setTab('perigo')} style={{ color: tab === 'perigo' ? '#c33' : 'rgba(195,51,51,0.6)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="warning" size={12} /> PERIGO</button>
@@ -6569,6 +6687,7 @@ function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordW
 
       {tab === 'news' && <NewsAdminPanel remoteNews={remoteNews} />}
       {tab === 'jornalista' && <JournalistAdminPanel cs={cs} bets={bets} users={users} remoteNews={remoteNews} weeklyReady={weeklyReady} />}
+      {tab === 'catalogo' && <CatalogoAdminPanel cs={cs} teamPlayers={teamPlayers} />}
       {tab === 'discord' && <DiscordAdminPanel webhook={discordWebhook} />}
 
       {tab === 'usuarios' && (
