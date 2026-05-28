@@ -1969,6 +1969,9 @@ function App() {
                 onSetResult={setWorldcupResult}
               />
             )}
+            {view === 'hall' && (
+              <HallView cs={cs} />
+            )}
             {view === 'campeonatos' && (<>
             <ChampionshipSelector
               value={championship}
@@ -2023,12 +2026,6 @@ function App() {
         )}
         {tab === 'ranking' && (
           <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} />
-        )}
-        {tab === 'fama' && (
-          <HallDaFamaView cs={cs} teamPlayers={teamPlayers || {}} users={users} />
-        )}
-        {tab === 'vergonha' && (
-          <HallDaVergonhaView cs={cs} teamPlayers={teamPlayers || {}} users={users} />
         )}
         {tab === 'admin' && isAdmin && (
           <AdminView
@@ -2085,6 +2082,7 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
         <button className={'pnav ' + (view === 'inicio' ? 'active' : '')} onClick={() => onView && onView('inicio')}>INÍCIO</button>
         <button className={'pnav ' + (view === 'campeonatos' ? 'active' : '')} onClick={() => onView && onView('campeonatos')}>CAMPEONATOS</button>
         <button className={'pnav ' + (view === 'copa' ? 'active' : '')} onClick={() => onView && onView('copa')}>COPA DO MUNDO</button>
+        <button className={'pnav ' + (view === 'hall' ? 'active' : '')} onClick={() => onView && onView('hall')}>HALL</button>
         <button className="pnav pnav-ext" onClick={goDiscord} title="Abre em nova aba">
           DISCORD <span className="pnav-ext-icon"><Icon name="arrow-up-right" size={12} /></span>
         </button>
@@ -2259,11 +2257,9 @@ function getTabItems(isAdmin) {
     { id: 'apostar',       label: 'JOGOS' },
   ];
   const globalItems = [
+    { id: 'perfil',   label: 'MEU PERFIL' },
     { id: 'tickets',  label: 'MEUS TICKETS' },
     { id: 'ranking',  label: 'RANKING' },
-    { id: 'perfil',   label: 'MEU PERFIL' },
-    { id: 'fama',     label: 'HALL DA FAMA' },
-    { id: 'vergonha', label: 'HALL DA VERGONHA' },
   ];
   if (isAdmin) globalItems.push({ id: 'admin', label: 'ADMIN' });
   return { champItems, globalItems };
@@ -4972,6 +4968,40 @@ function HallDaVergonhaView({ cs }) {
           />
         );
       })}
+    </div>
+  );
+}
+
+// HallView — view unificada que combina Hall da Fama + Hall da Vergonha
+// com subTabs. Acessada pelo primary-nav do TopBar (view='hall').
+function HallView({ cs }) {
+  const [subTab, setSubTab] = useState('fama'); // 'fama' | 'vergonha'
+  return (
+    <div>
+      <div className="hall-hero">
+        <div className="hall-hero-tag">HALL</div>
+        <div className="hall-hero-title">FAMA & VERGONHA</div>
+        <div className="hall-hero-sub">
+          Os campeões e os afundados de cada temporada. O Hall guarda os dois
+          extremos — alguém precisa lembrar pra posteridade.
+        </div>
+      </div>
+      <div className="hall-subtabs">
+        <button
+          className={'hall-subtab fame ' + (subTab === 'fama' ? 'active' : '')}
+          onClick={() => setSubTab('fama')}
+        >
+          <Icon name="trophy" size={14} /> HALL DA FAMA
+        </button>
+        <button
+          className={'hall-subtab shame ' + (subTab === 'vergonha' ? 'active' : '')}
+          onClick={() => setSubTab('vergonha')}
+        >
+          <Icon name="toilet" size={14} /> HALL DA VERGONHA
+        </button>
+      </div>
+      {subTab === 'fama'     && <HallDaFamaView cs={cs} />}
+      {subTab === 'vergonha' && <HallDaVergonhaView cs={cs} />}
     </div>
   );
 }
