@@ -1261,9 +1261,19 @@ function App() {
   const [slip, setSlip]     = useState([]); // [{fixtureId='rXgY', market, pick, odds}]
   const [synced, setSynced] = useState(false);
   const [championship, setChampionship] = useState('fifa');
-  // VIEW principal: 'inicio' (noticias/feed) ou 'campeonatos' (selector+tabs).
-  // 'discord' não é uma view — abre link externo direto.
+  // VIEW principal — controla qual "página" mostrar:
+  //   inicio | campeonatos | copa | hall | perfil | tickets | ranking | loja | admin
+  // 'discord' não é view — abre link externo direto.
+  // tab só é usado DENTRO de 'campeonatos' (classificacao | apostar).
   const [view, setView] = useState('inicio');
+  // Garantia: ao entrar em 'campeonatos', o tab precisa ser válido pra UI
+  // (classificacao ou apostar). Se vier de outra view com tab antigo, força
+  // 'apostar' (JOGOS) como default — evita tela vazia.
+  useEffect(() => {
+    if (view === 'campeonatos' && tab !== 'classificacao' && tab !== 'apostar') {
+      setTab('apostar');
+    }
+  }, [view]);
   // Cupom compartilhado por URL (?cupom=...) — quando setado, mostra modal
   // de preview com botão "USAR" que joga as legs no slip atual.
   const [sharedSlip, setSharedSlip] = useState(null);
@@ -2119,53 +2129,53 @@ function App() {
             onToggleLock={toggleGameLock}
           />
         )}
-        {!showPlaceholder && tab === 'tickets' && (
-          <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} onCancel={cancelBet} />
-        )}
         {!showPlaceholder && tab === 'classificacao' && (
           <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin}
                              users={users} teamPlayers={teamPlayers || {}} />
         )}
-
-        {/* Globais — independem do campeonato selecionado */}
-        {tab === 'perfil' && (
-          <MeuPerfilView
-            nick={session.nick}
-            me={me}
-            cs={cs}
-            bets={bets}
-            users={users}
-            teamPlayers={teamPlayers || {}}
-            isAdmin={isAdmin}
-            onSelectTitle={setSelectedTitle}
-          />
-        )}
-        {tab === 'ranking' && (
-          <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} />
-        )}
-        {tab === 'loja' && (
-          <LojaView
-            nick={session.nick}
-            me={me}
-            ctx={{ bets, users, teamPlayers: teamPlayers || {}, cs }}
-            onBuy={buyItem}
-            onEquip={equipItem}
-          />
-        )}
-        {tab === 'admin' && isAdmin && (
-          <AdminView
-            bets={bets} users={users} adjustPc={adjustPc}
-            teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
-            discordWebhook={discordWebhook} remoteNews={remoteNews}
-            cs={cs} weeklyReady={weeklyReady}
-          />
-        )}
             </>)}
+
+            {/* Globais — independem de campeonato. Cada um é uma view inteira. */}
+            {view === 'perfil' && (
+              <MeuPerfilView
+                nick={session.nick}
+                me={me}
+                cs={cs}
+                bets={bets}
+                users={users}
+                teamPlayers={teamPlayers || {}}
+                isAdmin={isAdmin}
+                onSelectTitle={setSelectedTitle}
+              />
+            )}
+            {view === 'tickets' && (
+              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} onCancel={cancelBet} />
+            )}
+            {view === 'ranking' && (
+              <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} />
+            )}
+            {view === 'loja' && (
+              <LojaView
+                nick={session.nick}
+                me={me}
+                ctx={{ bets, users, teamPlayers: teamPlayers || {}, cs }}
+                onBuy={buyItem}
+                onEquip={equipItem}
+              />
+            )}
+            {view === 'admin' && isAdmin && (
+              <AdminView
+                bets={bets} users={users} adjustPc={adjustPc}
+                teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
+                discordWebhook={discordWebhook} remoteNews={remoteNews}
+                cs={cs} weeklyReady={weeklyReady}
+              />
+            )}
           </div>
         </div>
         <Sidebar
-          tab={tab} view={view}
-          setTab={setTab} setView={setView}
+          view={view}
+          setView={setView}
           isAdmin={isAdmin}
         />
       </div>
@@ -2243,7 +2253,7 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
         <button
           type="button"
           className="nick nick-btn"
-          onClick={() => { if (onTab) onTab('perfil'); if (onView) onView('campeonatos'); }}
+          onClick={() => { if (onView) onView('perfil'); }}
           title="Ir pro meu perfil"
         >
           {!isAdmin && <Avatar nick={nick} teamPlayers={teamPlayers} cosmetics={myCosmetics} size={36} />}
@@ -2383,16 +2393,16 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
 // usarem a mesma fonte da verdade.
 function getTabItems(isAdmin) {
   const champItems = [
-    { id: 'classificacao', label: 'CLASSIFICAÇÃO' },
-    { id: 'apostar',       label: 'JOGOS' },
+    { id: 'classificacao', label: 'CLASSIFICAÇÃO', icon: 'chart' },
+    { id: 'apostar',       label: 'JOGOS',          icon: 'target' },
   ];
   const globalItems = [
-    { id: 'perfil',   label: 'MEU PERFIL' },
-    { id: 'tickets',  label: 'MEUS TICKETS' },
-    { id: 'ranking',  label: 'RANKING' },
-    { id: 'loja',     label: 'LOJA' },
+    { id: 'perfil',   label: 'MEU PERFIL',   icon: 'user' },
+    { id: 'tickets',  label: 'MEUS TICKETS', icon: 'ticket' },
+    { id: 'ranking',  label: 'RANKING',      icon: 'trophy' },
+    { id: 'loja',     label: 'LOJA',         icon: 'coin' },
   ];
-  if (isAdmin) globalItems.push({ id: 'admin', label: 'ADMIN' });
+  if (isAdmin) globalItems.push({ id: 'admin', label: 'ADMIN', icon: 'shield' });
   return { champItems, globalItems };
 }
 
@@ -2475,28 +2485,29 @@ function Tabs({ tab, setTab, isAdmin }) {
 
 // Sidebar VERTICAL à direita no desktop. Renderiza só os itens GLOBAIS.
 // Escondida no mobile (hamburger drawer cobre).
-function Sidebar({ tab, view, setTab, setView, isAdmin }) {
+function Sidebar({ view, setView, isAdmin }) {
   const { globalItems } = getTabItems(isAdmin);
-  // Item ativo só fica destacado quando estamos na view 'campeonatos'
-  // (porque é onde o conteúdo do item — perfil, tickets, etc — renderiza).
-  const isInCampeonatos = view === 'campeonatos';
-  const goTo = (itemId) => {
-    setTab(itemId);
-    if (!isInCampeonatos && setView) setView('campeonatos');
-  };
+  // Cada item da sidebar é uma VIEW própria — clica, navega direto.
+  // Highlight visual: view === itemId → barra laranja à esquerda + bg.
   return (
     <aside className="app-sidebar">
       <div className="sidebar-nav">
-        <div className="sidebar-label">GLOBAL</div>
-        {globalItems.map(it => (
-          <button
-            key={it.id}
-            className={'sidebar-tab ' + (isInCampeonatos && tab === it.id ? 'active' : '')}
-            onClick={() => goTo(it.id)}
-          >
-            {it.label}
-          </button>
-        ))}
+        <div className="sidebar-label">MEU ESPAÇO</div>
+        {globalItems.map(it => {
+          const active = view === it.id;
+          return (
+            <button
+              key={it.id}
+              className={'sidebar-tab ' + (active ? 'active' : '')}
+              onClick={() => setView && setView(it.id)}
+              aria-current={active ? 'page' : undefined}
+            >
+              <span className="sidebar-tab-bar" aria-hidden="true" />
+              <Icon name={it.icon} size={16} />
+              <span className="sidebar-tab-label">{it.label}</span>
+            </button>
+          );
+        })}
       </div>
     </aside>
   );

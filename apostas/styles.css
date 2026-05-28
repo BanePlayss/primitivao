@@ -53,19 +53,30 @@
       justify-content: center;
     }
     .pnav {
+      position: relative;
       background: transparent; color: var(--pv-bone);
-      border: 2px solid transparent;
-      padding: 8px 18px;
+      border: none;
+      padding: 8px 18px 12px;
       font-family: inherit; font-weight: 800;
       font-size: 12px; letter-spacing: 0.18em;
       cursor: pointer;
+      transition: color 0.12s;
+    }
+    /* Underline indicator (estilo Twitter/Discord tabs) */
+    .pnav::after {
+      content: '';
+      position: absolute;
+      left: 12px; right: 12px; bottom: 0;
+      height: 3px;
+      background: transparent;
+      transition: background 0.12s;
     }
     .pnav:hover { color: var(--pv-orange); }
+    .pnav:hover::after { background: rgba(215,100,20,0.4); }
     .pnav.active {
-      color: var(--pv-charcoal);
-      background: var(--pv-orange);
-      border-color: var(--pv-orange);
+      color: var(--pv-orange);
     }
+    .pnav.active::after { background: var(--pv-orange); }
     .pnav-ext { display: inline-flex; align-items: center; gap: 4px; }
     .pnav-ext-icon { opacity: 0.7; display: inline-flex; align-items: center; }
     .inl-arrow { vertical-align: -1px; margin: 0 2px; opacity: 0.85; }
@@ -641,23 +652,55 @@
       margin-bottom: 8px;
     }
     .sidebar-tab {
+      position: relative;
+      display: flex; align-items: center; gap: 10px;
       background: transparent;
-      border: 2px solid transparent;
-      padding: 11px 12px;
+      border: none;
+      padding: 11px 12px 11px 16px;
       font-weight: 800; letter-spacing: 0.14em; font-size: 11px;
-      color: rgba(244,234,215,0.55);
+      color: rgba(244,234,215,0.6);
       text-align: left;
       cursor: pointer;
       font-family: inherit;
+      transition: background 0.12s, color 0.12s;
+    }
+    .sidebar-tab .pico-icon {
+      opacity: 0.7;
+      flex-shrink: 0;
+    }
+    .sidebar-tab-label { flex: 1; }
+    /* Barra laranja à esquerda — indicador de ativo (igual sidebar do VSCode/Discord) */
+    .sidebar-tab-bar {
+      position: absolute;
+      left: 0; top: 50%; transform: translateY(-50%);
+      width: 4px; height: 60%;
+      background: transparent;
+      border-radius: 0 4px 4px 0;
+      transition: background 0.12s, height 0.12s;
     }
     .sidebar-tab:hover {
+      background: rgba(215,100,20,0.10);
+      color: var(--pv-bone);
+    }
+    .sidebar-tab:hover .pico-icon { opacity: 1; }
+    .sidebar-tab:hover .sidebar-tab-bar {
+      background: rgba(215,100,20,0.4);
+      height: 40%;
+    }
+    .sidebar-tab.active {
       background: rgba(215,100,20,0.18);
       color: var(--pv-bone);
     }
-    .sidebar-tab.active {
+    .sidebar-tab.active .pico-icon {
+      opacity: 1;
+      color: var(--pv-orange);
+    }
+    .sidebar-tab.active .sidebar-tab-bar {
       background: var(--pv-orange);
-      color: var(--pv-charcoal);
-      border-color: var(--pv-orange);
+      height: 80%;
+    }
+    .sidebar-tab.active .sidebar-tab-label {
+      color: var(--pv-orange);
     }
 
     /* ──── APOSTAR (página de JOGOS) ──── */
