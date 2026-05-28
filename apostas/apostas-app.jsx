@@ -3769,21 +3769,31 @@ function InicioView({ session, isAdmin, comments, onAdd, onDelete, remoteNews })
 //   - listas: linhas começando com "- " viram <ul><li>
 //   - bold: **texto** vira <strong>
 //   - links: [texto](url) vira <a>
+//   - auto-link: URLs cruas (http/https) viram <a> automaticamente
 // Sem HTML cru — texto sanitizado pra evitar XSS via input do admin.
 function renderInline(text) {
-  // Quebra em segmentos preservando bold e links
   const parts = [];
   let i = 0;
-  const re = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g;
+  // Ordem importa: markdown link primeiro, depois bold, depois URL crua.
+  // URL crua: pega http(s)://... até espaço/quebra/fechamento de pontuação.
+  const re = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\)|https?:\/\/[^\s<>"`]+)/g;
   let m, last = 0;
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) parts.push(text.slice(last, m.index));
     const tok = m[0];
     if (tok.startsWith('**')) {
       parts.push(<strong key={i++}>{tok.slice(2, -2)}</strong>);
-    } else {
+    } else if (tok.startsWith('[')) {
       const linkM = tok.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
       if (linkM) parts.push(<a key={i++} href={linkM[2]} target="_blank" rel="noopener noreferrer">{linkM[1]}</a>);
+    } else {
+      // URL crua: remove pontuação no fim (.,;:) que normalmente não é parte da URL
+      let url = tok;
+      const trailingMatch = url.match(/[.,;:!?)]+$/);
+      if (trailingMatch) url = url.slice(0, -trailingMatch[0].length);
+      const tail = tok.slice(url.length);
+      parts.push(<a key={i++} href={url} target="_blank" rel="noopener noreferrer">{url}</a>);
+      if (tail) parts.push(tail);
     }
     last = m.index + tok.length;
   }

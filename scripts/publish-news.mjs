@@ -39,7 +39,7 @@ const NEWS = [
     image: 'news/mk-s1-r01.jpg',
     body: `**MORTAL KOMBAT TÁ NA HORA, MEU FILHO.**
 
-A **EDIÇÃO 01** do Mortal Kombat do Primitivão tá saindo do papel — e as inscrições **se encerram DOMINGO ÀS 23H59**. Quem não entrar até lá vai ficar de fora vendo os outros se matarem em modo Fatality.
+A **EDIÇÃO 01** do Mortal Kombat do Primitivão tá saindo do papel — e as **INSCRIÇÕES se encerram DOMINGO ÀS 23H59**. Atenção: domingo NÃO é o dia que começa o torneio. Domingo é o ÚLTIMO DIA pra se inscrever. Quem não entrar até lá vai ficar de fora vendo os outros se matarem em modo Fatality.
 
 **COMO FUNCIONA:**
 
@@ -53,9 +53,11 @@ A **EDIÇÃO 01** do Mortal Kombat do Primitivão tá saindo do papel — e as i
 
 **JÁ TÁ DENTRO?** A lista tá crescendo. Mas só sai do papel domingo às 23h59 — depois disso, sem choro, sem retorno, sem segundo round. Fica esperto.
 
-**COMO ENTRAR:** vai na aba **CAMPEONATOS** aqui mesmo no site, seleciona **MORTAL KOMBAT** e clica em **QUERO PARTICIPAR**. Em 5 segundos você tá inscrito — sem grupo no zap, sem pedido pro admin, é só clicar.
+**COMO ENTRAR:** vai no site **https://baneplayss.github.io/primitivao/apostas/**, aba **CAMPEONATOS**, seleciona **MORTAL KOMBAT** e clica em **QUERO PARTICIPAR**. Em 5 segundos você tá inscrito — sem grupo no zap, sem pedido pro admin, é só clicar.
 
-Domingo o sangue corre. **Quem vai aparecer pro First Blood?**`,
+Depois de domingo, as chaves são sorteadas e o First Blood vem aí. **Quem vai aparecer?**
+
+LINK DIRETO: https://baneplayss.github.io/primitivao/apostas/`,
     at: Date.parse('2026-05-28T01:30:00-03:00'),
   },
   {
