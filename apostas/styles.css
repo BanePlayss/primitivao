@@ -548,6 +548,19 @@
       color: var(--pv-bone); font-weight: 800;
       letter-spacing: 0.1em; font-size: 13px;
     }
+    .nick-btn {
+      background: transparent;
+      border: 1.5px solid transparent;
+      padding: 4px 8px;
+      font: inherit; color: inherit;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .nick-btn:hover {
+      background: rgba(244,234,215,0.06);
+      border-color: rgba(244,234,215,0.25);
+    }
+    .nick-btn:active { transform: translate(1px, 1px); }
     .nick-tag {
       display: inline-block;
       padding: 4px 8px;

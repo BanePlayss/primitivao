@@ -2013,6 +2013,7 @@ function App() {
         onClaimWeekly={claimWeekly}
         view={view}
         onView={setView}
+        onTab={setTab}
         teamPlayers={teamPlayers || {}}
         myCosmetics={me?.cosmetics || {}}
       />
@@ -2143,7 +2144,7 @@ function App() {
 }
 
 // ─── TOP BAR / TABS ─────────────────────────────────────────────────────────
-function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly, view, onView, teamPlayers, myCosmetics }) {
+function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly, view, onView, onTab, teamPlayers, myCosmetics }) {
   const days = Math.floor(weeklyIn / (24 * 60 * 60 * 1000));
   const hrs  = Math.floor((weeklyIn % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
   const mins = Math.floor((weeklyIn % (60 * 60 * 1000)) / (60 * 1000));
@@ -2195,11 +2196,16 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
             </div>
           </div>
         )}
-        <div className="nick">
+        <button
+          type="button"
+          className="nick nick-btn"
+          onClick={() => { if (onTab) onTab('perfil'); if (onView) onView('campeonatos'); }}
+          title="Ir pro meu perfil"
+        >
           {!isAdmin && <Avatar nick={nick} teamPlayers={teamPlayers} cosmetics={myCosmetics} size={36} />}
           {isAdmin && <span className="nick-tag" style={{ color: 'var(--pv-orange)', borderColor: 'var(--pv-orange)' }}>ADMIN</span>}
           <span className={isAdmin ? 'nick-tag' : 'nick-name'}>@{nick}</span>
-        </div>
+        </button>
         <button className="logout-btn" onClick={onLogout}>SAIR</button>
       </div>
     </div>
