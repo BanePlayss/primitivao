@@ -4369,6 +4369,17 @@ const TITLE_DEFS = [
       return players.includes(nick);
     },
   },
+  {
+    id: 'high_roller',
+    name: 'HIGH ROLLER',
+    icon: 'coin',
+    desc: 'Apostou 100.000 PC ou mais em um único cupom. Coragem (ou loucura).',
+    color: '#c9a227', // dourado
+    check: ({ nick, bets }) => {
+      const all = Array.isArray(bets) ? bets : [];
+      return all.some(b => b.user === nick && Number(b.amount) >= 100000);
+    },
+  },
 ];
 function titlesForNick(nick, ctx) {
   return TITLE_DEFS.filter(t => {
