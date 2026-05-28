@@ -43,8 +43,8 @@ A **EDIÇÃO 01** do Mortal Kombat do Primitivão tá saindo do papel — e as i
 
 **COMO FUNCIONA:**
 
-- **Eliminatória direta** — perdeu, foi
-- **Melhor de 3 lutas** por confronto
+- **Fase de grupos: TODOS CONTRA TODOS, IDA E VOLTA** — ninguém escapa, todo mundo enfrenta todo mundo duas vezes
+- **Mata-mata depois** — os classificados da fase de pontos seguem pra eliminatória direta
 - **Personagens livres** — escolhe quem quiser, ninguém marca presença
 - **Chaves sorteadas** após o fechamento das inscrições
 - **Fatality obrigatória ao vencer** — quem não terminar o oponente perde o respeito
