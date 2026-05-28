@@ -2057,6 +2057,7 @@ function App() {
             users: remote.users || {},
             teamPlayers: remote.teamPlayers || {},
             cs,
+            worldcup, // closure do app state (top-level, fora do json do remote)
           });
           if (!earned.some(t => t.id === titleId)) return null;
         }
@@ -2116,7 +2117,7 @@ function App() {
         if (itemId) {
           const item = ITEM_BY_ID[itemId];
           if (!item || item.slot !== slot) return null;
-          const ctx = { bets: remote.bets || [], teamPlayers: remote.teamPlayers || {}, cs };
+          const ctx = { bets: remote.bets || [], teamPlayers: remote.teamPlayers || {}, cs, worldcup };
           const inv = effectiveInventory(userNick, u, ctx);
           if (!inv.includes(itemId)) return null;
         }
@@ -2243,6 +2244,7 @@ function App() {
                 bets={bets}
                 users={users}
                 teamPlayers={teamPlayers || {}}
+                worldcup={worldcup}
                 isAdmin={isAdmin}
                 onSelectTitle={setSelectedTitle}
               />
@@ -2257,7 +2259,7 @@ function App() {
               <LojaView
                 nick={session.nick}
                 me={me}
-                ctx={{ bets, users, teamPlayers: teamPlayers || {}, cs }}
+                ctx={{ bets, users, teamPlayers: teamPlayers || {}, cs, worldcup }}
                 onBuy={buyItem}
                 onEquip={equipItem}
               />
@@ -2940,6 +2942,67 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
           <rect x="2" y="11" width="11" height="2.5" rx="0.5" />
           <rect x="13" y="9" width="6" height="6" rx="0.5" />
           <path d="M15 9v-2.5M17 9v-2.5M16 9v-2.5" />
+        </svg>
+      );
+    case 'crown': // coroa — campeão / rei
+      return (
+        <svg {...common}>
+          <path d="M4 8l3.5 4 4.5-6 4.5 6L20 8l-1.5 10h-13L4 8z" strokeLinejoin="round" />
+          <path d="M5.5 18h13" />
+          <circle cx="4" cy="8" r="1.4" fill="currentColor" stroke="none" />
+          <circle cx="20" cy="8" r="1.4" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="6" r="1.4" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'bolt': // raio — sorte / energia
+      return (
+        <svg {...common} fill="currentColor" stroke="none">
+          <path d="M13 2L4 13h6l-1 9 9-12h-6l1-8z" />
+        </svg>
+      );
+    case 'heart': // coração — fã / fidelidade
+      return (
+        <svg {...common}>
+          <path d="M12 20s-7-4.6-9.5-9.2C1 7.7 2.7 4.5 6 4.5c2 0 3.3 1.2 4 2.3.7-1.1 2-2.3 4-2.3 3.3 0 5 3.2 3.5 6.3C19 15.4 12 20 12 20z" strokeLinejoin="round" />
+        </svg>
+      );
+    case 'football': // bola de futebol
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7l3.2 2.4-1.2 3.8h-4l-1.2-3.8L12 7z" fill="currentColor" stroke="none" />
+          <path d="M12 7V3.2M15.2 9.4l3.4-1.6M14 13.2l2.3 3M10 13.2l-2.3 3M8.8 9.4L5.4 7.8" />
+        </svg>
+      );
+    case 'sword': // espada — luta / MK
+      return (
+        <svg {...common}>
+          <path d="M14.5 3.5L20 4l.5 5.5-9 9-2-2 5-5z" strokeLinejoin="round" />
+          <path d="M6.5 14.5l3 3" />
+          <path d="M3 21l3.5-3.5M5 16l3 3-2.5 2.5L3 19z" strokeLinejoin="round" />
+        </svg>
+      );
+    case 'whistle': // apito — VARIMITIVÃO / arbitragem
+      return (
+        <svg {...common}>
+          <path d="M3 11a5 5 0 0 0 5 5h2l3 3v-5h2a4 4 0 0 0 0-8H6a3 3 0 0 0-3 3z" strokeLinejoin="round" />
+          <circle cx="8" cy="11.5" r="1.6" fill="currentColor" stroke="none" />
+          <path d="M16 5l1.5-2M19 7l2-1.5" />
+        </svg>
+      );
+    case 'snowflake': // floco — gelo / Sub-Zero (MK)
+      return (
+        <svg {...common}>
+          <path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19" />
+          <path d="M12 5l-2 2M12 5l2 2M12 19l-2-2M12 19l2-2M5 12l2-2M5 12l2 2M19 12l-2-2M19 12l-2 2" />
+        </svg>
+      );
+    case 'rocket': // foguete — em alta / subindo
+      return (
+        <svg {...common}>
+          <path d="M12 2c3 2 4.5 5 4.5 9 0 2-1 4-1 4h-7s-1-2-1-4c0-4 1.5-7 4.5-9z" strokeLinejoin="round" />
+          <circle cx="12" cy="9" r="1.8" />
+          <path d="M8.5 15l-2.5 2 .5 3 2.5-1.5M15.5 15l2.5 2-.5 3-2.5-1.5" strokeLinejoin="round" />
         </svg>
       );
     default:
@@ -4631,53 +4694,139 @@ function trophiesForNick(nick, cs, teamPlayers) {
   return trophies;
 }
 
+// ─── HELPERS DE CONQUISTA (compartilhados por títulos e distintivos) ────────
+
+// Posição do nick na classificação FECHADA da FIFA. null se não fechou ou
+// nick sem time. { pos, total, isLast, isPenult }.
+function champStandingPos(nick, cs, teamPlayers) {
+  if (!cs) return null;
+  const rounds = cs.rounds || [];
+  const allDone = rounds.length > 0 && rounds.every(r => Array.isArray(r) && r.length > 0 && r.every(g => g.gh !== '' && g.ga !== ''));
+  if (!allDone) return null;
+  let tid = null;
+  for (const [t, n] of Object.entries(teamPlayers || {})) {
+    if (n && String(n).toLowerCase() === String(nick).toLowerCase()) { tid = t; break; }
+  }
+  if (!tid) return null;
+  const st = computeStandings(rounds).slice().sort((a, b) => b.p - a.p || (b.gp - b.gc) - (a.gp - a.gc) || b.gp - a.gp);
+  const idx = st.findIndex(s => s.id === tid);
+  if (idx < 0) return null;
+  return { pos: idx + 1, total: st.length, isLast: idx === st.length - 1, isPenult: idx === st.length - 2 };
+}
+
+// Maior sequência consecutiva de bets com `status` (won/lost) do nick.
+function maxBetStreak(bets, nick, status) {
+  const mine = (bets || [])
+    .filter(b => b.user === nick && (b.status === 'won' || b.status === 'lost'))
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  let max = 0, cur = 0;
+  for (const b of mine) {
+    if (b.status === status) { cur++; if (cur > max) max = cur; }
+    else cur = 0;
+  }
+  return max;
+}
+
+// Quantos placares EXATOS (3 pts) o nick acertou no bolão da Copa.
+function wcExactCount(nick, worldcup) {
+  const picks = (worldcup && worldcup.picks && worldcup.picks[nick]) || {};
+  const results = (worldcup && worldcup.results) || {};
+  let n = 0;
+  for (const fid of Object.keys(picks)) {
+    if (results[fid] && scoreWcPick(results[fid], picks[fid]) === 3) n++;
+  }
+  return n;
+}
+
+const betsOf = (bets, nick) => (Array.isArray(bets) ? bets : []).filter(b => b.user === nick);
+
 // ─── TÍTULOS DO USUÁRIO ─────────────────────────────────────────────────────
-// Catálogo de títulos concedidos automaticamente baseado em condições.
-// Cada título tem um `check(ctx)` que recebe { nick, bets, users } e devolve bool.
+// Título = LABEL DE TEXTO ao lado do nick (o user escolhe 1 pra exibir).
+// Cada um tem check(ctx) com ctx = { nick, bets, users, teamPlayers, cs, worldcup }.
 const TITLE_DEFS = [
+  // ── Participação / campeonato ──
   {
-    id: 'beta_tester',
-    name: 'BETA TESTER',
-    icon: 'flask',
-    desc: 'Jogou a primeira temporada do Primitivão (FIFA 2026 Season 1) — está vinculado a um time.',
-    color: '#7a4dc9',
-    check: ({ nick, teamPlayers }) => {
-      const players = Object.values(teamPlayers || {});
-      return players.includes(nick);
-    },
+    id: 'beta_tester', name: 'BETA TESTER', icon: 'flask', color: '#7a4dc9',
+    desc: 'Jogou a primeira temporada do Primitivão (FIFA 2026 Season 1).',
+    check: ({ nick, teamPlayers }) => Object.values(teamPlayers || {}).map(String).map(s => s.toLowerCase()).includes(String(nick).toLowerCase()),
   },
   {
-    id: 'high_roller',
-    name: 'HIGH ROLLER',
-    icon: 'coin',
-    desc: 'Apostou 100.000 PC ou mais em um único cupom. Coragem (ou loucura).',
-    color: '#c9a227', // dourado
-    check: ({ nick, bets }) => {
-      const all = Array.isArray(bets) ? bets : [];
-      return all.some(b => b.user === nick && Number(b.amount) >= 100000);
-    },
+    id: 'campeao', name: 'CAMPEÃO', icon: 'crown', color: '#c9a227',
+    desc: 'Terminou uma temporada da FIFA em PRIMEIRO lugar. O rei.',
+    check: ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.pos === 1; },
   },
   {
-    id: 'high_roller_win',
-    name: 'QUEBROU A BANCA',
-    icon: 'coin-stack',
+    id: 'vice', name: 'VICE-CAMPEÃO', icon: 'medal', color: '#9a9a9a',
+    desc: 'Terminou em SEGUNDO. Tão perto, tão longe.',
+    check: ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.pos === 2; },
+  },
+  {
+    id: 'lanterna', name: 'LANTERNA', icon: 'toilet', color: '#7a2222',
+    desc: 'Terminou a temporada em ÚLTIMO. Vexame carimbado.',
+    check: ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.isLast; },
+  },
+  // ── Apostas: valor ──
+  {
+    id: 'high_roller', name: 'HIGH ROLLER', icon: 'coin', color: '#c9a227',
+    desc: 'Apostou 100.000 PC ou mais num único cupom. Coragem (ou loucura).',
+    check: ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000),
+  },
+  {
+    id: 'high_roller_win', name: 'QUEBROU A BANCA', icon: 'coin-stack', color: '#2a8f3f',
     desc: 'Apostou 100k+ PC E venceu. A casa chorou.',
-    color: '#2a8f3f', // verde esmeralda
-    check: ({ nick, bets }) => {
-      const all = Array.isArray(bets) ? bets : [];
-      return all.some(b => b.user === nick && Number(b.amount) >= 100000 && b.status === 'won');
-    },
+    check: ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000 && b.status === 'won'),
   },
   {
-    id: 'high_roller_loss',
-    name: 'QUEIMOU 100K',
-    icon: 'coin-fire',
+    id: 'high_roller_loss', name: 'QUEIMOU 100K', icon: 'coin-fire', color: '#c33',
     desc: 'Apostou 100k+ PC E perdeu. Adeus, dinheirinho.',
-    color: '#c33', // vermelho
-    check: ({ nick, bets }) => {
-      const all = Array.isArray(bets) ? bets : [];
-      return all.some(b => b.user === nick && Number(b.amount) >= 100000 && b.status === 'lost');
-    },
+    check: ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000 && b.status === 'lost'),
+  },
+  {
+    id: 'milionario', name: 'MILIONÁRIO', icon: 'coin', color: '#d4af37',
+    desc: 'Acumulou 100.000 PC ou mais no saldo. Banca gorda.',
+    check: ({ nick, users }) => ((users || {})[nick]?.pc || 0) >= 100000,
+  },
+  {
+    id: 'falido', name: 'FALIDO', icon: 'coin-fire', color: '#7a2222',
+    desc: 'Zerou o saldo. Já apostou de tudo, hoje só resta o bônus de segunda.',
+    check: ({ nick, users, bets }) => ((users || {})[nick]?.pc || 0) <= 0 && betsOf(bets, nick).length >= 3,
+  },
+  // ── Apostas: volume / skill ──
+  {
+    id: 'apostador_plantao', name: 'APOSTADOR DE PLANTÃO', icon: 'ticket', color: '#d76414',
+    desc: 'Fez 50 apostas ou mais. Não perde uma rodada.',
+    check: ({ nick, bets }) => betsOf(bets, nick).length >= 50,
+  },
+  {
+    id: 'viciado', name: 'VICIADO EM PC', icon: 'dice', color: '#a8324f',
+    desc: 'Fez 100 apostas ou mais. Procura ajuda (depois da próxima).',
+    check: ({ nick, bets }) => betsOf(bets, nick).length >= 100,
+  },
+  {
+    id: 'profeta', name: 'PROFETA DAS ODDS', icon: 'target', color: '#3a78c2',
+    desc: 'Venceu uma aposta com odd combinada de 20x ou mais. Vidência pura.',
+    check: ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Number(b.combinedOdds) >= 20),
+  },
+  {
+    id: 'casadinha', name: 'REI DA CASADINHA', icon: 'chart', color: '#2a8f3f',
+    desc: 'Venceu uma aposta casada com 5 palpites ou mais. Tudo ou nada.',
+    check: ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Array.isArray(b.legs) && b.legs.length >= 5),
+  },
+  {
+    id: 'mao_quente', name: 'MÃO QUENTE', icon: 'fire', color: '#d76414',
+    desc: 'Venceu 5 apostas seguidas. Tá pegando fogo, bicho.',
+    check: ({ nick, bets }) => maxBetStreak(bets, nick, 'won') >= 5,
+  },
+  {
+    id: 'pe_frio', name: 'PÉ FRIO', icon: 'skull', color: '#5a5a5a',
+    desc: 'Perdeu 5 apostas seguidas. O VARIMITIVÃO tá de olho.',
+    check: ({ nick, bets }) => maxBetStreak(bets, nick, 'lost') >= 5,
+  },
+  // ── Copa do Mundo ──
+  {
+    id: 'vidente_copa', name: 'VIDENTE DA COPA', icon: 'globe', color: '#1c7a6e',
+    desc: 'Acertou um placar EXATO no bolão da Copa do Mundo (3 pts).',
+    check: ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 1,
   },
 ];
 // ─── ITEMS COSMÉTICOS (LOJA) ────────────────────────────────────────────────
@@ -4724,45 +4873,57 @@ const ITEMS = [
       return standings[0]?.id === tid;
     },
   },
-  // ── DISTINTIVOS ──
+  // ── DISTINTIVOS COMPRÁVEIS (cosmético puro — só PC) ──
+  { id: 'badge-bola',    slot: 'badge', name: 'Bola de Ouro',   desc: 'A clássica. Pra quem respira futebol.',        icon: 'football', color: '#d76414', rarity: 'comum', price: 150 },
+  { id: 'badge-dado',    slot: 'badge', name: 'Dado da Sorte',  desc: 'Que a sorte (e as odds) estejam com você.',    icon: 'dice',     color: '#a8324f', rarity: 'comum', price: 200 },
+  { id: 'badge-coracao', slot: 'badge', name: 'Coração Fiel',   desc: 'Pro torcedor raiz que nunca abandona.',        icon: 'heart',    color: '#c0392b', rarity: 'comum', price: 200 },
+  { id: 'badge-caveira', slot: 'badge', name: 'Caveira',        desc: 'Pros que apostam sem medo da morte (do saldo).', icon: 'skull',  color: '#3e3e3e', rarity: 'comum', price: 250 },
+  { id: 'badge-fogo',    slot: 'badge', name: 'Chama',          desc: 'Tá pegando fogo? Carrega no peito.',            icon: 'fire',     color: '#e8540f', rarity: 'comum', price: 250 },
+  { id: 'badge-raio',    slot: 'badge', name: 'Raio',           desc: 'Energia pura. Rápido no gatilho do cupom.',     icon: 'bolt',     color: '#e3b94d', rarity: 'rara',  price: 350 },
+  { id: 'badge-estrela', slot: 'badge', name: 'Estrela',        desc: 'Brilha mais que o resto. Ou acha que brilha.',  icon: 'star',     color: '#d4af37', rarity: 'rara',  price: 400 },
+  { id: 'badge-foguete', slot: 'badge', name: 'Foguete',        desc: 'Pra quem tá em ascensão na tabela.',            icon: 'rocket',   color: '#3a78c2', rarity: 'rara',  price: 500 },
+
+  // ── DISTINTIVOS DE CONQUISTA (drop automático) ──
   {
-    id: 'badge-beta',
-    slot: 'badge',
-    name: 'Beta Tester',
-    desc: 'Estava aqui na primeira temporada FIFA Season 1.',
-    icon: 'flask',
-    color: '#7a4dc9',
-    rarity: 'comum',
-    drop: ({ nick, teamPlayers }) => {
-      const players = Object.values(teamPlayers || {});
-      return players.includes(nick);
-    },
+    id: 'badge-beta', slot: 'badge', name: 'Beta Tester', icon: 'flask', color: '#7a4dc9', rarity: 'comum',
+    desc: 'Estava aqui na primeira temporada (FIFA Season 1).',
+    drop: ({ nick, teamPlayers }) => Object.values(teamPlayers || {}).map(String).map(s => s.toLowerCase()).includes(String(nick).toLowerCase()),
   },
   {
-    id: 'badge-high-roller',
-    slot: 'badge',
-    name: 'High Roller',
+    id: 'badge-high-roller', slot: 'badge', name: 'High Roller', icon: 'coin', color: '#c9a227', rarity: 'rara',
     desc: 'Apostou 100.000 PC ou mais num cupom.',
-    icon: 'coin',
-    color: '#c9a227',
-    rarity: 'rara',
-    drop: ({ nick, bets }) => {
-      const all = Array.isArray(bets) ? bets : [];
-      return all.some(b => b.user === nick && Number(b.amount) >= 100000);
-    },
+    drop: ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000),
   },
   {
-    id: 'badge-quebrou',
-    slot: 'badge',
-    name: 'Quebrou a Banca',
+    id: 'badge-quebrou', slot: 'badge', name: 'Quebrou a Banca', icon: 'coin-stack', color: '#2a8f3f', rarity: 'lendaria',
     desc: 'Apostou 100k+ E venceu. Lenda viva.',
-    icon: 'coin-stack',
-    color: '#2a8f3f',
-    rarity: 'lendaria',
-    drop: ({ nick, bets }) => {
-      const all = Array.isArray(bets) ? bets : [];
-      return all.some(b => b.user === nick && Number(b.amount) >= 100000 && b.status === 'won');
-    },
+    drop: ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000 && b.status === 'won'),
+  },
+  {
+    id: 'badge-campeao', slot: 'badge', name: 'Troféu do Campeão', icon: 'crown', color: '#d4af37', rarity: 'lendaria',
+    desc: 'Foi CAMPEÃO de uma temporada da FIFA. Só os reais.',
+    drop: ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.pos === 1; },
+  },
+  {
+    id: 'badge-lanterna', slot: 'badge', name: 'Selo da Vergonha', icon: 'toilet', color: '#7a2222', rarity: 'lendaria',
+    desc: 'Terminou em ÚLTIMO. Carrega a privada com (des)orgulho.',
+    drop: ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.isLast; },
+  },
+  {
+    id: 'badge-copa', slot: 'badge', name: 'Bolão da Copa', icon: 'globe', color: '#1c7a6e', rarity: 'comum',
+    desc: 'Palpitou em pelo menos um jogo da Copa do Mundo.',
+    drop: ({ nick, worldcup }) => Object.keys((worldcup && worldcup.picks && worldcup.picks[nick]) || {}).length >= 1,
+  },
+  {
+    id: 'badge-vidente', slot: 'badge', name: 'Vidente da Copa', icon: 'target', color: '#3a78c2', rarity: 'rara',
+    desc: 'Acertou um placar EXATO no bolão da Copa.',
+    drop: ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 1,
+  },
+  {
+    id: 'badge-fatality', slot: 'badge', name: 'Fatality Master', icon: 'sword', color: '#8a1f1f', rarity: 'lendaria',
+    desc: 'Campeão do torneio de Mortal Kombat. (Edição 01 chegando.)',
+    // Drop ainda não dispara — sistema de MK não tem dados. Fica "vindo aí".
+    drop: () => false,
   },
 ];
 
@@ -4822,7 +4983,7 @@ function TitleBadge({ titleId, size }) {
   );
 }
 
-function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, isAdmin, onSelectTitle }) {
+function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle }) {
   const playerTeam = reverseTeamMap(teamPlayers);
   const myTeamId = playerTeam[nick];
   const myTeam = myTeamId ? TEAM(myTeamId) : null;
@@ -4870,7 +5031,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, isAdmin, onSele
       {/* TÍTULOS */}
       <TitulosCard
         nick={nick}
-        ctx={{ bets, users, teamPlayers, cs }}
+        ctx={{ bets, users, teamPlayers, cs, worldcup }}
         selectedTitle={me?.title || null}
         onSelectTitle={onSelectTitle}
       />
