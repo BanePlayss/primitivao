@@ -53,7 +53,7 @@ A **EDIÇÃO 01** do Mortal Kombat do Primitivão tá saindo do papel — e as i
 
 **JÁ TÁ DENTRO?** A lista tá crescendo. Mas só sai do papel domingo às 23h59 — depois disso, sem choro, sem retorno, sem segundo round. Fica esperto.
 
-**COMO ENTRAR:** corre no **DISCORD** e fala com a comissão. Em 30 segundos você tá inscrito.
+**COMO ENTRAR:** vai na aba **CAMPEONATOS** aqui mesmo no site, seleciona **MORTAL KOMBAT** e clica em **QUERO PARTICIPAR**. Em 5 segundos você tá inscrito — sem grupo no zap, sem pedido pro admin, é só clicar.
 
 Domingo o sangue corre. **Quem vai aparecer pro First Blood?**`,
     at: Date.parse('2026-05-28T01:30:00-03:00'),
