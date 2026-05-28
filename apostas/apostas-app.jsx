@@ -447,6 +447,13 @@ async function commitBetDocUpdate(reducer) {
       return o || c || {};
     };
     const safe = {
+      // Spread `cur` primeiro pra preservar QUALQUER campo extra dentro do
+      // json que esse reducer nao tocou (futura compat com schemas novos).
+      ...cur,
+      // Mistura tambem o `out` pra pegar quaisquer fields novos que o
+      // reducer adicionou alem dos 4 conhecidos abaixo.
+      ...(out && typeof out === 'object' ? out : {}),
+      // Override final dos 4 fields canonicos com normalizacao defensiva:
       users:       protectMap(out && out.users,       cur.users,       'users'),
       teamPlayers: protectMap(out && out.teamPlayers, cur.teamPlayers, 'teamPlayers'),
       fixtures:    Array.isArray(out && out.fixtures) ? out.fixtures
@@ -474,8 +481,14 @@ async function commitBetDocUpdate(reducer) {
 // que ESTA tab não modificou. Cada campo tem estratégia própria.
 function mergeBetDocFields(remote, local) {
   return {
-    // users / teamPlayers: shallow merge, local ganha em conflito de chave.
-    users:       { ...(remote.users || {}),       ...(local.users || {}) },
+    // Spread `remote` primeiro pra preservar QUALQUER campo dentro do json
+    // que esta tab ainda nao conhece (ex: schema novo adicionado depois).
+    ...remote,
+    // users: merge DEEP por nick — local ganha em conflito de campo, mas
+    // campos que so estao no remote (ex: cosmetics nova) sao preservados.
+    // Antes era shallow ({ ...remote.users, ...local.users }) que apagava
+    // cosmetics/inventory/title novos do remote se local tinha versao antiga.
+    users:       mergeUsersDeep(remote.users || {}, local.users || {}),
     teamPlayers: { ...(remote.teamPlayers || {}), ...(local.teamPlayers || {}) },
     // bets: união por id, local ganha em conflito.
     bets:        mergeBetsById(remote.bets || [], local.bets || []),
@@ -483,6 +496,24 @@ function mergeBetDocFields(remote, local) {
     fixtures:    local.fixtures || remote.fixtures || DEFAULT_FIXTURES,
   };
 }
+
+// Merge deep de users[nick] field-by-field — local ganha em conflito
+// MAS preserva qualquer field que so existe no remote.
+// Critico pra evitar perda de cosmetics/inventory/title quando uma tab
+// tem state antigo (sem o campo) e outra tab acabou de gravar o campo.
+function mergeUsersDeep(remote, local) {
+  const out = {};
+  const all = new Set([...Object.keys(remote || {}), ...Object.keys(local || {})]);
+  for (const nick of all) {
+    const r = remote[nick] || null;
+    const l = local[nick]  || null;
+    if (r && l)       out[nick] = { ...r, ...l }; // local prevalece em conflito, mas r-only fields preservados
+    else if (l)       out[nick] = l;
+    else if (r)       out[nick] = r;
+  }
+  return out;
+}
+
 function mergeBetsById(remote, local) {
   const byId = new Map();
   for (const b of remote) if (b && b.id) byId.set(b.id, b);
@@ -541,12 +572,20 @@ async function downloadFullBackup() {
     a.download = `primitivao-backup-${ts}.json`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    // Stats extras pra confirmar visualmente que NADA foi perdido
+    const usersList = Object.values(apostasData?.users || {});
+    const withCosmetics = usersList.filter(u => u && u.cosmetics && Object.keys(u.cosmetics).length > 0).length;
+    const withInventory = usersList.filter(u => u && Array.isArray(u.inventory) && u.inventory.length > 0).length;
+    const withTitle     = usersList.filter(u => u && u.title).length;
     return {
       ok: true,
       users: Object.keys(payload.apostas?.users || {}).length,
       bets:  (payload.apostas?.bets || []).length,
       wcPicks, wcResults,
       news:  Array.isArray(apostasData?.news) ? apostasData.news.length : 0,
+      cosmetics: withCosmetics,
+      inventory: withInventory,
+      titles:    withTitle,
     };
   } catch (e) {
     console.error('Backup failed', e);
@@ -636,18 +675,23 @@ async function wipeAllData() {
     return { ok: false, error: 'Backup falhou; reset abortado por segurança. Detalhe: ' + backup.error };
   }
   try {
+    // PRESERVA configs do admin (news, discord_webhook) — usa merge:true
+    // e zera explicitamente só os campos de dados (users, bets, etc).
+    // Wipe é pra resetar dados de jogadores/apostas, NÃO pra apagar a
+    // configuração do site.
     await Promise.all([
       BET_DOC().set({
         json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], teamPlayers: {} }),
-        interests: {}, // campo top-level — separado do json
-        comments:  {}, // campo top-level — separado do json
-        worldcup:  { results: {}, picks: {} }, // bolão da Copa
+        interests: {}, // dados de inscrições — zera
+        comments:  {}, // comentários em news — zera
+        worldcup:  { results: {}, picks: {} }, // bolão Copa — zera
+        // news + discord_webhook NÃO são tocados (merge:true preserva)
         updatedAt: Date.now(),
-      }),
+      }, { merge: true }),
       CLASSIF_DOC().set({
         json: JSON.stringify({ currentRound: 0, rounds: defaultRounds() }),
         updatedAt: Date.now(),
-      }),
+      }, { merge: true }),
     ]);
     return { ok: true, backedUp: backup };
   } catch (e) {
@@ -6349,6 +6393,7 @@ function BackupPanel() {
           try { return JSON.parse(data.json); } catch (_) { return {}; }
         })() : {};
         const wc = data.worldcup || parsed.worldcup || {};
+        const usersList = Object.values(parsed.users || {});
         setPreview({
           users:     Object.keys(parsed.users || {}).length,
           bets:      (parsed.bets || []).length,
@@ -6362,6 +6407,12 @@ function BackupPanel() {
           wcPickers: Object.keys(wc.picks || {}).length,
           wcResults: Object.keys(wc.results || {}).length,
           news:      Array.isArray(data.news) ? data.news.length : 0,
+          // Stats por user pra confirmar que nada se perdeu
+          withTitle:     usersList.filter(u => u && u.title).length,
+          withCosmetics: usersList.filter(u => u && u.cosmetics && Object.keys(u.cosmetics).length > 0).length,
+          withInventory: usersList.filter(u => u && Array.isArray(u.inventory) && u.inventory.length > 0).length,
+          totalPc:       usersList.reduce((s, u) => s + (u?.pc || 0), 0),
+          discordSet:    !!data.discord_webhook,
         });
       } catch (e) { /* fail silent — botão continua funcionando */ }
     })();
@@ -6396,7 +6447,7 @@ function BackupPanel() {
           }}>
             <div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, marginBottom: 6, color: 'var(--pv-orange)' }}>O QUE VAI NO BACKUP AGORA</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 6 }}>
-              <div>· <strong>{preview.users}</strong> usuários</div>
+              <div>· <strong>{preview.users}</strong> usuários ({preview.totalPc.toLocaleString('pt-BR')} PC total)</div>
               <div>· <strong>{preview.bets}</strong> apostas (tickets)</div>
               <div>· <strong>{preview.teams}</strong> times vinculados</div>
               <div>· <strong>{preview.interests}</strong> inscrições</div>
@@ -6404,6 +6455,10 @@ function BackupPanel() {
               <div>· <strong>{preview.wcPicks}</strong> palpites da Copa ({preview.wcPickers} jogadores)</div>
               <div>· <strong>{preview.wcResults}</strong> resultados da Copa</div>
               <div>· <strong>{preview.news}</strong> news publicadas</div>
+              <div>· <strong>{preview.withTitle}</strong> jogadores c/ título exibido</div>
+              <div>· <strong>{preview.withCosmetics}</strong> jogadores c/ cosmético equipado</div>
+              <div>· <strong>{preview.withInventory}</strong> jogadores c/ inventário (items comprados)</div>
+              <div>· Discord webhook: <strong>{preview.discordSet ? 'configurado' : 'não'}</strong></div>
             </div>
           </div>
         )}
@@ -6414,7 +6469,7 @@ function BackupPanel() {
         </button>
         {status && status !== 'running' && status.ok && (
           <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Icon name="check" size={14} /> Backup baixado. {status.users} usuários, {status.bets} apostas, {status.wcPicks || 0} palpites da Copa ({status.wcResults || 0} resultados), {status.news || 0} news.
+            <Icon name="check" size={14} /> Backup baixado: {status.users} usuários, {status.bets} apostas, {status.wcPicks || 0} palpites da Copa ({status.wcResults || 0} resultados), {status.news || 0} news, {status.titles || 0} c/ título, {status.cosmetics || 0} c/ cosmético equipado, {status.inventory || 0} c/ inventário.
           </p>
         )}
         {status && status !== 'running' && !status.ok && (
