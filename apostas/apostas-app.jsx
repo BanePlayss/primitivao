@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-tabloide-cores ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-tabloide-id ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6977,6 +6977,8 @@ function TabloidPoster({ data, teamPlayers }) {
   const matchups = (d.matchups || []).filter(m => m && (m.homeId || m.awayId));
   return (
     <div className={'tp tp-type-' + t} style={{ '--tp-accent': champColor }}>
+      <div className="tp-topband" />
+      <div className="tp-watermark" aria-hidden="true"><Icon name={champIcon} size={660} /></div>
       <div className="tp-masthead">
         <span className="tp-vol">VOL. {d.volume || '—'}</span>
         <span className="tp-mast-ico"><Icon name={champIcon} size={17} /></span>
@@ -7238,13 +7240,18 @@ function TabloidBuilderPanel({ cs, bets, users, teamPlayers, worldcup, wcFixture
     }
     setExporting(true);
     try {
-      const dataUrl = await lib.toPng(node, {
-        pixelRatio: 2,
-        width: node.offsetWidth,
-        height: node.offsetHeight,
-        backgroundColor: '#d9c5a2',
-        style: { transform: 'none', margin: '0' },
-      });
+      // Watchdog: se o html-to-image travar (já vimos isso em alguns ambientes),
+      // não deixa o botão preso pra sempre — aborta em 20s com mensagem clara.
+      const dataUrl = await Promise.race([
+        lib.toPng(node, {
+          pixelRatio: 2,
+          width: node.offsetWidth,
+          height: node.offsetHeight,
+          backgroundColor: '#d9c5a2',
+          style: { transform: 'none', margin: '0' },
+        }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 20000)),
+      ]);
       const a = document.createElement('a');
       a.download = `primitivao-times-vol-${(data.volume || 'x')}.png`;
       a.href = dataUrl;

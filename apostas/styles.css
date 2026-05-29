@@ -2933,3 +2933,15 @@
     @media (max-width: 720px) { .tp-pickers { gap: 10px; } }
     /* Ícone específico do campeonato no masthead do pôster */
     .tp-mast-ico { display: inline-flex; align-items: center; color: var(--tp-accent,#b3401a); }
+
+    /* ─── IDENTIDADE POR CAMPEONATO: faixa colorida + marca d'água ─── */
+    .tp { overflow: hidden; }
+    .tp-topband { height: 14px; background: var(--tp-accent,#b3401a); margin: -26px -30px 16px; box-shadow: inset 0 -3px 0 rgba(28,22,18,0.3); }
+    .tp-watermark {
+      position: absolute; top: 52%; left: 50%;
+      transform: translate(-50%, -50%) rotate(-8deg);
+      color: var(--tp-accent,#b3401a); opacity: 0.06; pointer-events: none; z-index: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    /* Conteúdo sempre acima da marca d'água. */
+    .tp > *:not(.tp-watermark) { position: relative; z-index: 1; }
