@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-perfil-boundary ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-header-rodada ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2360,12 +2360,9 @@ function App() {
             )}
             {/* APOSTAS — tela inicial: jogos pra apostar do campeonato selecionado. */}
             {view === 'apostas' && (<>
-              <ChampionshipSelector
-                value={championship}
-                onChange={setChampionship}
-                interests={interests || {}}
-              />
-              {showPlaceholder ? (
+              {showPlaceholder ? (<>
+                {/* EM BREVE: switcher compacto pra poder voltar pro campeonato ativo */}
+                <ChampHeader value={championship} onChange={setChampionship} interests={interests || {}} bare />
                 <ChampionshipPlaceholder
                   champ={active}
                   session={session}
@@ -2375,7 +2372,7 @@ function App() {
                   isAdmin={isAdmin}
                   onToggleInterest={() => toggleInterest(active.id)}
                 />
-              ) : (
+              </>) : (
                 <ApostarView
                   games={games} gamesById={gamesById} bets={bets} me={me} session={session} users={users}
                   weeklyReady={weeklyReady} weeklyIn={weeklyIn} onClaim={claimWeekly}
@@ -2383,17 +2380,15 @@ function App() {
                   onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin}
                   slipPruneMsg={slipPruneMsg}
                   onToggleLock={toggleGameLock}
+                  championship={championship} setChampionship={setChampionship}
+                  interests={interests || {}}
                 />
               )}
             </>)}
 
             {/* CAMPEONATOS — classificação do campeonato selecionado. */}
             {view === 'campeonatos' && (<>
-              <ChampionshipSelector
-                value={championship}
-                onChange={setChampionship}
-                interests={interests || {}}
-              />
+              <ChampHeader value={championship} onChange={setChampionship} interests={interests || {}} bare />
               {showPlaceholder ? (
                 <ChampionshipPlaceholder
                   champ={active}
@@ -2545,46 +2540,81 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
   );
 }
 
-// ─── CAMPEONATO: seletor + página "em breve" ────────────────────────────────
-function ChampionshipSelector({ value, onChange, interests }) {
+// ─── CAMPEONATO: header unificado (rodada + campeonato + troca) ──────────────
+// Substitui a antiga barra de 6 abas. Mostra o contexto (ex: RODADA 07 + stats)
+// em cima e a identidade do campeonato (FIFA · SEASON 1) embaixo, com um
+// dropdown "TROCAR" pra alternar entre campeonatos (ativo e os EM BREVE).
+// `bare` = variante leve (sem caixa escura), usada na classificação e no EM BREVE.
+function ChampHeader({ value, onChange, interests, title, tag, stats, bare }) {
+  const active = CHAMP_BY_ID[value] || CHAMPIONSHIPS[0];
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onEsc = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('touchstart', onClick);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('touchstart', onClick);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+
+  const pick = (id) => { onChange(id); setOpen(false); };
+  const hasContext = !!(title || stats);
+
   return (
-    <div style={{
-      display: 'flex', gap: 8, marginBottom: 14, overflowX: 'auto',
-      paddingBottom: 4,
-    }}>
-      {CHAMPIONSHIPS.map(c => {
-        const isActive = c.id === value;
-        const count = Object.keys(interests?.[c.id] || {}).length;
-        const isComing = c.status === 'soon';
-        return (
+    <div className={'champ-header' + (bare ? ' champ-header--bare' : '')}>
+      {hasContext && (
+        <div className="champ-header-context">
+          <div className="champ-header-title">
+            {title}
+            {tag && <span className="champ-header-tag">{tag}</span>}
+          </div>
+          {stats && <div className="champ-header-stats">{stats}</div>}
+        </div>
+      )}
+      <div className="champ-header-champ">
+        <span className="champ-header-id">{active.tag} · {active.season.toUpperCase()}</span>
+        <div className="champ-switcher" ref={ref}>
           <button
-            key={c.id}
-            onClick={() => onChange(c.id)}
-            style={{
-              flexShrink: 0,
-              padding: '10px 16px',
-              border: '2px solid ' + (isActive ? 'var(--pv-orange)' : 'var(--pv-charcoal)'),
-              background: isActive ? 'var(--pv-orange)' : 'transparent',
-              color: isActive ? 'var(--pv-bone)' : 'var(--pv-charcoal)',
-              fontWeight: 800,
-              fontSize: 11,
-              letterSpacing: '0.14em',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              gap: 2,
-              lineHeight: 1.2,
-            }}
+            className="champ-trocar"
+            onClick={() => setOpen(o => !o)}
+            aria-expanded={open}
+            aria-haspopup="true"
           >
-            <span style={{ fontSize: 10, opacity: 0.7 }}>
-              {c.tag} {isComing ? '· EM BREVE' : '· ATIVO'}
-              {isComing && count > 0 && ` · ${count}`}
-            </span>
-            <span>{c.season.toUpperCase()}</span>
+            TROCAR <Icon name="caret-down" size={13} />
           </button>
-        );
-      })}
+          {open && (
+            <div className="champ-switcher-menu" role="menu">
+              {CHAMPIONSHIPS.map(c => {
+                const isSel = c.id === value;
+                const isComing = c.status !== 'active';
+                const count = Object.keys(interests?.[c.id] || {}).length;
+                return (
+                  <button
+                    key={c.id}
+                    className={'champ-switcher-item' + (isSel ? ' active' : '')}
+                    onClick={() => pick(c.id)}
+                    role="menuitem"
+                  >
+                    <span className="csi-name">{c.tag} · {c.season.toUpperCase()}</span>
+                    <span className="csi-status">
+                      {isComing ? 'EM BREVE' : 'ATIVO'}
+                      {isComing && count > 0 ? ' · ' + count : ''}
+                      {isSel && <Icon name="check" size={13} />}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -4341,7 +4371,7 @@ function formatCommentTime(ts) {
 
 function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, weeklyIn, onClaim,
                         slip, onToggleLeg, onRemoveLeg, onClearSlip, onPlaceBet, isAdmin, slipPruneMsg,
-                        onToggleLock }) {
+                        onToggleLock, championship, setChampionship, interests }) {
   // Admin vê todos os jogos abertos (inclusive travados, pra poder destravar);
   // user comum só vê os destravados.
   const open = (games || [])
@@ -4397,11 +4427,15 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
       <div>
         {/* (Banner do bônus migrou pro TopBar — fica visível em qualquer aba.) */}
 
-        {/* Header com stats */}
-        <div className="apostar-header">
-          <div className="apostar-header-main">
-            <div className="apostar-header-title">JOGOS DISPONÍVEIS</div>
-            <div className="apostar-header-stats">
+        {/* Header unificado: RODADA atual + campeonato + troca (substitui as 6 abas) */}
+        <ChampHeader
+          value={championship}
+          onChange={setChampionship}
+          interests={interests || {}}
+          title={firstRound ? 'RODADA ' + String(firstRound).padStart(2, '0') : 'SEM JOGOS ABERTOS'}
+          tag={firstRound ? 'ATUAL' : null}
+          stats={totalGames > 0 ? (
+            <>
               <span><strong>{totalGames}</strong> em aberto</span>
               <span>·</span>
               <span><strong>{allRoundsWithGames.length}</strong> rodada{allRoundsWithGames.length === 1 ? '' : 's'}</span>
@@ -4414,12 +4448,12 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
               {isAdmin && lockedCount > 0 && (
                 <>
                   <span>·</span>
-                  <span style={{ color: '#c33', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="lock" size={12} /> <strong>{lockedCount}</strong> travado{lockedCount === 1 ? '' : 's'}</span>
+                  <span style={{ color: '#ff8a8a', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="lock" size={12} /> <strong>{lockedCount}</strong> travado{lockedCount === 1 ? '' : 's'}</span>
                 </>
               )}
-            </div>
-          </div>
-        </div>
+            </>
+          ) : null}
+        />
 
         {/* Chips de filtro */}
         {totalGames > 0 && (
