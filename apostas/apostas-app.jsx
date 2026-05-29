@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-apostas-fix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-tabloide-odds ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6647,19 +6647,15 @@ function statsFromStanding(s) {
   ];
 }
 
-// Confrontos da rodada atual (ou última com jogos) já com odds 1X2 calculadas.
+// Confrontos + odds AUTOMÁTICOS — pega exatamente o que está aberto pra aposta
+// (mesma fonte da aba APOSTAS): a RODADA ATUAL aberta (menor índice com jogos
+// não jogados) com as odds 1X2 calculadas iguaizinhas às do cupom. Se a
+// temporada acabou (nada aberto), cai pra última rodada com jogos.
 function currentRoundMatchups(cs) {
   const rounds = cs?.rounds || [];
   if (!rounds.length) return [];
   const metrics = computeTeamMetrics(rounds);
-  let ri = Number.isInteger(cs.currentRound) ? cs.currentRound : rounds.length - 1;
-  if (!Array.isArray(rounds[ri]) || rounds[ri].length === 0) {
-    for (let i = rounds.length - 1; i >= 0; i--) {
-      if (Array.isArray(rounds[i]) && rounds[i].length) { ri = i; break; }
-    }
-  }
-  const round = Array.isArray(rounds[ri]) ? rounds[ri] : [];
-  return round.map(g => {
+  const toMatch = (g) => {
     const o = (computeGameOdds(g.home, g.away, metrics) || {})['1X2'] || {};
     return {
       homeId: g.home, awayId: g.away,
@@ -6667,7 +6663,18 @@ function currentRoundMatchups(cs) {
       oddDraw: o.D != null ? o.D.toFixed(2) : '',
       oddAway: o.A != null ? o.A.toFixed(2) : '',
     };
-  });
+  };
+  // 1) Rodada atual ABERTA = a que está em aposta agora (igual ao APOSTAS).
+  const open = bettableGames(rounds);
+  if (open.length) {
+    const minRi = Math.min.apply(null, open.map(g => g.ri));
+    return open.filter(g => g.ri === minRi).map(toMatch);
+  }
+  // 2) Temporada encerrada: usa a última rodada com jogos (recap).
+  for (let i = rounds.length - 1; i >= 0; i--) {
+    if (Array.isArray(rounds[i]) && rounds[i].length) return rounds[i].map(toMatch);
+  }
+  return [];
 }
 
 // Monta os dados do tabloide a partir do estado (classificação + jogos).
@@ -6851,6 +6858,12 @@ function TabloidBuilderPanel({ cs }) {
     showToast('Tabloide recarregado da classificação', 'success');
   };
 
+  const refreshMatchups = () => {
+    const m = currentRoundMatchups(cs);
+    setData(prev => ({ ...prev, matchups: m }));
+    showToast(m.length ? `${m.length} confronto(s) e odds atualizados da rodada atual.` : 'Nenhum confronto aberto encontrado.', m.length ? 'success' : 'error');
+  };
+
   const matchups = data.matchups || [];
   const players = (data.midStrip && data.midStrip.players) || [];
 
@@ -6940,6 +6953,9 @@ function TabloidBuilderPanel({ cs }) {
           ))}
 
           <div className="tp-form-sec">CONFRONTOS (com odds)</div>
+          <button type="button" className="tp-btn-ghost" style={{ alignSelf: 'flex-start', marginBottom: 6 }} onClick={refreshMatchups}>
+            <Icon name="refresh" size={13} /> PUXAR CONFRONTOS DA RODADA
+          </button>
           {matchups.map((m, i) => (
             <div key={i} className="tp-match-edit">
               <TpTeamSelect value={m.homeId} onChange={v => patchMatch(i, { homeId: v })} />
