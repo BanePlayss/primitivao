@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260528-review ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260528-ux ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2176,7 +2176,8 @@ function App() {
   if (!synced || cs === null) {
     return (
       <div className="login-stage">
-        <div className="login-card">
+        <div className="login-card loading-card">
+          <div className="pv-spinner" aria-hidden="true"><span /><span /><span /></div>
           <div className="lh1">CONECTANDO</div>
           <div className="lh2">SINCRONIZANDO COM O SERVIDOR</div>
         </div>

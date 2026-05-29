@@ -6,6 +6,14 @@
       --pv-bone-2:   #e6dbc4;
       --pv-red:      #8b3a14;
       --pv-green:    #4d6a2e;
+      /* ── design tokens (polish global) ── */
+      --sh-sm:  3px 3px 0 var(--pv-charcoal);
+      --sh-md:  6px 6px 0 var(--pv-charcoal);
+      --sh-lg:  10px 10px 0 rgba(28,22,18,0.9);
+      --sh-soft: 0 4px 14px rgba(28,22,18,0.12);
+      --ease:   cubic-bezier(0.22, 1, 0.36, 1);
+      --dur:    0.18s;
+      --dur-lg: 0.32s;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; min-height: 100%; }
@@ -21,9 +29,78 @@
     .mono    { font-variant-numeric: tabular-nums; }
     button {
       font-family: inherit; cursor: pointer;
+      transition: background var(--dur) var(--ease),
+                  color var(--dur) var(--ease),
+                  border-color var(--dur) var(--ease),
+                  box-shadow var(--dur) var(--ease),
+                  transform var(--dur) var(--ease),
+                  opacity var(--dur) var(--ease);
     }
-    input, select {
+    /* feedback tátil: qualquer botão "afunda" levemente ao clicar */
+    button:active:not(:disabled) { transform: translateY(1px); }
+    input, select, textarea {
       font-family: inherit;
+      transition: border-color var(--dur) var(--ease),
+                  background var(--dur) var(--ease),
+                  box-shadow var(--dur) var(--ease);
+    }
+
+    /* ──── POLISH GLOBAL ──── */
+    a { transition: color var(--dur) var(--ease); }
+
+    /* Foco por teclado: anel laranja consistente (acessibilidade + polish).
+       Mouse não dispara :focus-visible, então não polui o clique. */
+    a:focus-visible, button:focus-visible, input:focus-visible,
+    select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+      outline: 3px solid var(--pv-orange);
+      outline-offset: 2px;
+    }
+
+    /* Seleção de texto na cor do tema */
+    ::selection { background: var(--pv-orange); color: var(--pv-bone); }
+
+    /* Scrollbar custom (premium feel, combina com o tema) */
+    * { scrollbar-width: thin; scrollbar-color: var(--pv-orange) transparent; }
+    ::-webkit-scrollbar { width: 11px; height: 11px; }
+    ::-webkit-scrollbar-track { background: rgba(28,22,18,0.06); }
+    ::-webkit-scrollbar-thumb {
+      background: var(--pv-orange);
+      border: 2px solid var(--pv-bone);
+      border-radius: 0;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--pv-orange-2); }
+
+    /* Cards entram com um fade-up sutil ao montar a view */
+    @keyframes pv-rise {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pv-fade {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    /* A página inteira faz fade ao trocar de view; os cards sobem em cascata */
+    .content-area > .page { animation: pv-fade var(--dur-lg) var(--ease); }
+    .page > .card,
+    .inicio-feed > .news-card,
+    .page > div > .card {
+      animation: pv-rise var(--dur-lg) var(--ease) both;
+    }
+    /* stagger leve: os primeiros elementos entram em cascata (cap em 6 pra
+       não atrasar conteúdo abaixo da dobra) */
+    .page > .card:nth-child(1), .inicio-feed > .news-card:nth-child(1), .page > div > .card:nth-child(1) { animation-delay: 0.02s; }
+    .page > .card:nth-child(2), .inicio-feed > .news-card:nth-child(2), .page > div > .card:nth-child(2) { animation-delay: 0.06s; }
+    .page > .card:nth-child(3), .inicio-feed > .news-card:nth-child(3), .page > div > .card:nth-child(3) { animation-delay: 0.10s; }
+    .page > .card:nth-child(4), .inicio-feed > .news-card:nth-child(4), .page > div > .card:nth-child(4) { animation-delay: 0.14s; }
+    .page > .card:nth-child(n+5), .inicio-feed > .news-card:nth-child(n+5), .page > div > .card:nth-child(n+5) { animation-delay: 0.18s; }
+
+    /* Respeita quem pediu menos movimento (acessibilidade) */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+      }
     }
 
     /* ──── TOP BAR ──── */
@@ -608,12 +685,18 @@
     .card {
       background: var(--pv-bone);
       border: 3px solid var(--pv-charcoal);
-      box-shadow: 6px 6px 0 var(--pv-charcoal);
+      box-shadow: var(--sh-md);
+      transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease);
     }
+    /* hover sutil: a sombra "abre" um pouco — dá vida sem mover layout */
+    .card:hover { box-shadow: 8px 8px 0 var(--pv-charcoal); }
     .card-head {
       padding: 14px 18px;
       background: var(--pv-charcoal); color: var(--pv-bone);
       display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
+      /* fina linha laranja embaixo do header pra separar do corpo */
+      border-bottom: 2px solid var(--pv-orange);
     }
     .card-head .title {
       font-family: "Bungee Inline", Impact, sans-serif; font-size: 16px; letter-spacing: 0.06em;
@@ -901,14 +984,21 @@
       padding: 10px 6px;
       text-align: center;
       font-weight: 800;
+      transition: background var(--dur) var(--ease), color var(--dur) var(--ease),
+                  transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
     }
-    .odd-btn .lab { font-size: 9px; letter-spacing: 0.26em; color: rgba(28,22,18,0.6); }
-    .odd-btn .val { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 22px; color: var(--pv-charcoal); margin-top: 2px; }
+    .odd-btn .lab { font-size: 9px; letter-spacing: 0.26em; color: rgba(28,22,18,0.6); transition: color var(--dur) var(--ease); }
+    .odd-btn .val { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 22px; color: var(--pv-charcoal); margin-top: 2px; transition: color var(--dur) var(--ease); }
     .odd-btn:hover:not(:disabled) {
       background: var(--pv-orange); border-color: var(--pv-charcoal);
+      transform: translateY(-2px); box-shadow: var(--sh-sm);
     }
     .odd-btn:hover:not(:disabled) .val { color: var(--pv-bone); }
+    .odd-btn:hover:not(:disabled) .lab { color: var(--pv-bone); }
+    .odd-btn:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
     .odd-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    /* selecionada: pulsa de leve uma vez ao marcar (feedback) */
+    .odd-btn.sel { box-shadow: var(--sh-sm); }
     .odd-btn.winner {
       background: var(--pv-orange); border-color: var(--pv-charcoal);
     }
@@ -1199,6 +1289,11 @@
     .modal-btns button { flex: 1; padding: 12px; font-weight: 800; letter-spacing: 0.16em; font-size: 12px; border: 3px solid var(--pv-charcoal); }
     .btn-secondary { background: var(--pv-bone); color: var(--pv-charcoal); }
     .btn-primary { background: var(--pv-orange); color: var(--pv-bone); }
+    .btn-primary:hover:not(:disabled) { background: var(--pv-charcoal); color: var(--pv-orange); box-shadow: var(--sh-sm); transform: translateY(-1px); }
+    .btn-secondary:hover:not(:disabled) { background: var(--pv-charcoal); color: var(--pv-bone); box-shadow: var(--sh-sm); transform: translateY(-1px); }
+    .btn-primary:active:not(:disabled),
+    .btn-secondary:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
+    .btn-primary:disabled, .btn-secondary:disabled { opacity: 0.45; cursor: not-allowed; }
 
     /* admin */
     .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -1224,12 +1319,38 @@
     }
 
     .empty {
-      padding: 30px 18px; text-align: center;
-      border: 2px dashed rgba(28,22,18,0.3);
+      padding: 34px 20px; text-align: center;
+      border: 2px dashed rgba(28,22,18,0.28);
       color: rgba(28,22,18,0.55);
+      background: repeating-linear-gradient(
+        45deg,
+        transparent, transparent 9px,
+        rgba(28,22,18,0.02) 9px, rgba(28,22,18,0.02) 18px
+      );
     }
-    .empty .e1 { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 22px; color: var(--pv-charcoal); }
-    .empty .e2 { font-size: 12px; margin-top: 4px; }
+    .empty .e1 {
+      font-family: "Bagel Fat One", Impact, sans-serif; font-size: 22px;
+      color: var(--pv-charcoal); letter-spacing: 0.02em;
+    }
+    .empty .e2 { font-size: 12px; margin-top: 6px; line-height: 1.5; max-width: 360px; margin-left: auto; margin-right: auto; }
+
+    /* Loading spinner (3 dots pulsando) — tela CONECTANDO */
+    .loading-card { text-align: center; }
+    .pv-spinner {
+      display: flex; gap: 8px; justify-content: center; margin-bottom: 18px;
+    }
+    .pv-spinner span {
+      width: 12px; height: 12px;
+      background: var(--pv-orange);
+      display: inline-block;
+      animation: pv-bounce 1s var(--ease) infinite;
+    }
+    .pv-spinner span:nth-child(2) { animation-delay: 0.15s; background: var(--pv-charcoal); }
+    .pv-spinner span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes pv-bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+      40%           { transform: translateY(-10px); opacity: 1; }
+    }
 
     /* utilities */
     .row-between { display: flex; justify-content: space-between; align-items: center; }
