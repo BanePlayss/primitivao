@@ -101,7 +101,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260527-news-markdown ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260528-fix-next ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -432,6 +432,13 @@ async function commitBetDocUpdate(reducer) {
     if (out && typeof out === 'object' && out.__abort === true) {
       return out.result !== undefined ? out.result : null;
     }
+    // Reducers podem retornar o estado DIRETO (ex: { ...remote, bets }) OU
+    // envelopado em { next: <estado> } (usado pelo write-back). Desempacota.
+    // CRÍTICO: sem isso, { next } seria gravado como lixo dentro do json e o
+    // estado real (dentro de next) seria ignorado.
+    const next = (out && typeof out === 'object' && out.next && typeof out.next === 'object')
+      ? out.next
+      : out;
     // Normalização defensiva: garante schema mínimo, sem perder fields de cur.
     const validMap = (v) => v && typeof v === 'object' && !Array.isArray(v) ? v : null;
     const protectMap = (outVal, curVal, label) => {
@@ -450,17 +457,20 @@ async function commitBetDocUpdate(reducer) {
       // Spread `cur` primeiro pra preservar QUALQUER campo extra dentro do
       // json que esse reducer nao tocou (futura compat com schemas novos).
       ...cur,
-      // Mistura tambem o `out` pra pegar quaisquer fields novos que o
+      // Mistura tambem o `next` pra pegar quaisquer fields novos que o
       // reducer adicionou alem dos 4 conhecidos abaixo.
-      ...(out && typeof out === 'object' ? out : {}),
+      ...(next && typeof next === 'object' ? next : {}),
       // Override final dos 4 fields canonicos com normalizacao defensiva:
-      users:       protectMap(out && out.users,       cur.users,       'users'),
-      teamPlayers: protectMap(out && out.teamPlayers, cur.teamPlayers, 'teamPlayers'),
-      fixtures:    Array.isArray(out && out.fixtures) ? out.fixtures
+      users:       protectMap(next && next.users,       cur.users,       'users'),
+      teamPlayers: protectMap(next && next.teamPlayers, cur.teamPlayers, 'teamPlayers'),
+      fixtures:    Array.isArray(next && next.fixtures) ? next.fixtures
                        : (Array.isArray(cur.fixtures) ? cur.fixtures : DEFAULT_FIXTURES),
-      bets:        Array.isArray(out && out.bets) ? out.bets
+      bets:        Array.isArray(next && next.bets) ? next.bets
                        : (Array.isArray(cur.bets) ? cur.bets : []),
     };
+    // Defensivo: limpa lixo `next` que possa ter vazado pro json em writes
+    // antigos (antes desta correção). Idempotente.
+    if ('next' in safe) delete safe.next;
     const writeData = {
       json: JSON.stringify(safe),
       updatedAt: Date.now(),

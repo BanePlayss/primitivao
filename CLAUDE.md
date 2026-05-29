@@ -14,10 +14,15 @@ herdam cor via `currentColor`.
 
 **Ícones disponíveis** (lista viva — adicionar novos quando precisar):
 `star, shield, sparkle, check, eye, eye-off, target, trophy, globe, coin,
-arrow-right, arrow-up-right, arrow-down, refresh, caret-up, caret-down,
-x, warning, lock, unlock, flag, question, medal, gift, menu, skull, fire,
-book, newspaper, dice, user, gamepad, phone, chart, pin, square-filled,
-chat, ticket, flask, tag, trash, toilet, toothbrush`
+coin-stack, coin-fire, arrow-right, arrow-up-right, arrow-down, refresh,
+caret-up, caret-down, x, warning, lock, unlock, flag, question, medal,
+gift, menu, skull, fire, book, newspaper, dice, user, gamepad, phone,
+chart, pin, square-filled, chat, ticket, flask, tag, trash, toilet,
+toothbrush, crown, bolt, heart, football, sword, whistle, snowflake,
+rocket`
+
+> A galeria completa renderizada fica em **ADMIN → CATÁLOGO** (todos os
+> ícones, títulos, distintivos e molduras num lugar só, pra QA).
 
 **Como adicionar um novo ícone:**
 1. Abre o `switch (name)` dentro de `function Icon(...)` no `apostas-app.jsx`.
@@ -87,6 +92,30 @@ git push
 
 **NUNCA** edite `apostas-app.compiled.js` direto. Ele é gerado e qualquer
 mudança vai ser sobrescrita pela próxima build.
+
+## 2.2 Mutações no Firestore (NÃO QUEBRAR)
+
+Toda escrita no doc `primitivao/apostas` passa por
+`commitBetDocUpdate(reducer)` — transação que lê o estado, roda o
+reducer, normaliza e grava. O reducer pode retornar:
+
+- `null` / `undefined` → no-op
+- `{ __abort: true, result }` → no-op, devolve `result` pro caller
+- **estado direto** (`{ ...remote, bets: [...] }`) → grava
+- **`{ next: <estado> }`** → grava `<estado>` (usado pelo write-back)
+
+O helper **desempacota `out.next`** antes de gravar. Se você mexer no
+`commitBetDocUpdate`, NUNCA grave `out` direto sem checar `out.next` —
+senão o campo `next` vira lixo dentro do `json` e o estado real é
+perdido (esse bug já aconteceu 2x). O `safe` final faz
+`delete safe.next` defensivo.
+
+Campos **top-level** (siblings do `json` stringificado), NÃO entram no
+reducer/json: `interests`, `comments`, `worldcup`, `news`,
+`discord_webhook`. São lidos/escritos direto via `BET_DOC().set(..., {merge:true})`.
+
+Backup completo (botão admin + GitHub Action) tem que cobrir json +
+TODOS os top-level. Ver `downloadFullBackup` e `scripts/backup-firestore.mjs`.
 
 ## 3. Cache busting
 
