@@ -2756,3 +2756,60 @@
     .tp .avatar-full { border: none !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; }
     .tp .avatar-full img { object-fit: contain; object-position: center bottom; }
     .tp .avatar-icon { border: 3px solid #1c1612; }
+
+    /* ─── MINHAS INSCRIÇÕES (perfil) ─── */
+    .insc-list { display: flex; flex-direction: column; gap: 8px; }
+    .insc-row {
+      display: flex; align-items: center; gap: 12px; justify-content: space-between;
+      padding: 10px 12px; border: 1.5px solid rgba(28,22,18,0.18);
+      background: var(--pv-bone-2); border-radius: 8px;
+    }
+    .insc-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .insc-tag {
+      flex-shrink: 0; font-weight: 800; font-size: 11px; letter-spacing: 0.1em;
+      background: var(--pv-charcoal); color: var(--pv-bone); padding: 4px 9px; border-radius: 5px;
+    }
+    .insc-name { font-weight: 700; font-size: 13px; color: var(--pv-charcoal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .insc-cancel {
+      flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
+      background: transparent; border: 1.5px solid var(--pv-red, #c33); color: var(--pv-red, #c33);
+      font-weight: 800; font-size: 11px; letter-spacing: 0.1em; padding: 8px 12px;
+      border-radius: 6px; cursor: pointer; font-family: inherit; min-height: 38px;
+    }
+    .insc-cancel:hover { background: var(--pv-red, #c33); color: var(--pv-bone); }
+    .insc-cancel:disabled { opacity: 0.55; cursor: wait; }
+    @media (max-width: 520px) {
+      .insc-row { flex-wrap: wrap; gap: 8px; }
+      .insc-cancel { width: 100%; justify-content: center; min-height: 44px; }
+    }
+
+    /* ═══════════════ POLISH MOBILE (toque + PWA + nav) ═══════════════ */
+
+    /* Toque: tira o flash de seleção, o atraso de 300ms e o zoom por duplo-toque
+       em botões; impede o iOS de inflar fontes ao girar a tela. */
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    button, a, [role="button"], .odd-btn, label.tp-fld { -webkit-tap-highlight-color: transparent; }
+    button, [role="button"], .odd-btn { touch-action: manipulation; }
+
+    /* Menu mobile: itens agora têm ÍCONE (alinha com a sidebar do desktop). */
+    .tabs-drawer-item { display: flex; align-items: center; gap: 12px; }
+    .tabs-drawer-ico { display: inline-flex; flex-shrink: 0; color: var(--pv-orange); opacity: 0.7; }
+    .tabs-drawer-item.active .tabs-drawer-ico { opacity: 1; }
+    .tabs-mobile-btn .tabs-current { display: inline-flex; align-items: center; gap: 8px; }
+    .tabs-mobile-btn .tabs-current svg { opacity: 0.9; }
+
+    /* Áreas seguras (notch / home indicator) — importam no app instalado (PWA),
+       que usa status bar translúcida e ocupa a tela toda. */
+    @media (max-width: 720px) {
+      .topbar { padding-top: max(10px, env(safe-area-inset-top)); }
+      .page { padding-bottom: max(14px, calc(env(safe-area-inset-bottom) + 14px)); }
+    }
+    .tabs-drawer { padding-bottom: env(safe-area-inset-bottom); }
+    .cupom-fab { bottom: max(18px, calc(env(safe-area-inset-bottom) + 12px)); }
+
+    /* Garante alvo de toque confortável nos itens de navegação e ações comuns. */
+    @media (pointer: coarse) {
+      .tabs-drawer-item { min-height: 48px; }
+      .tabs-mobile-btn { min-height: 50px; }
+      .logout-btn, .weekly-chip, .pc-pill { min-height: 40px; }
+    }

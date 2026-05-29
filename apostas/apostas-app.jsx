@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-tabloide ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-insc-mobile ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2449,6 +2449,8 @@ function App() {
                 isAdmin={isAdmin}
                 onSelectTitle={setSelectedTitle}
                 onEquip={equipItem}
+                interests={interests || {}}
+                onCancelInterest={toggleInterest}
               />
             )}
             {view === 'tickets' && (
@@ -2783,7 +2785,9 @@ function MobileNav({ view, setView, isAdmin }) {
 
   // Label do botão = nome da tela atual.
   const allItems = [...sectionItems, ...globalItems];
-  const currentLabel = (allItems.find(it => it.id === view) || {}).label || 'MENU';
+  const currentItem = allItems.find(it => it.id === view) || {};
+  const currentLabel = currentItem.label || 'MENU';
+  const currentIcon = currentItem.icon || 'menu';
 
   const go = (id) => { setView(id); setOpen(false); };
   const goDiscord = () => {
@@ -2800,7 +2804,7 @@ function MobileNav({ view, setView, isAdmin }) {
         onClick={() => setOpen(o => !o)}
       >
         <span className="tabs-hamb"><Icon name={open ? 'x' : 'menu'} size={18} /></span>
-        <span className="tabs-current">{currentLabel}</span>
+        <span className="tabs-current"><Icon name={currentIcon} size={15} /> {currentLabel}</span>
         <span className="tabs-chev"><Icon name={open ? 'caret-up' : 'caret-down'} size={12} /></span>
       </button>
       {open && (
@@ -2810,6 +2814,7 @@ function MobileNav({ view, setView, isAdmin }) {
             <button key={it.id} role="menuitem"
                     className={'tabs-drawer-item ' + (view === it.id ? 'active' : '')}
                     onClick={() => go(it.id)}>
+              <span className="tabs-drawer-ico"><Icon name={it.icon} size={17} /></span>
               {it.label}
             </button>
           ))}
@@ -2818,10 +2823,14 @@ function MobileNav({ view, setView, isAdmin }) {
             <button key={it.id} role="menuitem"
                     className={'tabs-drawer-item ' + (view === it.id ? 'active' : '')}
                     onClick={() => go(it.id)}>
+              <span className="tabs-drawer-ico"><Icon name={it.icon} size={17} /></span>
               {it.label}
             </button>
           ))}
-          <button role="menuitem" className="tabs-drawer-item" onClick={goDiscord}>DISCORD</button>
+          <button role="menuitem" className="tabs-drawer-item" onClick={goDiscord}>
+            <span className="tabs-drawer-ico"><Icon name="chat" size={17} /></span>
+            DISCORD
+          </button>
         </div>
       )}
     </div>
@@ -5361,7 +5370,26 @@ function ColecaoCard({ nick, me, previewTeamId, ctx, onEquip }) {
   );
 }
 
-function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip }) {
+function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest }) {
+  const [inscBusy, setInscBusy] = useState(null);
+  const champLabel = (cid) => cid === 'copa'
+    ? 'COPA DO MUNDO'
+    : (CHAMP_BY_ID[cid] ? `${CHAMP_BY_ID[cid].tag} · ${CHAMP_BY_ID[cid].season}` : cid.toUpperCase());
+  const champTag = (cid) => cid === 'copa' ? 'COPA' : (CHAMP_BY_ID[cid]?.tag || cid.toUpperCase());
+  const myInscriptions = Object.keys(interests || {}).filter(cid => interests[cid] && interests[cid][nick]);
+  const cancelInscription = async (cid) => {
+    if (inscBusy) return;
+    if (!window.confirm('Cancelar sua inscrição em ' + champLabel(cid) + '?')) return;
+    setInscBusy(cid);
+    try {
+      await onCancelInterest(cid);
+      showToast('Inscrição cancelada.', 'success');
+    } catch (e) {
+      showToast('Não consegui cancelar agora. Tenta de novo.', 'error');
+    } finally {
+      setInscBusy(null);
+    }
+  };
   const playerTeam = reverseTeamMap(teamPlayers);
   const myTeamId = playerTeam[nick];
   const myTeam = myTeamId ? TEAM(myTeamId) : null;
@@ -5405,6 +5433,36 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
           </div>
         </div>
       </div>
+
+      {/* MINHAS INSCRIÇÕES — cancela inscrição em campeonatos "em breve" daqui */}
+      {myInscriptions.length > 0 && (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="card-head">
+            <div className="title">MINHAS INSCRIÇÕES</div>
+            <div className="sub">{myInscriptions.length} {myInscriptions.length === 1 ? 'CAMPEONATO' : 'CAMPEONATOS'}</div>
+          </div>
+          <div className="card-body">
+            <div className="insc-list">
+              {myInscriptions.map(cid => (
+                <div key={cid} className="insc-row">
+                  <div className="insc-info">
+                    <span className="insc-tag">{champTag(cid)}</span>
+                    <span className="insc-name">{champLabel(cid)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="insc-cancel"
+                    onClick={() => cancelInscription(cid)}
+                    disabled={inscBusy === cid}
+                  >
+                    {inscBusy === cid ? 'CANCELANDO…' : (<><Icon name="x" size={13} /> CANCELAR</>)}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TÍTULOS */}
       <TitulosCard
