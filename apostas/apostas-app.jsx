@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260528-nomes ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260528-copa-hall ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2242,7 +2242,7 @@ function App() {
               />
             )}
             {view === 'hall' && (
-              <HallView cs={cs} users={users} teamPlayers={teamPlayers || {}} />
+              <HallView cs={cs} users={users} teamPlayers={teamPlayers || {}} worldcup={worldcup} wcFixtures={wcData.matches} />
             )}
             {view === 'campeonatos' && (<>
             <ChampionshipSelector
@@ -5598,6 +5598,59 @@ function buildShowcase(view, standings, users, teamPlayers) {
   return [mk(standings[n - 1], n, 'LANTERNA'), mk(standings[n - 2], n - 1, 'PENÚLTIMO')];
 }
 
+// Ranking do bolão da Copa (por pontos de palpite). Retorna status + ranking.
+function computeCopaStandings(worldcup, wcFixtures) {
+  const picks = (worldcup && worldcup.picks) || {};
+  const results = (worldcup && worldcup.results) || {};
+  const nicks = Object.keys(picks);
+  const resultCount = Object.keys(results).length;
+  if (nicks.length < 2 || resultCount === 0) return { status: 'soon', ranking: [] };
+  const ranking = nicks.map(nick => {
+    const up = picks[nick] || {};
+    let pts = 0, exatos = 0, certos = 0, errados = 0, palpitados = 0;
+    for (const fid of Object.keys(up)) {
+      palpitados++;
+      const r = results[fid];
+      if (r) {
+        const s = scoreWcPick(r, up[fid]);
+        pts += s;
+        if (s === 3) exatos++; else if (s === 1) certos++; else errados++;
+      }
+    }
+    return { nick, pts, exatos, certos, errados, palpitados };
+  }).sort((a, b) => b.pts - a.pts || b.exatos - a.exatos);
+  const allDone = Array.isArray(wcFixtures) && wcFixtures.length > 0 && wcFixtures.every(f => results[f.id]);
+  return { status: allDone ? 'closed' : 'ongoing', ranking };
+}
+
+// Monta os 2 lugares da vitrine da Copa (top/bottom 2 por pontos de palpite).
+function buildCopaShowcase(view, ranking, users, teamPlayers) {
+  if (!ranking || ranking.length < 2) return [];
+  const teamIdFor = (nick) => {
+    for (const [tid, n] of Object.entries(teamPlayers || {})) {
+      if (n && String(n).toLowerCase() === String(nick).toLowerCase()) return tid;
+    }
+    return null;
+  };
+  const mk = (r, pos, label) => ({
+    pos, label, name: '@' + r.nick, nick: null,
+    teamId: teamIdFor(r.nick), copaNick: r.nick,
+    cosmetics: (users && users[r.nick]?.cosmetics) || null,
+    statsOverride: [
+      { val: r.pts, label: 'PTS' },
+      { val: r.exatos, label: 'EXATOS' },
+      { val: r.palpitados, label: 'PALP.' },
+    ],
+    wldText: `${r.exatos} exatos · ${r.certos} certos · ${r.errados} erros`,
+    tagOverride: view === 'fame'
+      ? (r.exatos >= 3 ? 'VIDENTE' : null)
+      : (r.pts === 0 ? 'CHUTOU TUDO ERRADO' : null),
+  });
+  if (view === 'fame') return [mk(ranking[0], 1, 'CAMPEÃO DO BOLÃO'), mk(ranking[1], 2, 'VICE DO BOLÃO')];
+  const n = ranking.length;
+  return [mk(ranking[n - 1], n, 'PIOR PALPITEIRO'), mk(ranking[n - 2], n - 1, 'PENÚLTIMO')];
+}
+
 // Card individual da vitrine (1 colocado). rank 0=ouro/pior, 1, 2.
 function ShowcaseItem({ item, theme, rank, season, status }) {
   const isFame = theme === 'fame';
@@ -5609,11 +5662,23 @@ function ShowcaseItem({ item, theme, rank, season, status }) {
   const top = rank === 0;
   const badge = status === 'closed'
     ? `${item.label} ${season}`
-    : (top ? 'LÍDER ATUAL' : `${item.pos}º · PARCIAL`);
-  // tag especial
-  const tag = isFame
-    ? (item.invicto ? 'INVICTO' : (item.aproveitamento >= 70 ? 'DOMINANTE' : null))
-    : (item.semVitoria ? '0 VITÓRIAS' : (item.pts === 0 ? '0 PONTOS' : null));
+    : (top ? (item.copaNick ? 'LÍDER DO BOLÃO' : 'LÍDER ATUAL') : `${item.pos}º · PARCIAL`);
+  // stats: override (Copa) ou futebol (FIFA)
+  const stats = item.statsOverride || [
+    { val: item.pts, label: 'PTS' },
+    { val: (item.sg >= 0 ? '+' : '') + item.sg, label: 'SG' },
+    { val: item.aproveitamento + '%', label: 'APROV.' },
+  ];
+  // tag: override explícito (Copa, pode ser null) ou cálculo (FIFA)
+  const tag = ('tagOverride' in item)
+    ? item.tagOverride
+    : (isFame
+        ? (item.invicto ? 'INVICTO' : (item.aproveitamento >= 70 ? 'DOMINANTE' : null))
+        : (item.semVitoria ? '0 VITÓRIAS' : (item.pts === 0 ? '0 PONTOS' : null)));
+  // avatar: usa nick (Copa) ou teamId (FIFA)
+  const avatarProps = item.copaNick
+    ? { nick: item.copaNick }
+    : { teamId: item.teamId };
 
   return (
     <div className={'showcase-item ' + (top ? 'showcase-top ' : '') + (isFame ? 'fame' : 'shame')}
@@ -5622,20 +5687,21 @@ function ShowcaseItem({ item, theme, rank, season, status }) {
         <div className="showcase-rankicon"><Icon name={p.ic} size={top ? 40 : 32} /></div>
         <div className="showcase-badge">{badge}</div>
         <div className="showcase-avatar">
-          <Avatar teamId={item.teamId} cosmetics={item.cosmetics} size={top ? 96 : 78} fullBody={true} />
+          <Avatar {...avatarProps} cosmetics={item.cosmetics} size={top ? 96 : 78} fullBody={true} />
         </div>
       </div>
       <div className="showcase-ficha">
         <div className="showcase-name">{item.name}</div>
         {item.nick && <div className="showcase-nick">@{item.nick}</div>}
         <div className="showcase-stats">
-          <div><strong>{item.pts}</strong><span>PTS</span></div>
-          <div><strong>{item.sg >= 0 ? '+' : ''}{item.sg}</strong><span>SG</span></div>
-          <div><strong>{item.aproveitamento}%</strong><span>APROV.</span></div>
+          {stats.map((s, i) => (
+            <div key={i}><strong>{s.val}</strong><span>{s.label}</span></div>
+          ))}
         </div>
         <div className="showcase-wld">
-          {item.v}<small>V</small> · {item.e}<small>E</small> · {item.d}<small>D</small>
-          <span className="showcase-goals"> · {item.gp}/{item.gc} gols</span>
+          {item.wldText
+            ? item.wldText
+            : <>{item.v}<small>V</small> · {item.e}<small>E</small> · {item.d}<small>D</small><span className="showcase-goals"> · {item.gp}/{item.gc} gols</span></>}
         </div>
         {tag && <div className="showcase-tag">{tag}</div>}
       </div>
@@ -5677,7 +5743,11 @@ function TrophyShowcase({ champ, items, theme, status }) {
   );
 }
 
-function HallDaFamaView({ cs, users, teamPlayers }) {
+// Champ "virtual" da Copa pra reusar o TrophyShowcase.
+const COPA_CHAMP = { id: 'copa', name: 'Copa do Mundo · Bolão', season: '2026' };
+
+function HallDaFamaView({ cs, users, teamPlayers, worldcup, wcFixtures }) {
+  const copa = computeCopaStandings(worldcup, wcFixtures);
   return (
     <div>
       {CHAMPIONSHIPS.map(c => {
@@ -5685,11 +5755,17 @@ function HallDaFamaView({ cs, users, teamPlayers }) {
         const items = status !== 'soon' ? buildShowcase('fame', standings, users, teamPlayers) : [];
         return <TrophyShowcase key={c.id} champ={c} items={items} theme="fame" status={status} />;
       })}
+      <TrophyShowcase
+        champ={COPA_CHAMP}
+        items={copa.status !== 'soon' ? buildCopaShowcase('fame', copa.ranking, users, teamPlayers) : []}
+        theme="fame" status={copa.status}
+      />
     </div>
   );
 }
 
-function HallDaVergonhaView({ cs, users, teamPlayers }) {
+function HallDaVergonhaView({ cs, users, teamPlayers, worldcup, wcFixtures }) {
+  const copa = computeCopaStandings(worldcup, wcFixtures);
   return (
     <div>
       {CHAMPIONSHIPS.map(c => {
@@ -5697,12 +5773,17 @@ function HallDaVergonhaView({ cs, users, teamPlayers }) {
         const items = status !== 'soon' ? buildShowcase('shame', standings, users, teamPlayers) : [];
         return <TrophyShowcase key={c.id} champ={c} items={items} theme="shame" status={status} />;
       })}
+      <TrophyShowcase
+        champ={COPA_CHAMP}
+        items={copa.status !== 'soon' ? buildCopaShowcase('shame', copa.ranking, users, teamPlayers) : []}
+        theme="shame" status={copa.status}
+      />
     </div>
   );
 }
 
 // HallView — vitrine de troféus (Fama + Vergonha) com subTabs.
-function HallView({ cs, users, teamPlayers }) {
+function HallView({ cs, users, teamPlayers, worldcup, wcFixtures }) {
   const [subTab, setSubTab] = useState('fama'); // 'fama' | 'vergonha'
   const season = (CHAMPIONSHIPS.find(c => c.id === 'fifa') || {}).season || '';
   return (
@@ -5731,8 +5812,8 @@ function HallView({ cs, users, teamPlayers }) {
           <Icon name="toilet" size={14} /> TÁRTARO
         </button>
       </div>
-      {subTab === 'fama'     && <HallDaFamaView cs={cs} users={users} teamPlayers={teamPlayers} />}
-      {subTab === 'vergonha' && <HallDaVergonhaView cs={cs} users={users} teamPlayers={teamPlayers} />}
+      {subTab === 'fama'     && <HallDaFamaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} />}
+      {subTab === 'vergonha' && <HallDaVergonhaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} />}
     </div>
   );
 }
