@@ -23,48 +23,64 @@
 //
 // 2. UTILITÁRIOS (puros, sem JSX)
 //    - STORAGE (localStorage helpers)
-//    - BACKUP / RESTORE / WIPE (JSON dump do estado)
-//    - TRANSAÇÕES (commitBetDocUpdate, mergeBetDocFields)
+//    - BACKUP / RESTORE / WIPE (JSON dump do estado — cobre TODOS os campos)
+//    - TRANSAÇÕES (commitBetDocUpdate — desempacota out.next; mergeBetDocFields)
 //    - NORMALIZAÇÃO (compat com formato legado)
 //    - LÓGICA DE TICKETS (resolve resultados, paga payouts)
 //    - CLASSIFICAÇÃO (gera tabela a partir de jogos)
 //    - ODDS / MERCADOS / JOGOS (calcula odds a partir de cs.rounds)
-//    - ÍCONES (TeamMini)
+//    - ÍCONES (TeamMini, Avatar, FrameDeco — moldura decorativa SVG)
 //
 // 3. APP ROOT
 //    - SHARE CUPOM (URL encoding, navigator.share)
 //    - TOAST (showToast + ToastHost)
 //    - DISCORD WEBHOOK (post + save URL)
 //    - NEWS REMOTAS (CRUD)
-//    - APP (estado raiz, snapshot Firestore, handlers)
+//    - APP (estado raiz, snapshot Firestore, handlers, buyItem/equipItem,
+//      auto-cleanup de cosmético inválido)
 //
 // 4. NAVIGATION & SHELL
-//    - TOP BAR / TABS
+//    - TOP BAR (primary-nav: INÍCIO/CAMPEONATOS/COPA/HALL/DISCORD + avatar)
+//    - Tabs (campeonato) / Sidebar (MEU ESPAÇO: perfil/tickets/ranking/loja)
 //    - CAMPEONATO SELECTOR / "em breve"
-//    - ICONES SVG (componente <Icon>)
+//    - ICONES SVG (componente <Icon> — ver ALL_ICON_NAMES / ADMIN CATÁLOGO)
 //
 // 5. AUTENTICAÇÃO
-//    - LOGIN (form + hash de senha)
+//    - LOGIN (form + hash de senha SHA-256)
 //
-// 6. VIEWS DE CONTEÚDO
+// 6. CONQUISTAS & COSMÉTICOS
+//    - helpers (champStandingPos, maxBetStreak, wcExactCount, betsOf)
+//    - ACH (critérios de conquista — FONTE ÚNICA p/ títulos E distintivos)
+//    - TITLE_DEFS (16 títulos — label de texto) + titlesForNick/TitleBadge
+//    - ITEMS (molduras + 16 distintivos) + effectiveInventory/itemsDroppedFor
+//
+// 7. VIEWS DE CONTEÚDO
 //    - INÍCIO (feed de notícias + comentários)
-//    - COPA DO MUNDO (palpites + grupos + bracket + ranking)
-//    - APOSTAR / CUPOM (slip + place bet)
+//    - COPA DO MUNDO (palpites + grupos + bracket + ranking + picks modal)
+//    - APOSTAR / CUPOM (slip + place bet) / GameRow
 //    - TICKETS (histórico)
-//    - PERFIL (meu time, troféus, títulos)
+//    - LOJA (LojaView — comprar/equipar cosméticos)
+//    - PERFIL (MeuPerfilView: time, troféus, TitulosCard, ColecaoCard)
 //    - RANKING (geral por PC)
-//    - HALL DA FAMA / VERGONHA
+//    - HALL (HallView: Fama + Vergonha em subtabs) / TrophyCard/TrophyPodium
 //    - CLASSIFICAÇÃO (tabela)
 //
-// 7. ADMIN
-//    - ADMIN VIEW (USUÁRIOS, TIMES, NEWS, DISCORD, BACKUP, PERIGO)
+// 8. ADMIN
+//    - AdminView (USUÁRIOS, TIMES, NEWS, JORNALISTA, CATÁLOGO, DISCORD,
+//      BACKUP+HISTÓRICO+RESTORE, PERIGO)
+//    - JournalistAdminPanel (detecta eventos, monta prompt, publica news)
+//    - CatalogoAdminPanel (galeria QA: ícones/títulos/distintivos/molduras)
 //
-// 8. MOUNT (ReactDOM.render no final)
+// 9. MOUNT (ReactDOM.render no final)
 //
+// DICA: pra pular pra uma seção, busca por "// ─── NOME ───" (banners).
+//       pra listar componentes: grep "^function ".
 // =============================================================================
 // REGRAS DO PROJETO (ver CLAUDE.md):
 //   - NUNCA usar emojis Unicode na UI — usar <Icon name="..." />
-//   - Toda mutação no Firestore via commitBetDocUpdate (transação)
+//   - Toda mutação no doc apostas via commitBetDocUpdate (transação).
+//     Reducer pode retornar estado direto OU { next: <estado> }.
+//   - Critério de conquista? Adiciona em ACH e referencia (título E badge).
 //   - Senha sempre hashada com hashPassword (SHA-256)
 //   - Bump ?v= no styles.css e apostas-app.compiled.js a cada mudança visível
 // =============================================================================
@@ -101,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260528-fix-next ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260528-review ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2137,6 +2153,25 @@ function App() {
       });
     } catch (e) { console.warn('equipItem failed', e); }
   };
+
+  // Auto-cleanup: se o PRÓPRIO user tem um cosmético equipado que não está
+  // mais no inventário efetivo (ex: era drop de campeão e a temporada foi
+  // resetada, ou item removido do catálogo), desequipa automaticamente.
+  // Só mexe no próprio user. Comprados (no inventory array) nunca somem —
+  // só drops que perderam a condição. Sem loop: após desequipar, me muda e
+  // o equipado vira null.
+  useEffect(() => {
+    if (!session?.nick || !me || !me.cosmetics) return;
+    const ctx = { bets, teamPlayers: teamPlayers || {}, cs, worldcup };
+    const inv = effectiveInventory(session.nick, me, ctx);
+    ['frame', 'badge'].forEach(slot => {
+      const eq = me.cosmetics[slot];
+      if (eq && !inv.includes(eq)) {
+        console.warn('auto-cleanup: desequipando cosmetico invalido', slot, eq);
+        equipItem(slot, null);
+      }
+    });
+  }, [me, bets, cs, teamPlayers, worldcup, session]);
 
   if (!synced || cs === null) {
     return (
@@ -4751,94 +4786,70 @@ function wcExactCount(nick, worldcup) {
 
 const betsOf = (bets, nick) => (Array.isArray(bets) ? bets : []).filter(b => b.user === nick);
 
+// ─── CRITÉRIOS DE CONQUISTA (fonte única) ───────────────────────────────────
+// Cada predicado recebe ctx { nick, bets, users, teamPlayers, cs, worldcup }.
+// Títulos E distintivos referenciam DAQUI — assim o critério vive num só
+// lugar. Mudar "100k" pra outro valor = mudar 1 linha (não 2+).
+const ACH = {
+  betaTester:  ({ nick, teamPlayers }) => Object.values(teamPlayers || {}).map(s => String(s).toLowerCase()).includes(String(nick).toLowerCase()),
+  highRoller:  ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000),
+  brokeBank:   ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000 && b.status === 'won'),
+  burned100k:  ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000 && b.status === 'lost'),
+  champion:    ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.pos === 1; },
+  vice:        ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.pos === 2; },
+  lanterna:    ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.isLast; },
+  millionaire: ({ nick, users }) => ((users || {})[nick]?.pc || 0) >= 100000,
+  broke:       ({ nick, users, bets }) => ((users || {})[nick]?.pc || 0) <= 0 && betsOf(bets, nick).length >= 3,
+  grinder50:   ({ nick, bets }) => betsOf(bets, nick).length >= 50,
+  addict100:   ({ nick, bets }) => betsOf(bets, nick).length >= 100,
+  prophet:     ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Number(b.combinedOdds) >= 20),
+  parlayKing:  ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Array.isArray(b.legs) && b.legs.length >= 5),
+  hotHand:     ({ nick, bets }) => maxBetStreak(bets, nick, 'won') >= 5,
+  coldFoot:    ({ nick, bets }) => maxBetStreak(bets, nick, 'lost') >= 5,
+  copaPlayer:  ({ nick, worldcup }) => Object.keys((worldcup && worldcup.picks && worldcup.picks[nick]) || {}).length >= 1,
+  copaSeer:    ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 1,
+};
+
 // ─── TÍTULOS DO USUÁRIO ─────────────────────────────────────────────────────
 // Título = LABEL DE TEXTO ao lado do nick (o user escolhe 1 pra exibir).
 // Cada um tem check(ctx) com ctx = { nick, bets, users, teamPlayers, cs, worldcup }.
 const TITLE_DEFS = [
   // ── Participação / campeonato ──
-  {
-    id: 'beta_tester', name: 'BETA TESTER', icon: 'flask', color: '#7a4dc9',
-    desc: 'Jogou a primeira temporada do Primitivão (FIFA 2026 Season 1).',
-    check: ({ nick, teamPlayers }) => Object.values(teamPlayers || {}).map(String).map(s => s.toLowerCase()).includes(String(nick).toLowerCase()),
-  },
-  {
-    id: 'campeao', name: 'CAMPEÃO', icon: 'crown', color: '#c9a227',
-    desc: 'Terminou uma temporada da FIFA em PRIMEIRO lugar. O rei.',
-    check: ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.pos === 1; },
-  },
-  {
-    id: 'vice', name: 'VICE-CAMPEÃO', icon: 'medal', color: '#9a9a9a',
-    desc: 'Terminou em SEGUNDO. Tão perto, tão longe.',
-    check: ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.pos === 2; },
-  },
-  {
-    id: 'lanterna', name: 'LANTERNA', icon: 'toilet', color: '#7a2222',
-    desc: 'Terminou a temporada em ÚLTIMO. Vexame carimbado.',
-    check: ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.isLast; },
-  },
+  { id: 'beta_tester', name: 'BETA TESTER', icon: 'flask', color: '#7a4dc9',
+    desc: 'Jogou a primeira temporada do Primitivão (FIFA 2026 Season 1).', check: ACH.betaTester },
+  { id: 'campeao', name: 'CAMPEÃO', icon: 'crown', color: '#c9a227',
+    desc: 'Terminou uma temporada da FIFA em PRIMEIRO lugar. O rei.', check: ACH.champion },
+  { id: 'vice', name: 'VICE-CAMPEÃO', icon: 'medal', color: '#9a9a9a',
+    desc: 'Terminou em SEGUNDO. Tão perto, tão longe.', check: ACH.vice },
+  { id: 'lanterna', name: 'LANTERNA', icon: 'toilet', color: '#7a2222',
+    desc: 'Terminou a temporada em ÚLTIMO. Vexame carimbado.', check: ACH.lanterna },
   // ── Apostas: valor ──
-  {
-    id: 'high_roller', name: 'HIGH ROLLER', icon: 'coin', color: '#c9a227',
-    desc: 'Apostou 100.000 PC ou mais num único cupom. Coragem (ou loucura).',
-    check: ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000),
-  },
-  {
-    id: 'high_roller_win', name: 'QUEBROU A BANCA', icon: 'coin-stack', color: '#2a8f3f',
-    desc: 'Apostou 100k+ PC E venceu. A casa chorou.',
-    check: ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000 && b.status === 'won'),
-  },
-  {
-    id: 'high_roller_loss', name: 'QUEIMOU 100K', icon: 'coin-fire', color: '#c33',
-    desc: 'Apostou 100k+ PC E perdeu. Adeus, dinheirinho.',
-    check: ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000 && b.status === 'lost'),
-  },
-  {
-    id: 'milionario', name: 'MILIONÁRIO', icon: 'coin', color: '#d4af37',
-    desc: 'Acumulou 100.000 PC ou mais no saldo. Banca gorda.',
-    check: ({ nick, users }) => ((users || {})[nick]?.pc || 0) >= 100000,
-  },
-  {
-    id: 'falido', name: 'FALIDO', icon: 'coin-fire', color: '#7a2222',
-    desc: 'Zerou o saldo. Já apostou de tudo, hoje só resta o bônus de segunda.',
-    check: ({ nick, users, bets }) => ((users || {})[nick]?.pc || 0) <= 0 && betsOf(bets, nick).length >= 3,
-  },
+  { id: 'high_roller', name: 'HIGH ROLLER', icon: 'coin', color: '#c9a227',
+    desc: 'Apostou 100.000 PC ou mais num único cupom. Coragem (ou loucura).', check: ACH.highRoller },
+  { id: 'high_roller_win', name: 'QUEBROU A BANCA', icon: 'coin-stack', color: '#2a8f3f',
+    desc: 'Apostou 100k+ PC E venceu. A casa chorou.', check: ACH.brokeBank },
+  { id: 'high_roller_loss', name: 'QUEIMOU 100K', icon: 'coin-fire', color: '#c33',
+    desc: 'Apostou 100k+ PC E perdeu. Adeus, dinheirinho.', check: ACH.burned100k },
+  { id: 'milionario', name: 'MILIONÁRIO', icon: 'coin', color: '#d4af37',
+    desc: 'Acumulou 100.000 PC ou mais no saldo. Banca gorda.', check: ACH.millionaire },
+  { id: 'falido', name: 'FALIDO', icon: 'coin-fire', color: '#7a2222',
+    desc: 'Zerou o saldo. Já apostou de tudo, hoje só resta o bônus de segunda.', check: ACH.broke },
   // ── Apostas: volume / skill ──
-  {
-    id: 'apostador_plantao', name: 'APOSTADOR DE PLANTÃO', icon: 'ticket', color: '#d76414',
-    desc: 'Fez 50 apostas ou mais. Não perde uma rodada.',
-    check: ({ nick, bets }) => betsOf(bets, nick).length >= 50,
-  },
-  {
-    id: 'viciado', name: 'VICIADO EM PC', icon: 'dice', color: '#a8324f',
-    desc: 'Fez 100 apostas ou mais. Procura ajuda (depois da próxima).',
-    check: ({ nick, bets }) => betsOf(bets, nick).length >= 100,
-  },
-  {
-    id: 'profeta', name: 'PROFETA DAS ODDS', icon: 'target', color: '#3a78c2',
-    desc: 'Venceu uma aposta com odd combinada de 20x ou mais. Vidência pura.',
-    check: ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Number(b.combinedOdds) >= 20),
-  },
-  {
-    id: 'casadinha', name: 'REI DA CASADINHA', icon: 'chart', color: '#2a8f3f',
-    desc: 'Venceu uma aposta casada com 5 palpites ou mais. Tudo ou nada.',
-    check: ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Array.isArray(b.legs) && b.legs.length >= 5),
-  },
-  {
-    id: 'mao_quente', name: 'MÃO QUENTE', icon: 'fire', color: '#d76414',
-    desc: 'Venceu 5 apostas seguidas. Tá pegando fogo, bicho.',
-    check: ({ nick, bets }) => maxBetStreak(bets, nick, 'won') >= 5,
-  },
-  {
-    id: 'pe_frio', name: 'PÉ FRIO', icon: 'skull', color: '#5a5a5a',
-    desc: 'Perdeu 5 apostas seguidas. O VARIMITIVÃO tá de olho.',
-    check: ({ nick, bets }) => maxBetStreak(bets, nick, 'lost') >= 5,
-  },
+  { id: 'apostador_plantao', name: 'APOSTADOR DE PLANTÃO', icon: 'ticket', color: '#d76414',
+    desc: 'Fez 50 apostas ou mais. Não perde uma rodada.', check: ACH.grinder50 },
+  { id: 'viciado', name: 'VICIADO EM PC', icon: 'dice', color: '#a8324f',
+    desc: 'Fez 100 apostas ou mais. Procura ajuda (depois da próxima).', check: ACH.addict100 },
+  { id: 'profeta', name: 'PROFETA DAS ODDS', icon: 'target', color: '#3a78c2',
+    desc: 'Venceu uma aposta com odd combinada de 20x ou mais. Vidência pura.', check: ACH.prophet },
+  { id: 'casadinha', name: 'REI DA CASADINHA', icon: 'chart', color: '#2a8f3f',
+    desc: 'Venceu uma aposta casada com 5 palpites ou mais. Tudo ou nada.', check: ACH.parlayKing },
+  { id: 'mao_quente', name: 'MÃO QUENTE', icon: 'fire', color: '#d76414',
+    desc: 'Venceu 5 apostas seguidas. Tá pegando fogo, bicho.', check: ACH.hotHand },
+  { id: 'pe_frio', name: 'PÉ FRIO', icon: 'skull', color: '#5a5a5a',
+    desc: 'Perdeu 5 apostas seguidas. O VARIMITIVÃO tá de olho.', check: ACH.coldFoot },
   // ── Copa do Mundo ──
-  {
-    id: 'vidente_copa', name: 'VIDENTE DA COPA', icon: 'globe', color: '#1c7a6e',
-    desc: 'Acertou um placar EXATO no bolão da Copa do Mundo (3 pts).',
-    check: ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 1,
-  },
+  { id: 'vidente_copa', name: 'VIDENTE DA COPA', icon: 'globe', color: '#1c7a6e',
+    desc: 'Acertou um placar EXATO no bolão da Copa do Mundo (3 pts).', check: ACH.copaSeer },
 ];
 // ─── ITEMS COSMÉTICOS (LOJA) ────────────────────────────────────────────────
 // MVP: 2 slots (frame + badge). Cada item tem 1 dos modos:
@@ -4875,14 +4886,7 @@ const ITEMS = [
     icon: 'trophy',
     color: '#d4af37',
     rarity: 'lendaria',
-    drop: ({ nick, cs, teamPlayers }) => {
-      const reverse = reverseTeamMap(teamPlayers || {});
-      const tid = reverse[nick];
-      if (!tid) return false;
-      const { status, standings } = computeChampStandings('fifa', cs);
-      if (status !== 'closed' || !standings || standings.length === 0) return false;
-      return standings[0]?.id === tid;
-    },
+    drop: ACH.champion,
   },
   // ── DISTINTIVOS COMPRÁVEIS (cosmético puro — só PC) ──
   { id: 'badge-bola',    slot: 'badge', name: 'Bola de Ouro',   desc: 'A clássica. Pra quem respira futebol.',        icon: 'football', color: '#d76414', rarity: 'comum', price: 150 },
@@ -4898,37 +4902,37 @@ const ITEMS = [
   {
     id: 'badge-beta', slot: 'badge', name: 'Beta Tester', icon: 'flask', color: '#7a4dc9', rarity: 'comum',
     desc: 'Estava aqui na primeira temporada (FIFA Season 1).',
-    drop: ({ nick, teamPlayers }) => Object.values(teamPlayers || {}).map(String).map(s => s.toLowerCase()).includes(String(nick).toLowerCase()),
+    drop: ACH.betaTester,
   },
   {
     id: 'badge-high-roller', slot: 'badge', name: 'High Roller', icon: 'coin', color: '#c9a227', rarity: 'rara',
     desc: 'Apostou 100.000 PC ou mais num cupom.',
-    drop: ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000),
+    drop: ACH.highRoller,
   },
   {
     id: 'badge-quebrou', slot: 'badge', name: 'Quebrou a Banca', icon: 'coin-stack', color: '#2a8f3f', rarity: 'lendaria',
     desc: 'Apostou 100k+ E venceu. Lenda viva.',
-    drop: ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000 && b.status === 'won'),
+    drop: ACH.brokeBank,
   },
   {
     id: 'badge-campeao', slot: 'badge', name: 'Troféu do Campeão', icon: 'crown', color: '#d4af37', rarity: 'lendaria',
     desc: 'Foi CAMPEÃO de uma temporada da FIFA. Só os reais.',
-    drop: ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.pos === 1; },
+    drop: ACH.champion,
   },
   {
     id: 'badge-lanterna', slot: 'badge', name: 'Selo da Vergonha', icon: 'toilet', color: '#7a2222', rarity: 'lendaria',
     desc: 'Terminou em ÚLTIMO. Carrega a privada com (des)orgulho.',
-    drop: ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.isLast; },
+    drop: ACH.lanterna,
   },
   {
     id: 'badge-copa', slot: 'badge', name: 'Bolão da Copa', icon: 'globe', color: '#1c7a6e', rarity: 'comum',
     desc: 'Palpitou em pelo menos um jogo da Copa do Mundo.',
-    drop: ({ nick, worldcup }) => Object.keys((worldcup && worldcup.picks && worldcup.picks[nick]) || {}).length >= 1,
+    drop: ACH.copaPlayer,
   },
   {
     id: 'badge-vidente', slot: 'badge', name: 'Vidente da Copa', icon: 'target', color: '#3a78c2', rarity: 'rara',
     desc: 'Acertou um placar EXATO no bolão da Copa.',
-    drop: ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 1,
+    drop: ACH.copaSeer,
   },
   {
     id: 'badge-fatality', slot: 'badge', name: 'Fatality Master', icon: 'sword', color: '#8a1f1f', rarity: 'lendaria',
