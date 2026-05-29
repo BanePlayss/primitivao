@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-mobile-nav ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-mobile-ux ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3901,6 +3901,13 @@ function CopaRanking({ users, fixtures, results, picks, myNick }) {
           <div className="sub">{rows.length} JOGADORES · {fixtures.length} JOGOS · CLIQUE NO NICK PRA VER PALPITES</div>
         </div>
         <div className="card-body">
+          {/* Legenda visível (no toque o tooltip via title= não aparece). */}
+          <div className="wc-rank-legend">
+            <span><strong>×3</strong> placar exato</span>
+            <span><strong>×1</strong> resultado certo</span>
+            <span><strong>×0</strong> erro</span>
+            <span><strong>palp</strong> palpitados</span>
+          </div>
           {rows.length === 0 && <div className="empty"><div className="e2">Ninguém cadastrado ainda.</div></div>}
           {rows.map((r, i) => (
             <button
@@ -5628,7 +5635,7 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
       </div>
       <div className="card-body">
         <p style={{ marginTop: 0, marginBottom: 10, fontSize: 11, color: 'rgba(28,22,18,0.6)', lineHeight: 1.4 }}>
-          Clica num título conquistado pra exibir no seu nome. Passa o mouse pra ver o que é e quem tem.
+          Clica num título conquistado pra exibir no seu nome. Toca (ou passa o mouse) pra ver o que é e quem tem.
         </p>
 
         {earned.length > 0 ? (
