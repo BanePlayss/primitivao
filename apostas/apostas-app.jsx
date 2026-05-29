@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-tabloide-id ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-icones ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -133,12 +133,12 @@ const CHAMPIONSHIPS = [
 // (O caractere é só decoração no estilo cartaz; pode editar/apagar no painel.)
 const TABLOID_THEMES = {
   fifa:     { wordmark: 'PRIMITIVÃO FC',  accent: '球', stamp: 'GOL!',     icon: 'football',  color: '#2e8b3d' },
-  mk:       { wordmark: 'MORTAL KOMBAT',  accent: '闘', stamp: 'FIGHT!',   icon: 'fist',      color: '#b3231a' },
+  mk:       { wordmark: 'MORTAL KOMBAT',  accent: '闘', stamp: 'FIGHT!',   icon: 'skull',     color: '#b3231a' },
   rl:       { wordmark: 'ROCKET LEAGUE',  accent: '速', stamp: 'GOOOL!',   icon: 'rocket',    color: '#2470c8' },
   lol:      { wordmark: 'LEAGUE LEGENDS', accent: '召', stamp: 'GG!',      icon: 'sword',     color: '#b8902a' },
   cs:       { wordmark: 'COUNTER-STRIKE', accent: '弾', stamp: 'CLUTCH!',  icon: 'crosshair', color: '#d98324' },
   gwyf:     { wordmark: 'GOLF FRIENDS',   accent: '球', stamp: 'HOLE!',    icon: 'flag',      color: '#6f9b1f' },
-  valorant: { wordmark: 'VALORANT',       accent: '撃', stamp: 'ACE!',     icon: 'crosshair', color: '#d6346b' },
+  valorant: { wordmark: 'VALORANT',       accent: '撃', stamp: 'ACE!',     icon: 'target',    color: '#d6346b' },
   copa:     { wordmark: 'COPA DO MUNDO',  accent: '杯', stamp: 'GOOOL!',   icon: 'globe',     color: '#1f8f8a' },
 };
 const tabloidTheme = (champId) => TABLOID_THEMES[champId] || TABLOID_THEMES.fifa;
@@ -3289,19 +3289,20 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
           <path d="M8.5 15l-2.5 2 .5 3 2.5-1.5M15.5 15l2.5 2-.5 3-2.5-1.5" strokeLinejoin="round" />
         </svg>
       );
-    case 'crosshair': // mira — CS / Valorant / tiro
+    case 'crosshair': // mira — CS / tiro
       return (
         <svg {...common}>
-          <circle cx="12" cy="12" r="8" />
-          <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-          <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="12" r="7.5" />
+          <path d="M12 1.5v3.5M12 19v3.5M1.5 12h3.5M19 12h3.5" strokeLinecap="round" />
+          <circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" />
         </svg>
       );
-    case 'fist': // punho — luta / Mortal Kombat / soco
+    case 'fist': // punho — luta / soco
       return (
         <svg {...common}>
-          <path d="M6 11V8.5a1.5 1.5 0 0 1 3 0V10M9 10V7a1.5 1.5 0 0 1 3 0v3M12 10V7.5a1.5 1.5 0 0 1 3 0V11" strokeLinejoin="round" />
-          <path d="M15 9.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-1.5a5 5 0 0 1-4.5-3l-2-3.2a1.5 1.5 0 0 1 2.4-1.8L6 13" strokeLinejoin="round" strokeLinecap="round" />
+          <rect x="5" y="9" width="12.5" height="10" rx="3" />
+          <path d="M8.5 9V6.4M11.75 9V5.9M15 9V6.4" strokeLinecap="round" />
+          <path d="M17.5 11.5h2.4a1.6 1.6 0 0 1 0 3.2h-2.4" strokeLinejoin="round" />
         </svg>
       );
     default:
