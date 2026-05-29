@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-tartaro-side ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-mais-itens ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1073,6 +1073,80 @@ function FrameDeco({ frameId }) {
           {/* gemas menores laterais base */}
           <circle cx="32" cy="86" r="3" fill="#ffe9a8" stroke="#6b5616" strokeWidth="1.4" />
           <circle cx="68" cy="86" r="3" fill="#ffe9a8" stroke="#6b5616" strokeWidth="1.4" />
+        </svg>
+      );
+    // VINHO — anel vinho com espinhos ao redor
+    case 'frame-vinho':
+      return (
+        <svg {...common}>
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#3e0f0f" strokeWidth="6" />
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#a52a2a" strokeWidth="3" />
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#d56a5a" strokeWidth="1" opacity="0.7" />
+          {/* espinhos radiais (8) */}
+          <g fill="#a52a2a" stroke="#3e0f0f" strokeWidth="1.2" strokeLinejoin="round">
+            <path d="M50 1 l4 8 -8 0 Z" />
+            <path d="M99 50 l-8 4 0 -8 Z" />
+            <path d="M1 50 l8 4 0 -8 Z" />
+            <path d="M50 99 l4 -8 -8 0 Z" />
+            <path d="M15 15 l8 1 -5 6 Z" />
+            <path d="M85 15 l-8 1 5 6 Z" />
+            <path d="M15 85 l8 -1 -5 -6 Z" />
+            <path d="M85 85 l-8 -1 5 -6 Z" />
+          </g>
+        </svg>
+      );
+    // MINT — anel verde com folhas de louro nas laterais
+    case 'frame-mint':
+      return (
+        <svg {...common}>
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#1c4a36" strokeWidth="6" />
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#2a8f3f" strokeWidth="3" />
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#6fe3a0" strokeWidth="1" opacity="0.7" />
+          {/* louros laterais */}
+          <g fill="#2a8f3f" stroke="#1c4a36" strokeWidth="1" strokeLinejoin="round">
+            <path d="M8 38 Q2 46 6 56 Q10 50 14 52 Q9 46 12 40 Q9 42 8 38 Z" />
+            <path d="M12 50 Q6 56 9 64 Q13 58 17 59 Q12 54 15 49 Q12 51 12 50 Z" />
+            <path d="M92 38 Q98 46 94 56 Q90 50 86 52 Q91 46 88 40 Q91 42 92 38 Z" />
+            <path d="M88 50 Q94 56 91 64 Q87 58 83 59 Q88 54 85 49 Q88 51 88 50 Z" />
+          </g>
+          {/* gema topo */}
+          <circle cx="50" cy="8" r="5" fill="#6fe3a0" stroke="#1c4a36" strokeWidth="1.6" />
+        </svg>
+      );
+    // DIAMANTE — anel cristal azul com picos de gelo
+    case 'frame-diamante':
+      return (
+        <svg {...common} className="frame-deco frame-deco-diamante">
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#1c4a6b" strokeWidth="6" />
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#5ec8e3" strokeWidth="3" />
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#d6f5ff" strokeWidth="1.4" opacity="0.9" />
+          {/* cristais (losangos) ao redor */}
+          <g fill="#9fe6f5" stroke="#1c4a6b" strokeWidth="1.2" strokeLinejoin="round">
+            <path d="M50 1 l5 7 -5 7 -5 -7 Z" />
+            <path d="M99 50 l-7 5 -7 -5 7 -5 Z" />
+            <path d="M1 50 l7 5 7 -5 -7 -5 Z" />
+            <path d="M50 99 l5 -7 -5 -7 -5 7 Z" />
+          </g>
+          {/* brilhos */}
+          <circle cx="22" cy="22" r="2" fill="#fff" />
+          <circle cx="78" cy="78" r="2" fill="#fff" />
+        </svg>
+      );
+    // FATALITY — anel sangue com chamas (drop do campeão de MK)
+    case 'frame-fatality':
+      return (
+        <svg {...common} className="frame-deco frame-deco-gold">
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#1c0606" strokeWidth="7" />
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#8a1f1f" strokeWidth="4" />
+          <circle cx="50" cy="50" r="43" fill="none" stroke="#e8540f" strokeWidth="1.6" opacity="0.9" />
+          {/* chamas no topo */}
+          <g fill="#e8540f" stroke="#8a1f1f" strokeWidth="1" strokeLinejoin="round">
+            <path d="M38 12 Q40 2 44 9 Q46 4 48 10 Q50 2 52 10 Q54 4 56 9 Q60 2 62 12 Q58 18 50 18 Q42 18 38 12 Z" />
+          </g>
+          {/* chamas na base */}
+          <g fill="#a52a2a" stroke="#1c0606" strokeWidth="1" strokeLinejoin="round">
+            <path d="M40 90 Q42 98 46 92 Q48 97 50 91 Q52 97 54 92 Q58 98 60 90 Q56 86 50 86 Q44 86 40 90 Z" />
+          </g>
         </svg>
       );
     default:
@@ -4906,6 +4980,10 @@ const ITEMS = [
     rarity: 'lendaria',
     drop: ACH.champion,
   },
+  { id: 'frame-vinho',    slot: 'frame', name: 'Moldura Vinho',    desc: 'Anel de espinhos pra quem joga sujo (com estilo).',   icon: 'shield', color: '#a52a2a', rarity: 'rara',     price: 500 },
+  { id: 'frame-mint',     slot: 'frame', name: 'Moldura Louro',    desc: 'Folhas de louro — clássico de vencedor.',             icon: 'shield', color: '#2a8f3f', rarity: 'rara',     price: 600 },
+  { id: 'frame-diamante', slot: 'frame', name: 'Moldura Diamante', desc: 'Cristal puro. Pra quem tem PC sobrando pra ostentar.', icon: 'sparkle', color: '#5ec8e3', rarity: 'lendaria', price: 2500 },
+  { id: 'frame-fatality', slot: 'frame', name: 'Moldura Fatality', desc: 'Anel de sangue e chamas. Só pro campeão do Mortal Kombat.', icon: 'sword', color: '#8a1f1f', rarity: 'lendaria', drop: () => false },
   // ── DISTINTIVOS COMPRÁVEIS (cosmético puro — só PC) ──
   { id: 'badge-bola',    slot: 'badge', name: 'Bola de Ouro',   desc: 'A clássica. Pra quem respira futebol.',        icon: 'football', color: '#d76414', rarity: 'comum', price: 150 },
   { id: 'badge-dado',    slot: 'badge', name: 'Dado da Sorte',  desc: 'Que a sorte (e as odds) estejam com você.',    icon: 'dice',     color: '#a8324f', rarity: 'comum', price: 200 },
@@ -4915,6 +4993,11 @@ const ITEMS = [
   { id: 'badge-raio',    slot: 'badge', name: 'Raio',           desc: 'Energia pura. Rápido no gatilho do cupom.',     icon: 'bolt',     color: '#e3b94d', rarity: 'rara',  price: 350 },
   { id: 'badge-estrela', slot: 'badge', name: 'Estrela',        desc: 'Brilha mais que o resto. Ou acha que brilha.',  icon: 'star',     color: '#d4af37', rarity: 'rara',  price: 400 },
   { id: 'badge-foguete', slot: 'badge', name: 'Foguete',        desc: 'Pra quem tá em ascensão na tabela.',            icon: 'rocket',   color: '#3a78c2', rarity: 'rara',  price: 500 },
+  { id: 'badge-controle', slot: 'badge', name: 'Joystick',      desc: 'Gamer raiz. Vive de controle na mão.',          icon: 'gamepad',  color: '#6b4c9a', rarity: 'comum', price: 300 },
+  { id: 'badge-espada',   slot: 'badge', name: 'Espadachim',    desc: 'Pros que vão pra cima sem medo.',               icon: 'sword',    color: '#7a2222', rarity: 'rara',  price: 450 },
+  { id: 'badge-floco',    slot: 'badge', name: 'Sangue Frio',   desc: 'Aposta alto sem suar. Gelo na veia.',           icon: 'snowflake', color: '#5ec8e3', rarity: 'rara',  price: 450 },
+  { id: 'badge-apito',    slot: 'badge', name: 'Apito do VAR',  desc: 'Comissão do VARIMITIVÃO de plantão. 666 PC, claro.', icon: 'whistle', color: '#1c1612', rarity: 'rara',  price: 666 },
+  { id: 'badge-coroa',    slot: 'badge', name: 'Coroa de Ouro', desc: 'Ostentação pura. Vale uma grana, mas vale a pose.', icon: 'crown',   color: '#d4af37', rarity: 'lendaria', price: 1200 },
 
   // ── DISTINTIVOS DE CONQUISTA (drop automático) ──
   {
@@ -4957,6 +5040,26 @@ const ITEMS = [
     desc: 'Campeão do torneio de Mortal Kombat. (Edição 01 chegando.)',
     // Drop ainda não dispara — sistema de MK não tem dados. Fica "vindo aí".
     drop: () => false,
+  },
+  {
+    id: 'badge-vice', slot: 'badge', name: 'Vice-Campeão', icon: 'medal', color: '#9a9a9a', rarity: 'rara',
+    desc: 'Terminou em 2º na FIFA. O eterno quase.',
+    drop: ACH.vice,
+  },
+  {
+    id: 'badge-milionario', slot: 'badge', name: 'Milionário', icon: 'coin', color: '#d4af37', rarity: 'rara',
+    desc: 'Acumulou 100.000 PC ou mais. Banca gorda.',
+    drop: ACH.millionaire,
+  },
+  {
+    id: 'badge-mao-quente', slot: 'badge', name: 'Mão Quente', icon: 'fire', color: '#d76414', rarity: 'rara',
+    desc: 'Venceu 5 apostas seguidas. Tá pegando fogo.',
+    drop: ACH.hotHand,
+  },
+  {
+    id: 'badge-profeta', slot: 'badge', name: 'Profeta', icon: 'target', color: '#3a78c2', rarity: 'rara',
+    desc: 'Venceu uma aposta com odd 20x ou mais. Vidência pura.',
+    drop: ACH.prophet,
   },
 ];
 

@@ -1930,6 +1930,22 @@
       border-width: 3px;
       animation: gold-frame-pulse 2.8s ease-in-out infinite;
     }
+    .avatar.has-frame.avatar-frame-frame-vinho {
+      border-color: #a52a2a; border-width: 3px;
+      box-shadow: 0 0 0 2px #3e0f0f inset, 0 0 10px rgba(165,42,42,0.55);
+    }
+    .avatar.has-frame.avatar-frame-frame-mint {
+      border-color: #2a8f3f; border-width: 3px;
+      box-shadow: 0 0 0 2px #1c4a36 inset, 0 0 10px rgba(42,143,63,0.55);
+    }
+    .avatar.has-frame.avatar-frame-frame-diamante {
+      border-color: #5ec8e3; border-width: 3px;
+      box-shadow: 0 0 0 2px #1c4a6b inset, 0 0 14px rgba(94,200,227,0.7);
+    }
+    .avatar.has-frame.avatar-frame-frame-fatality {
+      border-color: #e8540f; border-width: 3px;
+      box-shadow: 0 0 0 2px #1c0606 inset, 0 0 12px rgba(232,84,15,0.65);
+    }
     /* Pra avatares grandes (perfil/hall) — efeito de raios saindo do ouro */
     .avatar-full.has-frame.avatar-frame-frame-gold::before {
       content: '';
