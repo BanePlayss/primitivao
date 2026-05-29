@@ -2783,6 +2783,61 @@
       .insc-cancel { width: 100%; justify-content: center; min-height: 44px; }
     }
 
+    /* ─── TABLOIDE v2: mais cara de cartaz vintage (estilo MK/anúncio) ─── */
+    /* Textura de papel + halftone (pontinhos) por cima dos gradientes. */
+    .tp {
+      background-color: #d9c5a2;
+      background-image:
+        radial-gradient(circle at 1px 1px, rgba(28,22,18,0.07) 1px, transparent 1.4px),
+        radial-gradient(circle at 22% 12%, rgba(255,255,255,0.20), transparent 42%),
+        radial-gradient(circle at 86% 84%, rgba(120,60,20,0.20), transparent 52%),
+        repeating-linear-gradient(0deg, rgba(80,50,20,0.04) 0 2px, transparent 2px 4px);
+      background-size: 6px 6px, 100% 100%, 100% 100%, 100% 100%;
+    }
+    /* Wordmark grande configurável + caractere decorativo à direita */
+    .tp-wordmark-row { position: relative; margin-top: 2px; }
+    .tp-wordmark { font-size: 112px; }
+    .tp-accent {
+      position: absolute; right: 4px; top: 50%; transform: translateY(-50%) rotate(0deg);
+      font-family: 'Bungee Inline', Impact, sans-serif; font-size: 76px;
+      color: #1c1612; opacity: 0.9; line-height: 1;
+      border: 4px solid #1c1612; padding: 2px 10px; background: rgba(217,197,162,0.5);
+    }
+    /* Headline + selo/carimbo vermelho rotacionado */
+    .tp-headline-txt { flex: 0 1 auto; }
+    .tp-stamp {
+      display: inline-block; transform: rotate(-7deg);
+      background: #b3401a; color: #f4ead7;
+      font-family: 'Bungee Inline', Impact, sans-serif; font-size: 30px;
+      padding: 5px 16px; border: 4px solid #1c1612; letter-spacing: 0.03em;
+      box-shadow: 3px 3px 0 rgba(28,22,18,0.35); white-space: nowrap;
+    }
+    /* Imagem de destaque (arte da IA) no lugar do avatar */
+    .tp-hero-img {
+      width: 360px; max-width: 100%; height: auto; max-height: 540px;
+      object-fit: contain; display: block;
+      filter: drop-shadow(4px 5px 0 rgba(28,22,18,0.3));
+    }
+    /* Caixas com moldura dupla (cara de quadro de jornal antigo) */
+    .tp-block, .tp-strip {
+      box-shadow: inset 0 0 0 2px #d9c5a2, inset 0 0 0 4px rgba(28,22,18,0.45);
+    }
+    .tp-block-bad { box-shadow: inset 0 0 0 2px rgba(217,197,162,0.6), inset 0 0 0 4px rgba(122,34,34,0.5); }
+    .tp-match { box-shadow: inset 0 0 0 1.5px #d9c5a2, inset 0 0 0 3px rgba(28,22,18,0.35); }
+    /* Confronto sem time vira "? × ?" (estilo cartaz de anúncio) */
+    .tp-match-name:empty::before { content: '?'; opacity: 0.5; }
+    /* Input de arquivo no form */
+    .tp-file { padding: 6px; font-size: 11px; }
+    .tp-file::-webkit-file-upload-button {
+      font: inherit; font-weight: 800; font-size: 10px; letter-spacing: 0.1em;
+      background: var(--pv-charcoal); color: var(--pv-bone); border: none;
+      padding: 6px 10px; margin-right: 8px; cursor: pointer;
+    }
+    @media (max-width: 720px) {
+      .tp-wordmark { font-size: 88px; }
+      .tp-accent { font-size: 54px; }
+    }
+
     /* ═══════════════ POLISH MOBILE (toque + PWA + nav) ═══════════════ */
 
     /* Toque: tira o flash de seleção, o atraso de 300ms e o zoom por duplo-toque

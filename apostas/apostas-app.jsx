@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-tabloide-odds ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-tabloide-art ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6690,6 +6690,10 @@ function buildTabloidData(cs) {
     masthead: 'PRIMITIVÃO TIMES',
     editionLabel: 'EDIÇÃO',
     cornerTag: 'SEGUNDA TEM FIFA!',
+    wordmark: 'PRIMITIVÃO',
+    accent: '',
+    stamp: '',
+    heroImage: '',
     headline: 'A RODADA PEGOU FOGO!',
     champion: champ
       ? { teamId: champ.id, crown: true, title: `${champ.name.toUpperCase()} NA LIDERANÇA!`, stats: statsFromStanding(champ), note: '' }
@@ -6722,16 +6726,28 @@ function TabloidPoster({ data }) {
         <span className="tp-corner">{d.cornerTag}</span>
       </div>
 
-      <div className="tp-wordmark">PRIMITIVÃO</div>
-      {d.headline && <div className="tp-headline">{d.headline}<span className="tp-flame"><Icon name="fire" size={40} /></span></div>}
+      <div className="tp-wordmark-row">
+        <div className="tp-wordmark">{d.wordmark || 'PRIMITIVÃO'}</div>
+        {d.accent && <div className="tp-accent">{d.accent}</div>}
+      </div>
+      {d.headline && (
+        <div className="tp-headline">
+          <span className="tp-headline-txt">{d.headline}</span>
+          {d.stamp
+            ? <span className="tp-stamp">{d.stamp}</span>
+            : <span className="tp-flame"><Icon name="fire" size={40} /></span>}
+        </div>
+      )}
 
       <div className="tp-body">
         <div className="tp-hero">
           <div className="tp-hero-figure">
-            {champ.crown && <span className="tp-crown"><Icon name="crown" size={54} /></span>}
-            {champ.teamId
-              ? <Avatar teamId={champ.teamId} fullBody size={300} className="tp-hero-av" />
-              : <div className="tp-av-empty" style={{ width: 300, height: 300 }} />}
+            {champ.crown && !d.heroImage && <span className="tp-crown"><Icon name="crown" size={54} /></span>}
+            {d.heroImage
+              ? <img className="tp-hero-img" src={d.heroImage} alt="" crossOrigin="anonymous" />
+              : (champ.teamId
+                  ? <Avatar teamId={champ.teamId} fullBody size={300} className="tp-hero-av" />
+                  : <div className="tp-av-empty" style={{ width: 300, height: 300 }} />)}
           </div>
           <div className="tp-hero-text">
             <div className="tp-hero-title">{champ.title}</div>
@@ -6858,6 +6874,18 @@ function TabloidBuilderPanel({ cs }) {
     showToast('Tabloide recarregado da classificação', 'success');
   };
 
+  // Imagem de destaque (arte da IA): lê como data URL — robusto na exportação
+  // (não depende de CORS) e fica embutido no PNG.
+  const onHeroFile = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) { showToast('Imagem muito grande (máx 4MB).', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = () => patch({ heroImage: reader.result });
+    reader.onerror = () => showToast('Não consegui ler a imagem.', 'error');
+    reader.readAsDataURL(file);
+  };
+
   const refreshMatchups = () => {
     const m = currentRoundMatchups(cs);
     setData(prev => ({ ...prev, matchups: m }));
@@ -6917,6 +6945,25 @@ function TabloidBuilderPanel({ cs }) {
           </div>
           <TpField label="Cabeçalho (canto)" value={data.cornerTag} onChange={v => patch({ cornerTag: v })} />
           <TpField label="MANCHETE" value={data.headline} onChange={v => patch({ headline: v })} />
+
+          <div className="tp-form-sec">ARTE & TÍTULO</div>
+          <TpField label="Título grande (wordmark)" value={data.wordmark} onChange={v => patch({ wordmark: v })} placeholder="PRIMITIVÃO / MORTAL KOMBAT" />
+          <div className="tp-form-row">
+            <TpField label="Selo/carimbo (vermelho)" value={data.stamp} onChange={v => patch({ stamp: v })} placeholder="FIGHT! / EXTRA" />
+            <TpField label="Caractere decorativo" value={data.accent} onChange={v => patch({ accent: v })} placeholder="闘" />
+          </div>
+          <label className="tp-fld">
+            <span className="tp-fld-label">Imagem de destaque (arte da IA, opcional)</span>
+            <input type="file" accept="image/*" onChange={onHeroFile} className="tp-input tp-file" />
+          </label>
+          {data.heroImage && (
+            <button type="button" className="tp-btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={() => patch({ heroImage: '' })}>
+              <Icon name="x" size={13} /> REMOVER IMAGEM
+            </button>
+          )}
+          <div style={{ fontSize: 10, color: 'rgba(28,22,18,0.55)', lineHeight: 1.4 }}>
+            A arte ilustrada (lutador, dragão etc.) é imagem — gera na IA e joga aqui. O resto do tabloide (título, caixas, odds) o modelo monta sozinho por cima.
+          </div>
 
           <div className="tp-form-sec">CAMPEÃO (destaque)</div>
           <label className="tp-fld"><span className="tp-fld-label">Time</span><TpTeamSelect value={data.champion.teamId} onChange={v => patchChamp({ teamId: v })} /></label>
