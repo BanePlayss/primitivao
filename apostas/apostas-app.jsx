@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260528-hall-vitrine ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260528-hall-2lugares ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5592,10 +5592,10 @@ function buildShowcase(view, standings, users, teamPlayers) {
     aproveitamento: s.j > 0 ? Math.round((s.p / (s.j * 3)) * 100) : 0,
   });
   if (view === 'fame') {
-    return [mk(standings[0], 1, 'CAMPEÃO'), mk(standings[1], 2, 'VICE'), mk(standings[2], 3, '3º LUGAR')];
+    return [mk(standings[0], 1, 'CAMPEÃO'), mk(standings[1], 2, 'VICE')];
   }
   const n = standings.length;
-  return [mk(standings[n - 1], n, 'LANTERNA'), mk(standings[n - 2], n - 1, 'PENÚLTIMO'), mk(standings[n - 3], n - 2, 'ANTEPENÚLTIMO')];
+  return [mk(standings[n - 1], n, 'LANTERNA'), mk(standings[n - 2], n - 1, 'PENÚLTIMO')];
 }
 
 // Card individual da vitrine (1 colocado). rank 0=ouro/pior, 1, 2.
@@ -5603,8 +5603,8 @@ function ShowcaseItem({ item, theme, rank, season, status }) {
   const isFame = theme === 'fame';
   // Cores por posição: fama ouro/prata/bronze, vergonha tons de vinho.
   const palettes = isFame
-    ? [{ a: '#d4af37', d: '#6b5616', ic: 'trophy' }, { a: '#c0c0c0', d: '#666', ic: 'medal' }, { a: '#c87f33', d: '#6b3e1a', ic: 'medal' }]
-    : [{ a: '#a52a2a', d: '#3e0f0f', ic: 'toilet' }, { a: '#9a3a2a', d: '#3e0f0f', ic: 'toothbrush' }, { a: '#b5654a', d: '#3e0f0f', ic: 'toothbrush' }];
+    ? [{ a: '#d4af37', d: '#6b5616', ic: 'trophy' }, { a: '#c0c0c0', d: '#666', ic: 'medal' }]
+    : [{ a: '#a52a2a', d: '#3e0f0f', ic: 'toilet' }, { a: '#9a3a2a', d: '#3e0f0f', ic: 'toothbrush' }];
   const p = palettes[rank] || palettes[0];
   const top = rank === 0;
   const badge = status === 'closed'
