@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-brand-click ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-tabloide ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6559,7 +6559,367 @@ function saveManualEvents(arr) {
   catch (e) { /* ignora */ }
 }
 
-function JournalistAdminPanel({ cs, bets, users, remoteNews, weeklyReady }) {
+// ─── TABLOIDE (modelo pré-definido "PRIMITIVÃO TIMES") ──────────────────────
+// Inputs reutilizáveis (top-level pra não remontar e perder foco a cada tecla).
+function TpField({ label, value, onChange, placeholder }) {
+  return (
+    <label className="tp-fld">
+      <span className="tp-fld-label">{label}</span>
+      <input type="text" value={value || ''} placeholder={placeholder || ''} onChange={e => onChange(e.target.value)} className="tp-input" />
+    </label>
+  );
+}
+function TpTeamSelect({ value, onChange }) {
+  return (
+    <select value={value || ''} onChange={e => onChange(e.target.value)} className="tp-input tp-select">
+      <option value="">— sem time —</option>
+      {TEAMS.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+    </select>
+  );
+}
+
+// Stats de um time pra ficha do tabloide.
+function statsFromStanding(s) {
+  if (!s) return [];
+  const sg = (s.gp || 0) - (s.gc || 0);
+  const apr = s.j > 0 ? Math.round((s.p / (s.j * 3)) * 100) : 0;
+  return [
+    { k: 'PTS', v: String(s.p ?? 0) },
+    { k: 'V-E-D', v: `${s.v || 0}-${s.e || 0}-${s.d || 0}` },
+    { k: 'GP', v: String(s.gp || 0) },
+    { k: 'GC', v: String(s.gc || 0) },
+    { k: 'SG', v: (sg >= 0 ? '+' : '') + sg },
+    { k: 'APROV', v: apr + '%' },
+  ];
+}
+
+// Confrontos da rodada atual (ou última com jogos) já com odds 1X2 calculadas.
+function currentRoundMatchups(cs) {
+  const rounds = cs?.rounds || [];
+  if (!rounds.length) return [];
+  const metrics = computeTeamMetrics(rounds);
+  let ri = Number.isInteger(cs.currentRound) ? cs.currentRound : rounds.length - 1;
+  if (!Array.isArray(rounds[ri]) || rounds[ri].length === 0) {
+    for (let i = rounds.length - 1; i >= 0; i--) {
+      if (Array.isArray(rounds[i]) && rounds[i].length) { ri = i; break; }
+    }
+  }
+  const round = Array.isArray(rounds[ri]) ? rounds[ri] : [];
+  return round.map(g => {
+    const o = (computeGameOdds(g.home, g.away, metrics) || {})['1X2'] || {};
+    return {
+      homeId: g.home, awayId: g.away,
+      oddHome: o.H != null ? o.H.toFixed(2) : '',
+      oddDraw: o.D != null ? o.D.toFixed(2) : '',
+      oddAway: o.A != null ? o.A.toFixed(2) : '',
+    };
+  });
+}
+
+// Monta os dados do tabloide a partir do estado (classificação + jogos).
+// Tudo é editável no painel; isto é só o ponto de partida.
+function buildTabloidData(cs) {
+  const { standings } = computeChampStandings('fifa', cs);
+  const champ = standings[0] || null;
+  const vice = standings[1] || null;
+  const n = standings.length;
+  const lanterna = n ? standings[n - 1] : null;
+  return {
+    volume: '09',
+    masthead: 'PRIMITIVÃO TIMES',
+    editionLabel: 'EDIÇÃO',
+    cornerTag: 'SEGUNDA TEM FIFA!',
+    headline: 'A RODADA PEGOU FOGO!',
+    champion: champ
+      ? { teamId: champ.id, crown: true, title: `${champ.name.toUpperCase()} NA LIDERANÇA!`, stats: statsFromStanding(champ), note: '' }
+      : { teamId: '', crown: true, title: '', stats: [], note: '' },
+    sideBlocks: [
+      vice ? { teamId: vice.id, kicker: vice.name.toUpperCase(), title: 'VICE NA BRIGA!', text: `${vice.p} pontos e segue colado.`, tone: 'good', stats: [] } : { teamId: '', kicker: '', title: '', text: '', tone: 'good', stats: [] },
+      lanterna ? { teamId: lanterna.id, kicker: lanterna.name.toUpperCase() + ' FC', title: 'AFUNDA NA LANTERNA!', text: 'Último colocado, sem dó.', tone: 'bad', stats: statsFromStanding(lanterna) } : { teamId: '', kicker: '', title: '', text: '', tone: 'bad', stats: [] },
+    ],
+    midStrip: {
+      title: 'A BRIGA NO MEIO DA TABELA',
+      players: standings.slice(2, 6).map(s => ({ teamId: s.id, label: `${s.p} PTS` })),
+    },
+    matchups: currentRoundMatchups(cs),
+    ticker: ['TORCIDA EM CHAMAS', 'RUMORES, TROCAS E OFERTAS', 'TODOS NO DISCORD', 'AMANHÃ: O RESUMO'],
+  };
+}
+
+// O pôster renderizado (estilo jornal sépia "PRIMITIVÃO TIMES"). É o que
+// vira imagem na exportação.
+function TabloidPoster({ data }) {
+  const d = data || {};
+  const champ = d.champion || {};
+  const teamName = (id) => (id ? TEAM(id).name : '');
+  return (
+    <div className="tp">
+      <div className="tp-masthead">
+        <span className="tp-vol">VOL. {d.volume || '—'}</span>
+        <span className="tp-masthead-name">{d.masthead || 'PRIMITIVÃO TIMES'}</span>
+        <span className="tp-edition">{d.editionLabel}</span>
+        <span className="tp-corner">{d.cornerTag}</span>
+      </div>
+
+      <div className="tp-wordmark">PRIMITIVÃO</div>
+      {d.headline && <div className="tp-headline">{d.headline}<span className="tp-flame"><Icon name="fire" size={40} /></span></div>}
+
+      <div className="tp-body">
+        <div className="tp-hero">
+          <div className="tp-hero-figure">
+            {champ.crown && <span className="tp-crown"><Icon name="crown" size={54} /></span>}
+            {champ.teamId
+              ? <Avatar teamId={champ.teamId} fullBody size={300} className="tp-hero-av" />
+              : <div className="tp-av-empty" style={{ width: 300, height: 300 }} />}
+          </div>
+          <div className="tp-hero-text">
+            <div className="tp-hero-title">{champ.title}</div>
+            {(champ.stats || []).length > 0 && (
+              <div className="tp-stats">
+                {champ.stats.map((st, i) => (
+                  <div key={i} className="tp-stat"><span className="tp-stat-v">{st.v}</span><span className="tp-stat-k">{st.k}</span></div>
+                ))}
+              </div>
+            )}
+            {champ.note && <div className="tp-hero-note">{champ.note}</div>}
+          </div>
+        </div>
+
+        <div className="tp-side">
+          {(d.sideBlocks || []).filter(b => b && (b.teamId || b.title || b.text)).map((b, i) => (
+            <div key={i} className={'tp-block ' + (b.tone === 'bad' ? 'tp-block-bad' : 'tp-block-good')}>
+              {b.teamId && <Avatar teamId={b.teamId} fullBody size={130} className="tp-block-av" />}
+              <div className="tp-block-text">
+                {b.kicker && <div className="tp-block-kicker">{b.kicker}</div>}
+                {b.title && <div className="tp-block-title">{b.title}</div>}
+                {b.text && <div className="tp-block-body">{b.text}</div>}
+                {(b.stats && b.stats.length > 0) && (
+                  <div className="tp-stats tp-stats-sm">
+                    {b.stats.map((st, j) => (
+                      <div key={j} className="tp-stat"><span className="tp-stat-v">{st.v}</span><span className="tp-stat-k">{st.k}</span></div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {d.midStrip && (d.midStrip.players || []).filter(p => p && p.teamId).length > 0 && (
+        <div className="tp-strip">
+          {d.midStrip.title && <div className="tp-strip-title"><span className="tp-star"><Icon name="star" size={16} /></span>{d.midStrip.title}</div>}
+          <div className="tp-strip-players">
+            {d.midStrip.players.filter(p => p && p.teamId).map((p, i) => (
+              <div key={i} className="tp-strip-player">
+                <Avatar teamId={p.teamId} size={66} />
+                <span className="tp-strip-name">{teamName(p.teamId)}</span>
+                {p.label && <span className="tp-strip-label">{p.label}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(d.matchups || []).filter(m => m && (m.homeId || m.awayId)).length > 0 && (
+        <div className="tp-matches">
+          {d.matchups.filter(m => m && (m.homeId || m.awayId)).map((m, i) => (
+            <div key={i} className="tp-match">
+              <div className="tp-match-side">
+                {m.homeId && <Avatar teamId={m.homeId} size={52} />}
+                <span className="tp-match-name">{teamName(m.homeId)}</span>
+                <span className="tp-match-odd">{m.oddHome}</span>
+              </div>
+              <div className="tp-match-mid">
+                <span className="tp-match-x">×</span>
+                {m.oddDraw && <span className="tp-match-draw">{m.oddDraw}</span>}
+              </div>
+              <div className="tp-match-side tp-match-away">
+                {m.awayId && <Avatar teamId={m.awayId} size={52} />}
+                <span className="tp-match-name">{teamName(m.awayId)}</span>
+                <span className="tp-match-odd">{m.oddAway}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(d.ticker || []).filter(Boolean).length > 0 && (
+        <div className="tp-ticker">
+          {d.ticker.filter(Boolean).map((t, i) => (
+            <span key={i} className="tp-ticker-item"><Icon name="flag" size={13} /> {t}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// O painel: formulário (esquerda) + prévia ao vivo (direita) + exportar PNG.
+function TabloidBuilderPanel({ cs }) {
+  const [data, setData] = useState(() => buildTabloidData(cs));
+  const [exporting, setExporting] = useState(false);
+  const posterRef = useRef(null);
+  const stageRef = useRef(null);
+  const [scale, setScale] = useState(1);
+  const [stageH, setStageH] = useState(0);
+
+  // O pôster tem largura fixa (1040px) pra exportar sempre igual; aqui a gente
+  // mede a coluna e escala a PRÉVIA pra caber, sem mexer no tamanho real.
+  useEffect(() => {
+    const fit = () => {
+      const stage = stageRef.current, poster = posterRef.current;
+      if (!stage || !poster) return;
+      const avail = stage.clientWidth;
+      const natW = poster.offsetWidth || 1040;
+      const s = Math.min(1, avail / natW);
+      setScale(s);
+      setStageH(poster.offsetHeight * s);
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    const t = setTimeout(fit, 120); // re-mede depois das imagens carregarem
+    return () => { window.removeEventListener('resize', fit); clearTimeout(t); };
+  }, [data]);
+
+  const patch = (p) => setData(prev => ({ ...prev, ...p }));
+  const patchChamp = (p) => setData(prev => ({ ...prev, champion: { ...prev.champion, ...p } }));
+  const patchBlock = (i, p) => setData(prev => ({ ...prev, sideBlocks: prev.sideBlocks.map((b, j) => j === i ? { ...b, ...p } : b) }));
+  const patchMatch = (i, p) => setData(prev => ({ ...prev, matchups: prev.matchups.map((m, j) => j === i ? { ...m, ...p } : m) }));
+  const patchStrip = (p) => setData(prev => ({ ...prev, midStrip: { ...prev.midStrip, ...p } }));
+  const patchStripPlayer = (i, p) => setData(prev => ({ ...prev, midStrip: { ...prev.midStrip, players: prev.midStrip.players.map((pl, j) => j === i ? { ...pl, ...p } : pl) } }));
+  const patchTicker = (i, v) => setData(prev => ({ ...prev, ticker: prev.ticker.map((t, j) => j === i ? v : t) }));
+  const patchChampStat = (i, v) => setData(prev => ({ ...prev, champion: { ...prev.champion, stats: prev.champion.stats.map((s, j) => j === i ? { ...s, v } : s) } }));
+
+  const reload = () => {
+    if (!confirm('Recarregar os dados da classificação? Você perde as edições manuais do tabloide.')) return;
+    setData(buildTabloidData(cs));
+    showToast('Tabloide recarregado da classificação', 'success');
+  };
+
+  const matchups = data.matchups || [];
+  const players = (data.midStrip && data.midStrip.players) || [];
+
+  const exportPng = async () => {
+    const node = posterRef.current;
+    if (!node) return;
+    const lib = window.htmlToImage;
+    if (!lib || !lib.toPng) {
+      showToast('Exportador não carregou. Tire um print da prévia (ela é fiel).', 'error');
+      return;
+    }
+    setExporting(true);
+    try {
+      const dataUrl = await lib.toPng(node, {
+        pixelRatio: 2,
+        width: node.offsetWidth,
+        height: node.offsetHeight,
+        backgroundColor: '#d9c5a2',
+        style: { transform: 'none', margin: '0' },
+      });
+      const a = document.createElement('a');
+      a.download = `primitivao-times-vol-${(data.volume || 'x')}.png`;
+      a.href = dataUrl;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      showToast('Tabloide exportado em PNG!', 'success');
+    } catch (e) {
+      console.warn('export tabloide falhou', e);
+      showToast('Falha ao exportar. Tire um print da prévia.', 'error');
+    } finally { setExporting(false); }
+  };
+
+  return (
+    <div className="tp-builder">
+      <p style={{ marginTop: 0, lineHeight: 1.5, fontSize: 13 }}>
+        Modelo fixo do <strong>PRIMITIVÃO TIMES</strong>. Os campos já vêm preenchidos
+        da classificação — ajusta os textos, confere os times/odds e <strong>exporta em PNG</strong>.
+        Os avatares são os PNGs dos times (corpo inteiro), montados automaticamente.
+      </p>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '10px 0 4px' }}>
+        <button type="button" onClick={reload} className="tp-btn-ghost"><Icon name="refresh" size={14} /> RECARREGAR DA CLASSIFICAÇÃO</button>
+        <button type="button" onClick={exportPng} disabled={exporting} className="tp-btn-go">{exporting ? 'EXPORTANDO…' : 'EXPORTAR PNG'}</button>
+      </div>
+
+      <div className="tp-builder-grid">
+        {/* ─── FORM ─── */}
+        <div className="tp-form">
+          <div className="tp-form-sec">CABEÇALHO</div>
+          <div className="tp-form-row">
+            <TpField label="Volume" value={data.volume} onChange={v => patch({ volume: v })} />
+            <TpField label="Edição" value={data.editionLabel} onChange={v => patch({ editionLabel: v })} />
+          </div>
+          <TpField label="Cabeçalho (canto)" value={data.cornerTag} onChange={v => patch({ cornerTag: v })} />
+          <TpField label="MANCHETE" value={data.headline} onChange={v => patch({ headline: v })} />
+
+          <div className="tp-form-sec">CAMPEÃO (destaque)</div>
+          <label className="tp-fld"><span className="tp-fld-label">Time</span><TpTeamSelect value={data.champion.teamId} onChange={v => patchChamp({ teamId: v })} /></label>
+          <TpField label="Título" value={data.champion.title} onChange={v => patchChamp({ title: v })} />
+          <TpField label="Frase de apoio" value={data.champion.note} onChange={v => patchChamp({ note: v })} placeholder="ex: NÃO TEM MAIS JEITO: TÍTULO É DELE!" />
+          <label className="tp-chk"><input type="checkbox" checked={!!data.champion.crown} onChange={e => patchChamp({ crown: e.target.checked })} /> Mostrar coroa</label>
+          {(data.champion.stats || []).length > 0 && (
+            <div className="tp-stat-edit">
+              {data.champion.stats.map((s, i) => (
+                <label key={i} className="tp-stat-edit-row"><span>{s.k}</span><input type="text" value={s.v} onChange={e => patchChampStat(i, e.target.value)} className="tp-input" /></label>
+              ))}
+            </div>
+          )}
+
+          {data.sideBlocks.map((b, i) => (
+            <div key={i}>
+              <div className="tp-form-sec">{i === 0 ? 'BLOCO 1 (boa notícia)' : 'BLOCO 2 (vexame)'}</div>
+              <label className="tp-fld"><span className="tp-fld-label">Time</span><TpTeamSelect value={b.teamId} onChange={v => patchBlock(i, { teamId: v })} /></label>
+              <div className="tp-form-row">
+                <TpField label="Etiqueta" value={b.kicker} onChange={v => patchBlock(i, { kicker: v })} />
+                <TpField label="Título" value={b.title} onChange={v => patchBlock(i, { title: v })} />
+              </div>
+              <TpField label="Texto" value={b.text} onChange={v => patchBlock(i, { text: v })} />
+            </div>
+          ))}
+
+          <div className="tp-form-sec">FAIXA DO MEIO</div>
+          <TpField label="Título da faixa" value={data.midStrip.title} onChange={v => patchStrip({ title: v })} />
+          {players.map((p, i) => (
+            <div key={i} className="tp-form-row">
+              <label className="tp-fld" style={{ flex: 2 }}><span className="tp-fld-label">{`Jogador ${i + 1}`}</span><TpTeamSelect value={p.teamId} onChange={v => patchStripPlayer(i, { teamId: v })} /></label>
+              <TpField label="Etiqueta" value={p.label} onChange={v => patchStripPlayer(i, { label: v })} />
+            </div>
+          ))}
+
+          <div className="tp-form-sec">CONFRONTOS (com odds)</div>
+          {matchups.map((m, i) => (
+            <div key={i} className="tp-match-edit">
+              <TpTeamSelect value={m.homeId} onChange={v => patchMatch(i, { homeId: v })} />
+              <input type="text" value={m.oddHome} onChange={e => patchMatch(i, { oddHome: e.target.value })} className="tp-input tp-odd" placeholder="1.45" />
+              <input type="text" value={m.oddDraw} onChange={e => patchMatch(i, { oddDraw: e.target.value })} className="tp-input tp-odd" placeholder="X" />
+              <input type="text" value={m.oddAway} onChange={e => patchMatch(i, { oddAway: e.target.value })} className="tp-input tp-odd" placeholder="2.10" />
+              <TpTeamSelect value={m.awayId} onChange={v => patchMatch(i, { awayId: v })} />
+            </div>
+          ))}
+
+          <div className="tp-form-sec">RODAPÉ (ticker)</div>
+          {(data.ticker || []).map((t, i) => (
+            <TpField key={i} label={`Item ${i + 1}`} value={t} onChange={v => patchTicker(i, v)} />
+          ))}
+        </div>
+
+        {/* ─── PRÉVIA ─── */}
+        <div className="tp-preview-wrap">
+          <div className="small-label" style={{ marginBottom: 8 }}>PRÉVIA (é o que vira PNG)</div>
+          <div className="tp-stage" ref={stageRef} style={{ height: stageH || undefined }}>
+            <div className="tp-scaler" style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+              <div ref={posterRef}>
+                <TabloidPoster data={data} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function JournalistAdminPanel({ cs, bets, users, remoteNews, weeklyReady, teamPlayers }) {
+  const [mode, setMode] = useState('eventos');
   const autoEvents = useMemo(() => detectJournalistEvents({ cs, bets, users, weeklyReady }), [cs, bets, users, weeklyReady]);
   const [manualEvents, setManualEvents] = useState(() => loadManualEvents());
   const [manualText, setManualText] = useState('');
@@ -6659,6 +7019,12 @@ function JournalistAdminPanel({ cs, bets, users, remoteNews, weeklyReady }) {
         <div className="sub">{autoEvents.length} AUTO · {manualEvents.length} MANUAL</div>
       </div>
       <div className="card-body">
+        <div className="jr-mode">
+          <button type="button" className={'jr-mode-btn ' + (mode === 'eventos' ? 'active' : '')} onClick={() => setMode('eventos')}>EVENTOS → PROMPT</button>
+          <button type="button" className={'jr-mode-btn ' + (mode === 'tabloide' ? 'active' : '')} onClick={() => setMode('tabloide')}>MODELO TABLOIDE</button>
+        </div>
+        {mode === 'tabloide' && <TabloidBuilderPanel cs={cs} />}
+        {mode === 'eventos' && (<>
         <p style={{ marginTop: 0, lineHeight: 1.5, fontSize: 13 }}>
           O Jornalista detecta eventos automaticamente (resultados, apostas, próximos jogos)
           e você pode adicionar eventos manuais (polêmicas, fofocas, manipulação suspeita).
@@ -6786,6 +7152,7 @@ function JournalistAdminPanel({ cs, bets, users, remoteNews, weeklyReady }) {
             )}
           </>
         )}
+        </>)}
       </div>
     </div>
   );
@@ -7160,7 +7527,7 @@ function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordW
       </div>
 
       {tab === 'news' && <NewsAdminPanel remoteNews={remoteNews} />}
-      {tab === 'jornalista' && <JournalistAdminPanel cs={cs} bets={bets} users={users} remoteNews={remoteNews} weeklyReady={weeklyReady} />}
+      {tab === 'jornalista' && <JournalistAdminPanel cs={cs} bets={bets} users={users} remoteNews={remoteNews} weeklyReady={weeklyReady} teamPlayers={teamPlayers} />}
       {tab === 'catalogo' && <CatalogoAdminPanel cs={cs} teamPlayers={teamPlayers} />}
       {tab === 'discord' && <DiscordAdminPanel webhook={discordWebhook} />}
 

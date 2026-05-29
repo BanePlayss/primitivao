@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Bungee+Inline&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" />
-  <link rel="stylesheet" href="styles.css?v=20260529-brand-click" />
+  <link rel="stylesheet" href="styles.css?v=20260529-tabloide" />
 </head>
 <body>
   <div id="root"></div>
@@ -40,11 +40,15 @@
   <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
 
+  <!-- html-to-image: exporta o tabloide do Jornalista (admin) como PNG. Carrega
+       async/defer — se falhar, o painel cai pro fallback "tire um print". -->
+  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js" defer></script>
+
   <!-- Bump o ?v= a cada deploy importante pra forçar tabs antigos a recarregar.
        O arquivo .compiled.js é gerado pelo GitHub Action `build.yml` a partir
        do apostas-app.jsx — não editar direto. Pra desenvolver localmente
        usa dev.html que carrega o .jsx com Babel standalone. -->
-  <script src="apostas-app.compiled.js?v=20260529-brand-click"></script>
+  <script src="apostas-app.compiled.js?v=20260529-tabloide"></script>
 
   <!-- PWA: registra service worker pra cache offline + install no celular -->
   <script>
