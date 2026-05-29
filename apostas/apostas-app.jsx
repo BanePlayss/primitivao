@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-podio-clean ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-tartaro-side ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5715,7 +5715,7 @@ function ShowcaseItem({ item, theme, rank, season, status }) {
 }
 
 // Vitrine de um campeonato (Fama OU Vergonha) — pódio de 3 + estados.
-function TrophyShowcase({ champ, items, theme, status, sideRanking, myNick }) {
+function TrophyShowcase({ champ, items, theme, status, sideRanking, myNick, sideTitle, sideIcon }) {
   const isFame = theme === 'fame';
   if (status === 'soon') {
     return (
@@ -5748,7 +5748,7 @@ function TrophyShowcase({ champ, items, theme, status, sideRanking, myNick }) {
         </div>
         {hasSide && (
           <div className="showcase-side">
-            <div className="showcase-side-head"><Icon name="coin" size={13} /> RANKING DOS APOSTADORES</div>
+            <div className="showcase-side-head"><Icon name={sideIcon || 'coin'} size={13} /> {sideTitle || 'RANKING DOS APOSTADORES'}</div>
             <div className="showcase-side-list">
               {sideRanking.map((r, i) => (
                 <div key={r.nick} className={'showcase-side-row' + (r.nick === myNick ? ' me' : '')}>
@@ -5794,14 +5794,21 @@ function HallDaFamaView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick }
   );
 }
 
-function HallDaVergonhaView({ cs, users, teamPlayers, worldcup, wcFixtures }) {
+function HallDaVergonhaView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick }) {
   const copa = computeCopaStandings(worldcup, wcFixtures);
+  // Os mais quebrados (menor saldo PC) — exibido ao lado do pódio da FIFA.
+  const quebrados = Object.entries(users || {})
+    .filter(([nick]) => nick !== ADMIN_NICK)
+    .map(([nick, u]) => ({ nick, pc: u.pc || 0, cosmetics: u.cosmetics || null, _tp: teamPlayers }))
+    .sort((a, b) => a.pc - b.pc)
+    .slice(0, 8);
   return (
     <div>
       {CHAMPIONSHIPS.map(c => {
         const { status, standings } = computeChampStandings(c.id, cs);
         const items = status !== 'soon' ? buildShowcase('shame', standings, users, teamPlayers) : [];
-        return <TrophyShowcase key={c.id} champ={c} items={items} theme="shame" status={status} />;
+        return <TrophyShowcase key={c.id} champ={c} items={items} theme="shame" status={status}
+          sideRanking={c.id === 'fifa' ? quebrados : null} sideTitle="OS MAIS QUEBRADOS" sideIcon="coin-fire" myNick={myNick} />;
       })}
       <TrophyShowcase
         champ={COPA_CHAMP}
@@ -5843,7 +5850,7 @@ function HallView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick }) {
         </button>
       </div>
       {subTab === 'fama'     && <HallDaFamaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} myNick={myNick} />}
-      {subTab === 'vergonha' && <HallDaVergonhaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} />}
+      {subTab === 'vergonha' && <HallDaVergonhaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} myNick={myNick} />}
     </div>
   );
 }
