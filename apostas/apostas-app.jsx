@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-zoeira-spread ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-moeda-cc ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1899,7 +1899,7 @@ function App() {
         // Conta nova: grava só o hash
         return {
           ...remote,
-          users: { ...remoteUsers, [nick]: { senhaHash, pc: START_PC, joined: Date.now(), lastWeekly: 0 } },
+          users: { ...remoteUsers, [nick]: { senhaHash, pc: START_PC, cc: 0, joined: Date.now(), lastWeekly: 0 } },
         };
       });
       if (result && result.err) return result.err;
@@ -2280,7 +2280,53 @@ function App() {
     } catch (e) { console.warn('adjustPc failed', e); }
   };
 
-  // LOJA: compra de item (debita PC + adiciona ao inventory)
+  // Ajuste de CAMPEÃO COINS (cc) pelo admin — moeda da loja (PC é só aposta).
+  const adjustCc = async (nick, delta) => {
+    try {
+      await commitBetDocUpdate(remote => {
+        const u = (remote.users || {})[nick];
+        if (!u) return null;
+        const users = { ...remote.users, [nick]: { ...u, cc: Math.max(0, (u.cc || 0) + delta) } };
+        return { ...remote, users };
+      });
+    } catch (e) { console.warn('adjustCc failed', e); }
+  };
+
+  // MIGRAÇÃO ÚNICA (admin): separa as moedas. Pra cada user devolve em PC o que
+  // gastou em itens COMPRÁVEIS, remove esses itens (recompra com CC depois),
+  // mantém os drops de conquista, desequipa o que sumiu e garante o campo cc=0.
+  // Idempotente: itens comprados saem do inventário, então rodar 2x devolve 0.
+  const splitCurrency = async () => {
+    try {
+      const res = await commitBetDocUpdate(remote => {
+        const users = { ...(remote.users || {}) };
+        let refunded = 0, removed = 0, affected = 0;
+        for (const nick of Object.keys(users)) {
+          const u = users[nick]; if (!u) continue;
+          const inv = Array.isArray(u.inventory) ? u.inventory : [];
+          const keep = [];
+          let refund = 0;
+          for (const id of inv) {
+            const it = ITEM_BY_ID[id];
+            if (it && it.price) { refund += it.price; removed++; }
+            else keep.push(id);
+          }
+          const cosmetics = { ...(u.cosmetics || {}) };
+          for (const slot of Object.keys(cosmetics)) {
+            const ci = cosmetics[slot] && ITEM_BY_ID[cosmetics[slot]];
+            if (ci && ci.price) delete cosmetics[slot]; // era item COMPRADO (removido) -> desequipa; drops ficam
+          }
+          refunded += refund;
+          users[nick] = { ...u, pc: (u.pc || 0) + refund, cc: (u.cc != null ? u.cc : 0), inventory: keep, cosmetics };
+        }
+        return { ...remote, users };
+      });
+      return res || {};
+    } catch (e) { console.warn('splitCurrency failed', e); return { err: String(e && e.message || e) }; }
+  };
+
+  // LOJA: compra de item (debita CAMPEÃO COINS — cc — e adiciona ao inventory).
+  // PC é só pra apostas; a loja roda na moeda nova `cc`.
   const buyItem = async (itemId) => {
     const item = ITEM_BY_ID[itemId];
     if (!item || !item.price) return { err: 'item inválido' };
@@ -2292,10 +2338,10 @@ function App() {
         if (!u) return { __abort: true, result: { err: 'usuário não encontrado' } };
         const inv = Array.isArray(u.inventory) ? u.inventory : [];
         if (inv.includes(itemId)) return { __abort: true, result: { err: 'você já tem esse item' } };
-        if ((u.pc || 0) < item.price) return { __abort: true, result: { err: 'PC insuficiente' } };
+        if ((u.cc || 0) < item.price) return { __abort: true, result: { err: 'Campeão Coins insuficientes (tem ' + (u.cc || 0) + ' CC).' } };
         const next = {
           ...u,
-          pc: u.pc - item.price,
+          cc: (u.cc || 0) - item.price,
           inventory: [...inv, itemId],
         };
         return { ...remote, users: { ...remote.users, [userNick]: next } };
@@ -2497,7 +2543,8 @@ function App() {
             )}
             {view === 'admin' && isAdmin && (
               <AdminView
-                bets={bets} users={users} adjustPc={adjustPc}
+                bets={bets} users={users} adjustPc={adjustPc} adjustCc={adjustCc}
+                splitCurrency={splitCurrency}
                 teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
                 discordWebhook={discordWebhook} remoteNews={remoteNews}
                 cs={cs} weeklyReady={weeklyReady}
@@ -5477,7 +5524,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
           {myTeamId && <Avatar teamId={myTeamId} cosmetics={me?.cosmetics} size={120} className="profile-avatar" />}
           <div>
             <div className="title" style={{ fontSize: 24 }}>@{nick}</div>
-            <div className="sub">{isAdmin ? 'ADMIN' : `${me?.pc ?? 0} PC`}{myTeam ? ` · ${myTeam.name}` : ''}</div>
+            <div className="sub">{isAdmin ? 'ADMIN' : `${me?.pc ?? 0} PC · ${me?.cc ?? 0} CC`}{myTeam ? ` · ${myTeam.name}` : ''}</div>
           </div>
         </div>
       </div>
@@ -5665,7 +5712,7 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
   const [busy, setBusy] = useState({}); // { itemId: 'buy' | 'equip' }
   const inv = useMemo(() => effectiveInventory(nick, me, ctx), [nick, me, ctx]);
   const equipped = me?.cosmetics || {};
-  const pc = me?.pc || 0;
+  const cc = me?.cc || 0;
 
   const handleBuy = async (item) => {
     if (busy[item.id]) return;
@@ -5698,11 +5745,12 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-head">
           <div className="title"><Icon name="coin" size={16} /> MERCADINHO</div>
-          <div className="sub">SEU SALDO: {pc} PC</div>
+          <div className="sub">SEU SALDO: {cc} CAMPEÃO COINS</div>
         </div>
         <div className="card-body">
           <p style={{ marginTop: 0, lineHeight: 1.5, fontSize: 13 }}>
-            Compra molduras com PC e equipa distintivos desbloqueados por conquista.
+            A loja roda em <strong>Campeão Coins (CC)</strong> — o PC agora é só pra apostas.
+            Compra molduras com CC e equipa distintivos desbloqueados por conquista.
             Items equipados aparecem no seu avatar em todo o site (TopBar, Ranking, Perfil, Vitrine).
           </p>
         </div>
@@ -5722,7 +5770,7 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
                   const owned = inv.includes(item.id);
                   const isEquipped = equipped[slot.id] === item.id;
                   const isDrop = !!item.drop;
-                  const canAfford = !item.price || pc >= item.price;
+                  const canAfford = !item.price || cc >= item.price;
                   const action = busy[item.id];
                   return (
                     <div key={item.id} className={'loja-item rarity-' + item.rarity + (owned ? ' owned' : ' locked')}>
@@ -5748,7 +5796,7 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
                             disabled={!canAfford || !!action}
                             onClick={() => handleBuy(item)}
                           >
-                            {action === 'buy' ? 'COMPRANDO…' : (canAfford ? `COMPRAR · ${item.price} PC` : `SEM PC (precisa ${item.price})`)}
+                            {action === 'buy' ? 'COMPRANDO…' : (canAfford ? `COMPRAR · ${item.price} CC` : `SEM CC (precisa ${item.price})`)}
                           </button>
                         )}
                         {owned && !isEquipped && (
@@ -7844,7 +7892,18 @@ function CatalogoAdminPanel({ cs, teamPlayers }) {
   );
 }
 
-function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, weeklyReady, worldcup, wcFixtures }) {
+function AdminView({ bets, users, adjustPc, adjustCc, splitCurrency, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, weeklyReady, worldcup, wcFixtures }) {
+  const [splitting, setSplitting] = useState(false);
+  const handleSplit = async () => {
+    if (splitting) return;
+    if (!window.confirm('SEPARAR MOEDAS agora?\n\nDevolve em PC o que cada um gastou na loja, remove os itens comprados (recompra com CC depois), mantém os drops de conquista e cria o saldo CC (zerado). Roda uma vez (idempotente).')) return;
+    setSplitting(true);
+    try {
+      const r = await splitCurrency();
+      if (r && r.err) showToast('Erro na migração: ' + r.err, 'error');
+      else showToast('Moedas separadas! PC devolvido a quem comprou; loja agora roda em Campeão Coins.', 'success');
+    } finally { setSplitting(false); }
+  };
   // Tabs do admin: USUÁRIOS / TIMES / NEWS / JORNALISTA / DISCORD / BACKUP / PERIGO.
   // PERIGO ficou em aba separada pra não ser clicado por engano.
   const [tab, setTab] = useState('usuarios');
@@ -7872,11 +7931,22 @@ function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordW
         <div className="card">
           <div className="card-head"><div className="title">USUÁRIOS</div><div className="sub">{Object.keys(users).length} CADASTRADOS</div></div>
           <div className="card-body">
+            <div style={{ marginBottom: 14, padding: 12, border: '2px solid var(--pv-orange)', background: 'rgba(215,100,20,0.08)' }}>
+              <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: '0.06em' }}>SEPARAR MOEDAS — PC (apostas) × CAMPEÃO COINS (loja)</div>
+              <div style={{ fontSize: 11, color: 'rgba(28,22,18,0.7)', lineHeight: 1.4, margin: '6px 0 10px' }}>
+                Roda UMA vez: devolve em PC o que cada um gastou na loja, remove os itens comprados (pra recomprar com CC), mantém os drops de conquista e cria o saldo CC (zerado). Idempotente — rodar de novo não duplica.
+              </div>
+              <button onClick={handleSplit} disabled={splitting} style={{ background: 'var(--pv-charcoal)', color: 'var(--pv-bone)', border: 'none', padding: '8px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.12em', cursor: splitting ? 'wait' : 'pointer' }}>
+                {splitting ? 'RODANDO…' : 'RODAR MIGRAÇÃO'}
+              </button>
+            </div>
             {Object.entries(users).map(([nick, u]) => {
               const tid = playerTeam[nick];
               const team = tid ? TEAM(tid) : null;
+              const pm = { width: 30, height: 30, fontWeight: 800, cursor: 'pointer', border: '1.5px solid var(--pv-charcoal)', background: 'transparent', lineHeight: 1 };
+              const pmPlus = { ...pm, background: 'var(--pv-orange)', color: 'var(--pv-bone)' };
               return (
-                <div key={nick} className="lb-row" style={{ gridTemplateColumns: '1fr auto auto auto', gap: 10 }}>
+                <div key={nick} className="lb-row" style={{ gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center' }}>
                   <div>
                     <div className="lb-nick">@{nick}</div>
                     {team && (
@@ -7885,9 +7955,20 @@ function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordW
                       </div>
                     )}
                   </div>
-                  <button onClick={() => adjustPc(nick, -10)} style={{ background: 'transparent', border: '1.5px solid var(--pv-charcoal)', padding: '4px 8px', fontWeight: 800 }}>-10</button>
-                  <div className="lb-pc mono">{u.pc}</div>
-                  <button onClick={() => adjustPc(nick, 10)} style={{ background: 'var(--pv-orange)', border: '1.5px solid var(--pv-charcoal)', padding: '4px 8px', fontWeight: 800, color: 'var(--pv-bone)' }}>+10</button>
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(28,22,18,0.55)' }}>PC</span>
+                      <button onClick={() => adjustPc(nick, -50)} style={pm}>-</button>
+                      <div className="lb-pc mono" style={{ minWidth: 52, textAlign: 'center' }}>{u.pc || 0}</div>
+                      <button onClick={() => adjustPc(nick, 50)} style={pmPlus}>+</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: 'var(--pv-orange)' }}>CC</span>
+                      <button onClick={() => adjustCc(nick, -50)} style={pm}>-</button>
+                      <div className="lb-pc mono" style={{ minWidth: 52, textAlign: 'center' }}>{u.cc || 0}</div>
+                      <button onClick={() => adjustCc(nick, 50)} style={pmPlus}>+</button>
+                    </div>
+                  </div>
                 </div>
               );
             })}
