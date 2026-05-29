@@ -5,10 +5,12 @@
 // client + hash SHA-256 guardado no doc). Por isso, as rules abaixo são
 // "defensivas estruturais" — não conseguem identificar usuário, mas impedem:
 //   1. Escritas em qualquer outro lugar do projeto Firebase
-//   2. Apagar o doc principal inteiro
+//   2. Apagar QUALQUER um dos dois docs (delete: if false)
 //   3. Substituir o payload por algo que não tem a forma esperada
 //   4. Spam de payloads gigantes (>1MB)
-//   5. Zerar `users` ou `teamPlayers` de uma vez (vandalismo)
+//   5. Zerar de uma vez users/bets/teamPlayers (vandalismo) — o JSON novo
+//      não pode encolher <40% do anterior
+//   6. Zerar/encolher bruscamente a classificação (mesmo guard no doc state)
 //
 // PRÓXIMO PASSO (recomendado): habilitar Firebase Auth Anonymous, fazer
 // `signInAnonymously()` no boot do app, e mudar `allow write` pra exigir
@@ -34,7 +36,7 @@ service cloud.firestore {
       //  - NÃO está zerando users/teamPlayers/comments quando antes tinha
       //    coisas — protege contra "rm -rf" via console do browser
       allow update: if isValidApostasDoc(request.resource.data)
-        && notWipingCriticalMaps(request.resource.data, resource.data);
+        && notWipingJson(request.resource.data, resource.data);
 
       // Criação só é permitida se o doc não existia (caso inicial)
       allow create: if isValidApostasDoc(request.resource.data);
@@ -47,7 +49,13 @@ service cloud.firestore {
     match /primitivao/state {
       allow read: if true;
       allow update: if request.resource.data.keys().hasAny(['rounds', 'json'])
-        && payloadFits(request.resource.data);
+        && payloadFits(request.resource.data)
+        // Mesma proteção anti-"rm -rf" do doc de apostas: bloqueia uma
+        // escrita que encolha bruscamente os placares (>60%). Um reset de
+        // temporada legítimo mantém a estrutura (7 rodadas) e passa; um wipe
+        // pra rounds vazio é rejeitado. Fecha o gap de a classificação poder
+        // ser zerada via console do browser.
+        && notWipingJson(request.resource.data, resource.data);
       allow create: if true;
       allow delete: if false;
     }
@@ -77,12 +85,13 @@ function payloadFits(data) {
     && data.json.size() < 1048576;
 }
 
-// Não permite zerar maps críticos quando antes tinha conteúdo.
-// Os maps ficam dentro da string JSON, então a checagem é só
-// "payload novo é razoavelmente menor que o antigo? aborta".
+// Não permite zerar dados quando antes tinha conteúdo. Os maps/arrays
+// (users, bets, teamPlayers, rounds) ficam dentro da string JSON, então a
+// checagem é só "payload novo é razoavelmente menor que o antigo? aborta".
 // Heurística: novo não pode ser <40% do anterior. Em condições normais
-// updates aumentam ou mantém tamanho; uma queda brusca = wipe.
-function notWipingCriticalMaps(newData, oldData) {
+// updates aumentam ou mantêm o tamanho; uma queda brusca = wipe.
+// Usado pelos DOIS docs (apostas e state).
+function notWipingJson(newData, oldData) {
   return !(oldData.json is string)
     || newData.json.size() >= (oldData.json.size() * 4 / 10);
 }
