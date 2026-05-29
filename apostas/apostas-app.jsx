@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-mais-titulos ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-mobile-nav ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2311,6 +2311,10 @@ function App() {
       <div className="below-topbar">
         <div className="content-area">
           <div className="page">
+            {/* Navegação mobile (some no desktop). Sempre montada pra que as
+                telas globais — loja/tickets/ranking — sejam alcançáveis de
+                qualquer view, já que a Sidebar fica escondida no mobile. */}
+            <MobileNav view={view} tab={tab} setView={setView} setTab={setTab} isAdmin={isAdmin} />
             {view === 'inicio' && (
               <InicioView
                 session={session}
@@ -2342,7 +2346,7 @@ function App() {
               interests={interests || {}}
             />
 
-            <Tabs tab={tab} setTab={setTab} isAdmin={isAdmin} />
+            <Tabs tab={tab} setTab={setTab} />
 
         {showPlaceholder && (
           <ChampionshipPlaceholder
@@ -2645,12 +2649,30 @@ function getTabItems(isAdmin) {
   return { champItems, globalItems };
 }
 
-// Tabs do TOPO (só itens do campeonato no desktop) + hamburger drawer no mobile
-// com TODOS os itens (champ + global), pra não precisar abrir sidebar separada.
-function Tabs({ tab, setTab, isAdmin }) {
+// Tabs DO CAMPEONATO (CLASSIFICAÇÃO / JOGOS). Só desktop — barra horizontal no
+// topo do conteúdo. No mobile a navegação inteira fica no MobileNav (hamburger).
+function Tabs({ tab, setTab }) {
+  const { champItems } = getTabItems(false);
+  return (
+    <div className="tabs">
+      <div className="tabs-group tabs-group-left">
+        {champItems.map(it => (
+          <button key={it.id} className={'tab ' + (tab === it.id ? 'active' : '')} onClick={() => setTab(it.id)}>
+            {it.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Navegação MOBILE: hamburger + drawer com as sub-abas do campeonato E as telas
+// globais (perfil/tickets/ranking/loja/admin). Some no desktop — lá a primary-nav
+// (topo) + Sidebar (direita) cobrem. É a ÚNICA porta de entrada mobile pras telas
+// globais, então fica SEMPRE montado (não só na view de campeonatos) e navega via
+// setView (telas globais) / setView+setTab (sub-abas do campeonato).
+function MobileNav({ view, tab, setView, setTab, isAdmin }) {
   const { champItems, globalItems } = getTabItems(isAdmin);
-  const allItems = [...champItems, ...globalItems];
-  const current = allItems.find(it => it.id === tab) || allItems[0];
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -2669,56 +2691,52 @@ function Tabs({ tab, setTab, isAdmin }) {
     };
   }, [open]);
 
-  const pick = (id) => { setTab(id); setOpen(false); };
+  // Label do botão = tela atual. Em campeonatos, mostra a sub-aba ativa; nas
+  // views de topo (primary-nav) mostra o nome delas.
+  const TOP_LABELS = { inicio: 'INÍCIO', campeonatos: 'CAMPEONATOS', copa: 'COPA DO MUNDO', hall: 'VITRINE' };
+  let currentLabel;
+  if (view === 'campeonatos') {
+    currentLabel = (champItems.find(it => it.id === tab) || champItems[0]).label;
+  } else {
+    currentLabel = (globalItems.find(it => it.id === view) || {}).label || TOP_LABELS[view] || 'MENU';
+  }
+
+  const goChamp  = (id) => { setView('campeonatos'); setTab(id); setOpen(false); };
+  const goGlobal = (id) => { setView(id); setOpen(false); };
 
   return (
-    <>
-      {/* Desktop: só tabs DO CAMPEONATO horizontais no topo do conteúdo.
-          As globais ficam na Sidebar à direita. */}
-      <div className="tabs">
-        <div className="tabs-group tabs-group-left">
+    <div className="tabs-mobile">
+      <button
+        className="tabs-mobile-btn"
+        aria-expanded={open}
+        aria-label="Menu de navegação"
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="tabs-hamb"><Icon name={open ? 'x' : 'menu'} size={18} /></span>
+        <span className="tabs-current">{currentLabel}</span>
+        <span className="tabs-chev"><Icon name={open ? 'caret-up' : 'caret-down'} size={12} /></span>
+      </button>
+      {open && (
+        <div className="tabs-drawer" role="menu">
+          <div className="tabs-drawer-section-label">DESTE CAMPEONATO</div>
           {champItems.map(it => (
-            <button key={it.id} className={'tab ' + (tab === it.id ? 'active' : '')} onClick={() => pick(it.id)}>
+            <button key={it.id} role="menuitem"
+                    className={'tabs-drawer-item ' + (view === 'campeonatos' && tab === it.id ? 'active' : '')}
+                    onClick={() => goChamp(it.id)}>
+              {it.label}
+            </button>
+          ))}
+          <div className="tabs-drawer-section-label">GLOBAL</div>
+          {globalItems.map(it => (
+            <button key={it.id} role="menuitem"
+                    className={'tabs-drawer-item ' + (view === it.id ? 'active' : '')}
+                    onClick={() => goGlobal(it.id)}>
               {it.label}
             </button>
           ))}
         </div>
-      </div>
-
-      {/* Mobile: hamburguer + drawer com tudo (champ + global). */}
-      <div className="tabs-mobile">
-        <button
-          className="tabs-mobile-btn"
-          aria-expanded={open}
-          aria-label="Menu de navegação"
-          onClick={() => setOpen(o => !o)}
-        >
-          <span className="tabs-hamb"><Icon name={open ? 'x' : 'menu'} size={18} /></span>
-          <span className="tabs-current">{current.label}</span>
-          <span className="tabs-chev"><Icon name={open ? 'caret-up' : 'caret-down'} size={12} /></span>
-        </button>
-        {open && (
-          <div className="tabs-drawer" role="menu">
-            <div className="tabs-drawer-section-label">DESTE CAMPEONATO</div>
-            {champItems.map(it => (
-              <button key={it.id} role="menuitem"
-                      className={'tabs-drawer-item ' + (tab === it.id ? 'active' : '')}
-                      onClick={() => pick(it.id)}>
-                {it.label}
-              </button>
-            ))}
-            <div className="tabs-drawer-section-label">GLOBAL</div>
-            {globalItems.map(it => (
-              <button key={it.id} role="menuitem"
-                      className={'tabs-drawer-item ' + (tab === it.id ? 'active' : '')}
-                      onClick={() => pick(it.id)}>
-                {it.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </>
+      )}
+    </div>
   );
 }
 
