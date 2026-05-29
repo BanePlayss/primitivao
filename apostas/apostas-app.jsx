@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-cc-merito ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-melhorias ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5792,8 +5792,10 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
         <div className="card-body">
           <p style={{ marginTop: 0, lineHeight: 1.5, fontSize: 13 }}>
             A loja roda em <strong>Campeão Coins (CC)</strong> — o PC agora é só pra apostas.
-            Compra molduras com CC e equipa distintivos desbloqueados por conquista.
-            Items equipados aparecem no seu avatar em todo o site (TopBar, Ranking, Perfil, Vitrine).
+            <strong> CC é raro: você ganha conquistando títulos (+{CC_PER_TITLE} cada) e
+            participando de campeonatos (+{CC_PER_PARTICIPATION} cada).</strong> Compra molduras
+            com CC e equipa distintivos desbloqueados por conquista. Items equipados aparecem no
+            seu avatar em todo o site (TopBar, Ranking, Perfil, Vitrine).
           </p>
         </div>
       </div>
@@ -7373,19 +7375,22 @@ function TabloidBuilderPanel({ cs, bets, users, teamPlayers, worldcup, wcFixture
       return;
     }
     setExporting(true);
+    const baseOpts = { pixelRatio: 2, width: node.offsetWidth, height: node.offsetHeight, backgroundColor: '#d9c5a2', style: { transform: 'none', margin: '0' } };
+    // Watchdog: o html-to-image pode travar embutindo as Google Fonts. 1ª tentativa
+    // completa (15s); se travar, 2ª tentativa SEM fontes (mais robusta — fonte cai
+    // no fallback do sistema, mas exporta). Botão nunca fica preso pra sempre.
+    const race = (opts, ms) => Promise.race([
+      lib.toPng(node, opts),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)),
+    ]);
     try {
-      // Watchdog: se o html-to-image travar (já vimos isso em alguns ambientes),
-      // não deixa o botão preso pra sempre — aborta em 20s com mensagem clara.
-      const dataUrl = await Promise.race([
-        lib.toPng(node, {
-          pixelRatio: 2,
-          width: node.offsetWidth,
-          height: node.offsetHeight,
-          backgroundColor: '#d9c5a2',
-          style: { transform: 'none', margin: '0' },
-        }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 20000)),
-      ]);
+      let dataUrl;
+      try {
+        dataUrl = await race(baseOpts, 15000);
+      } catch (e1) {
+        console.warn('export: 1a tentativa travou, tentando sem fontes', e1);
+        dataUrl = await race({ ...baseOpts, skipFonts: true }, 15000);
+      }
       const a = document.createElement('a');
       a.download = `primitivao-times-vol-${(data.volume || 'x')}.png`;
       a.href = dataUrl;
