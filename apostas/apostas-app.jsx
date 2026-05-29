@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260528-ux ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260528-hall-vitrine ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5560,123 +5560,121 @@ function RankingView({ users, bets, me, teamPlayers }) {
 
 function computeChampStandings(champId, cs) {
   // Hoje só FIFA tem dados estruturados em cs.rounds. MK/RL: 'soon'.
-  if (champId !== 'fifa') return { status: 'soon' };
+  if (champId !== 'fifa') return { status: 'soon', standings: [] };
   const rounds = cs?.rounds || [];
-  if (rounds.length === 0) return { status: 'soon' };
+  if (rounds.length === 0) return { status: 'soon', standings: [] };
+  const anyPlayed = rounds.some(r => Array.isArray(r) && r.some(isGamePlayed));
   const allDone = rounds.every(r => Array.isArray(r) && r.length > 0 && r.every(isGamePlayed));
-  const standings = computeStandings(rounds);
+  // Ordena: pontos > saldo de gol > gols pró.
+  const standings = computeStandings(rounds).slice()
+    .sort((a, b) => b.p - a.p || (b.gp - b.gc) - (a.gp - a.gc) || b.gp - a.gp);
   return {
-    status: allDone ? 'closed' : 'ongoing',
+    status: allDone ? 'closed' : (anyPlayed ? 'ongoing' : 'soon'),
     standings,
   };
 }
 
-function TrophyCard({ champ, slot1, slot2, theme }) {
-  // theme: 'fame' (ouro/prata) | 'shame' (vinho)
-  const isFame = theme === 'fame';
-  const accent  = isFame ? '#c9a227' : '#7a2222';
-  const accent2 = isFame ? '#9b7a1c' : '#3e0f0f';
-  return (
-    <div className="card" style={{ marginBottom: 14, borderTop: `3px solid ${accent}` }}>
-      <div className="card-head" style={{ background: accent2, color: '#fff' }}>
-        <div>
-          <div className="title" style={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}><Icon name={isFame ? 'trophy' : 'toilet'} size={18} /> {champ.name.toUpperCase()}</div>
-          <div className="sub" style={{ color: 'rgba(255,255,255,0.7)' }}>{champ.season}</div>
-        </div>
-      </div>
-      <div className="card-body">
-        {slot1 ? (
-          <div className="trophy-podiums">
-            <TrophyPodium slot={slot1} accent={accent}  size="big"   theme={theme} />
-            {slot2 && <TrophyPodium slot={slot2} accent={accent2} size="small" theme={theme} />}
-          </div>
-        ) : (
-          <div className="empty">
-            <div className="e1">{champ.status === 'soon' ? 'AINDA NÃO COMEÇOU' : 'EM ANDAMENTO'}</div>
-            <div className="e2">
-              {champ.status === 'soon'
-                ? 'Campeonato em fase de inscrições.'
-                : 'A temporada precisa terminar pra premiação aparecer aqui.'}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function TrophyPodium({ slot, accent, size, theme }) {
-  const big = size === 'big';
-  // Ícones: 1º lugar (big) ganha "troféu"; 2º (small) ganha "medalha".
-  const isFame = theme === 'fame';
-  const iconName = big
-    ? (isFame ? 'trophy' : 'toilet')     // troféu (ou troféu-vergonha)
-    : (isFame ? 'medal'  : 'toothbrush'); // medalha (ou escova-vergonha)
-  return (
-    <div style={{
-      padding: big ? '18px 14px' : '14px 12px',
-      background: 'rgba(0,0,0,0.04)',
-      borderTop: `4px solid ${accent}`,
-      textAlign: 'center',
-    }}>
-      {/* Avatar em destaque (se vier teamId no slot) */}
-      {slot.teamId && (
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-          <Avatar teamId={slot.teamId} cosmetics={slot.cosmetics} size={big ? 140 : 100} fullBody={true} />
-        </div>
-      )}
-      <div style={{ lineHeight: 1, color: accent, display: 'flex', justifyContent: 'center' }}>
-        <Icon name={iconName} size={big ? 48 : 32} />
-      </div>
-      <div style={{
-        marginTop: 6, fontSize: big ? 11 : 10, letterSpacing: '0.22em',
-        fontWeight: 800, color: accent,
-      }}>
-        {slot.label}
-      </div>
-      <div style={{
-        marginTop: 4, fontFamily: 'Bagel Fat One, Impact',
-        fontSize: big ? 24 : 18, lineHeight: 1.1,
-      }}>
-        {slot.name}
-      </div>
-      {slot.detail && (
-        <div style={{
-          marginTop: 4, fontSize: big ? 10 : 9, letterSpacing: '0.14em',
-          color: 'rgba(28,22,18,0.55)', fontWeight: 700,
-        }}>
-          {slot.detail}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function buildSlots(view, standings, users, teamPlayers) {
-  // view: 'fame' (campeão+vice) | 'shame' (último+penúltimo)
-  if (!standings || standings.length < 2) return [null, null];
-  const formatDetail = (s) => `${s.p} pts · ${s.v}v ${s.e}e ${s.d}d · SG ${(s.gp - s.gc) >= 0 ? '+' : ''}${s.gp - s.gc}`;
+// Monta os 3 lugares da vitrine (top 3 pra fama, bottom 3 pra vergonha)
+// com stats ricos pra ficha.
+function buildShowcase(view, standings, users, teamPlayers) {
+  if (!standings || standings.length < 3) return [];
   const cosmeticsFor = (teamId) => {
-    if (!teamPlayers || !users) return null;
-    const nick = teamPlayers[teamId];
-    if (!nick) return null;
-    const u = users[nick];
-    return u?.cosmetics || null;
+    const nick = (teamPlayers || {})[teamId];
+    return nick && users ? (users[nick]?.cosmetics || null) : null;
   };
+  const nickFor = (teamId) => (teamPlayers || {})[teamId] || null;
+  const mk = (s, pos, label) => ({
+    pos, label,
+    name: s.name, teamId: s.id, nick: nickFor(s.id), cosmetics: cosmeticsFor(s.id),
+    pts: s.p, v: s.v, e: s.e, d: s.d, gp: s.gp, gc: s.gc, sg: s.gp - s.gc, j: s.j,
+    invicto: s.d === 0 && s.j > 0,
+    semVitoria: s.v === 0 && s.j > 0,
+    aproveitamento: s.j > 0 ? Math.round((s.p / (s.j * 3)) * 100) : 0,
+  });
   if (view === 'fame') {
-    const first = standings[0], second = standings[1];
-    return [
-      { label: 'CAMPEÃO', name: first.name,  teamId: first.id,  cosmetics: cosmeticsFor(first.id),  detail: formatDetail(first) },
-      { label: 'VICE',    name: second.name, teamId: second.id, cosmetics: cosmeticsFor(second.id), detail: formatDetail(second) },
-    ];
-  } else {
-    const last = standings[standings.length - 1];
-    const penult = standings[standings.length - 2];
-    return [
-      { label: 'LANTERNA',  name: last.name,   teamId: last.id,   cosmetics: cosmeticsFor(last.id),   detail: formatDetail(last)   },
-      { label: 'PENÚLTIMO', name: penult.name, teamId: penult.id, cosmetics: cosmeticsFor(penult.id), detail: formatDetail(penult) },
-    ];
+    return [mk(standings[0], 1, 'CAMPEÃO'), mk(standings[1], 2, 'VICE'), mk(standings[2], 3, '3º LUGAR')];
   }
+  const n = standings.length;
+  return [mk(standings[n - 1], n, 'LANTERNA'), mk(standings[n - 2], n - 1, 'PENÚLTIMO'), mk(standings[n - 3], n - 2, 'ANTEPENÚLTIMO')];
+}
+
+// Card individual da vitrine (1 colocado). rank 0=ouro/pior, 1, 2.
+function ShowcaseItem({ item, theme, rank, season, status }) {
+  const isFame = theme === 'fame';
+  // Cores por posição: fama ouro/prata/bronze, vergonha tons de vinho.
+  const palettes = isFame
+    ? [{ a: '#d4af37', d: '#6b5616', ic: 'trophy' }, { a: '#c0c0c0', d: '#666', ic: 'medal' }, { a: '#c87f33', d: '#6b3e1a', ic: 'medal' }]
+    : [{ a: '#a52a2a', d: '#3e0f0f', ic: 'toilet' }, { a: '#9a3a2a', d: '#3e0f0f', ic: 'toothbrush' }, { a: '#b5654a', d: '#3e0f0f', ic: 'toothbrush' }];
+  const p = palettes[rank] || palettes[0];
+  const top = rank === 0;
+  const badge = status === 'closed'
+    ? `${item.label} ${season}`
+    : (top ? 'LÍDER ATUAL' : `${item.pos}º · PARCIAL`);
+  // tag especial
+  const tag = isFame
+    ? (item.invicto ? 'INVICTO' : (item.aproveitamento >= 70 ? 'DOMINANTE' : null))
+    : (item.semVitoria ? '0 VITÓRIAS' : (item.pts === 0 ? '0 PONTOS' : null));
+
+  return (
+    <div className={'showcase-item ' + (top ? 'showcase-top ' : '') + (isFame ? 'fame' : 'shame')}
+         style={{ '--acc': p.a, '--accd': p.d }}>
+      <div className="showcase-cap">
+        <div className="showcase-rankicon"><Icon name={p.ic} size={top ? 40 : 32} /></div>
+        <div className="showcase-badge">{badge}</div>
+        <div className="showcase-avatar">
+          <Avatar teamId={item.teamId} cosmetics={item.cosmetics} size={top ? 96 : 78} fullBody={true} />
+        </div>
+      </div>
+      <div className="showcase-ficha">
+        <div className="showcase-name">{item.name}</div>
+        {item.nick && <div className="showcase-nick">@{item.nick}</div>}
+        <div className="showcase-stats">
+          <div><strong>{item.pts}</strong><span>PTS</span></div>
+          <div><strong>{item.sg >= 0 ? '+' : ''}{item.sg}</strong><span>SG</span></div>
+          <div><strong>{item.aproveitamento}%</strong><span>APROV.</span></div>
+        </div>
+        <div className="showcase-wld">
+          {item.v}<small>V</small> · {item.e}<small>E</small> · {item.d}<small>D</small>
+          <span className="showcase-goals"> · {item.gp}/{item.gc} gols</span>
+        </div>
+        {tag && <div className="showcase-tag">{tag}</div>}
+      </div>
+    </div>
+  );
+}
+
+// Vitrine de um campeonato (Fama OU Vergonha) — pódio de 3 + estados.
+function TrophyShowcase({ champ, items, theme, status }) {
+  const isFame = theme === 'fame';
+  if (status === 'soon') {
+    return (
+      <div className={'showcase-cab ' + (isFame ? 'fame' : 'shame')}>
+        <div className="showcase-cab-head">
+          <Icon name={isFame ? 'trophy' : 'toilet'} size={16} /> {champ.name.toUpperCase()}
+          <span className="showcase-cab-season">{champ.season}</span>
+        </div>
+        <div className="showcase-empty">
+          <Icon name="lock" size={28} />
+          <div className="e1">VITRINE LACRADA</div>
+          <div className="e2">Campeonato ainda em inscrições. Os troféus aparecem quando a bola rolar.</div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className={'showcase-cab ' + (isFame ? 'fame' : 'shame')}>
+      <div className="showcase-cab-head">
+        <Icon name={isFame ? 'trophy' : 'toilet'} size={16} /> {champ.name.toUpperCase()}
+        <span className="showcase-cab-season">{champ.season}</span>
+        {status === 'ongoing' && <span className="showcase-cab-live">EM ANDAMENTO · PÓDIO PROVISÓRIO</span>}
+      </div>
+      <div className="showcase-podium">
+        {items.map((it, i) => (
+          <ShowcaseItem key={it.teamId || i} item={it} theme={theme} rank={i} season={champ.season} status={status} />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function HallDaFamaView({ cs, users, teamPlayers }) {
@@ -5684,16 +5682,8 @@ function HallDaFamaView({ cs, users, teamPlayers }) {
     <div>
       {CHAMPIONSHIPS.map(c => {
         const { status, standings } = computeChampStandings(c.id, cs);
-        const [slot1, slot2] = status === 'closed' ? buildSlots('fame', standings, users, teamPlayers) : [null, null];
-        return (
-          <TrophyCard
-            key={c.id}
-            champ={{ ...c, status }}
-            slot1={slot1}
-            slot2={slot2}
-            theme="fame"
-          />
-        );
+        const items = status !== 'soon' ? buildShowcase('fame', standings, users, teamPlayers) : [];
+        return <TrophyShowcase key={c.id} champ={c} items={items} theme="fame" status={status} />;
       })}
     </div>
   );
@@ -5704,46 +5694,36 @@ function HallDaVergonhaView({ cs, users, teamPlayers }) {
     <div>
       {CHAMPIONSHIPS.map(c => {
         const { status, standings } = computeChampStandings(c.id, cs);
-        const [slot1, slot2] = status === 'closed' ? buildSlots('shame', standings, users, teamPlayers) : [null, null];
-        return (
-          <TrophyCard
-            key={c.id}
-            champ={{ ...c, status }}
-            slot1={slot1}
-            slot2={slot2}
-            theme="shame"
-          />
-        );
+        const items = status !== 'soon' ? buildShowcase('shame', standings, users, teamPlayers) : [];
+        return <TrophyShowcase key={c.id} champ={c} items={items} theme="shame" status={status} />;
       })}
     </div>
   );
 }
 
-// HallView — view unificada que combina Hall da Fama + Hall da Vergonha
-// com subTabs. Acessada pelo primary-nav do TopBar (view='hall').
+// HallView — vitrine de troféus (Fama + Vergonha) com subTabs.
 function HallView({ cs, users, teamPlayers }) {
   const [subTab, setSubTab] = useState('fama'); // 'fama' | 'vergonha'
+  const season = (CHAMPIONSHIPS.find(c => c.id === 'fifa') || {}).season || '';
   return (
     <div>
-      <div className="hall-hero">
-        <div className="hall-hero-tag">HALL</div>
-        <div className="hall-hero-title">FAMA & VERGONHA</div>
+      <div className={'hall-hero ' + subTab}>
+        <div className="hall-hero-ornament" aria-hidden="true">
+          <Icon name="star" size={12} /><span /><Icon name="trophy" size={16} /><span /><Icon name="star" size={12} />
+        </div>
+        <div className="hall-hero-tag">PRIMITIVÃO · VITRINE DOS CAMPEÕES · {season}</div>
+        <div className="hall-hero-title">{subTab === 'fama' ? 'HALL DA FAMA' : 'HALL DA VERGONHA'}</div>
         <div className="hall-hero-sub">
-          Os campeões e os afundados de cada temporada. O Hall guarda os dois
-          extremos — alguém precisa lembrar pra posteridade.
+          {subTab === 'fama'
+            ? 'Os reis de cada temporada. Imortalizados em ouro, prata e bronze.'
+            : 'Os que afundaram. Privada, escova e o resto do fundo do poço.'}
         </div>
       </div>
       <div className="hall-subtabs">
-        <button
-          className={'hall-subtab fame ' + (subTab === 'fama' ? 'active' : '')}
-          onClick={() => setSubTab('fama')}
-        >
+        <button className={'hall-subtab fame ' + (subTab === 'fama' ? 'active' : '')} onClick={() => setSubTab('fama')}>
           <Icon name="trophy" size={14} /> HALL DA FAMA
         </button>
-        <button
-          className={'hall-subtab shame ' + (subTab === 'vergonha' ? 'active' : '')}
-          onClick={() => setSubTab('vergonha')}
-        >
+        <button className={'hall-subtab shame ' + (subTab === 'vergonha' ? 'active' : '')} onClick={() => setSubTab('vergonha')}>
           <Icon name="toilet" size={14} /> HALL DA VERGONHA
         </button>
       </div>

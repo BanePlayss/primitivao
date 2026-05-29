@@ -1961,27 +1961,58 @@
     .avatar-full .avatar-badge { bottom: 4px; right: 4px; }
 
     /* ──── HALL (FAMA + VERGONHA) ──── */
+    /* HERO da vitrine — fundo escuro tipo madeira/cofre, dourado */
     .hall-hero {
-      padding: 20px 24px;
-      background: linear-gradient(90deg, #c9a227 0%, #7a2222 100%);
+      position: relative;
+      padding: 28px 24px 26px;
       color: var(--pv-bone);
       margin-bottom: 14px;
-      border-left: 6px solid var(--pv-orange);
+      text-align: center;
+      border: 3px solid var(--pv-charcoal);
+      box-shadow: var(--sh-md);
+      overflow: hidden;
     }
+    .hall-hero.fama {
+      background:
+        radial-gradient(circle at 50% 0%, rgba(212,175,55,0.28), transparent 60%),
+        linear-gradient(160deg, #3a2e12 0%, #1c1612 70%);
+      background-color: #241c0e;
+      border-top: 4px solid #d4af37;
+    }
+    .hall-hero.vergonha {
+      background:
+        radial-gradient(circle at 50% 0%, rgba(165,42,42,0.30), transparent 60%),
+        linear-gradient(160deg, #3a1414 0%, #1c1612 70%);
+      background-color: #2a1212;
+      border-top: 4px solid #a52a2a;
+    }
+    .hall-hero-ornament {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      color: var(--pv-orange); margin-bottom: 8px; opacity: 0.9;
+    }
+    .hall-hero-ornament span {
+      width: 40px; height: 2px; background: currentColor; opacity: 0.5;
+    }
+    .hall-hero.fama .hall-hero-ornament { color: #d4af37; }
+    .hall-hero.vergonha .hall-hero-ornament { color: #c97a6a; }
     .hall-hero-tag {
-      font-size: 10px; letter-spacing: 0.32em; font-weight: 800;
-      color: rgba(244,234,215,0.85);
+      font-size: 9px; letter-spacing: 0.3em; font-weight: 800;
+      color: rgba(244,234,215,0.7);
     }
     .hall-hero-title {
-      font-family: "Bungee Inline", Impact, sans-serif;
-      font-size: 28px; letter-spacing: 0.05em; margin-top: 4px;
+      font-family: "Bagel Fat One", "Bungee Inline", Impact, sans-serif;
+      font-size: 38px; letter-spacing: 0.04em; margin-top: 6px; line-height: 1;
+      text-shadow: 2px 2px 0 rgba(0,0,0,0.4);
     }
+    .hall-hero.fama .hall-hero-title { color: #f0d488; }
+    .hall-hero.vergonha .hall-hero-title { color: #e0a89a; }
     .hall-hero-sub {
-      font-size: 12px; color: rgba(244,234,215,0.85); margin-top: 8px;
-      letter-spacing: 0.04em; line-height: 1.5; max-width: 600px;
+      font-size: 12px; color: rgba(244,234,215,0.8); margin-top: 10px;
+      letter-spacing: 0.04em; line-height: 1.5; max-width: 540px;
+      margin-left: auto; margin-right: auto;
     }
     .hall-subtabs {
-      display: flex; gap: 0; margin-bottom: 14px;
+      display: flex; gap: 0; margin-bottom: 16px;
       border-bottom: 3px solid var(--pv-charcoal);
     }
     .hall-subtab {
@@ -1993,15 +2024,143 @@
       margin-bottom: -3px;
       font-family: inherit; cursor: pointer;
       display: inline-flex; align-items: center; gap: 6px;
+      transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
     }
-    .hall-subtab.fame.active {
-      color: #c9a227; border-bottom-color: #c9a227;
+    .hall-subtab.fame.active { color: #c9a227; border-bottom-color: #c9a227; }
+    .hall-subtab.shame.active { color: #a52a2a; border-bottom-color: #a52a2a; }
+    .hall-subtab:hover:not(.active) { color: var(--pv-charcoal); }
+
+    /* ──── VITRINE DE TROFÉUS (showcase) ──── */
+    .showcase-cab {
+      margin-bottom: 16px;
+      border: 3px solid var(--pv-charcoal);
+      box-shadow: var(--sh-md);
+      background: #1c1612;
+      overflow: hidden;
     }
-    .hall-subtab.shame.active {
-      color: #7a2222; border-bottom-color: #7a2222;
+    .showcase-cab-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 16px;
+      font-family: "Bungee Inline", Impact, sans-serif;
+      font-size: 15px; letter-spacing: 0.06em;
+      color: var(--pv-bone);
+      border-bottom: 2px solid var(--pv-orange);
     }
-    .hall-subtab:hover:not(.active) {
-      color: var(--pv-charcoal);
+    .showcase-cab.fame .showcase-cab-head { background: linear-gradient(90deg, #2e2410, #1c1612); }
+    .showcase-cab.shame .showcase-cab-head { background: linear-gradient(90deg, #2e1212, #1c1612); }
+    .showcase-cab-season {
+      font-family: "Space Grotesk", sans-serif; font-size: 10px;
+      letter-spacing: 0.24em; color: var(--pv-orange); font-weight: 800;
+    }
+    .showcase-cab-live {
+      margin-left: auto;
+      font-family: "Space Grotesk", sans-serif; font-size: 8px;
+      letter-spacing: 0.18em; font-weight: 800;
+      color: #1c1612; background: var(--pv-orange);
+      padding: 3px 8px;
+    }
+    /* pódio: 3 colunas, 1º maior/centralizado */
+    .showcase-podium {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      padding: 18px 16px;
+      background:
+        radial-gradient(circle at 50% -10%, rgba(215,100,20,0.12), transparent 55%),
+        #211a14;
+      align-items: start;
+    }
+    @media (max-width: 720px) { .showcase-podium { grid-template-columns: 1fr; } }
+
+    .showcase-item {
+      border: 2px solid var(--acc);
+      background: #15110d;
+      display: flex; flex-direction: column;
+      box-shadow: 0 0 14px rgba(0,0,0,0.4);
+      transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+    }
+    .showcase-item:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.55); }
+    /* 1º lugar em destaque: maior, sobe um degrau */
+    .showcase-top {
+      box-shadow: 0 0 22px color-mix(in srgb, var(--acc) 45%, transparent), 0 0 0 1px var(--acc) inset;
+    }
+    @media (min-width: 721px) {
+      .showcase-top { transform: translateY(-10px) scale(1.03); }
+      .showcase-top:hover { transform: translateY(-14px) scale(1.03); }
+    }
+    /* topo escuro: troféu + badge + avatar */
+    .showcase-cap {
+      position: relative;
+      padding: 16px 10px 12px;
+      text-align: center;
+      background:
+        radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--acc) 30%, transparent), transparent 70%);
+    }
+    .showcase-rankicon { color: var(--acc); display: flex; justify-content: center; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5)); }
+    .showcase-badge {
+      display: inline-block; margin-top: 8px;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 9px; letter-spacing: 0.16em; font-weight: 800;
+      color: #1c1612; background: var(--acc);
+      padding: 3px 10px;
+    }
+    .showcase-avatar { display: flex; justify-content: center; margin-top: 10px; }
+    /* ficha creme embaixo (estilo carteirinha) */
+    .showcase-ficha {
+      background: var(--pv-bone);
+      border-top: 3px solid var(--acc);
+      padding: 12px 12px 14px;
+      text-align: center;
+    }
+    .showcase-name {
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      font-size: 22px; line-height: 1; color: var(--pv-charcoal);
+    }
+    .showcase-top .showcase-name { font-size: 26px; }
+    .showcase-nick {
+      font-size: 10px; letter-spacing: 0.1em; font-weight: 800;
+      color: var(--pv-orange); margin-top: 3px;
+    }
+    .showcase-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+      margin-top: 12px; padding-top: 10px;
+      border-top: 1px dashed rgba(28,22,18,0.2);
+    }
+    .showcase-stats > div { display: flex; flex-direction: column; }
+    .showcase-stats strong {
+      font-family: "Bagel Fat One", Impact, sans-serif; font-size: 18px;
+      color: var(--pv-charcoal); line-height: 1;
+    }
+    .showcase-stats span {
+      font-size: 8px; letter-spacing: 0.14em; font-weight: 800;
+      color: rgba(28,22,18,0.5); margin-top: 3px;
+    }
+    .showcase-wld {
+      margin-top: 10px; font-size: 11px; font-weight: 800;
+      color: rgba(28,22,18,0.75); letter-spacing: 0.04em;
+    }
+    .showcase-wld small { font-size: 8px; opacity: 0.6; margin-left: 1px; }
+    .showcase-goals { color: rgba(28,22,18,0.5); font-weight: 700; }
+    .showcase-tag {
+      display: inline-block; margin-top: 10px;
+      font-size: 9px; letter-spacing: 0.2em; font-weight: 800;
+      color: var(--accd); background: color-mix(in srgb, var(--acc) 25%, transparent);
+      border: 1.5px solid var(--acc);
+      padding: 3px 10px;
+    }
+    /* vitrine lacrada (campeonato 'soon') */
+    .showcase-empty {
+      padding: 36px 20px; text-align: center; color: rgba(244,234,215,0.6);
+    }
+    .showcase-empty .pico-icon { color: var(--pv-orange); }
+    .showcase-empty .e1 {
+      font-family: "Bagel Fat One", Impact, sans-serif; font-size: 20px;
+      color: var(--pv-bone); margin-top: 8px;
+    }
+    .showcase-empty .e2 { font-size: 12px; margin-top: 4px; line-height: 1.5; max-width: 340px; margin-left: auto; margin-right: auto; }
+    @media (max-width: 720px) {
+      .hall-hero-title { font-size: 30px; }
+      .showcase-top { transform: none; }
     }
 
     /* ──── TÍTULOS (PERFIL) ──── */
