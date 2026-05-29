@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-tabloides ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-tabloide-copa ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -139,8 +139,16 @@ const TABLOID_THEMES = {
   cs:       { wordmark: 'COUNTER-STRIKE', accent: '弾', stamp: 'CLUTCH!',  icon: 'crosshair' },
   gwyf:     { wordmark: 'GOLF FRIENDS',   accent: '球', stamp: 'HOLE!',    icon: 'flag' },
   valorant: { wordmark: 'VALORANT',       accent: '撃', stamp: 'ACE!',     icon: 'crosshair' },
+  copa:     { wordmark: 'COPA DO MUNDO',  accent: '杯', stamp: 'GOOOL!',   icon: 'globe' },
 };
 const tabloidTheme = (champId) => TABLOID_THEMES[champId] || TABLOID_THEMES.fifa;
+
+// Opções do picker de campeonato no tabloide = os campeonatos + a COPA DO MUNDO
+// (bolão separado, não vive em CHAMPIONSHIPS, mas tem tabloide próprio).
+const TABLOID_CHAMP_OPTS = [
+  ...CHAMPIONSHIPS,
+  { id: 'copa', tag: 'COPA', season: 'Copa do Mundo 2026', name: 'Copa do Mundo', status: 'active' },
+];
 
 // ─── COPA DO MUNDO (bolão separado, sem PC) ────────────────────────────────
 // Dados completos carregados de apostas/world-cup/*.json (104 jogos + 48 times).
@@ -2493,6 +2501,7 @@ function App() {
                 teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
                 discordWebhook={discordWebhook} remoteNews={remoteNews}
                 cs={cs} weeklyReady={weeklyReady}
+                worldcup={worldcup} wcFixtures={wcData.matches}
               />
             )}
             </ViewBoundary>
@@ -6820,12 +6829,31 @@ function pickStories(stories, n) {
   return a.slice(0, n);
 }
 
+// Triggers de zoeira do BOLÃO DA COPA (dados diferentes: palpites, não jogos).
+function copaStories(ranking, teamPlayers) {
+  const out = [];
+  if (!ranking || ranking.length < 2) return out;
+  const rev = {};
+  for (const [tid, n] of Object.entries(teamPlayers || {})) rev[String(n).toLowerCase()] = tid;
+  const tf = (n) => rev[String(n).toLowerCase()] || '';
+  const push = (id, nick, kicker, text, icon, tone) => out.push({ id, teamId: tf(nick), nick, kicker, text, icon, tone });
+  const byPts = ranking.slice().sort((a, b) => b.pts - a.pts);
+  const best = byPts[0], worst = byPts[byPts.length - 1];
+  const maisExatos = ranking.slice().sort((a, b) => b.exatos - a.exatos)[0];
+  const maisErrados = ranking.slice().sort((a, b) => b.errados - a.errados)[0];
+  if (best) push('copa-lider', best.nick, 'PROFETA DO BOLÃO', `${best.nick} lidera com ${best.pts} pts. Tá lendo o futuro nos búzios.`, 'globe', 'good');
+  if (worst && best && worst.nick !== best.nick) push('copa-furado', worst.nick, 'BOLA MURCHA', `${worst.nick} no fundo do bolão: ${worst.pts} pts. Chuta de olho fechado.`, 'toilet', 'bad');
+  if (maisExatos && maisExatos.exatos > 0) push('copa-exatos', maisExatos.nick, 'CRAVOU O PLACAR', `${maisExatos.nick} cravou ${maisExatos.exatos} placar(es) exato(s). Vidente oficial.`, 'target', 'good');
+  if (maisErrados && maisErrados.errados > 0) push('copa-errou', maisErrados.nick, 'ERROU FEIO', `${maisErrados.nick} furou ${maisErrados.errados} palpites. Acerta um, pelo amor.`, 'warning', 'bad');
+  return out;
+}
+
 // Monta os dados do tabloide. `type`: 'rodada' | 'eventos' | 'polemica'.
 // `champId`: campeonato (define wordmark/tema). Tudo editável no painel.
 function buildTabloidData(ctx, champId, type) {
-  const { cs, bets = [], users = {}, teamPlayers = {} } = ctx || {};
+  const { cs, bets = [], users = {}, teamPlayers = {}, worldcup = null, wcFixtures = [] } = ctx || {};
   const id = champId || (CHAMPIONSHIPS.find(c => c.status === 'active') || CHAMPIONSHIPS[0]).id;
-  const champMeta = CHAMP_BY_ID[id] || CHAMPIONSHIPS[0];
+  const champMeta = TABLOID_CHAMP_OPTS.find(c => c.id === id) || CHAMPIONSHIPS[0];
   const theme = tabloidTheme(id);
   const t = type || 'rodada';
   const { standings } = computeChampStandings(id, cs);
@@ -6850,6 +6878,42 @@ function buildTabloidData(ctx, champId, type) {
     stories: [],
     ticker: ['TORCIDA EM CHAMAS', 'RUMORES, TROCAS E OFERTAS', 'TODOS NO DISCORD', 'PRÓXIMA EDIÇÃO: DOMINGO'],
   };
+
+  // ── COPA DO MUNDO (bolão de palpites — dados diferentes) ──
+  if (id === 'copa') {
+    const { ranking } = computeCopaStandings(worldcup, wcFixtures);
+    const rev = {};
+    for (const [tid, n] of Object.entries(teamPlayers || {})) rev[String(n).toLowerCase()] = tid;
+    const tf = (n) => rev[String(n).toLowerCase()] || '';
+    const lead = ranking[0] || null;
+    const worst = ranking.length ? ranking[ranking.length - 1] : null;
+    if (t === 'polemica') {
+      return { ...base, stamp: 'OLHA O BARRACO!', headline: 'A FOFOCA DO BOLÃO', stories: pickStories(copaStories(ranking, teamPlayers), 6) };
+    }
+    if (t === 'eventos') {
+      return {
+        ...base, stamp: theme.stamp, headline: 'BOLÃO DA COPA DO MUNDO',
+        boxes: [
+          { title: 'COMO FUNCIONA', body: 'Placar exato = 3 pts · acertou o vencedor = 1 pt · errou = 0. Palpite jogo a jogo.' },
+          { title: 'PRÊMIO', body: 'Glória eterna no Olimpo Primitivão + o crachá de Profeta do Bolão.' },
+          { title: 'QUEM TÁ DENTRO', body: ranking.length ? ranking.length + ' palpiteiros na disputa.' : 'Bora palpitar, tá aberto!' },
+        ],
+      };
+    }
+    // rodada (recap do bolão)
+    return {
+      ...base,
+      headline: 'COMO TÁ O BOLÃO',
+      champion: lead
+        ? { nick: lead.nick, teamId: tf(lead.nick), crown: true, title: `@${lead.nick.toUpperCase()} LIDERA O BOLÃO!`, stats: [{ k: 'PTS', v: String(lead.pts) }, { k: 'EXATOS', v: String(lead.exatos) }, { k: 'CERTOS', v: String(lead.certos) }, { k: 'PALPITES', v: String(lead.palpitados) }], note: '' }
+        : base.champion,
+      sideBlocks: (worst && lead && worst.nick !== lead.nick)
+        ? [{ nick: worst.nick, teamId: tf(worst.nick), kicker: '@' + worst.nick, title: 'BOLA MURCHA', text: `${worst.pts} pts. Chuta de olho fechado.`, tone: 'bad', stats: [] }]
+        : [],
+      midStrip: { title: 'O PELOTÃO DO BOLÃO', players: ranking.slice(1, 5).map(r => ({ nick: r.nick, teamId: tf(r.nick), label: r.pts + ' PTS' })) },
+      matchups: [],
+    };
+  }
 
   if (t === 'polemica') {
     return {
@@ -6904,12 +6968,14 @@ function TabloidPoster({ data, teamPlayers }) {
   const d = data || {};
   const t = d.type || 'rodada';
   const champ = d.champion || {};
+  const champIcon = (tabloidTheme(d.championship) || {}).icon || 'star';
   const teamName = (id) => (id ? TEAM(id).name : '');
   const matchups = (d.matchups || []).filter(m => m && (m.homeId || m.awayId));
   return (
     <div className={'tp tp-type-' + t}>
       <div className="tp-masthead">
         <span className="tp-vol">VOL. {d.volume || '—'}</span>
+        <span className="tp-mast-ico"><Icon name={champIcon} size={17} /></span>
         <span className="tp-masthead-name">{d.masthead || 'PRIMITIVÃO TIMES'}</span>
         <span className="tp-edition">{d.editionLabel}</span>
         <span className="tp-corner">{d.cornerTag}</span>
@@ -6924,7 +6990,7 @@ function TabloidPoster({ data, teamPlayers }) {
           <span className="tp-headline-txt">{d.headline}</span>
           {d.stamp
             ? <span className="tp-stamp">{d.stamp}</span>
-            : <span className="tp-flame"><Icon name="fire" size={40} /></span>}
+            : <span className="tp-flame"><Icon name={champIcon} size={40} /></span>}
         </div>
       )}
 
@@ -6936,8 +7002,8 @@ function TabloidPoster({ data, teamPlayers }) {
               {champ.crown && !d.heroImage && <span className="tp-crown"><Icon name="crown" size={54} /></span>}
               {d.heroImage
                 ? <img className="tp-hero-img" src={d.heroImage} alt="" crossOrigin="anonymous" />
-                : (champ.teamId
-                    ? <Avatar teamId={champ.teamId} fullBody size={300} className="tp-hero-av" />
+                : ((champ.teamId || champ.nick)
+                    ? <Avatar teamId={champ.teamId} nick={champ.nick} teamPlayers={teamPlayers} fullBody size={300} className="tp-hero-av" />
                     : <div className="tp-av-empty" style={{ width: 300, height: 300 }} />)}
             </div>
             <div className="tp-hero-text">
@@ -6953,9 +7019,9 @@ function TabloidPoster({ data, teamPlayers }) {
             </div>
           </div>
           <div className="tp-side">
-            {(d.sideBlocks || []).filter(b => b && (b.teamId || b.title || b.text)).map((b, i) => (
+            {(d.sideBlocks || []).filter(b => b && (b.teamId || b.nick || b.title || b.text)).map((b, i) => (
               <div key={i} className={'tp-block ' + (b.tone === 'bad' ? 'tp-block-bad' : 'tp-block-good')}>
-                {b.teamId && <Avatar teamId={b.teamId} fullBody size={130} className="tp-block-av" />}
+                {(b.teamId || b.nick) && <Avatar teamId={b.teamId} nick={b.nick} teamPlayers={teamPlayers} fullBody size={130} className="tp-block-av" />}
                 <div className="tp-block-text">
                   {b.kicker && <div className="tp-block-kicker">{b.kicker}</div>}
                   {b.title && <div className="tp-block-title">{b.title}</div>}
@@ -6974,14 +7040,14 @@ function TabloidPoster({ data, teamPlayers }) {
         </div>
       )}
 
-      {t === 'rodada' && d.midStrip && (d.midStrip.players || []).filter(p => p && p.teamId).length > 0 && (
+      {t === 'rodada' && d.midStrip && (d.midStrip.players || []).filter(p => p && (p.teamId || p.nick)).length > 0 && (
         <div className="tp-strip">
-          {d.midStrip.title && <div className="tp-strip-title"><span className="tp-star"><Icon name="star" size={16} /></span>{d.midStrip.title}</div>}
+          {d.midStrip.title && <div className="tp-strip-title"><span className="tp-star"><Icon name={champIcon} size={16} /></span>{d.midStrip.title}</div>}
           <div className="tp-strip-players">
-            {d.midStrip.players.filter(p => p && p.teamId).map((p, i) => (
+            {d.midStrip.players.filter(p => p && (p.teamId || p.nick)).map((p, i) => (
               <div key={i} className="tp-strip-player">
-                <Avatar teamId={p.teamId} size={66} />
-                <span className="tp-strip-name">{teamName(p.teamId)}</span>
+                <Avatar teamId={p.teamId} nick={p.nick} teamPlayers={teamPlayers} size={66} />
+                <span className="tp-strip-name">{p.nick ? '@' + p.nick : teamName(p.teamId)}</span>
                 {p.label && <span className="tp-strip-label">{p.label}</span>}
               </div>
             ))}
@@ -7000,7 +7066,7 @@ function TabloidPoster({ data, teamPlayers }) {
           <div className="tp-boxes">
             {(d.boxes || []).filter(b => b && (b.title || b.body)).map((b, i) => (
               <div key={i} className="tp-box">
-                {b.title && <div className="tp-box-title"><Icon name="star" size={14} /> {b.title}</div>}
+                {b.title && <div className="tp-box-title"><Icon name={champIcon} size={14} /> {b.title}</div>}
                 {b.body && <div className="tp-box-body">{b.body}</div>}
               </div>
             ))}
@@ -7067,11 +7133,11 @@ const TABLOID_TYPES = [
 ];
 
 // O painel: pickers (campeonato + tipo) + formulário + prévia + exportar PNG.
-function TabloidBuilderPanel({ cs, bets, users, teamPlayers }) {
+function TabloidBuilderPanel({ cs, bets, users, teamPlayers, worldcup, wcFixtures }) {
   const firstActive = (CHAMPIONSHIPS.find(c => c.status === 'active') || CHAMPIONSHIPS[0]).id;
   // Monta os dados do (campeonato, tipo) já com o VOLUME avançado.
   const makeData = (cid, tp) => {
-    const d = buildTabloidData({ cs, bets, users, teamPlayers }, cid, tp);
+    const d = buildTabloidData({ cs, bets, users, teamPlayers, worldcup, wcFixtures }, cid, tp);
     const last = loadLastTabloidVol();
     if (last != null) d.volume = String(last + 1).padStart(2, '0');
     return d;
@@ -7118,9 +7184,15 @@ function TabloidBuilderPanel({ cs, bets, users, teamPlayers }) {
   const selectType = (tp) => { setType(tp); setData(makeData(champId, tp)); };
 
   const rerollStories = () => {
-    const { standings } = computeChampStandings(champId, cs);
-    const all = tabloidStories({ standings, bets, users, teamPlayers });
-    if (!all.length) { showToast('Sem dados de classificação ainda pra gerar zoeira.', 'error'); return; }
+    let all;
+    if (champId === 'copa') {
+      const { ranking } = computeCopaStandings(worldcup, wcFixtures);
+      all = copaStories(ranking, teamPlayers);
+    } else {
+      const { standings } = computeChampStandings(champId, cs);
+      all = tabloidStories({ standings, bets, users, teamPlayers });
+    }
+    if (!all.length) { showToast('Sem dados ainda pra gerar zoeira (faltam jogos/palpites).', 'error'); return; }
     setData(prev => ({ ...prev, stories: pickStories(all, 6) }));
     showToast('Zoeira re-sorteada!', 'success');
   };
@@ -7196,7 +7268,7 @@ function TabloidBuilderPanel({ cs, bets, users, teamPlayers }) {
         <label className="tp-fld" style={{ maxWidth: 240 }}>
           <span className="tp-fld-label">Campeonato</span>
           <select value={champId} onChange={e => selectChamp(e.target.value)} className="tp-input tp-select">
-            {CHAMPIONSHIPS.map(c => (
+            {TABLOID_CHAMP_OPTS.map(c => (
               <option key={c.id} value={c.id}>{c.tag}{c.status !== 'active' ? ' (em breve)' : ''}</option>
             ))}
           </select>
@@ -7354,7 +7426,7 @@ function TabloidBuilderPanel({ cs, bets, users, teamPlayers }) {
   );
 }
 
-function JournalistAdminPanel({ cs, bets, users, teamPlayers }) {
+function JournalistAdminPanel({ cs, bets, users, teamPlayers, worldcup, wcFixtures }) {
   return (
     <div className="card">
       <div className="card-head">
@@ -7362,7 +7434,7 @@ function JournalistAdminPanel({ cs, bets, users, teamPlayers }) {
         <div className="sub">MODELO TABLOIDE</div>
       </div>
       <div className="card-body">
-        <TabloidBuilderPanel cs={cs} bets={bets} users={users} teamPlayers={teamPlayers} />
+        <TabloidBuilderPanel cs={cs} bets={bets} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} />
       </div>
     </div>
   );
@@ -7717,7 +7789,7 @@ function CatalogoAdminPanel({ cs, teamPlayers }) {
   );
 }
 
-function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, weeklyReady }) {
+function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, weeklyReady, worldcup, wcFixtures }) {
   // Tabs do admin: USUÁRIOS / TIMES / NEWS / JORNALISTA / DISCORD / BACKUP / PERIGO.
   // PERIGO ficou em aba separada pra não ser clicado por engano.
   const [tab, setTab] = useState('usuarios');
@@ -7737,7 +7809,7 @@ function AdminView({ bets, users, adjustPc, teamPlayers, setTeamPlayer, discordW
       </div>
 
       {tab === 'news' && <NewsAdminPanel remoteNews={remoteNews} />}
-      {tab === 'jornalista' && <JournalistAdminPanel cs={cs} bets={bets} users={users} remoteNews={remoteNews} weeklyReady={weeklyReady} teamPlayers={teamPlayers} />}
+      {tab === 'jornalista' && <JournalistAdminPanel cs={cs} bets={bets} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} />}
       {tab === 'catalogo' && <CatalogoAdminPanel cs={cs} teamPlayers={teamPlayers} />}
       {tab === 'discord' && <DiscordAdminPanel webhook={discordWebhook} />}
 
