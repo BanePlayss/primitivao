@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-nav-apostas ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-perfil-boundary ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1459,6 +1459,33 @@ async function saveRemoteNews(newsArray) {
   await BET_DOC().set({ news: clean }, { merge: true });
 }
 
+// Error boundary por VIEW: se uma página quebra com algum dado inesperado,
+// mostra o erro num card (mantendo a navegação utilizável) em vez de deixar a
+// tela inteira em branco. Resetado automaticamente via key={view} no App.
+class ViewBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidCatch(err, info) { console.error('View crashed:', err, info); }
+  render() {
+    if (this.state.err) {
+      return (
+        <div className="card" style={{ marginTop: 8 }}>
+          <div className="card-head"><div className="title"><Icon name="warning" size={16} /> ALGO QUEBROU AQUI</div></div>
+          <div className="card-body">
+            <p style={{ marginTop: 0, fontSize: 13, lineHeight: 1.5 }}>
+              Essa página teve um erro inesperado. Tenta abrir outra aba do menu ou recarregar (Ctrl+Shift+R). Se persistir, manda esse texto pro admin:
+            </p>
+            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, color: 'var(--pv-red, #c33)', fontFamily: 'JetBrains Mono, monospace', margin: 0 }}>
+              {String((this.state.err && this.state.err.message) || this.state.err)}
+            </pre>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
   const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {}, comments: {}, worldcup: { results: {}, picks: {} } });
   const { users, fixtures, bets, interests, teamPlayers, comments, worldcup } = shared;
@@ -2306,6 +2333,7 @@ function App() {
                 telas globais — perfil/tickets/ranking — sejam alcançáveis de
                 qualquer view, já que a Sidebar fica escondida no mobile. */}
             <MobileNav view={view} setView={setView} isAdmin={isAdmin} />
+            <ViewBoundary key={view}>
             {view === 'inicio' && (
               <InicioView
                 session={session}
@@ -2420,6 +2448,7 @@ function App() {
                 cs={cs} weeklyReady={weeklyReady}
               />
             )}
+            </ViewBoundary>
           </div>
         </div>
         <Sidebar
