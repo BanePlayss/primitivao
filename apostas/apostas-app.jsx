@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-tabloide-copa ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-tabloide-cores ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -132,14 +132,14 @@ const CHAMPIONSHIPS = [
 // Tema do tabloide por campeonato: título grande, caractere decorativo e selo.
 // (O caractere é só decoração no estilo cartaz; pode editar/apagar no painel.)
 const TABLOID_THEMES = {
-  fifa:     { wordmark: 'PRIMITIVÃO FC',  accent: '球', stamp: 'GOL!',     icon: 'football' },
-  mk:       { wordmark: 'MORTAL KOMBAT',  accent: '闘', stamp: 'FIGHT!',   icon: 'fist' },
-  rl:       { wordmark: 'ROCKET LEAGUE',  accent: '速', stamp: 'GOOOL!',   icon: 'rocket' },
-  lol:      { wordmark: 'LEAGUE LEGENDS', accent: '召', stamp: 'GG!',      icon: 'sword' },
-  cs:       { wordmark: 'COUNTER-STRIKE', accent: '弾', stamp: 'CLUTCH!',  icon: 'crosshair' },
-  gwyf:     { wordmark: 'GOLF FRIENDS',   accent: '球', stamp: 'HOLE!',    icon: 'flag' },
-  valorant: { wordmark: 'VALORANT',       accent: '撃', stamp: 'ACE!',     icon: 'crosshair' },
-  copa:     { wordmark: 'COPA DO MUNDO',  accent: '杯', stamp: 'GOOOL!',   icon: 'globe' },
+  fifa:     { wordmark: 'PRIMITIVÃO FC',  accent: '球', stamp: 'GOL!',     icon: 'football',  color: '#2e8b3d' },
+  mk:       { wordmark: 'MORTAL KOMBAT',  accent: '闘', stamp: 'FIGHT!',   icon: 'fist',      color: '#b3231a' },
+  rl:       { wordmark: 'ROCKET LEAGUE',  accent: '速', stamp: 'GOOOL!',   icon: 'rocket',    color: '#2470c8' },
+  lol:      { wordmark: 'LEAGUE LEGENDS', accent: '召', stamp: 'GG!',      icon: 'sword',     color: '#b8902a' },
+  cs:       { wordmark: 'COUNTER-STRIKE', accent: '弾', stamp: 'CLUTCH!',  icon: 'crosshair', color: '#d98324' },
+  gwyf:     { wordmark: 'GOLF FRIENDS',   accent: '球', stamp: 'HOLE!',    icon: 'flag',      color: '#6f9b1f' },
+  valorant: { wordmark: 'VALORANT',       accent: '撃', stamp: 'ACE!',     icon: 'crosshair', color: '#d6346b' },
+  copa:     { wordmark: 'COPA DO MUNDO',  accent: '杯', stamp: 'GOOOL!',   icon: 'globe',     color: '#1f8f8a' },
 };
 const tabloidTheme = (champId) => TABLOID_THEMES[champId] || TABLOID_THEMES.fifa;
 
@@ -6745,7 +6745,7 @@ function currentRoundMatchups(cs) {
 // (cada uma já com nick, time/avatar, ícone e texto). O tabloide de POLÊMICA
 // sorteia um subconjunto delas. Só dispara o que TEM dado (hoje, FIFA).
 function tabloidStories(ctx) {
-  const { standings = [], bets = [], users = {}, teamPlayers = {} } = ctx || {};
+  const { standings = [], cs = null, teamPlayers = {} } = ctx || {};
   const nickOf = (teamId) => (teamPlayers || {})[teamId] || '';
   const out = [];
   const push = (id, teamId, nick, kicker, text, icon, tone) =>
@@ -6771,9 +6771,13 @@ function tabloidStories(ctx) {
     if (zer)
       push('zerado', zer.id, nickOf(zer.id), 'PROCURA-SE UMA VITÓRIA',
         `${zer.name} já jogou ${zer.j} e não venceu nenhuma. Manda um abraço pro guerreiro.`, 'toilet', 'bad');
-    if (leader && leader.p > 0)
+    const second = standings[1];
+    if (leader && second && leader.p > 0 && (leader.p - second.p) <= 2)
+      push('disputa', leader.id, nickOf(leader.id), 'PEGOU FOGO NA PONTA',
+        `${leader.name} e ${second.name} separados por ${leader.p - second.p} ponto(s). A liderança tá em jogo.`, 'fire', 'spice');
+    else if (leader && leader.p > 0)
       push('lider', leader.id, nickOf(leader.id), 'NA PONTA',
-        `${leader.name} dispara na liderança com ${leader.p} pts. O resto que corra atrás.`, 'crown', 'good');
+        `${leader.name} dispara com ${leader.p} pts. O resto que corra atrás.`, 'crown', 'good');
     if (last && leader && last.id !== leader.id)
       push('lanterna', last.id, nickOf(last.id), 'LANTERNA OFICIAL',
         `${last.name} amassado no fundo da tabela. Saldo ${sg(last)}. Vexame moldurado.`, 'toilet', 'bad');
@@ -6788,33 +6792,31 @@ function tabloidStories(ctx) {
         `${piorSaldo.name} com saldo ${sg(piorSaldo)}. Tá devendo gol pro campeonato.`, 'chart', 'bad');
   }
 
-  // Triggers de banca/apostas (entre usuários, exceto admin)
-  const rev = {};
-  for (const [tid, n] of Object.entries(teamPlayers || {})) rev[String(n).toLowerCase()] = tid;
-  const teamFor = (n) => rev[String(n).toLowerCase()] || '';
-  const userList = Object.keys(users || {}).filter(n => n !== 'admin').map(n => ({ nick: n, pc: (users[n] && users[n].pc) || 0 }));
-  if (userList.length) {
-    const rico = userList.slice().sort((a, b) => b.pc - a.pc)[0];
-    const liso = userList.slice().sort((a, b) => a.pc - b.pc)[0];
-    if (rico && rico.pc >= 1000)
-      push('rico', teamFor(rico.nick), rico.nick, 'MILIONÁRIO',
-        `${rico.nick} tá nadando em PC: ${rico.pc} na conta. Ostentação pura.`, 'coin', 'good');
-    if (liso && rico && liso.nick !== rico.nick)
-      push('liso', teamFor(liso.nick), liso.nick, 'NA LONA',
-        `${liso.nick} tá liso: ${liso.pc} PC. Já tá pedindo fiado pro xamã.`, 'coin-fire', 'bad');
-    const countBy = {}, wonBy = {};
-    (bets || []).forEach(b => {
-      countBy[b.user] = (countBy[b.user] || 0) + 1;
-      if (b.status === 'won') wonBy[b.user] = (wonBy[b.user] || 0) + 1;
-    });
-    const viciado = Object.keys(countBy).sort((a, b) => countBy[b] - countBy[a])[0];
-    if (viciado && countBy[viciado] >= 3)
-      push('viciado', teamFor(viciado), viciado, 'VICIADO EM CUPOM',
-        `${viciado} já fez ${countBy[viciado]} apostas. Larga o cupom e vai dormir.`, 'dice', 'spice');
-    const profeta = Object.keys(wonBy).sort((a, b) => wonBy[b] - wonBy[a])[0];
-    if (profeta && wonBy[profeta] >= 2)
-      push('profeta', teamFor(profeta), profeta, 'O VIDENTE',
-        `${profeta} acertou ${wonBy[profeta]} cupons. Tá com bola de cristal.`, 'target', 'good');
+  // Eventos dos JOGOS (resultado marcante + confronto da semana) — de cs.rounds.
+  const rounds = (cs && cs.rounds) || [];
+  if (rounds.length) {
+    // Maior goleada já registrada na temporada.
+    let big = null;
+    rounds.forEach(r => (r || []).forEach(g => {
+      const gh = parseInt(g.gh, 10), ga = parseInt(g.ga, 10);
+      if (Number.isNaN(gh) || Number.isNaN(ga)) return;
+      const margin = Math.abs(gh - ga);
+      if (margin >= 3 && (!big || margin > big.margin)) {
+        big = { margin, winId: gh > ga ? g.home : g.away, loseId: gh > ga ? g.away : g.home, hi: Math.max(gh, ga), lo: Math.min(gh, ga) };
+      }
+    }));
+    if (big)
+      push('goleada', big.winId, nickOf(big.winId), 'MASSACRE',
+        `${TEAM(big.winId).name} ${big.hi}x${big.lo} ${TEAM(big.loseId).name}. Foi covardia, chama o SAMU.`, 'skull', 'spice');
+    // Confronto da semana (primeiro jogo aberto da rodada atual).
+    const open = bettableGames(rounds);
+    if (open.length) {
+      const minRi = Math.min.apply(null, open.map(g => g.ri));
+      const next = open.filter(g => g.ri === minRi)[0];
+      if (next)
+        push('proximo', next.home, nickOf(next.home), 'JOGO DA SEMANA',
+          `Olho nesse: ${TEAM(next.home).name} × ${TEAM(next.away).name}. Vai pegar fogo.`, 'fire', 'spice');
+    }
   }
   return out;
 }
@@ -6920,7 +6922,7 @@ function buildTabloidData(ctx, champId, type) {
       ...base,
       stamp: 'OLHA O BARRACO!',
       headline: 'A FOFOCA DA SEMANA',
-      stories: pickStories(tabloidStories({ standings, bets, users, teamPlayers }), 6),
+      stories: pickStories(tabloidStories({ standings, cs, teamPlayers }), 6),
     };
   }
 
@@ -6968,11 +6970,13 @@ function TabloidPoster({ data, teamPlayers }) {
   const d = data || {};
   const t = d.type || 'rodada';
   const champ = d.champion || {};
-  const champIcon = (tabloidTheme(d.championship) || {}).icon || 'star';
+  const champTheme = tabloidTheme(d.championship) || {};
+  const champIcon = champTheme.icon || 'star';
+  const champColor = champTheme.color || '#b3401a';
   const teamName = (id) => (id ? TEAM(id).name : '');
   const matchups = (d.matchups || []).filter(m => m && (m.homeId || m.awayId));
   return (
-    <div className={'tp tp-type-' + t}>
+    <div className={'tp tp-type-' + t} style={{ '--tp-accent': champColor }}>
       <div className="tp-masthead">
         <span className="tp-vol">VOL. {d.volume || '—'}</span>
         <span className="tp-mast-ico"><Icon name={champIcon} size={17} /></span>
@@ -7190,7 +7194,7 @@ function TabloidBuilderPanel({ cs, bets, users, teamPlayers, worldcup, wcFixture
       all = copaStories(ranking, teamPlayers);
     } else {
       const { standings } = computeChampStandings(champId, cs);
-      all = tabloidStories({ standings, bets, users, teamPlayers });
+      all = tabloidStories({ standings, cs, teamPlayers });
     }
     if (!all.length) { showToast('Sem dados ainda pra gerar zoeira (faltam jogos/palpites).', 'error'); return; }
     setData(prev => ({ ...prev, stories: pickStories(all, 6) }));
