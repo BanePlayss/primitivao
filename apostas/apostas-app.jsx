@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-fix-reset ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-brand-click ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2509,7 +2509,15 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
   const goDiscord = () => window.open('https://discord.gg/CgjuJSYW5u', '_blank', 'noopener,noreferrer');
   return (
     <div className="topbar">
-      <div className="brand">
+      <div
+        className="brand brand-clickable"
+        role="button"
+        tabIndex={0}
+        title="Ir para Apostas"
+        aria-label="PRIMITIVÃO — ir para Apostas"
+        onClick={() => onView && onView('apostas')}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onView && onView('apostas'); } }}
+      >
         <MiniCrest size={36} />
         <div className="brand-text">
           <div className="t1 display">PRIMITIVÃO</div>
