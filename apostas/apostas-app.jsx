@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-nick-avatars ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-podio-clean ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1095,7 +1095,7 @@ function nickColor(nick) {
   return NICK_PALETTE[h % NICK_PALETTE.length];
 }
 
-function Avatar({ teamId, nick, teamPlayers, cosmetics, size = 32, fullBody = false, className = '' }) {
+function Avatar({ teamId, nick, teamPlayers, cosmetics, size = 32, fullBody = false, className = '', noBadge = false }) {
   // Resolve teamId via teamPlayers se não veio direto.
   // teamPlayers tem formato { teamId: nick } — precisa inverter pra achar o
   // teamId a partir do nick.
@@ -1114,7 +1114,7 @@ function Avatar({ teamId, nick, teamPlayers, cosmetics, size = 32, fullBody = fa
   // não renderiza nada extra (compat com chamadas antigas).
   const cosm = cosmetics || {};
   const frameItem = cosm.frame ? ITEM_BY_ID[cosm.frame] : null;
-  const badgeItem = cosm.badge ? ITEM_BY_ID[cosm.badge] : null;
+  const badgeItem = (!noBadge && cosm.badge) ? ITEM_BY_ID[cosm.badge] : null;
   const frameClass = frameItem ? ' has-frame avatar-frame-' + frameItem.id : '';
 
   const renderBadge = () => {
@@ -5692,7 +5692,7 @@ function ShowcaseItem({ item, theme, rank, season, status }) {
         <div className="showcase-rankicon"><Icon name={p.ic} size={top ? 40 : 32} /></div>
         <div className="showcase-badge">{badge}</div>
         <div className="showcase-avatar">
-          <Avatar {...avatarProps} cosmetics={item.cosmetics} size={top ? 96 : 78} fullBody={true} />
+          <Avatar {...avatarProps} cosmetics={item.cosmetics} size={top ? 96 : 78} fullBody={true} noBadge />
         </div>
       </div>
       <div className="showcase-ficha">
@@ -5753,7 +5753,7 @@ function TrophyShowcase({ champ, items, theme, status, sideRanking, myNick }) {
               {sideRanking.map((r, i) => (
                 <div key={r.nick} className={'showcase-side-row' + (r.nick === myNick ? ' me' : '')}>
                   <span className="showcase-side-pos">{i + 1}</span>
-                  <Avatar nick={r.nick} teamPlayers={r._tp} cosmetics={r.cosmetics} size={26} />
+                  <Avatar nick={r.nick} teamPlayers={r._tp} cosmetics={r.cosmetics} size={26} noBadge />
                   <span className="showcase-side-nick">@{r.nick}</span>
                   <span className="showcase-side-pc">{r.pc.toLocaleString('pt-BR')}<small>PC</small></span>
                 </div>
