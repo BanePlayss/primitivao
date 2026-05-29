@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-vol-lembrete ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-tabloides ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -126,7 +126,21 @@ const CHAMPIONSHIPS = [
   { id: 'lol',  name: 'Primitivão — League of Legends 2026',     season: 'Season 1', tag: 'LoL',  status: 'soon'   },
   { id: 'cs',   name: 'Primitivão — Counter-Strike 2026',        season: 'Season 1', tag: 'CS',   status: 'soon'   },
   { id: 'gwyf', name: 'Primitivão — Golf With Your Friends 2026', season: 'Season 1', tag: 'GWYF', status: 'soon'   },
+  { id: 'valorant', name: 'Primitivão — Valorant 2026',          season: 'Season 1', tag: 'VALORANT', status: 'soon' },
 ];
+
+// Tema do tabloide por campeonato: título grande, caractere decorativo e selo.
+// (O caractere é só decoração no estilo cartaz; pode editar/apagar no painel.)
+const TABLOID_THEMES = {
+  fifa:     { wordmark: 'PRIMITIVÃO FC',  accent: '球', stamp: 'GOL!',     icon: 'football' },
+  mk:       { wordmark: 'MORTAL KOMBAT',  accent: '闘', stamp: 'FIGHT!',   icon: 'fist' },
+  rl:       { wordmark: 'ROCKET LEAGUE',  accent: '速', stamp: 'GOOOL!',   icon: 'rocket' },
+  lol:      { wordmark: 'LEAGUE LEGENDS', accent: '召', stamp: 'GG!',      icon: 'sword' },
+  cs:       { wordmark: 'COUNTER-STRIKE', accent: '弾', stamp: 'CLUTCH!',  icon: 'crosshair' },
+  gwyf:     { wordmark: 'GOLF FRIENDS',   accent: '球', stamp: 'HOLE!',    icon: 'flag' },
+  valorant: { wordmark: 'VALORANT',       accent: '撃', stamp: 'ACE!',     icon: 'crosshair' },
+};
+const tabloidTheme = (champId) => TABLOID_THEMES[champId] || TABLOID_THEMES.fifa;
 
 // ─── COPA DO MUNDO (bolão separado, sem PC) ────────────────────────────────
 // Dados completos carregados de apostas/world-cup/*.json (104 jogos + 48 times).
@@ -3264,6 +3278,21 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
           <path d="M12 2c3 2 4.5 5 4.5 9 0 2-1 4-1 4h-7s-1-2-1-4c0-4 1.5-7 4.5-9z" strokeLinejoin="round" />
           <circle cx="12" cy="9" r="1.8" />
           <path d="M8.5 15l-2.5 2 .5 3 2.5-1.5M15.5 15l2.5 2-.5 3-2.5-1.5" strokeLinejoin="round" />
+        </svg>
+      );
+    case 'crosshair': // mira — CS / Valorant / tiro
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="8" />
+          <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+          <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'fist': // punho — luta / Mortal Kombat / soco
+      return (
+        <svg {...common}>
+          <path d="M6 11V8.5a1.5 1.5 0 0 1 3 0V10M9 10V7a1.5 1.5 0 0 1 3 0v3M12 10V7.5a1.5 1.5 0 0 1 3 0V11" strokeLinejoin="round" />
+          <path d="M15 9.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-1.5a5 5 0 0 1-4.5-3l-2-3.2a1.5 1.5 0 0 1 2.4-1.8L6 13" strokeLinejoin="round" strokeLinecap="round" />
         </svg>
       );
     default:
@@ -6702,52 +6731,183 @@ function currentRoundMatchups(cs) {
   return [];
 }
 
-// Monta os dados do tabloide a partir do estado (classificação + jogos).
-// Tudo é editável no painel; isto é só o ponto de partida.
-function buildTabloidData(cs) {
-  // O tabloide é sempre do campeonato ATIVO (hoje FIFA) — segue a mesma regra
-  // do app: o que está rolando agora. As odds/confrontos vêm de cs (rodada
-  // aberta). Sai todo domingo: abre o painel, já vem preenchido, exporta.
-  const activeId = (CHAMPIONSHIPS.find(c => c.status === 'active') || CHAMPIONSHIPS[0]).id;
-  const { standings } = computeChampStandings(activeId, cs);
-  const champ = standings[0] || null;
-  const vice = standings[1] || null;
-  const n = standings.length;
-  const lanterna = n ? standings[n - 1] : null;
-  return {
+// ── ENGINE DE ZOEIRA (triggers) ──────────────────────────────────────────────
+// Analisa a classificação + apostas e devolve as "histórias" que dispararam
+// (cada uma já com nick, time/avatar, ícone e texto). O tabloide de POLÊMICA
+// sorteia um subconjunto delas. Só dispara o que TEM dado (hoje, FIFA).
+function tabloidStories(ctx) {
+  const { standings = [], bets = [], users = {}, teamPlayers = {} } = ctx || {};
+  const nickOf = (teamId) => (teamPlayers || {})[teamId] || '';
+  const out = [];
+  const push = (id, teamId, nick, kicker, text, icon, tone) =>
+    out.push({ id, teamId: teamId || '', nick: nick || '', kicker, text, icon, tone: tone || 'spice' });
+  const played = standings.filter(s => s.j > 0);
+
+  if (played.length) {
+    const leader = standings[0];
+    const last = standings[standings.length - 1];
+    const inv = played.filter(s => s.d === 0).sort((a, b) => b.j - a.j)[0];
+    const zer = played.filter(s => s.v === 0).sort((a, b) => b.j - a.j)[0];
+    const goleador = played.slice().sort((a, b) => b.gp - a.gp)[0];
+    const peneira = played.slice().sort((a, b) => b.gc - a.gc)[0];
+    const piorSaldo = played.slice().sort((a, b) => (a.gp - a.gc) - (b.gp - b.gc))[0];
+    const sg = (s) => (s.gp - s.gc >= 0 ? '+' : '') + (s.gp - s.gc);
+
+    if (inv && zer && inv.id !== zer.id)
+      push('combo', inv.id, nickOf(inv.id), 'OS DOIS LADOS DA FORÇA',
+        `Enquanto ${inv.name} não perde faz ${inv.j} jogos, ${zer.name} não ganha NEM NA SORTE. Poesia pura do Primitivão.`, 'fire', 'spice');
+    if (inv)
+      push('invicto', inv.id, nickOf(inv.id), 'INVICTO',
+        `${inv.name} ainda não sabe o que é perder: ${inv.v}V ${inv.e}E em ${inv.j} jogos. Tá voando.`, 'shield', 'good');
+    if (zer)
+      push('zerado', zer.id, nickOf(zer.id), 'PROCURA-SE UMA VITÓRIA',
+        `${zer.name} já jogou ${zer.j} e não venceu nenhuma. Manda um abraço pro guerreiro.`, 'toilet', 'bad');
+    if (leader && leader.p > 0)
+      push('lider', leader.id, nickOf(leader.id), 'NA PONTA',
+        `${leader.name} dispara na liderança com ${leader.p} pts. O resto que corra atrás.`, 'crown', 'good');
+    if (last && leader && last.id !== leader.id)
+      push('lanterna', last.id, nickOf(last.id), 'LANTERNA OFICIAL',
+        `${last.name} amassado no fundo da tabela. Saldo ${sg(last)}. Vexame moldurado.`, 'toilet', 'bad');
+    if (goleador && goleador.gp > 0)
+      push('goleador', goleador.id, nickOf(goleador.id), 'ARTILHARIA',
+        `${goleador.name} é a usina de gols: ${goleador.gp} marcados. Goleiro nenhum segura.`, 'football', 'good');
+    if (peneira && peneira.gc > 0)
+      push('peneira', peneira.id, nickOf(peneira.id), 'A PENEIRA',
+        `${peneira.name} tomou ${peneira.gc} gols. A zaga é feita de papel-toalha.`, 'warning', 'bad');
+    if (piorSaldo && (piorSaldo.gp - piorSaldo.gc) < 0)
+      push('saldo', piorSaldo.id, nickOf(piorSaldo.id), 'NO VERMELHO',
+        `${piorSaldo.name} com saldo ${sg(piorSaldo)}. Tá devendo gol pro campeonato.`, 'chart', 'bad');
+  }
+
+  // Triggers de banca/apostas (entre usuários, exceto admin)
+  const rev = {};
+  for (const [tid, n] of Object.entries(teamPlayers || {})) rev[String(n).toLowerCase()] = tid;
+  const teamFor = (n) => rev[String(n).toLowerCase()] || '';
+  const userList = Object.keys(users || {}).filter(n => n !== 'admin').map(n => ({ nick: n, pc: (users[n] && users[n].pc) || 0 }));
+  if (userList.length) {
+    const rico = userList.slice().sort((a, b) => b.pc - a.pc)[0];
+    const liso = userList.slice().sort((a, b) => a.pc - b.pc)[0];
+    if (rico && rico.pc >= 1000)
+      push('rico', teamFor(rico.nick), rico.nick, 'MILIONÁRIO',
+        `${rico.nick} tá nadando em PC: ${rico.pc} na conta. Ostentação pura.`, 'coin', 'good');
+    if (liso && rico && liso.nick !== rico.nick)
+      push('liso', teamFor(liso.nick), liso.nick, 'NA LONA',
+        `${liso.nick} tá liso: ${liso.pc} PC. Já tá pedindo fiado pro xamã.`, 'coin-fire', 'bad');
+    const countBy = {}, wonBy = {};
+    (bets || []).forEach(b => {
+      countBy[b.user] = (countBy[b.user] || 0) + 1;
+      if (b.status === 'won') wonBy[b.user] = (wonBy[b.user] || 0) + 1;
+    });
+    const viciado = Object.keys(countBy).sort((a, b) => countBy[b] - countBy[a])[0];
+    if (viciado && countBy[viciado] >= 3)
+      push('viciado', teamFor(viciado), viciado, 'VICIADO EM CUPOM',
+        `${viciado} já fez ${countBy[viciado]} apostas. Larga o cupom e vai dormir.`, 'dice', 'spice');
+    const profeta = Object.keys(wonBy).sort((a, b) => wonBy[b] - wonBy[a])[0];
+    if (profeta && wonBy[profeta] >= 2)
+      push('profeta', teamFor(profeta), profeta, 'O VIDENTE',
+        `${profeta} acertou ${wonBy[profeta]} cupons. Tá com bola de cristal.`, 'target', 'good');
+  }
+  return out;
+}
+
+// Sorteia n histórias (Fisher-Yates) — "aleatório com base nos triggers".
+function pickStories(stories, n) {
+  const a = stories.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a.slice(0, n);
+}
+
+// Monta os dados do tabloide. `type`: 'rodada' | 'eventos' | 'polemica'.
+// `champId`: campeonato (define wordmark/tema). Tudo editável no painel.
+function buildTabloidData(ctx, champId, type) {
+  const { cs, bets = [], users = {}, teamPlayers = {} } = ctx || {};
+  const id = champId || (CHAMPIONSHIPS.find(c => c.status === 'active') || CHAMPIONSHIPS[0]).id;
+  const champMeta = CHAMP_BY_ID[id] || CHAMPIONSHIPS[0];
+  const theme = tabloidTheme(id);
+  const t = type || 'rodada';
+  const { standings } = computeChampStandings(id, cs);
+
+  const base = {
+    championship: id,
+    type: t,
     volume: '09',
     masthead: 'PRIMITIVÃO TIMES',
     editionLabel: 'EDIÇÃO',
-    cornerTag: 'SEGUNDA TEM FIFA!',
-    wordmark: 'PRIMITIVÃO',
-    accent: '',
+    cornerTag: champMeta.tag + ' · ' + champMeta.season.toUpperCase(),
+    wordmark: theme.wordmark,
+    accent: theme.accent,
     stamp: '',
     heroImage: '',
+    headline: '',
+    champion: { teamId: '', crown: true, title: '', stats: [], note: '' },
+    sideBlocks: [],
+    midStrip: { title: '', players: [] },
+    matchups: [],
+    boxes: [],
+    stories: [],
+    ticker: ['TORCIDA EM CHAMAS', 'RUMORES, TROCAS E OFERTAS', 'TODOS NO DISCORD', 'PRÓXIMA EDIÇÃO: DOMINGO'],
+  };
+
+  if (t === 'polemica') {
+    return {
+      ...base,
+      stamp: 'OLHA O BARRACO!',
+      headline: 'A FOFOCA DA SEMANA',
+      stories: pickStories(tabloidStories({ standings, bets, users, teamPlayers }), 6),
+    };
+  }
+
+  if (t === 'eventos') {
+    const themeName = (champMeta.name.split('—').pop() || champMeta.tag).trim().toUpperCase();
+    return {
+      ...base,
+      stamp: theme.stamp,
+      headline: champMeta.status === 'active' ? 'EDIÇÃO ESPECIAL' : themeName + ' VEM AÍ!',
+      boxes: [
+        { title: 'PRÊMIO', body: 'Badge exclusivo pro campeão. Primeiro e único da edição.' },
+        { title: 'REGRAS', body: 'Pontos corridos · ida e volta · todos contra todos · maior pontuação vence.' },
+        { title: 'QUEM TÁ DENTRO', body: 'A lista tá crescendo. Não fica de fora.' },
+      ],
+      matchups: currentRoundMatchups(cs),
+    };
+  }
+
+  // 'rodada' (default) — recap da classificação
+  const champ = standings[0] || null;
+  const vice = standings[1] || null;
+  const nn = standings.length;
+  const lanterna = nn ? standings[nn - 1] : null;
+  return {
+    ...base,
     headline: 'A RODADA PEGOU FOGO!',
     champion: champ
       ? { teamId: champ.id, crown: true, title: `${champ.name.toUpperCase()} NA LIDERANÇA!`, stats: statsFromStanding(champ), note: '' }
-      : { teamId: '', crown: true, title: '', stats: [], note: '' },
+      : base.champion,
     sideBlocks: [
       vice ? { teamId: vice.id, kicker: vice.name.toUpperCase(), title: 'VICE NA BRIGA!', text: `${vice.p} pontos e segue colado.`, tone: 'good', stats: [] } : { teamId: '', kicker: '', title: '', text: '', tone: 'good', stats: [] },
       lanterna ? { teamId: lanterna.id, kicker: lanterna.name.toUpperCase() + ' FC', title: 'AFUNDA NA LANTERNA!', text: 'Último colocado, sem dó.', tone: 'bad', stats: statsFromStanding(lanterna) } : { teamId: '', kicker: '', title: '', text: '', tone: 'bad', stats: [] },
     ],
-    midStrip: {
-      title: 'A BRIGA NO MEIO DA TABELA',
-      players: standings.slice(2, 6).map(s => ({ teamId: s.id, label: `${s.p} PTS` })),
-    },
+    midStrip: { title: 'A BRIGA NO MEIO DA TABELA', players: standings.slice(2, 6).map(s => ({ teamId: s.id, label: `${s.p} PTS` })) },
     matchups: currentRoundMatchups(cs),
-    ticker: ['TORCIDA EM CHAMAS', 'RUMORES, TROCAS E OFERTAS', 'TODOS NO DISCORD', 'AMANHÃ: O RESUMO'],
   };
 }
 
 // O pôster renderizado (estilo jornal sépia "PRIMITIVÃO TIMES"). É o que
-// vira imagem na exportação.
-function TabloidPoster({ data }) {
+// vira imagem na exportação. Renderiza diferente por TIPO:
+//   rodada   = recap (campeão + classificação + confrontos)
+//   eventos  = central cheio (arte + caixas PRÊMIO/REGRAS + confrontos)
+//   polemica = grid de zoeira (cards com avatar + alfinetada)
+function TabloidPoster({ data, teamPlayers }) {
   const d = data || {};
+  const t = d.type || 'rodada';
   const champ = d.champion || {};
   const teamName = (id) => (id ? TEAM(id).name : '');
+  const matchups = (d.matchups || []).filter(m => m && (m.homeId || m.awayId));
   return (
-    <div className="tp">
+    <div className={'tp tp-type-' + t}>
       <div className="tp-masthead">
         <span className="tp-vol">VOL. {d.volume || '—'}</span>
         <span className="tp-masthead-name">{d.masthead || 'PRIMITIVÃO TIMES'}</span>
@@ -6768,51 +6928,53 @@ function TabloidPoster({ data }) {
         </div>
       )}
 
-      <div className="tp-body">
-        <div className="tp-hero">
-          <div className="tp-hero-figure">
-            {champ.crown && !d.heroImage && <span className="tp-crown"><Icon name="crown" size={54} /></span>}
-            {d.heroImage
-              ? <img className="tp-hero-img" src={d.heroImage} alt="" crossOrigin="anonymous" />
-              : (champ.teamId
-                  ? <Avatar teamId={champ.teamId} fullBody size={300} className="tp-hero-av" />
-                  : <div className="tp-av-empty" style={{ width: 300, height: 300 }} />)}
-          </div>
-          <div className="tp-hero-text">
-            <div className="tp-hero-title">{champ.title}</div>
-            {(champ.stats || []).length > 0 && (
-              <div className="tp-stats">
-                {champ.stats.map((st, i) => (
-                  <div key={i} className="tp-stat"><span className="tp-stat-v">{st.v}</span><span className="tp-stat-k">{st.k}</span></div>
-                ))}
-              </div>
-            )}
-            {champ.note && <div className="tp-hero-note">{champ.note}</div>}
-          </div>
-        </div>
-
-        <div className="tp-side">
-          {(d.sideBlocks || []).filter(b => b && (b.teamId || b.title || b.text)).map((b, i) => (
-            <div key={i} className={'tp-block ' + (b.tone === 'bad' ? 'tp-block-bad' : 'tp-block-good')}>
-              {b.teamId && <Avatar teamId={b.teamId} fullBody size={130} className="tp-block-av" />}
-              <div className="tp-block-text">
-                {b.kicker && <div className="tp-block-kicker">{b.kicker}</div>}
-                {b.title && <div className="tp-block-title">{b.title}</div>}
-                {b.text && <div className="tp-block-body">{b.text}</div>}
-                {(b.stats && b.stats.length > 0) && (
-                  <div className="tp-stats tp-stats-sm">
-                    {b.stats.map((st, j) => (
-                      <div key={j} className="tp-stat"><span className="tp-stat-v">{st.v}</span><span className="tp-stat-k">{st.k}</span></div>
-                    ))}
-                  </div>
-                )}
-              </div>
+      {/* ── TIPO: RODADA (recap) ── */}
+      {t === 'rodada' && (
+        <div className="tp-body">
+          <div className="tp-hero">
+            <div className="tp-hero-figure">
+              {champ.crown && !d.heroImage && <span className="tp-crown"><Icon name="crown" size={54} /></span>}
+              {d.heroImage
+                ? <img className="tp-hero-img" src={d.heroImage} alt="" crossOrigin="anonymous" />
+                : (champ.teamId
+                    ? <Avatar teamId={champ.teamId} fullBody size={300} className="tp-hero-av" />
+                    : <div className="tp-av-empty" style={{ width: 300, height: 300 }} />)}
             </div>
-          ))}
+            <div className="tp-hero-text">
+              <div className="tp-hero-title">{champ.title}</div>
+              {(champ.stats || []).length > 0 && (
+                <div className="tp-stats">
+                  {champ.stats.map((st, i) => (
+                    <div key={i} className="tp-stat"><span className="tp-stat-v">{st.v}</span><span className="tp-stat-k">{st.k}</span></div>
+                  ))}
+                </div>
+              )}
+              {champ.note && <div className="tp-hero-note">{champ.note}</div>}
+            </div>
+          </div>
+          <div className="tp-side">
+            {(d.sideBlocks || []).filter(b => b && (b.teamId || b.title || b.text)).map((b, i) => (
+              <div key={i} className={'tp-block ' + (b.tone === 'bad' ? 'tp-block-bad' : 'tp-block-good')}>
+                {b.teamId && <Avatar teamId={b.teamId} fullBody size={130} className="tp-block-av" />}
+                <div className="tp-block-text">
+                  {b.kicker && <div className="tp-block-kicker">{b.kicker}</div>}
+                  {b.title && <div className="tp-block-title">{b.title}</div>}
+                  {b.text && <div className="tp-block-body">{b.text}</div>}
+                  {(b.stats && b.stats.length > 0) && (
+                    <div className="tp-stats tp-stats-sm">
+                      {b.stats.map((st, j) => (
+                        <div key={j} className="tp-stat"><span className="tp-stat-v">{st.v}</span><span className="tp-stat-k">{st.k}</span></div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {d.midStrip && (d.midStrip.players || []).filter(p => p && p.teamId).length > 0 && (
+      {t === 'rodada' && d.midStrip && (d.midStrip.players || []).filter(p => p && p.teamId).length > 0 && (
         <div className="tp-strip">
           {d.midStrip.title && <div className="tp-strip-title"><span className="tp-star"><Icon name="star" size={16} /></span>{d.midStrip.title}</div>}
           <div className="tp-strip-players">
@@ -6827,9 +6989,46 @@ function TabloidPoster({ data }) {
         </div>
       )}
 
-      {(d.matchups || []).filter(m => m && (m.homeId || m.awayId)).length > 0 && (
+      {/* ── TIPO: EVENTOS (arte central + caixas) ── */}
+      {t === 'eventos' && (
+        <div className="tp-event">
+          <div className="tp-event-hero">
+            {d.heroImage
+              ? <img className="tp-hero-img" src={d.heroImage} alt="" crossOrigin="anonymous" />
+              : <div className="tp-av-empty tp-event-empty">ARTE DA EDIÇÃO</div>}
+          </div>
+          <div className="tp-boxes">
+            {(d.boxes || []).filter(b => b && (b.title || b.body)).map((b, i) => (
+              <div key={i} className="tp-box">
+                {b.title && <div className="tp-box-title"><Icon name="star" size={14} /> {b.title}</div>}
+                {b.body && <div className="tp-box-body">{b.body}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── TIPO: POLÊMICA (grid de zoeira) ── */}
+      {t === 'polemica' && (
+        <div className="tp-stories">
+          {(d.stories || []).map((s, i) => (
+            <div key={i} className={'tp-story tp-story-' + (s.tone || 'spice')}>
+              <div className="tp-story-figure">
+                <Avatar teamId={s.teamId} nick={s.nick} teamPlayers={teamPlayers} size={94} />
+                <span className="tp-story-ico"><Icon name={s.icon || 'fire'} size={20} /></span>
+              </div>
+              <div className="tp-story-text">
+                {s.kicker && <div className="tp-story-kicker">{s.kicker}</div>}
+                <div className="tp-story-body">{s.text}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(t === 'rodada' || t === 'eventos') && matchups.length > 0 && (
         <div className="tp-matches">
-          {d.matchups.filter(m => m && (m.homeId || m.awayId)).map((m, i) => (
+          {matchups.map((m, i) => (
             <div key={i} className="tp-match">
               <div className="tp-match-side">
                 {m.homeId && <Avatar teamId={m.homeId} size={52} />}
@@ -6852,8 +7051,8 @@ function TabloidPoster({ data }) {
 
       {(d.ticker || []).filter(Boolean).length > 0 && (
         <div className="tp-ticker">
-          {d.ticker.filter(Boolean).map((t, i) => (
-            <span key={i} className="tp-ticker-item"><Icon name="flag" size={13} /> {t}</span>
+          {d.ticker.filter(Boolean).map((tk, i) => (
+            <span key={i} className="tp-ticker-item"><Icon name="flag" size={13} /> {tk}</span>
           ))}
         </div>
       )}
@@ -6861,16 +7060,25 @@ function TabloidPoster({ data }) {
   );
 }
 
-// O painel: formulário (esquerda) + prévia ao vivo (direita) + exportar PNG.
-function TabloidBuilderPanel({ cs }) {
-  // Monta os dados já com o VOLUME avançado (último exportado + 1).
-  const makeData = () => {
-    const d = buildTabloidData(cs);
+const TABLOID_TYPES = [
+  { id: 'rodada',   label: 'FINAL DE RODADA', icon: 'trophy',    hint: 'Recap: campeão, classificação e os confrontos.' },
+  { id: 'eventos',  label: 'EVENTOS',         icon: 'newspaper', hint: 'Central, cheio: arte + prêmio/regras + confrontos.' },
+  { id: 'polemica', label: 'POLÊMICA & ZOEIRA', icon: 'fire',    hint: 'Zoeira pura: alfinetadas automáticas com nome e avatar.' },
+];
+
+// O painel: pickers (campeonato + tipo) + formulário + prévia + exportar PNG.
+function TabloidBuilderPanel({ cs, bets, users, teamPlayers }) {
+  const firstActive = (CHAMPIONSHIPS.find(c => c.status === 'active') || CHAMPIONSHIPS[0]).id;
+  // Monta os dados do (campeonato, tipo) já com o VOLUME avançado.
+  const makeData = (cid, tp) => {
+    const d = buildTabloidData({ cs, bets, users, teamPlayers }, cid, tp);
     const last = loadLastTabloidVol();
     if (last != null) d.volume = String(last + 1).padStart(2, '0');
     return d;
   };
-  const [data, setData] = useState(makeData);
+  const [champId, setChampId] = useState(firstActive);
+  const [type, setType] = useState('rodada');
+  const [data, setData] = useState(() => makeData(firstActive, 'rodada'));
   const [exporting, setExporting] = useState(false);
   const posterRef = useRef(null);
   const stageRef = useRef(null);
@@ -6903,11 +7111,24 @@ function TabloidBuilderPanel({ cs }) {
   const patchStripPlayer = (i, p) => setData(prev => ({ ...prev, midStrip: { ...prev.midStrip, players: prev.midStrip.players.map((pl, j) => j === i ? { ...pl, ...p } : pl) } }));
   const patchTicker = (i, v) => setData(prev => ({ ...prev, ticker: prev.ticker.map((t, j) => j === i ? v : t) }));
   const patchChampStat = (i, v) => setData(prev => ({ ...prev, champion: { ...prev.champion, stats: prev.champion.stats.map((s, j) => j === i ? { ...s, v } : s) } }));
+  const patchBox = (i, p) => setData(prev => ({ ...prev, boxes: prev.boxes.map((b, j) => j === i ? { ...b, ...p } : b) }));
+  const patchStory = (i, p) => setData(prev => ({ ...prev, stories: prev.stories.map((s, j) => j === i ? { ...s, ...p } : s) }));
+
+  const selectChamp = (id) => { setChampId(id); setData(makeData(id, type)); };
+  const selectType = (tp) => { setType(tp); setData(makeData(champId, tp)); };
+
+  const rerollStories = () => {
+    const { standings } = computeChampStandings(champId, cs);
+    const all = tabloidStories({ standings, bets, users, teamPlayers });
+    if (!all.length) { showToast('Sem dados de classificação ainda pra gerar zoeira.', 'error'); return; }
+    setData(prev => ({ ...prev, stories: pickStories(all, 6) }));
+    showToast('Zoeira re-sorteada!', 'success');
+  };
 
   const reload = () => {
-    if (!confirm('Recarregar os dados da classificação? Você perde as edições manuais do tabloide.')) return;
-    setData(makeData());
-    showToast('Tabloide recarregado da classificação', 'success');
+    if (!confirm('Recarregar tudo da classificação? Você perde as edições manuais desta edição.')) return;
+    setData(makeData(champId, type));
+    showToast('Tabloide recarregado.', 'success');
   };
 
   // Imagem de destaque (arte da IA): lê como data URL — robusto na exportação
@@ -6967,12 +7188,36 @@ function TabloidBuilderPanel({ cs }) {
   return (
     <div className="tp-builder">
       <p style={{ marginTop: 0, lineHeight: 1.5, fontSize: 13 }}>
-        Modelo fixo do <strong>PRIMITIVÃO TIMES</strong>. Os campos já vêm preenchidos
-        da classificação — ajusta os textos, confere os times/odds e <strong>exporta em PNG</strong>.
-        Os avatares são os PNGs dos times (corpo inteiro), montados automaticamente.
+        Escolhe o <strong>campeonato</strong> e o <strong>tipo</strong> de edição. Os campos já
+        vêm preenchidos da classificação — ajusta o texto e <strong>exporta em PNG</strong>.
       </p>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '10px 0 4px' }}>
-        <button type="button" onClick={reload} className="tp-btn-ghost"><Icon name="refresh" size={14} /> RECARREGAR DA CLASSIFICAÇÃO</button>
+
+      <div className="tp-pickers">
+        <label className="tp-fld" style={{ maxWidth: 240 }}>
+          <span className="tp-fld-label">Campeonato</span>
+          <select value={champId} onChange={e => selectChamp(e.target.value)} className="tp-input tp-select">
+            {CHAMPIONSHIPS.map(c => (
+              <option key={c.id} value={c.id}>{c.tag}{c.status !== 'active' ? ' (em breve)' : ''}</option>
+            ))}
+          </select>
+        </label>
+        <div className="tp-type-pick">
+          <span className="tp-fld-label">Tipo de tabloide</span>
+          <div className="tp-type-btns">
+            {TABLOID_TYPES.map(tt => (
+              <button key={tt.id} type="button" title={tt.hint}
+                      className={'tp-type-btn ' + (type === tt.id ? 'active' : '')}
+                      onClick={() => selectType(tt.id)}>
+                <Icon name={tt.icon} size={15} /> {tt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0 4px' }}>
+        <button type="button" onClick={reload} className="tp-btn-ghost"><Icon name="refresh" size={14} /> RECARREGAR</button>
+        {type === 'polemica' && <button type="button" onClick={rerollStories} className="tp-btn-ghost"><Icon name="dice" size={14} /> RE-SORTEAR ZOEIRA</button>}
         <button type="button" onClick={exportPng} disabled={exporting} className="tp-btn-go">{exporting ? 'EXPORTANDO…' : 'EXPORTAR PNG'}</button>
       </div>
 
@@ -7006,6 +7251,7 @@ function TabloidBuilderPanel({ cs }) {
             A arte ilustrada (lutador, dragão etc.) é imagem — gera na IA e joga aqui. O resto do tabloide (título, caixas, odds) o modelo monta sozinho por cima.
           </div>
 
+          {type === 'rodada' && (<>
           <div className="tp-form-sec">CAMPEÃO (destaque)</div>
           <label className="tp-fld"><span className="tp-fld-label">Time</span><TpTeamSelect value={data.champion.teamId} onChange={v => patchChamp({ teamId: v })} /></label>
           <TpField label="Título" value={data.champion.title} onChange={v => patchChamp({ title: v })} />
@@ -7040,6 +7286,37 @@ function TabloidBuilderPanel({ cs }) {
             </div>
           ))}
 
+          </>)}
+
+          {type === 'eventos' && (<>
+            <div className="tp-form-sec">CAIXAS (prêmio / regras / inscritos)</div>
+            {(data.boxes || []).map((b, i) => (
+              <div key={i}>
+                <TpField label={`Caixa ${i + 1} — título`} value={b.title} onChange={v => patchBox(i, { title: v })} />
+                <TpField label="Texto" value={b.body} onChange={v => patchBox(i, { body: v })} />
+              </div>
+            ))}
+          </>)}
+
+          {type === 'polemica' && (<>
+            <div className="tp-form-sec">ZOEIRA (automática — re-sorteia ou edita)</div>
+            {(data.stories || []).map((s, i) => (
+              <div key={i} className="tp-story-edit">
+                <div className="tp-form-row">
+                  <label className="tp-fld" style={{ flex: 2 }}><span className="tp-fld-label">Quem</span><TpTeamSelect value={s.teamId} onChange={v => patchStory(i, { teamId: v })} /></label>
+                  <TpField label="Etiqueta" value={s.kicker} onChange={v => patchStory(i, { kicker: v })} />
+                </div>
+                <TpField label="Alfinetada" value={s.text} onChange={v => patchStory(i, { text: v })} />
+              </div>
+            ))}
+            {(data.stories || []).length === 0 && (
+              <div style={{ fontSize: 11, color: 'rgba(28,22,18,0.55)', lineHeight: 1.4 }}>
+                Sem zoeira ainda (falta dado de classificação). Clica em RE-SORTEAR ZOEIRA quando tiver jogos jogados.
+              </div>
+            )}
+          </>)}
+
+          {(type === 'rodada' || type === 'eventos') && (<>
           <div className="tp-form-sec">CONFRONTOS (com odds)</div>
           <button type="button" className="tp-btn-ghost" style={{ alignSelf: 'flex-start', marginBottom: 6 }} onClick={refreshMatchups}>
             <Icon name="refresh" size={13} /> PUXAR CONFRONTOS DA RODADA
@@ -7053,6 +7330,7 @@ function TabloidBuilderPanel({ cs }) {
               <TpTeamSelect value={m.awayId} onChange={v => patchMatch(i, { awayId: v })} />
             </div>
           ))}
+          </>)}
 
           <div className="tp-form-sec">RODAPÉ (ticker)</div>
           {(data.ticker || []).map((t, i) => (
@@ -7066,7 +7344,7 @@ function TabloidBuilderPanel({ cs }) {
           <div className="tp-stage" ref={stageRef} style={{ height: stageH || undefined }}>
             <div className="tp-scaler" style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
               <div ref={posterRef}>
-                <TabloidPoster data={data} />
+                <TabloidPoster data={data} teamPlayers={teamPlayers} />
               </div>
             </div>
           </div>
@@ -7076,241 +7354,15 @@ function TabloidBuilderPanel({ cs }) {
   );
 }
 
-function JournalistAdminPanel({ cs, bets, users, remoteNews, weeklyReady, teamPlayers }) {
-  const [mode, setMode] = useState('eventos');
-  const autoEvents = useMemo(() => detectJournalistEvents({ cs, bets, users, weeklyReady }), [cs, bets, users, weeklyReady]);
-  const [manualEvents, setManualEvents] = useState(() => loadManualEvents());
-  const [manualText, setManualText] = useState('');
-  const [manualSeverity, setManualSeverity] = useState('polemica');
-  const [selectedIds, setSelectedIds] = useState(() => new Set([...autoEvents.map(e => e.id), ...loadManualEvents().map(e => e.id)]));
-  const [response, setResponse] = useState('');
-  const [parsed, setParsed] = useState(null);
-  const [imagePath, setImagePath] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState('');
-
-  // Persiste mudanças nos eventos manuais
-  useEffect(() => { saveManualEvents(manualEvents); }, [manualEvents]);
-
-  const allEvents = [...autoEvents, ...manualEvents];
-
-  const toggle = (id) => {
-    const next = new Set(selectedIds);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    setSelectedIds(next);
-  };
-
-  const addManual = () => {
-    const text = manualText.trim();
-    if (!text) return;
-    const id = 'manual-' + Date.now();
-    setManualEvents(prev => [...prev, { type: 'manual', id, text, severity: manualSeverity, at: Date.now() }]);
-    setSelectedIds(prev => new Set([...prev, id]));
-    setManualText('');
-    showToast('Evento adicionado', 'success');
-  };
-
-  const removeManual = (id) => {
-    setManualEvents(prev => prev.filter(e => e.id !== id));
-    setSelectedIds(prev => {
-      const next = new Set(prev); next.delete(id); return next;
-    });
-  };
-
-  const clearManualHistory = () => {
-    if (manualEvents.length === 0) return;
-    if (!confirm(`Apagar todos os ${manualEvents.length} eventos manuais? (Não dá pra desfazer.)`)) return;
-    setManualEvents([]);
-  };
-
-  const selectedEvents = allEvents.filter(e => selectedIds.has(e.id));
-  const prompt = selectedEvents.length > 0 ? buildJournalistPrompt(selectedEvents) : '';
-
-  const copyPrompt = async () => {
-    try {
-      await navigator.clipboard.writeText(prompt);
-      showToast('Prompt copiado pra área de transferência', 'success');
-    } catch (e) {
-      showToast('Não consegui copiar — selecione e copie manualmente', 'error');
-    }
-  };
-
-  const parse = () => {
-    const p = parseJournalistResponse(response);
-    if (!p.title) {
-      showToast('Não achei o JSON na resposta. Confere o formato.', 'error');
-      return;
-    }
-    setParsed(p);
-  };
-
-  const publish = async () => {
-    if (!parsed) return;
-    setBusy(true); setMsg('');
-    try {
-      const id = 'j-' + Date.now();
-      const newNews = {
-        id,
-        title:    parsed.title,
-        subtitle: parsed.subtitle,
-        date:     parsed.date,
-        tag:      parsed.tag,
-        image:    imagePath || '',
-        body:     parsed.body,
-        at:       Date.now(),
-      };
-      const existing = Array.isArray(remoteNews) ? remoteNews : [];
-      await saveRemoteNews([newNews, ...existing]);
-      showToast('Notícia publicada! Veja em INÍCIO.', 'success');
-      setMsg('Publicada. Limpa e gera a próxima.');
-      setResponse(''); setParsed(null); setImagePath('');
-    } catch (e) {
-      setMsg('Erro: ' + (e.message || e));
-      showToast('Falha ao publicar', 'error');
-    } finally { setBusy(false); }
-  };
-
+function JournalistAdminPanel({ cs, bets, users, teamPlayers }) {
   return (
     <div className="card">
       <div className="card-head">
         <div className="title">JORNALISTA</div>
-        <div className="sub">{autoEvents.length} AUTO · {manualEvents.length} MANUAL</div>
+        <div className="sub">MODELO TABLOIDE</div>
       </div>
       <div className="card-body">
-        <div className="jr-mode">
-          <button type="button" className={'jr-mode-btn ' + (mode === 'eventos' ? 'active' : '')} onClick={() => setMode('eventos')}>EVENTOS → PROMPT</button>
-          <button type="button" className={'jr-mode-btn ' + (mode === 'tabloide' ? 'active' : '')} onClick={() => setMode('tabloide')}>MODELO TABLOIDE</button>
-        </div>
-        {mode === 'tabloide' && <TabloidBuilderPanel cs={cs} />}
-        {mode === 'eventos' && (<>
-        <p style={{ marginTop: 0, lineHeight: 1.5, fontSize: 13 }}>
-          O Jornalista detecta eventos automaticamente (resultados, apostas, próximos jogos)
-          e você pode adicionar eventos manuais (polêmicas, fofocas, manipulação suspeita).
-          Tudo entra no prompt e você gera a notícia + imagem fora, cola a resposta aqui,
-          revisa e publica.
-        </p>
-
-        {/* ──── EVENTOS MANUAIS (input + lista) ──── */}
-        <div className="small-label" style={{ marginTop: 14 }}>ADICIONAR EVENTO MANUAL (fofoca, polêmica, manipulação…)</div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-          <select value={manualSeverity} onChange={e => setManualSeverity(e.target.value)} style={{ padding: '8px 10px', border: '1.5px solid var(--pv-charcoal)', background: 'var(--pv-bone-2)', fontWeight: 800, fontSize: 11, letterSpacing: '0.14em', cursor: 'pointer' }}>
-            {SEVERITIES.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
-          </select>
-          <input
-            type="text" value={manualText} onChange={e => setManualText(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addManual(); } }}
-            placeholder="ex: Celin segurou o jogo a tarde inteira e tomou 3 gols nos 5 min finais — entregada?"
-            style={{ flex: 1, minWidth: 240, padding: 8, fontSize: 13, border: '1.5px solid rgba(28,22,18,0.4)', background: 'var(--pv-bone-2)' }}
-          />
-          <button onClick={addManual} disabled={!manualText.trim()} style={{ background: 'var(--pv-orange)', color: 'var(--pv-bone)', border: 'none', padding: '0 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.14em', cursor: manualText.trim() ? 'pointer' : 'not-allowed' }}>
-            + ADICIONAR
-          </button>
-        </div>
-        <div style={{ fontSize: 10, color: 'rgba(28,22,18,0.55)', marginTop: 6, lineHeight: 1.4 }}>
-          Eventos manuais ficam guardados no seu navegador (não vão pro Firestore).
-          {manualEvents.length > 0 && (
-            <> · <button onClick={clearManualHistory} style={{ background: 'transparent', border: 'none', color: 'var(--pv-red)', fontWeight: 700, cursor: 'pointer', padding: 0, textDecoration: 'underline', font: 'inherit' }}>limpar histórico</button></>
-          )}
-        </div>
-
-        {/* ──── LISTA UNIFICADA DE EVENTOS ──── */}
-        {allEvents.length === 0 ? (
-          <div className="empty" style={{ marginTop: 18 }}>
-            <div className="e1">SEM EVENTOS</div>
-            <div className="e2">Adicione um evento manual acima ou aguarde detecção automática (resultado, goleada, aposta gorda, próximo jogo).</div>
-          </div>
-        ) : (
-          <>
-            <div className="small-label" style={{ marginTop: 18 }}>EVENTOS PRA INCLUIR NA MATÉRIA ({selectedEvents.length}/{allEvents.length} selecionados)</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
-              {allEvents.map(e => {
-                const isManual = e.type === 'manual';
-                return (
-                  <label key={e.id} style={{
-                    display: 'flex', alignItems: 'flex-start', gap: 8,
-                    padding: '8px 10px',
-                    background: selectedIds.has(e.id) ? (isManual ? 'rgba(122,34,34,0.10)' : 'rgba(215,100,20,0.10)') : 'rgba(0,0,0,0.03)',
-                    border: '1.5px solid ' + (selectedIds.has(e.id) ? (isManual ? '#7a2222' : 'var(--pv-orange)') : 'rgba(28,22,18,0.15)'),
-                    cursor: 'pointer', fontSize: 12, lineHeight: 1.4,
-                  }}>
-                    <input type="checkbox" checked={selectedIds.has(e.id)} onChange={() => toggle(e.id)} style={{ marginTop: 2 }} />
-                    <div style={{ flex: 1 }}>
-                      <span style={{ fontSize: 9, letterSpacing: '0.2em', fontWeight: 800, color: isManual ? '#7a2222' : 'var(--pv-orange)', marginRight: 6 }}>
-                        {isManual ? ('MANUAL · ' + (e.severity || 'evento').toUpperCase()) : e.type.replace(/_/g, ' ').toUpperCase()}
-                      </span>
-                      {formatEventForPrompt(e)}
-                    </div>
-                    {isManual && (
-                      <button
-                        type="button"
-                        onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); removeManual(e.id); }}
-                        title="Remover evento manual"
-                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#7a2222', padding: 2, display: 'inline-flex' }}
-                      >
-                        <Icon name="x" size={14} />
-                      </button>
-                    )}
-                  </label>
-                );
-              })}
-            </div>
-
-            <div className="small-label" style={{ marginTop: 18 }}>1. PROMPT PRA CLAUDE/CHATGPT</div>
-            <textarea
-              value={prompt} readOnly
-              rows={8}
-              style={{ width: '100%', padding: 10, fontSize: 12, fontFamily: 'JetBrains Mono, monospace', border: '2px solid var(--pv-charcoal)', background: 'var(--pv-bone-2)', marginTop: 6, boxSizing: 'border-box', resize: 'vertical' }}
-              onClick={e => e.target.select()}
-            />
-            <button onClick={copyPrompt} style={{ marginTop: 6, background: 'var(--pv-orange)', color: 'var(--pv-bone)', border: 'none', padding: '8px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.14em', cursor: 'pointer' }}>
-              COPIAR PROMPT
-            </button>
-
-            <div className="small-label" style={{ marginTop: 18 }}>2. COLA A RESPOSTA DA IA AQUI</div>
-            <textarea
-              value={response} onChange={e => setResponse(e.target.value)}
-              placeholder='Cola aqui o JSON entre ```json e ``` + a linha IMAGE_PROMPT'
-              rows={10}
-              style={{ width: '100%', padding: 10, fontSize: 12, fontFamily: 'JetBrains Mono, monospace', border: '2px solid var(--pv-charcoal)', background: 'var(--pv-bone)', marginTop: 6, boxSizing: 'border-box', resize: 'vertical' }}
-            />
-            <button onClick={parse} disabled={!response.trim()} style={{ marginTop: 6, background: 'transparent', color: 'var(--pv-charcoal)', border: '2px solid var(--pv-charcoal)', padding: '8px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.14em', cursor: response.trim() ? 'pointer' : 'not-allowed' }}>
-              PARSEAR RESPOSTA
-            </button>
-
-            {parsed && (
-              <div style={{ marginTop: 18, padding: 14, border: '2px solid var(--pv-orange)', background: 'var(--pv-bone)' }}>
-                <div className="small-label">3. PRÉVIEW</div>
-                <div style={{ fontSize: 10, letterSpacing: '0.2em', fontWeight: 800, color: 'var(--pv-orange)', marginTop: 8 }}>{parsed.tag} · {parsed.date}</div>
-                <h3 style={{ fontFamily: 'Bungee Inline, Impact, sans-serif', fontSize: 20, margin: '6px 0', letterSpacing: '0.04em' }}>{parsed.title}</h3>
-                <p style={{ fontStyle: 'italic', color: 'rgba(28,22,18,0.7)', margin: '0 0 10px' }}>{parsed.subtitle}</p>
-                <div style={{ fontSize: 12, lineHeight: 1.5, whiteSpace: 'pre-wrap', borderTop: '1px dashed rgba(28,22,18,0.2)', paddingTop: 10 }}>{parsed.body}</div>
-
-                {parsed.imagePrompt && (
-                  <>
-                    <div className="small-label" style={{ marginTop: 14 }}>PROMPT DE IMAGEM (cola em DALL-E / Midjourney / Claude Design)</div>
-                    <textarea readOnly value={parsed.imagePrompt} rows={3} onClick={e => e.target.select()} style={{ width: '100%', padding: 8, fontSize: 11, fontFamily: 'JetBrains Mono, monospace', border: '1.5px solid rgba(28,22,18,0.3)', background: 'var(--pv-bone-2)', marginTop: 6, boxSizing: 'border-box', resize: 'vertical' }} />
-                  </>
-                )}
-
-                <div className="small-label" style={{ marginTop: 14 }}>4. CAMINHO DA IMAGEM (opcional)</div>
-                <input
-                  type="text" value={imagePath} onChange={e => setImagePath(e.target.value)}
-                  placeholder="ex: news/jornalista-2026-05-27.jpg"
-                  style={{ width: '100%', padding: 8, fontSize: 12, border: '1.5px solid rgba(28,22,18,0.4)', background: 'var(--pv-bone-2)', marginTop: 6, boxSizing: 'border-box' }}
-                />
-                <div style={{ fontSize: 10, color: 'rgba(28,22,18,0.6)', marginTop: 4, lineHeight: 1.4 }}>
-                  Gera a imagem no DALL-E/Midjourney/Claude Design, salva em <code>apostas/news/</code> com esse nome, commita no git, e cola o caminho acima. Pode publicar sem imagem (fica só texto).
-                </div>
-
-                <button onClick={publish} disabled={busy} style={{ marginTop: 14, background: 'var(--pv-charcoal)', color: 'var(--pv-bone)', border: 'none', padding: '10px 20px', fontWeight: 800, fontSize: 13, letterSpacing: '0.14em', cursor: busy ? 'wait' : 'pointer' }}>
-                  {busy ? 'PUBLICANDO…' : 'PUBLICAR NOTÍCIA'}
-                </button>
-                {msg && <div style={{ marginTop: 8, fontSize: 12, color: msg.startsWith('Erro') ? 'var(--pv-red)' : 'var(--pv-green)', fontWeight: 700 }}>{msg}</div>}
-              </div>
-            )}
-          </>
-        )}
-        </>)}
+        <TabloidBuilderPanel cs={cs} bets={bets} users={users} teamPlayers={teamPlayers} />
       </div>
     </div>
   );

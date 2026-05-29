@@ -2868,3 +2868,66 @@
       .tabs-mobile-btn { min-height: 50px; }
       .logout-btn, .weekly-chip, .pc-pill { min-height: 40px; }
     }
+
+    /* ─── TABLOIDE: pickers (campeonato + tipo) ─── */
+    .tp-pickers { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; margin-top: 6px; }
+    .tp-type-pick { display: flex; flex-direction: column; gap: 3px; }
+    .tp-type-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tp-type-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--pv-bone-2); border: 2px solid rgba(28,22,18,0.25);
+      padding: 8px 12px; font-weight: 800; font-size: 11px; letter-spacing: 0.08em;
+      cursor: pointer; font-family: inherit; color: rgba(28,22,18,0.6); min-height: 40px;
+    }
+    .tp-type-btn.active { background: var(--pv-charcoal); color: var(--pv-bone); border-color: var(--pv-charcoal); }
+    .tp-story-edit { border-left: 3px solid rgba(28,22,18,0.18); padding-left: 10px; margin-bottom: 6px; }
+
+    /* ─── PÔSTER: tipo EVENTOS (arte central + caixas) ─── */
+    .tp-event { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 16px; margin-top: 14px; }
+    .tp-event-hero { border: 4px solid #1c1612; background: rgba(28,22,18,0.06); display: flex; align-items: center; justify-content: center; min-height: 340px; overflow: hidden; }
+    .tp-event-hero .tp-hero-img { width: 100%; max-height: 460px; }
+    .tp-event-empty {
+      width: 100%; min-height: 340px; display: flex; align-items: center; justify-content: center;
+      font-family: 'Bungee Inline', Impact, sans-serif; font-size: 22px; color: rgba(28,22,18,0.35);
+      letter-spacing: 0.1em; text-align: center; border: none;
+    }
+    .tp-boxes { display: flex; flex-direction: column; gap: 12px; }
+    .tp-box {
+      border: 3px solid #1c1612; padding: 12px 14px; background: rgba(255,255,255,0.12);
+      box-shadow: inset 0 0 0 2px #d9c5a2, inset 0 0 0 4px rgba(28,22,18,0.45);
+    }
+    .tp-box-title {
+      font-family: 'Bungee Inline', Impact, sans-serif; font-size: 22px; text-transform: uppercase;
+      display: flex; align-items: center; gap: 8px; color: #b3401a; margin-bottom: 6px;
+    }
+    .tp-box-title svg { color: #c9a227; }
+    .tp-box-body { font-size: 15px; font-weight: 600; line-height: 1.3; }
+
+    /* ─── PÔSTER: tipo POLÊMICA (grid de zoeira) ─── */
+    .tp-stories { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 16px; }
+    .tp-story {
+      display: flex; gap: 12px; align-items: center; padding: 12px;
+      border: 3px solid #1c1612; background: rgba(255,255,255,0.14);
+      box-shadow: inset 0 0 0 2px #d9c5a2, inset 0 0 0 4px rgba(28,22,18,0.4);
+    }
+    .tp-story-good { border-left: 8px solid #2a8f3f; }
+    .tp-story-bad  { border-left: 8px solid #7a2222; }
+    .tp-story-spice{ border-left: 8px solid #b3401a; }
+    .tp-story-figure { position: relative; flex-shrink: 0; }
+    .tp-story-ico {
+      position: absolute; right: -6px; bottom: -6px; width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center; border-radius: 50%;
+      background: #1c1612; color: #f4ead7; border: 2px solid #d9c5a2;
+    }
+    .tp-story-good .tp-story-ico { background: #2a8f3f; }
+    .tp-story-bad  .tp-story-ico { background: #7a2222; }
+    .tp-story-spice .tp-story-ico { background: #b3401a; }
+    .tp-story-text { flex: 1; min-width: 0; }
+    .tp-story-kicker {
+      font-family: 'Bungee Inline', Impact, sans-serif; font-size: 17px; text-transform: uppercase;
+      color: #b3401a; line-height: 1; margin-bottom: 5px;
+    }
+    .tp-story-bad .tp-story-kicker { color: #7a2222; }
+    .tp-story-good .tp-story-kicker { color: #2a7a37; }
+    .tp-story-body { font-size: 14px; font-weight: 600; line-height: 1.3; }
+    @media (max-width: 720px) { .tp-pickers { gap: 10px; } }
