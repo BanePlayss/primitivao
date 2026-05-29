@@ -40,8 +40,8 @@
 //      auto-cleanup de cosmético inválido)
 //
 // 4. NAVIGATION & SHELL
-//    - TOP BAR (primary-nav: INÍCIO/CAMPEONATOS/COPA/HALL/DISCORD + avatar)
-//    - Tabs (campeonato) / Sidebar (MEU ESPAÇO: perfil/tickets/ranking/loja)
+//    - TOP BAR (primary-nav: APOSTAS/CAMPEONATOS/COPA/VITRINE/NEWS/MERCADINHO/DISCORD + avatar)
+//    - MobileNav (hamburger: tudo) / Sidebar (MEU ESPAÇO: perfil/tickets/ranking)
 //    - CAMPEONATO SELECTOR / "em breve"
 //    - ICONES SVG (componente <Icon> — ver ALL_ICON_NAMES / ADMIN CATÁLOGO)
 //
@@ -51,8 +51,8 @@
 // 6. CONQUISTAS & COSMÉTICOS
 //    - helpers (champStandingPos, maxBetStreak, wcExactCount, betsOf)
 //    - ACH (critérios de conquista — FONTE ÚNICA p/ títulos E distintivos)
-//    - TITLE_DEFS (16 títulos — label de texto) + titlesForNick/TitleBadge
-//    - ITEMS (molduras + 16 distintivos) + effectiveInventory/itemsDroppedFor
+//    - TITLE_DEFS (22 títulos — label de texto) + titlesForNick/TitleBadge
+//    - ITEMS (molduras + 30 distintivos) + effectiveInventory/itemsDroppedFor
 //
 // 7. VIEWS DE CONTEÚDO
 //    - INÍCIO (feed de notícias + comentários)
@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-mais-itens ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-perfil-boundary ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1459,6 +1459,33 @@ async function saveRemoteNews(newsArray) {
   await BET_DOC().set({ news: clean }, { merge: true });
 }
 
+// Error boundary por VIEW: se uma página quebra com algum dado inesperado,
+// mostra o erro num card (mantendo a navegação utilizável) em vez de deixar a
+// tela inteira em branco. Resetado automaticamente via key={view} no App.
+class ViewBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidCatch(err, info) { console.error('View crashed:', err, info); }
+  render() {
+    if (this.state.err) {
+      return (
+        <div className="card" style={{ marginTop: 8 }}>
+          <div className="card-head"><div className="title"><Icon name="warning" size={16} /> ALGO QUEBROU AQUI</div></div>
+          <div className="card-body">
+            <p style={{ marginTop: 0, fontSize: 13, lineHeight: 1.5 }}>
+              Essa página teve um erro inesperado. Tenta abrir outra aba do menu ou recarregar (Ctrl+Shift+R). Se persistir, manda esse texto pro admin:
+            </p>
+            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, color: 'var(--pv-red, #c33)', fontFamily: 'JetBrains Mono, monospace', margin: 0 }}>
+              {String((this.state.err && this.state.err.message) || this.state.err)}
+            </pre>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
   const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {}, comments: {}, worldcup: { results: {}, picks: {} } });
   const { users, fixtures, bets, interests, teamPlayers, comments, worldcup } = shared;
@@ -1473,23 +1500,15 @@ function App() {
   const [session, _setSession] = useState(loadSession);
   const setSession = (s) => { saveSession(s); _setSession(s); };
 
-  const [tab, setTab]       = useState('apostar');
   const [slip, setSlip]     = useState([]); // [{fixtureId='rXgY', market, pick, odds}]
   const [synced, setSynced] = useState(false);
   const [championship, setChampionship] = useState('fifa');
   // VIEW principal — controla qual "página" mostrar:
-  //   inicio | campeonatos | copa | hall | perfil | tickets | ranking | loja | admin
+  //   apostas | campeonatos | copa | hall | inicio(NEWS) | loja | perfil | tickets | ranking | admin
   // 'discord' não é view — abre link externo direto.
-  // tab só é usado DENTRO de 'campeonatos' (classificacao | apostar).
-  const [view, setView] = useState('inicio');
-  // Garantia: ao entrar em 'campeonatos', o tab precisa ser válido pra UI
-  // (classificacao ou apostar). Se vier de outra view com tab antigo, força
-  // 'apostar' (JOGOS) como default — evita tela vazia.
-  useEffect(() => {
-    if (view === 'campeonatos' && tab !== 'classificacao' && tab !== 'apostar') {
-      setTab('apostar');
-    }
-  }, [view]);
+  // APOSTAS (jogos pra apostar) é a tela inicial. CAMPEONATOS = classificação.
+  // Ambas são escopadas pelo `championship` selecionado.
+  const [view, setView] = useState('apostas');
   // Cupom compartilhado por URL (?cupom=...) — quando setado, mostra modal
   // de preview com botão "USAR" que joga as legs no slip atual.
   const [sharedSlip, setSharedSlip] = useState(null);
@@ -1826,7 +1845,7 @@ function App() {
     }
   };
 
-  const logout = () => { setSession(null); setTab('apostar'); setSlip([]); };
+  const logout = () => { setSession(null); setView('apostas'); setSlip([]); };
 
   // Bônus semanal via transação: revalida elegibilidade contra dados REMOTOS
   // pra evitar dois cliques rápidos creditarem em dobro, ou ser sobrescrito.
@@ -2285,12 +2304,12 @@ function App() {
 
   const active = CHAMP_BY_ID[championship] || CHAMPIONSHIPS[0];
   const isActiveChamp = active.status === 'active';
-  // Tabs específicas do CAMPEONATO ativo (precisam de cs.rounds, games, etc).
-  // MEUS TICKETS é global (mostra apostas do user em qualquer estado).
-  const champTabs = new Set(['classificacao', 'apostar']);
-  // Quando o campeonato selecionado não tá ativo, e o usuário tenta acessar
-  // uma aba "do campeonato", mostramos a página "EM BREVE" no lugar.
-  const showPlaceholder = !isActiveChamp && champTabs.has(tab);
+  // APOSTAS e CAMPEONATOS são escopadas pelo campeonato selecionado (precisam
+  // de cs.rounds, games, etc). As demais views são globais.
+  const champScopedView = view === 'apostas' || view === 'campeonatos';
+  // Quando o campeonato selecionado não tá ativo e o usuário está numa view
+  // escopada por campeonato, mostramos a página "EM BREVE" no lugar.
+  const showPlaceholder = champScopedView && !isActiveChamp;
 
   return (
     <>
@@ -2304,13 +2323,17 @@ function App() {
         onClaimWeekly={claimWeekly}
         view={view}
         onView={setView}
-        onTab={setTab}
         teamPlayers={teamPlayers || {}}
         myCosmetics={me?.cosmetics || {}}
       />
       <div className="below-topbar">
         <div className="content-area">
           <div className="page">
+            {/* Navegação mobile (some no desktop). Sempre montada pra que as
+                telas globais — perfil/tickets/ranking — sejam alcançáveis de
+                qualquer view, já que a Sidebar fica escondida no mobile. */}
+            <MobileNav view={view} setView={setView} isAdmin={isAdmin} />
+            <ViewBoundary key={view}>
             {view === 'inicio' && (
               <InicioView
                 session={session}
@@ -2335,41 +2358,56 @@ function App() {
             {view === 'hall' && (
               <HallView cs={cs} users={users} teamPlayers={teamPlayers || {}} worldcup={worldcup} wcFixtures={wcData.matches} myNick={session.nick} />
             )}
+            {/* APOSTAS — tela inicial: jogos pra apostar do campeonato selecionado. */}
+            {view === 'apostas' && (<>
+              <ChampionshipSelector
+                value={championship}
+                onChange={setChampionship}
+                interests={interests || {}}
+              />
+              {showPlaceholder ? (
+                <ChampionshipPlaceholder
+                  champ={active}
+                  session={session}
+                  interested={!!(interests?.[active.id]?.[session.nick])}
+                  count={Object.keys(interests?.[active.id] || {}).length}
+                  list={Object.keys(interests?.[active.id] || {}).sort()}
+                  isAdmin={isAdmin}
+                  onToggleInterest={() => toggleInterest(active.id)}
+                />
+              ) : (
+                <ApostarView
+                  games={games} gamesById={gamesById} bets={bets} me={me} session={session} users={users}
+                  weeklyReady={weeklyReady} weeklyIn={weeklyIn} onClaim={claimWeekly}
+                  slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
+                  onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin}
+                  slipPruneMsg={slipPruneMsg}
+                  onToggleLock={toggleGameLock}
+                />
+              )}
+            </>)}
+
+            {/* CAMPEONATOS — classificação do campeonato selecionado. */}
             {view === 'campeonatos' && (<>
-            <ChampionshipSelector
-              value={championship}
-              onChange={setChampionship}
-              interests={interests || {}}
-            />
-
-            <Tabs tab={tab} setTab={setTab} isAdmin={isAdmin} />
-
-        {showPlaceholder && (
-          <ChampionshipPlaceholder
-            champ={active}
-            session={session}
-            interested={!!(interests?.[active.id]?.[session.nick])}
-            count={Object.keys(interests?.[active.id] || {}).length}
-            list={Object.keys(interests?.[active.id] || {}).sort()}
-            isAdmin={isAdmin}
-            onToggleInterest={() => toggleInterest(active.id)}
-          />
-        )}
-
-        {!showPlaceholder && tab === 'apostar' && (
-          <ApostarView
-            games={games} gamesById={gamesById} bets={bets} me={me} session={session} users={users}
-            weeklyReady={weeklyReady} weeklyIn={weeklyIn} onClaim={claimWeekly}
-            slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
-            onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin}
-            slipPruneMsg={slipPruneMsg}
-            onToggleLock={toggleGameLock}
-          />
-        )}
-        {!showPlaceholder && tab === 'classificacao' && (
-          <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin}
-                             users={users} teamPlayers={teamPlayers || {}} />
-        )}
+              <ChampionshipSelector
+                value={championship}
+                onChange={setChampionship}
+                interests={interests || {}}
+              />
+              {showPlaceholder ? (
+                <ChampionshipPlaceholder
+                  champ={active}
+                  session={session}
+                  interested={!!(interests?.[active.id]?.[session.nick])}
+                  count={Object.keys(interests?.[active.id] || {}).length}
+                  list={Object.keys(interests?.[active.id] || {}).sort()}
+                  isAdmin={isAdmin}
+                  onToggleInterest={() => toggleInterest(active.id)}
+                />
+              ) : (
+                <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin}
+                                   users={users} teamPlayers={teamPlayers || {}} />
+              )}
             </>)}
 
             {/* Globais — independem de campeonato. Cada um é uma view inteira. */}
@@ -2410,6 +2448,7 @@ function App() {
                 cs={cs} weeklyReady={weeklyReady}
               />
             )}
+            </ViewBoundary>
           </div>
         </div>
         <Sidebar
@@ -2425,8 +2464,7 @@ function App() {
           onClose={() => setSharedSlip(null)}
           onUse={(legs) => {
             setSlip(legs);
-            setTab('apostar');
-            setView('campeonatos');
+            setView('apostas');
             showToast(`${legs.length} palpite${legs.length === 1 ? '' : 's'} adicionado${legs.length === 1 ? '' : 's'} ao seu cupom`, 'success');
           }}
         />
@@ -2437,7 +2475,7 @@ function App() {
 }
 
 // ─── TOP BAR / TABS ─────────────────────────────────────────────────────────
-function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly, view, onView, onTab, teamPlayers, myCosmetics }) {
+function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly, view, onView, teamPlayers, myCosmetics }) {
   const days = Math.floor(weeklyIn / (24 * 60 * 60 * 1000));
   const hrs  = Math.floor((weeklyIn % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
   const mins = Math.floor((weeklyIn % (60 * 60 * 1000)) / (60 * 1000));
@@ -2453,10 +2491,12 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
         </div>
       </div>
       <nav className="primary-nav" aria-label="Navegação principal">
-        <button className={'pnav ' + (view === 'inicio' ? 'active' : '')} onClick={() => onView && onView('inicio')}>INÍCIO</button>
+        <button className={'pnav ' + (view === 'apostas' ? 'active' : '')} onClick={() => onView && onView('apostas')}>APOSTAS</button>
         <button className={'pnav ' + (view === 'campeonatos' ? 'active' : '')} onClick={() => onView && onView('campeonatos')}>CAMPEONATOS</button>
         <button className={'pnav ' + (view === 'copa' ? 'active' : '')} onClick={() => onView && onView('copa')}>COPA DO MUNDO</button>
         <button className={'pnav ' + (view === 'hall' ? 'active' : '')} onClick={() => onView && onView('hall')}>VITRINE</button>
+        <button className={'pnav ' + (view === 'inicio' ? 'active' : '')} onClick={() => onView && onView('inicio')}>NEWS</button>
+        <button className={'pnav ' + (view === 'loja' ? 'active' : '')} onClick={() => onView && onView('loja')}>MERCADINHO</button>
         <button className="pnav pnav-ext" onClick={goDiscord} title="Abre em nova aba">
           DISCORD <span className="pnav-ext-icon"><Icon name="arrow-up-right" size={12} /></span>
         </button>
@@ -2628,29 +2668,32 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
   );
 }
 
-// Lista canônica de tabs: definida fora pra Tabs (topo) e Sidebar (lateral)
-// usarem a mesma fonte da verdade.
+// Itens de navegação — fonte única pra Sidebar (desktop) e MobileNav (mobile).
+// sectionItems = páginas principais (= primary-nav no desktop). globalItems =
+// "meu espaço" (sidebar no desktop). MERCADINHO foi pro topo (sectionItems).
 function getTabItems(isAdmin) {
-  const champItems = [
-    { id: 'classificacao', label: 'CLASSIFICAÇÃO', icon: 'chart' },
-    { id: 'apostar',       label: 'JOGOS',          icon: 'target' },
+  const sectionItems = [
+    { id: 'apostas',     label: 'APOSTAS',       icon: 'ticket' },
+    { id: 'campeonatos', label: 'CAMPEONATOS',   icon: 'chart' },
+    { id: 'copa',        label: 'COPA DO MUNDO', icon: 'globe' },
+    { id: 'hall',        label: 'VITRINE',       icon: 'trophy' },
+    { id: 'inicio',      label: 'NEWS',          icon: 'newspaper' },
+    { id: 'loja',        label: 'MERCADINHO',    icon: 'coin' },
   ];
   const globalItems = [
     { id: 'perfil',   label: 'MEU PERFIL',   icon: 'user' },
     { id: 'tickets',  label: 'MEUS TICKETS', icon: 'ticket' },
     { id: 'ranking',  label: 'RANKING',      icon: 'trophy' },
-    { id: 'loja',     label: 'MERCADINHO',   icon: 'coin' },
   ];
   if (isAdmin) globalItems.push({ id: 'admin', label: 'ADMIN', icon: 'shield' });
-  return { champItems, globalItems };
+  return { sectionItems, globalItems };
 }
 
-// Tabs do TOPO (só itens do campeonato no desktop) + hamburger drawer no mobile
-// com TODOS os itens (champ + global), pra não precisar abrir sidebar separada.
-function Tabs({ tab, setTab, isAdmin }) {
-  const { champItems, globalItems } = getTabItems(isAdmin);
-  const allItems = [...champItems, ...globalItems];
-  const current = allItems.find(it => it.id === tab) || allItems[0];
+// Navegação MOBILE: hamburger + drawer com TODAS as páginas (seções + globais).
+// Some no desktop — lá a primary-nav (topo) + Sidebar (direita) cobrem. No mobile
+// a primary-nav fica escondida (CSS), então este é o menu único de navegação.
+function MobileNav({ view, setView, isAdmin }) {
+  const { sectionItems, globalItems } = getTabItems(isAdmin);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -2669,56 +2712,50 @@ function Tabs({ tab, setTab, isAdmin }) {
     };
   }, [open]);
 
-  const pick = (id) => { setTab(id); setOpen(false); };
+  // Label do botão = nome da tela atual.
+  const allItems = [...sectionItems, ...globalItems];
+  const currentLabel = (allItems.find(it => it.id === view) || {}).label || 'MENU';
+
+  const go = (id) => { setView(id); setOpen(false); };
+  const goDiscord = () => {
+    window.open('https://discord.gg/CgjuJSYW5u', '_blank', 'noopener,noreferrer');
+    setOpen(false);
+  };
 
   return (
-    <>
-      {/* Desktop: só tabs DO CAMPEONATO horizontais no topo do conteúdo.
-          As globais ficam na Sidebar à direita. */}
-      <div className="tabs">
-        <div className="tabs-group tabs-group-left">
-          {champItems.map(it => (
-            <button key={it.id} className={'tab ' + (tab === it.id ? 'active' : '')} onClick={() => pick(it.id)}>
+    <div className="tabs-mobile">
+      <button
+        className="tabs-mobile-btn"
+        aria-expanded={open}
+        aria-label="Menu de navegação"
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="tabs-hamb"><Icon name={open ? 'x' : 'menu'} size={18} /></span>
+        <span className="tabs-current">{currentLabel}</span>
+        <span className="tabs-chev"><Icon name={open ? 'caret-up' : 'caret-down'} size={12} /></span>
+      </button>
+      {open && (
+        <div className="tabs-drawer" role="menu">
+          <div className="tabs-drawer-section-label">NAVEGAR</div>
+          {sectionItems.map(it => (
+            <button key={it.id} role="menuitem"
+                    className={'tabs-drawer-item ' + (view === it.id ? 'active' : '')}
+                    onClick={() => go(it.id)}>
               {it.label}
             </button>
           ))}
+          <div className="tabs-drawer-section-label">MEU ESPAÇO</div>
+          {globalItems.map(it => (
+            <button key={it.id} role="menuitem"
+                    className={'tabs-drawer-item ' + (view === it.id ? 'active' : '')}
+                    onClick={() => go(it.id)}>
+              {it.label}
+            </button>
+          ))}
+          <button role="menuitem" className="tabs-drawer-item" onClick={goDiscord}>DISCORD</button>
         </div>
-      </div>
-
-      {/* Mobile: hamburguer + drawer com tudo (champ + global). */}
-      <div className="tabs-mobile">
-        <button
-          className="tabs-mobile-btn"
-          aria-expanded={open}
-          aria-label="Menu de navegação"
-          onClick={() => setOpen(o => !o)}
-        >
-          <span className="tabs-hamb"><Icon name={open ? 'x' : 'menu'} size={18} /></span>
-          <span className="tabs-current">{current.label}</span>
-          <span className="tabs-chev"><Icon name={open ? 'caret-up' : 'caret-down'} size={12} /></span>
-        </button>
-        {open && (
-          <div className="tabs-drawer" role="menu">
-            <div className="tabs-drawer-section-label">DESTE CAMPEONATO</div>
-            {champItems.map(it => (
-              <button key={it.id} role="menuitem"
-                      className={'tabs-drawer-item ' + (tab === it.id ? 'active' : '')}
-                      onClick={() => pick(it.id)}>
-                {it.label}
-              </button>
-            ))}
-            <div className="tabs-drawer-section-label">GLOBAL</div>
-            {globalItems.map(it => (
-              <button key={it.id} role="menuitem"
-                      className={'tabs-drawer-item ' + (tab === it.id ? 'active' : '')}
-                      onClick={() => pick(it.id)}>
-                {it.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </>
+      )}
+    </div>
   );
 }
 
@@ -3883,6 +3920,13 @@ function CopaRanking({ users, fixtures, results, picks, myNick }) {
           <div className="sub">{rows.length} JOGADORES · {fixtures.length} JOGOS · CLIQUE NO NICK PRA VER PALPITES</div>
         </div>
         <div className="card-body">
+          {/* Legenda visível (no toque o tooltip via title= não aparece). */}
+          <div className="wc-rank-legend">
+            <span><strong>×3</strong> placar exato</span>
+            <span><strong>×1</strong> resultado certo</span>
+            <span><strong>×0</strong> erro</span>
+            <span><strong>palp</strong> palpitados</span>
+          </div>
           {rows.length === 0 && <div className="empty"><div className="e2">Ninguém cadastrado ainda.</div></div>}
           {rows.map((r, i) => (
             <button
@@ -4878,6 +4922,17 @@ function wcExactCount(nick, worldcup) {
 
 const betsOf = (bets, nick) => (Array.isArray(bets) ? bets : []).filter(b => b.user === nick);
 
+// Soma de TUDO que o nick já colocou em cupons (qualquer status). Mede volume.
+const totalWagered = (bets, nick) => betsOf(bets, nick).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+
+// Status da primeira aposta JÁ RESOLVIDA (won/lost) do nick, por createdAt. null se nenhuma.
+function firstSettledStatus(bets, nick) {
+  const m = betsOf(bets, nick)
+    .filter(b => b.status === 'won' || b.status === 'lost')
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  return m.length > 0 ? m[0].status : null;
+}
+
 // ─── CRITÉRIOS DE CONQUISTA (fonte única) ───────────────────────────────────
 // Cada predicado recebe ctx { nick, bets, users, teamPlayers, cs, worldcup }.
 // Títulos E distintivos referenciam DAQUI — assim o critério vive num só
@@ -4900,6 +4955,12 @@ const ACH = {
   coldFoot:    ({ nick, bets }) => maxBetStreak(bets, nick, 'lost') >= 5,
   copaPlayer:  ({ nick, worldcup }) => Object.keys((worldcup && worldcup.picks && worldcup.picks[nick]) || {}).length >= 1,
   copaSeer:    ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 1,
+  copaOracle:  ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 5,
+  underdog:    ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Array.isArray(b.legs) && b.legs.length === 1 && Number(b.combinedOdds) >= 5),
+  luckyStart:  ({ nick, bets }) => firstSettledStatus(bets, nick) === 'won',
+  whale:       ({ nick, bets }) => totalWagered(bets, nick) >= 1000000,
+  allIn:       ({ nick, bets }) => betsOf(bets, nick).some(b => Array.isArray(b.legs) && b.legs.length >= 8),
+  collector:   (ctx) => effectiveInventory(ctx.nick, (ctx.users || {})[ctx.nick], ctx).length >= 5,
 };
 
 // ─── TÍTULOS DO USUÁRIO ─────────────────────────────────────────────────────
@@ -4939,9 +5000,21 @@ const TITLE_DEFS = [
     desc: 'Venceu 5 apostas seguidas. Tá pegando fogo, bicho.', check: ACH.hotHand },
   { id: 'pe_frio', name: 'PÉ FRIO', icon: 'skull', color: '#5a5a5a',
     desc: 'Perdeu 5 apostas seguidas. O VARIMITIVÃO tá de olho.', check: ACH.coldFoot },
+  { id: 'azarao', name: 'AZARÃO', icon: 'arrow-up-right', color: '#2a8f3f',
+    desc: 'Venceu uma aposta simples com odd 5x ou mais. Ninguém dava nada por ele.', check: ACH.underdog },
+  { id: 'sorte_novato', name: 'SORTE DE NOVATO', icon: 'sparkle', color: '#c9a227',
+    desc: 'Venceu a PRIMEIRA aposta da vida no Primitivão. Começou voando.', check: ACH.luckyStart },
+  { id: 'tubarao', name: 'TUBARÃO', icon: 'coin-stack', color: '#2a6f8f',
+    desc: 'Movimentou 1.000.000 PC somando todos os cupons. Peixe grande do mercado.', check: ACH.whale },
+  { id: 'tudo_ou_nada', name: 'TUDO OU NADA', icon: 'bolt', color: '#a8324f',
+    desc: 'Montou uma casada com 8 palpites ou mais. Coragem (ou teimosia) de sobra.', check: ACH.allIn },
+  { id: 'colecionador', name: 'COLECIONADOR', icon: 'gift', color: '#7a4dc9',
+    desc: 'Desbloqueou 5 itens cosméticos ou mais. Vaidoso assumido.', check: ACH.collector },
   // ── Copa do Mundo ──
   { id: 'vidente_copa', name: 'VIDENTE DA COPA', icon: 'globe', color: '#1c7a6e',
     desc: 'Acertou um placar EXATO no bolão da Copa do Mundo (3 pts).', check: ACH.copaSeer },
+  { id: 'oraculo_copa', name: 'ORÁCULO DA COPA', icon: 'eye', color: '#1c7a6e',
+    desc: 'Acertou 5 placares EXATOS no bolão da Copa. Não é palpite, é dom.', check: ACH.copaOracle },
 ];
 // ─── ITEMS COSMÉTICOS (LOJA) ────────────────────────────────────────────────
 // MVP: 2 slots (frame + badge). Cada item tem 1 dos modos:
@@ -5060,6 +5133,31 @@ const ITEMS = [
     id: 'badge-profeta', slot: 'badge', name: 'Profeta', icon: 'target', color: '#3a78c2', rarity: 'rara',
     desc: 'Venceu uma aposta com odd 20x ou mais. Vidência pura.',
     drop: ACH.prophet,
+  },
+  {
+    id: 'badge-azarao', slot: 'badge', name: 'Azarão', icon: 'arrow-up-right', color: '#2a8f3f', rarity: 'rara',
+    desc: 'Venceu uma simples com odd 5x ou mais. Zebra confirmada.',
+    drop: ACH.underdog,
+  },
+  {
+    id: 'badge-novato', slot: 'badge', name: 'Sorte de Novato', icon: 'sparkle', color: '#c9a227', rarity: 'comum',
+    desc: 'Venceu a primeira aposta da vida no Primitivão.',
+    drop: ACH.luckyStart,
+  },
+  {
+    id: 'badge-tubarao', slot: 'badge', name: 'Tubarão', icon: 'coin-stack', color: '#2a6f8f', rarity: 'lendaria',
+    desc: 'Movimentou 1.000.000 PC somando todos os cupons.',
+    drop: ACH.whale,
+  },
+  {
+    id: 'badge-tudo-ou-nada', slot: 'badge', name: 'Tudo ou Nada', icon: 'bolt', color: '#a8324f', rarity: 'rara',
+    desc: 'Montou uma casada com 8 palpites ou mais.',
+    drop: ACH.allIn,
+  },
+  {
+    id: 'badge-oraculo', slot: 'badge', name: 'Oráculo da Copa', icon: 'eye', color: '#1c7a6e', rarity: 'lendaria',
+    desc: 'Acertou 5 placares EXATOS no bolão da Copa.',
+    drop: ACH.copaOracle,
   },
 ];
 
@@ -5556,7 +5654,7 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
       </div>
       <div className="card-body">
         <p style={{ marginTop: 0, marginBottom: 10, fontSize: 11, color: 'rgba(28,22,18,0.6)', lineHeight: 1.4 }}>
-          Clica num título conquistado pra exibir no seu nome. Passa o mouse pra ver o que é e quem tem.
+          Clica num título conquistado pra exibir no seu nome. Toca (ou passa o mouse) pra ver o que é e quem tem.
         </p>
 
         {earned.length > 0 ? (

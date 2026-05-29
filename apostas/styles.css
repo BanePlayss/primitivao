@@ -1524,14 +1524,9 @@
       .weekly-chip { padding: 4px 8px; }
       .weekly-chip-main { font-size: 12px; }
       .weekly-chip-sub { font-size: 7px; letter-spacing: 0.16em; }
-      /* Primary nav vira segunda linha embaixo da brand+wallet */
-      .primary-nav {
-        order: 99; width: 100%;
-        justify-content: center;
-        flex-wrap: wrap; gap: 2px;
-        padding-top: 6px; border-top: 1.5px dashed rgba(244,234,215,0.18);
-      }
-      .pnav { padding: 6px 12px; font-size: 11px; letter-spacing: 0.12em; }
+      /* No mobile a navegação inteira vive no MobileNav (hamburger drawer),
+         então a primary-nav do topo some pra não duplicar. */
+      .primary-nav { display: none; }
       /* Hero do início encolhe */
       .inicio-hero { padding: 14px 16px; }
       .inicio-hero-title { font-size: 22px; }
@@ -2308,6 +2303,38 @@
       border-top: 1px dashed rgba(244,234,215,0.3);
       font-size: 10px; line-height: 1.4; font-weight: 700;
       color: rgba(244,234,215,0.7);
+    }
+    /* Legenda do ranking do bolão — visível p/ todos (o toque não mostra title=). */
+    .wc-rank-legend {
+      display: flex; flex-wrap: wrap; gap: 6px 14px;
+      margin: 0 0 12px; padding-bottom: 10px;
+      border-bottom: 1px dashed rgba(28,22,18,0.18);
+      font-size: 10px; letter-spacing: 0.04em; color: rgba(28,22,18,0.6);
+    }
+    .wc-rank-legend strong { color: var(--pv-orange); font-family: "JetBrains Mono", monospace; }
+
+    /* No toque, hover não existe: revela a descrição do título ao tocar (focus)
+       e troca o tooltip flutuante por um bloco inline (não estoura a tela). */
+    @media (max-width: 720px) {
+      .titulos-chips { flex-direction: column; }
+      .titulo-chip-wrap { width: 100%; }
+      .titulo-chip { width: 100%; }
+      .titulo-tooltip {
+        position: static; transform: none; left: auto; bottom: auto;
+        min-width: 0; max-width: none; width: 100%;
+        display: none; opacity: 1; pointer-events: auto;
+        margin-top: 6px; box-shadow: none;
+      }
+      .titulo-tooltip::after { display: none; }
+      .titulo-chip-wrap:focus-within .titulo-tooltip { display: block; }
+    }
+
+    /* Alvos de toque: em telas de toque, botões-ícone pequenos sobem pro mínimo
+       confortável (~44px) sem inchar o layout no desktop/mouse. */
+    @media (pointer: coarse) {
+      .cupom-leg-x,
+      .comment-del,
+      .shared-slip-close { min-width: 44px; min-height: 44px; }
     }
 
     /* ──── AVATARES ──── */
