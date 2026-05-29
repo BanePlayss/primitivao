@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-insc-mobile ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-apostas-fix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2335,12 +2335,15 @@ function App() {
 
   const active = CHAMP_BY_ID[championship] || CHAMPIONSHIPS[0];
   const isActiveChamp = active.status === 'active';
-  // APOSTAS e CAMPEONATOS são escopadas pelo campeonato selecionado (precisam
-  // de cs.rounds, games, etc). As demais views são globais.
-  const champScopedView = view === 'apostas' || view === 'campeonatos';
-  // Quando o campeonato selecionado não tá ativo e o usuário está numa view
-  // escopada por campeonato, mostramos a página "EM BREVE" no lugar.
-  const showPlaceholder = champScopedView && !isActiveChamp;
+  // APOSTAS é SÓ pra apostar — sempre num campeonato ATIVO. O `championship` é
+  // compartilhado com CAMPEONATOS (que pode mostrar um "em breve"); se o
+  // selecionado não estiver ativo, a aba APOSTAS cai pro primeiro ativo SEM
+  // mexer na seleção do CAMPEONATOS. (Fix: voltar pra APOSTAS ficava "em breve".)
+  const firstActiveChampId = (CHAMPIONSHIPS.find(c => c.status === 'active') || CHAMPIONSHIPS[0]).id;
+  const apostasChampId = isActiveChamp ? championship : firstActiveChampId;
+  // CAMPEONATOS mostra a página "EM BREVE" quando o campeonato selecionado não
+  // está ativo. APOSTAS nunca mostra (sempre usa apostasChampId, que é ativo).
+  const showPlaceholder = view === 'campeonatos' && !isActiveChamp;
 
   return (
     <>
@@ -2389,33 +2392,22 @@ function App() {
             {view === 'hall' && (
               <HallView cs={cs} users={users} teamPlayers={teamPlayers || {}} worldcup={worldcup} wcFixtures={wcData.matches} myNick={session.nick} />
             )}
-            {/* APOSTAS — tela inicial: jogos pra apostar do campeonato selecionado. */}
-            {view === 'apostas' && (<>
-              {showPlaceholder ? (<>
-                {/* EM BREVE: switcher compacto pra poder voltar pro campeonato ativo */}
-                <ChampHeader value={championship} onChange={setChampionship} interests={interests || {}} bare />
-                <ChampionshipPlaceholder
-                  champ={active}
-                  session={session}
-                  interested={!!(interests?.[active.id]?.[session.nick])}
-                  count={Object.keys(interests?.[active.id] || {}).length}
-                  list={Object.keys(interests?.[active.id] || {}).sort()}
-                  isAdmin={isAdmin}
-                  onToggleInterest={() => toggleInterest(active.id)}
-                />
-              </>) : (
-                <ApostarView
-                  games={games} gamesById={gamesById} bets={bets} me={me} session={session} users={users}
-                  weeklyReady={weeklyReady} weeklyIn={weeklyIn} onClaim={claimWeekly}
-                  slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
-                  onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin}
-                  slipPruneMsg={slipPruneMsg}
-                  onToggleLock={toggleGameLock}
-                  championship={championship} setChampionship={setChampionship}
-                  interests={interests || {}}
-                />
-              )}
-            </>)}
+            {/* APOSTAS — só apostar. SEMPRE num campeonato ATIVO (apostasChampId);
+                se o selecionado for "em breve", cai pro ativo sem perder a
+                seleção do CAMPEONATOS. Inscrição em "em breve" é na aba
+                CAMPEONATOS (e o cancelamento no MEU PERFIL). */}
+            {view === 'apostas' && (
+              <ApostarView
+                games={games} gamesById={gamesById} bets={bets} me={me} session={session} users={users}
+                weeklyReady={weeklyReady} weeklyIn={weeklyIn} onClaim={claimWeekly}
+                slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
+                onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin}
+                slipPruneMsg={slipPruneMsg}
+                onToggleLock={toggleGameLock}
+                championship={apostasChampId} setChampionship={setChampionship}
+                interests={interests || {}}
+              />
+            )}
 
             {/* CAMPEONATOS — classificação do campeonato selecionado. */}
             {view === 'campeonatos' && (<>
@@ -2586,8 +2578,11 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
 // em cima e a identidade do campeonato (FIFA · SEASON 1) embaixo, com um
 // dropdown "TROCAR" pra alternar entre campeonatos (ativo e os EM BREVE).
 // `bare` = variante leve (sem caixa escura), usada na classificação e no EM BREVE.
-function ChampHeader({ value, onChange, interests, title, tag, stats, bare }) {
+function ChampHeader({ value, onChange, interests, title, tag, stats, bare, activeOnly }) {
   const active = CHAMP_BY_ID[value] || CHAMPIONSHIPS[0];
+  // activeOnly: usado na aba APOSTAS — o switcher só lista campeonatos ATIVOS
+  // (não dá pra "trocar" pra um EM BREVE no meio das apostas).
+  const switcherList = activeOnly ? CHAMPIONSHIPS.filter(c => c.status === 'active') : CHAMPIONSHIPS;
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -2632,7 +2627,7 @@ function ChampHeader({ value, onChange, interests, title, tag, stats, bare }) {
           </button>
           {open && (
             <div className="champ-switcher-menu" role="menu">
-              {CHAMPIONSHIPS.map(c => {
+              {switcherList.map(c => {
                 const isSel = c.id === value;
                 const isComing = c.status !== 'active';
                 const count = Object.keys(interests?.[c.id] || {}).length;
@@ -4480,6 +4475,7 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
           value={championship}
           onChange={setChampionship}
           interests={interests || {}}
+          activeOnly
           title={firstRound ? 'RODADA ' + String(firstRound).padStart(2, '0') : 'SEM JOGOS ABERTOS'}
           tag={firstRound ? 'ATUAL' : null}
           stats={totalGames > 0 ? (
