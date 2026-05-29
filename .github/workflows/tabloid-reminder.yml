@@ -1,0 +1,26 @@
+name: Sunday Tabloid Reminder
+
+# Todo domingo posta no Discord um lembrete de que sai a edição do
+# PRIMITIVÃO TIMES. 15:00 UTC = 12:00 BRT (meio-dia de domingo, dá tempo
+# de montar e exportar o tabloide antes dos jogos da noite).
+# Também dá pra disparar na mão em Actions -> Run workflow.
+on:
+  schedule:
+    - cron: '0 15 * * 0'
+  workflow_dispatch:
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install firebase (Web SDK, só leitura)
+        run: npm install --no-save firebase@^10
+
+      - name: Post reminder to Discord
+        run: node scripts/sunday-tabloid-reminder.mjs

@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-sempre-ativo ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-vol-lembrete ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6626,6 +6626,18 @@ function saveManualEvents(arr) {
   catch (e) { /* ignora */ }
 }
 
+// Volume do tabloide auto-incrementa a cada edição: guardamos o ÚLTIMO volume
+// exportado (no browser do admin). Ao abrir/recarregar, o painel mostra
+// último+1. Ao exportar, grava o volume daquela edição.
+const TABLOID_VOL_KEY = 'primitivao_tabloid_vol';
+function loadLastTabloidVol() {
+  try { const v = parseInt(localStorage.getItem(TABLOID_VOL_KEY), 10); return Number.isFinite(v) ? v : null; }
+  catch (e) { return null; }
+}
+function saveLastTabloidVol(n) {
+  try { localStorage.setItem(TABLOID_VOL_KEY, String(n)); } catch (e) { /* ignora */ }
+}
+
 // ─── TABLOIDE (modelo pré-definido "PRIMITIVÃO TIMES") ──────────────────────
 // Inputs reutilizáveis (top-level pra não remontar e perder foco a cada tecla).
 function TpField({ label, value, onChange, placeholder }) {
@@ -6851,7 +6863,14 @@ function TabloidPoster({ data }) {
 
 // O painel: formulário (esquerda) + prévia ao vivo (direita) + exportar PNG.
 function TabloidBuilderPanel({ cs }) {
-  const [data, setData] = useState(() => buildTabloidData(cs));
+  // Monta os dados já com o VOLUME avançado (último exportado + 1).
+  const makeData = () => {
+    const d = buildTabloidData(cs);
+    const last = loadLastTabloidVol();
+    if (last != null) d.volume = String(last + 1).padStart(2, '0');
+    return d;
+  };
+  const [data, setData] = useState(makeData);
   const [exporting, setExporting] = useState(false);
   const posterRef = useRef(null);
   const stageRef = useRef(null);
@@ -6887,7 +6906,7 @@ function TabloidBuilderPanel({ cs }) {
 
   const reload = () => {
     if (!confirm('Recarregar os dados da classificação? Você perde as edições manuais do tabloide.')) return;
-    setData(buildTabloidData(cs));
+    setData(makeData());
     showToast('Tabloide recarregado da classificação', 'success');
   };
 
@@ -6933,7 +6952,12 @@ function TabloidBuilderPanel({ cs }) {
       a.download = `primitivao-times-vol-${(data.volume || 'x')}.png`;
       a.href = dataUrl;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      showToast('Tabloide exportado em PNG!', 'success');
+      // Auto-incremento: grava o volume desta edição. A próxima vez que abrir
+      // (ou recarregar) já vem como o próximo número.
+      const vNum = parseInt(data.volume, 10);
+      if (Number.isFinite(vNum)) saveLastTabloidVol(vNum);
+      const nextVol = String((Number.isFinite(vNum) ? vNum : 0) + 1).padStart(2, '0');
+      showToast(`Tabloide VOL.${data.volume} exportado! Próxima edição = VOL.${nextVol}.`, 'success');
     } catch (e) {
       console.warn('export tabloide falhou', e);
       showToast('Falha ao exportar. Tire um print da prévia.', 'error');
