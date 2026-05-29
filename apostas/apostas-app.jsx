@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-header-rodada ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-fix-reset ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1559,8 +1559,29 @@ function App() {
     const ref = BET_DOC();
     const unsub = ref.onSnapshot(snap => {
       if (!snap.exists) {
-        ref.set({ json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], teamPlayers: {} }), interests: {}, updatedAt: Date.now() })
-           .catch(e => console.warn('Firestore seed failed', e));
+        // PERIGO HISTÓRICO (data-loss): tratar !exists como "seed vazio" já fez
+        // o app PARECER resetado e quase apagou o doc. Um snapshot pode chegar
+        // com exists=false de forma TRANSIENTE: cache vazio na 1ª conexão,
+        // reconexão offline->online, avaliação de regras de segurança. NUNCA
+        // sobrescrever (nem renderizar vazio) um doc real por causa disso.
+        // 1) Já carregamos dados reais antes? Então é transiente — ignora
+        //    completamente. O snapshot do servidor chega logo em seguida.
+        if (hasLoadedRef.current) {
+          console.warn('Apostas: exists=false IGNORADO (já tínhamos dados — transiente).');
+          return;
+        }
+        // 2) Veio só do cache (sem confirmação do servidor)? Não cria nada;
+        //    segura a tela "CONECTANDO" até o servidor responder.
+        if (snap.metadata && snap.metadata.fromCache) {
+          return;
+        }
+        // 3) Servidor confirmou que o doc não existe (instalação nova): cria
+        //    com merge:true — nunca apaga campos top-level (news, webhook…)
+        //    mesmo na remota hipótese de já existir algo.
+        ref.set(
+          { json: JSON.stringify({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], teamPlayers: {} }), interests: {}, updatedAt: Date.now() },
+          { merge: true }
+        ).catch(e => console.warn('Firestore seed failed', e));
         hasLoadedRef.current = true; setSynced(true);
         return;
       }
@@ -1635,8 +1656,18 @@ function App() {
     const ref = CLASSIF_DOC();
     const unsub = ref.onSnapshot(snap => {
       if (!snap.exists) {
+        // Mesmo perigo do doc de apostas: um exists=false transiente NÃO pode
+        // zerar a classificação (perderia todos os placares) nem mostrar tabela
+        // vazia. Ver comentário detalhado no listener de apostas acima.
+        if (csLoadedRef.current) {
+          console.warn('Classif: exists=false IGNORADO (já tínhamos dados — transiente).');
+          return;
+        }
+        if (snap.metadata && snap.metadata.fromCache) {
+          return;
+        }
         const seed = { currentRound: 0, rounds: defaultRounds() };
-        ref.set({ json: JSON.stringify(seed), updatedAt: Date.now() }).catch(e => console.warn(e));
+        ref.set({ json: JSON.stringify(seed), updatedAt: Date.now() }, { merge: true }).catch(e => console.warn(e));
         csApplyingRef.current = true; setCs(seed); csLoadedRef.current = true;
         return;
       }

@@ -117,6 +117,27 @@ reducer/json: `interests`, `comments`, `worldcup`, `news`,
 Backup completo (botão admin + GitHub Action) tem que cobrir json +
 TODOS os top-level. Ver `downloadFullBackup` e `scripts/backup-firestore.mjs`.
 
+## 2.3 `onSnapshot` + `!snap.exists` (NÃO QUEBRAR — já causou "reset")
+
+Os dois listeners `onSnapshot` (doc `apostas` e doc `state`) tratam
+`!snap.exists`. **Um snapshot pode chegar com `exists=false` de forma
+TRANSIENTE** — cache vazio na 1ª conexão, reconexão offline→online,
+avaliação de regras. Tratar isso ingenuamente como "seed/reset" já fez o
+app **parecer resetado** (renderiza estado inicial vazio) e quase apagou
+o doc real.
+
+Regras obrigatórias no branch `!snap.exists`:
+1. Se já carregamos dados reais (`hasLoadedRef`/`csLoadedRef`), **ignora**
+   o evento — é transiente; o snapshot do servidor vem logo.
+2. Se `snap.metadata.fromCache` é `true`, **não cria nada** — espera o
+   servidor (segura a tela "CONECTANDO").
+3. Só cria o doc quando o **servidor** confirma que não existe, e SEMPRE
+   com `{ merge: true }` (nunca apagar `news`/`discord_webhook`/etc).
+
+Nunca chamar `setSynced(true)`/`setCs(...)` com estado vazio fora desses
+guards — senão a UI mostra "tudo zerado" e o `isNewNick` passa a pedir
+"criar conta" pra usuário que já existe.
+
 ## 3. Cache busting
 
 Toda mudança que afeta o JSX precisa:
