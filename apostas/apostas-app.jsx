@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-perfil-titulos-side ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-nick-avatars ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1080,6 +1080,21 @@ function FrameDeco({ frameId }) {
   }
 }
 
+// Cor determinística pra avatar de inicial (jogadores sem time/PNG).
+// Mesmo nick → sempre a mesma cor, de uma paleta curada que combina com
+// o tema (terrosos, vinhos, azuis profundos — nada berrante).
+const NICK_PALETTE = [
+  '#d76414', '#a8324f', '#7a4dc9', '#2a8f3f', '#3a78c2', '#1c7a6e',
+  '#b87333', '#8b5a2b', '#6b4c9a', '#4d6a2e', '#a52a2a', '#c87f33',
+  '#5a7d8c', '#9a3a6a', '#3e7a4d', '#7a5c2e',
+];
+function nickColor(nick) {
+  const s = String(nick || '?').toLowerCase();
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return NICK_PALETTE[h % NICK_PALETTE.length];
+}
+
 function Avatar({ teamId, nick, teamPlayers, cosmetics, size = 32, fullBody = false, className = '' }) {
   // Resolve teamId via teamPlayers se não veio direto.
   // teamPlayers tem formato { teamId: nick } — precisa inverter pra achar o
@@ -1151,11 +1166,13 @@ function Avatar({ teamId, nick, teamPlayers, cosmetics, size = 32, fullBody = fa
     return wrapWithFrameDeco(iconEl);
   }
 
-  // Fallback puro (sem time): círculo bege com inicial do nick
+  // Fallback (sem time/PNG): ícone de inicial com cor única derivada do nick.
   const letter = (nick || '?').charAt(0).toUpperCase();
+  const bg = nickColor(nick);
   const fbEl = (
-    <div className={'avatar avatar-icon avatar-fallback-pure ' + (frameItem ? 'avatar-icon-inner' : className)} style={frameItem ? undefined : { width: size, height: size }}>
-      <span className="avatar-fallback-letter" style={{ fontSize: size * 0.5 }}>{letter}</span>
+    <div className={'avatar avatar-icon avatar-fallback-pure ' + (frameItem ? 'avatar-icon-inner' : className)}
+         style={frameItem ? { '--nick-bg': bg } : { width: size, height: size, '--nick-bg': bg }}>
+      <span className="avatar-fallback-letter" style={{ fontSize: size * 0.5, background: bg }}>{letter}</span>
       {!frameItem && renderBadge()}
     </div>
   );
