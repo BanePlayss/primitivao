@@ -606,6 +606,11 @@
     .pc-amt { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 20px; line-height: 1; }
     .pc-unit { font-size: 9px; letter-spacing: 0.2em; font-weight: 800; opacity: 0.7; }
 
+    /* Pílula da CAMPEÃO COINS (loja) — dourado "champion", distinta do PC laranja. */
+    .cc-pill { background: var(--pv-charcoal); color: #e9c24a; }
+    .cc-pill .pc-coin { background: #e9c24a; color: var(--pv-charcoal); border-color: var(--pv-charcoal); }
+    .cc-pill .pc-unit { opacity: 0.85; }
+
     /* Chip do bônus semanal no TopBar (à esquerda do PC). */
     .weekly-chip {
       display: inline-flex; align-items: center; gap: 8px;

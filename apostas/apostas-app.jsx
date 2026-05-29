@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-moeda-cc ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-cc-pill ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2431,6 +2431,7 @@ function App() {
       <TopBar
         nick={session.nick}
         pc={isAdmin ? '∞' : me.pc}
+        cc={isAdmin ? '∞' : (me.cc || 0)}
         isAdmin={isAdmin}
         onLogout={logout}
         weeklyReady={weeklyReady}
@@ -2578,7 +2579,7 @@ function App() {
 }
 
 // ─── TOP BAR / TABS ─────────────────────────────────────────────────────────
-function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly, view, onView, teamPlayers, myCosmetics }) {
+function TopBar({ nick, pc, cc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly, view, onView, teamPlayers, myCosmetics }) {
   const days = Math.floor(weeklyIn / (24 * 60 * 60 * 1000));
   const hrs  = Math.floor((weeklyIn % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
   const mins = Math.floor((weeklyIn % (60 * 60 * 1000)) / (60 * 1000));
@@ -2637,6 +2638,15 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
             <div>
               <div className="pc-amt">{pc}</div>
               <div className="pc-unit">PRIMITIVO COINS</div>
+            </div>
+          </div>
+        )}
+        {!isAdmin && (
+          <div className="pc-pill cc-pill" title="Campeão Coins — moeda da loja">
+            <div className="pc-coin">C</div>
+            <div>
+              <div className="pc-amt">{cc}</div>
+              <div className="pc-unit">CAMPEÃO COINS</div>
             </div>
           </div>
         )}
