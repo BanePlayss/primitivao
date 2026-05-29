@@ -51,8 +51,8 @@
 // 6. CONQUISTAS & COSMÉTICOS
 //    - helpers (champStandingPos, maxBetStreak, wcExactCount, betsOf)
 //    - ACH (critérios de conquista — FONTE ÚNICA p/ títulos E distintivos)
-//    - TITLE_DEFS (16 títulos — label de texto) + titlesForNick/TitleBadge
-//    - ITEMS (molduras + 16 distintivos) + effectiveInventory/itemsDroppedFor
+//    - TITLE_DEFS (22 títulos — label de texto) + titlesForNick/TitleBadge
+//    - ITEMS (molduras + 30 distintivos) + effectiveInventory/itemsDroppedFor
 //
 // 7. VIEWS DE CONTEÚDO
 //    - INÍCIO (feed de notícias + comentários)
@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-mais-itens ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-mais-titulos ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4878,6 +4878,17 @@ function wcExactCount(nick, worldcup) {
 
 const betsOf = (bets, nick) => (Array.isArray(bets) ? bets : []).filter(b => b.user === nick);
 
+// Soma de TUDO que o nick já colocou em cupons (qualquer status). Mede volume.
+const totalWagered = (bets, nick) => betsOf(bets, nick).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+
+// Status da primeira aposta JÁ RESOLVIDA (won/lost) do nick, por createdAt. null se nenhuma.
+function firstSettledStatus(bets, nick) {
+  const m = betsOf(bets, nick)
+    .filter(b => b.status === 'won' || b.status === 'lost')
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  return m.length > 0 ? m[0].status : null;
+}
+
 // ─── CRITÉRIOS DE CONQUISTA (fonte única) ───────────────────────────────────
 // Cada predicado recebe ctx { nick, bets, users, teamPlayers, cs, worldcup }.
 // Títulos E distintivos referenciam DAQUI — assim o critério vive num só
@@ -4900,6 +4911,12 @@ const ACH = {
   coldFoot:    ({ nick, bets }) => maxBetStreak(bets, nick, 'lost') >= 5,
   copaPlayer:  ({ nick, worldcup }) => Object.keys((worldcup && worldcup.picks && worldcup.picks[nick]) || {}).length >= 1,
   copaSeer:    ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 1,
+  copaOracle:  ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 5,
+  underdog:    ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Array.isArray(b.legs) && b.legs.length === 1 && Number(b.combinedOdds) >= 5),
+  luckyStart:  ({ nick, bets }) => firstSettledStatus(bets, nick) === 'won',
+  whale:       ({ nick, bets }) => totalWagered(bets, nick) >= 1000000,
+  allIn:       ({ nick, bets }) => betsOf(bets, nick).some(b => Array.isArray(b.legs) && b.legs.length >= 8),
+  collector:   (ctx) => effectiveInventory(ctx.nick, (ctx.users || {})[ctx.nick], ctx).length >= 5,
 };
 
 // ─── TÍTULOS DO USUÁRIO ─────────────────────────────────────────────────────
@@ -4939,9 +4956,21 @@ const TITLE_DEFS = [
     desc: 'Venceu 5 apostas seguidas. Tá pegando fogo, bicho.', check: ACH.hotHand },
   { id: 'pe_frio', name: 'PÉ FRIO', icon: 'skull', color: '#5a5a5a',
     desc: 'Perdeu 5 apostas seguidas. O VARIMITIVÃO tá de olho.', check: ACH.coldFoot },
+  { id: 'azarao', name: 'AZARÃO', icon: 'arrow-up-right', color: '#2a8f3f',
+    desc: 'Venceu uma aposta simples com odd 5x ou mais. Ninguém dava nada por ele.', check: ACH.underdog },
+  { id: 'sorte_novato', name: 'SORTE DE NOVATO', icon: 'sparkle', color: '#c9a227',
+    desc: 'Venceu a PRIMEIRA aposta da vida no Primitivão. Começou voando.', check: ACH.luckyStart },
+  { id: 'tubarao', name: 'TUBARÃO', icon: 'coin-stack', color: '#2a6f8f',
+    desc: 'Movimentou 1.000.000 PC somando todos os cupons. Peixe grande do mercado.', check: ACH.whale },
+  { id: 'tudo_ou_nada', name: 'TUDO OU NADA', icon: 'bolt', color: '#a8324f',
+    desc: 'Montou uma casada com 8 palpites ou mais. Coragem (ou teimosia) de sobra.', check: ACH.allIn },
+  { id: 'colecionador', name: 'COLECIONADOR', icon: 'gift', color: '#7a4dc9',
+    desc: 'Desbloqueou 5 itens cosméticos ou mais. Vaidoso assumido.', check: ACH.collector },
   // ── Copa do Mundo ──
   { id: 'vidente_copa', name: 'VIDENTE DA COPA', icon: 'globe', color: '#1c7a6e',
     desc: 'Acertou um placar EXATO no bolão da Copa do Mundo (3 pts).', check: ACH.copaSeer },
+  { id: 'oraculo_copa', name: 'ORÁCULO DA COPA', icon: 'eye', color: '#1c7a6e',
+    desc: 'Acertou 5 placares EXATOS no bolão da Copa. Não é palpite, é dom.', check: ACH.copaOracle },
 ];
 // ─── ITEMS COSMÉTICOS (LOJA) ────────────────────────────────────────────────
 // MVP: 2 slots (frame + badge). Cada item tem 1 dos modos:
@@ -5060,6 +5089,31 @@ const ITEMS = [
     id: 'badge-profeta', slot: 'badge', name: 'Profeta', icon: 'target', color: '#3a78c2', rarity: 'rara',
     desc: 'Venceu uma aposta com odd 20x ou mais. Vidência pura.',
     drop: ACH.prophet,
+  },
+  {
+    id: 'badge-azarao', slot: 'badge', name: 'Azarão', icon: 'arrow-up-right', color: '#2a8f3f', rarity: 'rara',
+    desc: 'Venceu uma simples com odd 5x ou mais. Zebra confirmada.',
+    drop: ACH.underdog,
+  },
+  {
+    id: 'badge-novato', slot: 'badge', name: 'Sorte de Novato', icon: 'sparkle', color: '#c9a227', rarity: 'comum',
+    desc: 'Venceu a primeira aposta da vida no Primitivão.',
+    drop: ACH.luckyStart,
+  },
+  {
+    id: 'badge-tubarao', slot: 'badge', name: 'Tubarão', icon: 'coin-stack', color: '#2a6f8f', rarity: 'lendaria',
+    desc: 'Movimentou 1.000.000 PC somando todos os cupons.',
+    drop: ACH.whale,
+  },
+  {
+    id: 'badge-tudo-ou-nada', slot: 'badge', name: 'Tudo ou Nada', icon: 'bolt', color: '#a8324f', rarity: 'rara',
+    desc: 'Montou uma casada com 8 palpites ou mais.',
+    drop: ACH.allIn,
+  },
+  {
+    id: 'badge-oraculo', slot: 'badge', name: 'Oráculo da Copa', icon: 'eye', color: '#1c7a6e', rarity: 'lendaria',
+    desc: 'Acertou 5 placares EXATOS no bolão da Copa.',
+    drop: ACH.copaOracle,
   },
 ];
 
