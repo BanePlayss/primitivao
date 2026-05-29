@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-icones ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-zoeira-spread ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6818,18 +6818,61 @@ function tabloidStories(ctx) {
         push('proximo', next.home, nickOf(next.home), 'JOGO DA SEMANA',
           `Olho nesse: ${TEAM(next.home).name} × ${TEAM(next.away).name}. Vai pegar fogo.`, 'fire', 'spice');
     }
+    // Resultados da ÚLTIMA rodada jogada — espalha a zoeira entre vários membros
+    // (cada jogo envolve 2 jogadores), não só os extremos da tabela.
+    let lastRi = -1;
+    for (let i = rounds.length - 1; i >= 0; i--) {
+      if ((rounds[i] || []).some(g => !Number.isNaN(parseInt(g.gh, 10)) && !Number.isNaN(parseInt(g.ga, 10)))) { lastRi = i; break; }
+    }
+    if (lastRi >= 0) {
+      (rounds[lastRi] || []).forEach((g, gi) => {
+        const gh = parseInt(g.gh, 10), ga = parseInt(g.ga, 10);
+        if (Number.isNaN(gh) || Number.isNaN(ga)) return;
+        if (gh === ga) {
+          push('res' + lastRi + '-' + gi, g.home, nickOf(g.home), 'FICOU NO EMPATE',
+            `${TEAM(g.home).name} ${gh}x${ga} ${TEAM(g.away).name}. Ninguém quis ganhar.`, 'football', 'spice');
+        } else {
+          const winId = gh > ga ? g.home : g.away, loseId = gh > ga ? g.away : g.home;
+          const W = TEAM(winId).name, L = TEAM(loseId).name, hi = Math.max(gh, ga), lo = Math.min(gh, ga);
+          const KICK = ['TOMOU FEIO', 'DANÇOU', 'AMASSADO', 'APANHOU'];
+          const PHRASE = [
+            `${L} levou ${hi}x${lo} do ${W}. Senta e chora.`,
+            `${W} passou o rodo: ${hi}x${lo} no ${L}.`,
+            `${L} apanhou ${hi}x${lo} do ${W}. Doeu até na alma.`,
+            `${hi}x${lo}: ${W} fez do ${L} gato e sapato.`,
+          ];
+          push('res' + lastRi + '-' + gi, loseId, nickOf(loseId), KICK[gi % KICK.length], PHRASE[gi % PHRASE.length], 'football', 'bad');
+        }
+      });
+    }
   }
   return out;
 }
 
-// Sorteia n histórias (Fisher-Yates) — "aleatório com base nos triggers".
+// Sorteia n histórias ESPALHANDO entre as pessoas: agrupa por jogador
+// (teamId||nick) e pega em round-robin (1 de cada por vez), pra a zoeira não
+// ficar concentrada num só membro. Dentro de cada grupo e na ordem dos grupos,
+// embaralha (aleatório a cada geração).
 function pickStories(stories, n) {
-  const a = stories.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } return a; };
+  const groups = new Map();
+  let k = 0;
+  for (const s of stories) {
+    const key = s.teamId || s.nick || ('_' + (k++));
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(s);
   }
-  return a.slice(0, n);
+  const buckets = shuffle(Array.from(groups.values()).map(g => shuffle(g)));
+  const out = [];
+  let round = 0;
+  while (out.length < n && buckets.some(b => b.length > round)) {
+    for (const b of buckets) {
+      if (out.length >= n) break;
+      if (b.length > round) out.push(b[round]);
+    }
+    round++;
+  }
+  return out;
 }
 
 // Triggers de zoeira do BOLÃO DA COPA (dados diferentes: palpites, não jogos).
