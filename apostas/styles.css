@@ -2060,18 +2060,63 @@
       padding: 3px 8px;
     }
     /* pódio: 3 colunas, 1º maior/centralizado */
-    .showcase-podium {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 16px;
+    .showcase-body {
       padding: 20px 18px;
       background:
         radial-gradient(circle at 50% -10%, rgba(215,100,20,0.12), transparent 55%),
         #211a14;
-      align-items: start;
-      max-width: 620px; margin: 0 auto;
     }
-    @media (max-width: 720px) { .showcase-podium { grid-template-columns: 1fr; } }
+    .showcase-body.with-side {
+      display: grid;
+      grid-template-columns: 1fr 270px;
+      gap: 18px; align-items: start;
+    }
+    .showcase-podium {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .showcase-body:not(.with-side) .showcase-podium { max-width: 620px; margin: 0 auto; }
+    @media (max-width: 720px) {
+      .showcase-body.with-side { grid-template-columns: 1fr; }
+      .showcase-podium { grid-template-columns: 1fr; }
+    }
+    /* Ranking dos apostadores ao lado do pódio */
+    .showcase-side {
+      background: rgba(0,0,0,0.25);
+      border: 1.5px solid rgba(244,234,215,0.12);
+      padding: 12px;
+    }
+    .showcase-side-head {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10px; letter-spacing: 0.16em; font-weight: 800;
+      color: var(--pv-orange);
+      padding-bottom: 8px; margin-bottom: 6px;
+      border-bottom: 1px dashed rgba(244,234,215,0.2);
+    }
+    .showcase-side-list { display: flex; flex-direction: column; }
+    .showcase-side-row {
+      display: grid; grid-template-columns: 18px 26px 1fr auto; gap: 8px;
+      align-items: center; padding: 6px 4px;
+      color: var(--pv-bone); font-size: 12px;
+      border-bottom: 1px dashed rgba(244,234,215,0.08);
+    }
+    .showcase-side-row:last-child { border-bottom: none; }
+    .showcase-side-row.me { background: rgba(215,100,20,0.2); }
+    .showcase-side-pos {
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      color: var(--pv-orange); text-align: center; font-size: 13px;
+    }
+    .showcase-side-nick {
+      font-weight: 800; letter-spacing: 0.02em;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .showcase-side-pc { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 14px; }
+    .showcase-side-pc small {
+      font-family: "Space Grotesk", sans-serif; font-size: 8px;
+      letter-spacing: 0.18em; opacity: 0.6; margin-left: 2px;
+    }
 
     .showcase-item {
       border: 2px solid var(--acc);
@@ -2165,126 +2210,88 @@
     }
 
     /* ──── TÍTULOS (PERFIL) ──── */
-    .titulos-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 12px;
+    /* ── Títulos: chips compactos ── */
+    .titulos-chips {
+      display: flex; flex-wrap: wrap; gap: 8px;
     }
-    .titulo-card-wrap {
-      position: relative;
+    .titulo-chip-wrap { position: relative; }
+    .titulo-chip {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 7px 12px;
+      border: 2px solid var(--tc, var(--pv-charcoal));
+      border-left-width: 5px;
+      background: color-mix(in srgb, var(--tc, #888) 10%, var(--pv-bone));
+      color: var(--pv-charcoal);
+      font-family: inherit; cursor: pointer;
+      transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), background var(--dur) var(--ease);
     }
-    .titulo-card {
-      width: 100%;
-      padding: 12px 14px;
-      text-align: left;
-      cursor: pointer;
-      font: inherit;
-      transition: transform 0.08s;
+    .titulo-chip:hover:not(.locked) { transform: translateY(-2px); box-shadow: var(--sh-sm); }
+    .titulo-chip-ic { display: inline-flex; color: var(--tc, var(--pv-charcoal)); }
+    .titulo-chip-name {
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      font-size: 13px; letter-spacing: 0.02em; line-height: 1;
     }
-    .titulo-card:hover:not(.locked) {
-      transform: translateY(-2px);
+    .titulo-chip.selected {
+      background: var(--tc); color: var(--pv-bone);
+      box-shadow: var(--sh-sm);
     }
-    .titulo-card.locked {
-      background: rgba(28,22,18,0.05);
-      border: 2px solid rgba(28,22,18,0.18);
-      border-left: 6px solid rgba(28,22,18,0.25);
+    .titulo-chip.selected .titulo-chip-ic { color: var(--pv-bone); }
+    .titulo-chip-check { display: inline-flex; }
+    .titulo-chip.locked {
+      border-color: rgba(28,22,18,0.2);
+      border-left-color: rgba(28,22,18,0.3);
+      background: rgba(28,22,18,0.04);
       color: rgba(28,22,18,0.45);
       cursor: not-allowed;
       filter: grayscale(1);
     }
-    .titulo-head {
-      display: flex; align-items: center; gap: 8px;
-      justify-content: space-between;
+    .titulo-chip.locked .titulo-chip-ic { color: rgba(28,22,18,0.4); }
+    .titulos-vazio {
+      font-size: 12px; color: rgba(28,22,18,0.6); line-height: 1.5;
+      padding: 4px 0;
     }
-    .titulo-head-left {
-      display: flex; align-items: center; gap: 8px;
+    .titulos-toggle {
+      margin-top: 14px;
+      display: inline-flex; align-items: center; gap: 6px;
+      background: transparent; border: none;
+      font-family: inherit; font-weight: 800; font-size: 10px;
+      letter-spacing: 0.16em; color: var(--pv-orange);
+      cursor: pointer; padding: 4px 0;
     }
-    .titulo-ic {
-      line-height: 1;
-      display: inline-flex;
-      color: rgba(28,22,18,0.55);
-    }
-    .titulo-name {
-      font-family: "Bagel Fat One", Impact, sans-serif;
-      font-size: 18px;
-      letter-spacing: 0.04em;
-      color: rgba(28,22,18,0.55);
-    }
-    .titulo-card.locked .titulo-name { color: rgba(28,22,18,0.45); }
-    .titulo-exibindo {
-      font-size: 9px;
-      letter-spacing: 0.18em;
-      font-weight: 800;
-      padding: 2px 6px;
-      background: rgba(255,255,255,0.25);
-      display: inline-flex; align-items: center; gap: 4px;
-    }
-    .titulo-desc {
-      margin-top: 6px;
-      font-size: 11px;
-      line-height: 1.4;
-      color: rgba(28,22,18,0.7);
-      font-weight: 600;
-    }
-    .titulo-card.locked .titulo-desc { color: rgba(28,22,18,0.45); }
-    .titulo-owners-count {
-      margin-top: 8px;
-      font-size: 9px;
-      letter-spacing: 0.14em;
-      font-weight: 800;
-      color: rgba(28,22,18,0.4);
-      text-transform: uppercase;
-    }
-    .titulo-card.locked .titulo-owners-count { color: rgba(28,22,18,0.4); }
-    /* Tooltip — aparece no hover do wrap */
+    .titulos-toggle:hover { color: var(--pv-charcoal); }
+    /* Tooltip do chip */
     .titulo-tooltip {
       position: absolute;
-      left: 50%;
-      bottom: calc(100% + 8px);
+      left: 50%; bottom: calc(100% + 8px);
       transform: translateX(-50%);
-      background: var(--pv-charcoal);
-      color: var(--pv-bone);
+      background: var(--pv-charcoal); color: var(--pv-bone);
       border: 2px solid var(--pv-orange);
       padding: 10px 12px;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      min-width: 180px;
-      max-width: 280px;
+      min-width: 200px; max-width: 280px;
       box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.15s;
-      z-index: 100;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.15s; z-index: 100;
     }
     .titulo-tooltip::after {
-      content: '';
-      position: absolute;
+      content: ''; position: absolute;
       top: 100%; left: 50%; transform: translateX(-50%);
-      border: 8px solid transparent;
-      border-top-color: var(--pv-orange);
+      border: 8px solid transparent; border-top-color: var(--pv-orange);
     }
-    .titulo-card-wrap:hover .titulo-tooltip { opacity: 1; }
+    .titulo-chip-wrap:hover .titulo-tooltip { opacity: 1; }
     .titulo-tooltip-head {
-      font-size: 9px;
-      letter-spacing: 0.18em;
-      color: var(--pv-orange);
-      font-weight: 800;
-      padding-bottom: 6px;
-      margin-bottom: 6px;
-      border-bottom: 1px dashed rgba(244,234,215,0.3);
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      font-size: 14px; color: var(--pv-orange);
+      margin-bottom: 5px;
     }
-    .titulo-tooltip ul {
-      list-style: none; margin: 0; padding: 0;
-      display: flex; flex-direction: column; gap: 3px;
-      max-height: 200px; overflow-y: auto;
+    .titulo-tooltip-desc {
+      font-size: 11px; line-height: 1.45; font-weight: 600;
+      color: rgba(244,234,215,0.9);
     }
-    .titulo-tooltip li {
-      padding: 2px 0;
-    }
-    .titulo-tooltip li.me {
-      color: var(--pv-orange);
-      font-weight: 800;
+    .titulo-tooltip-owners {
+      margin-top: 6px; padding-top: 6px;
+      border-top: 1px dashed rgba(244,234,215,0.3);
+      font-size: 10px; line-height: 1.4; font-weight: 700;
+      color: rgba(244,234,215,0.7);
     }
 
     /* ──── AVATARES ──── */

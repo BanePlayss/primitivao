@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260528-copa-hall ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-perfil-titulos-side ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2242,7 +2242,7 @@ function App() {
               />
             )}
             {view === 'hall' && (
-              <HallView cs={cs} users={users} teamPlayers={teamPlayers || {}} worldcup={worldcup} wcFixtures={wcData.matches} />
+              <HallView cs={cs} users={users} teamPlayers={teamPlayers || {}} worldcup={worldcup} wcFixtures={wcData.matches} myNick={session.nick} />
             )}
             {view === 'campeonatos' && (<>
             <ChampionshipSelector
@@ -5107,7 +5107,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
       {/* HEADER COM AVATAR GRANDE */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-head" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {myTeamId && <Avatar teamId={myTeamId} cosmetics={me?.cosmetics} size={120} fullBody={true} className="profile-avatar" />}
+          {myTeamId && <Avatar teamId={myTeamId} cosmetics={me?.cosmetics} size={120} className="profile-avatar" />}
           <div>
             <div className="title" style={{ fontSize: 24 }}>@{nick}</div>
             <div className="sub">{isAdmin ? 'ADMIN' : `${me?.pc ?? 0} PC`}{myTeam ? ` · ${myTeam.name}` : ''}</div>
@@ -5388,87 +5388,75 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
 function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
   const earnedIds = useMemo(() => new Set(titlesForNick(nick, ctx || {}).map(t => t.id)), [nick, ctx]);
   const owners = useMemo(() => computeTitleOwners(ctx || {}), [ctx]);
-  const ownedCount = TITLE_DEFS.filter(t => earnedIds.has(t.id)).length;
+  const earned = TITLE_DEFS.filter(t => earnedIds.has(t.id));
+  const locked = TITLE_DEFS.filter(t => !earnedIds.has(t.id));
+  const [showLocked, setShowLocked] = useState(false);
 
   const handleClick = (id, isLocked) => {
     if (isLocked || !onSelectTitle) return;
     onSelectTitle(selectedTitle === id ? null : id);
   };
 
+  // Chip compacto: ícone + nome. Hover mostra tooltip (desc + quem tem).
+  const renderChip = (t, isLocked) => {
+    const isSelected = !isLocked && selectedTitle === t.id;
+    const titleOwners = owners[t.id] || [];
+    return (
+      <div key={t.id} className="titulo-chip-wrap">
+        <button
+          className={'titulo-chip' + (isSelected ? ' selected' : '') + (isLocked ? ' locked' : '')}
+          onClick={() => handleClick(t.id, isLocked)}
+          style={!isLocked ? { '--tc': t.color } : undefined}
+          aria-pressed={isSelected}
+        >
+          <span className="titulo-chip-ic">
+            {isLocked ? <Icon name="lock" size={15} /> : <Icon name={t.icon} size={17} />}
+          </span>
+          <span className="titulo-chip-name">{t.name}</span>
+          {isSelected && <span className="titulo-chip-check"><Icon name="check" size={12} /></span>}
+        </button>
+        <div className="titulo-tooltip">
+          <div className="titulo-tooltip-head">{t.name}</div>
+          <div className="titulo-tooltip-desc">{t.desc}</div>
+          <div className="titulo-tooltip-owners">
+            {titleOwners.length === 0
+              ? 'Ninguém conquistou ainda.'
+              : `Têm: ${titleOwners.map(n => '@' + n + (n === nick ? ' (você)' : '')).join(', ')}`}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="card" style={{ marginBottom: 14 }}>
       <div className="card-head">
         <div className="title"><Icon name="tag" size={16} /> TÍTULOS</div>
-        <div className="sub">{ownedCount}/{TITLE_DEFS.length} CONQUISTADOS · HOVER PRA VER QUEM TEM</div>
+        <div className="sub">{earned.length}/{TITLE_DEFS.length} CONQUISTADOS</div>
       </div>
       <div className="card-body">
-        <p style={{ marginTop: 0, marginBottom: 12, fontSize: 11, color: 'rgba(28,22,18,0.65)', lineHeight: 1.4 }}>
-          Clica num título que você conquistou pra exibi-lo publicamente no seu nome (CLASSIFICAÇÃO + RANKING).
-          Títulos bloqueados (cinza com cadeado) aparecem pra todo mundo ver o que dá pra desbloquear.
+        <p style={{ marginTop: 0, marginBottom: 10, fontSize: 11, color: 'rgba(28,22,18,0.6)', lineHeight: 1.4 }}>
+          Clica num título conquistado pra exibir no seu nome. Passa o mouse pra ver o que é e quem tem.
         </p>
-        <div className="titulos-grid">
-          {TITLE_DEFS.map(t => {
-            const isLocked = !earnedIds.has(t.id);
-            const isSelected = !isLocked && selectedTitle === t.id;
-            const titleOwners = owners[t.id] || [];
-            return (
-              <div key={t.id} className={'titulo-card-wrap' + (isLocked ? ' locked' : '')}>
-                <button
-                  className={'titulo-card' + (isSelected ? ' selected' : '') + (isLocked ? ' locked' : '')}
-                  onClick={() => handleClick(t.id, isLocked)}
-                  style={!isLocked ? {
-                    background: isSelected ? t.color : t.color + '15',
-                    border: `2px solid ${t.color}`,
-                    borderLeft: `6px solid ${t.color}`,
-                    color: isSelected ? '#fff' : 'inherit',
-                  } : undefined}
-                >
-                  <div className="titulo-head">
-                    <div className="titulo-head-left">
-                      <span className="titulo-ic" style={!isLocked ? { color: isSelected ? '#fff' : t.color } : undefined}>
-                        {isLocked ? <Icon name="lock" size={22} /> : <Icon name={t.icon} size={24} />}
-                      </span>
-                      <span className="titulo-name" style={!isLocked ? {
-                        color: isSelected ? '#fff' : t.color,
-                      } : undefined}>
-                        {t.name}
-                      </span>
-                    </div>
-                    {isSelected && (
-                      <span className="titulo-exibindo">
-                        <Icon name="check" size={10} /> EXIBINDO
-                      </span>
-                    )}
-                  </div>
-                  <div className="titulo-desc" style={isSelected ? { color: 'rgba(255,255,255,0.9)' } : undefined}>
-                    {t.desc}
-                  </div>
-                  <div className="titulo-owners-count">
-                    {titleOwners.length === 0
-                      ? 'Ninguém tem ainda'
-                      : titleOwners.length === 1
-                        ? '1 jogador tem'
-                        : `${titleOwners.length} jogadores têm`}
-                  </div>
-                </button>
-                {titleOwners.length > 0 && (
-                  <div className="titulo-tooltip">
-                    <div className="titulo-tooltip-head">
-                      POSSUEM ESTE TÍTULO ({titleOwners.length})
-                    </div>
-                    <ul>
-                      {titleOwners.map(n => (
-                        <li key={n} className={n === nick ? 'me' : ''}>
-                          @{n}{n === nick ? ' (você)' : ''}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+
+        {earned.length > 0 ? (
+          <>
+            <div className="small-label" style={{ marginTop: 0, marginBottom: 6 }}>SEUS TÍTULOS</div>
+            <div className="titulos-chips">{earned.map(t => renderChip(t, false))}</div>
+          </>
+        ) : (
+          <div className="titulos-vazio">Você ainda não conquistou nenhum título. Olha os bloqueados pra ver como desbloquear.</div>
+        )}
+
+        {locked.length > 0 && (
+          <>
+            <button className="titulos-toggle" onClick={() => setShowLocked(s => !s)}>
+              <Icon name={showLocked ? 'caret-up' : 'caret-down'} size={12} />
+              {showLocked ? 'ESCONDER' : 'VER'} {locked.length} BLOQUEADO{locked.length === 1 ? '' : 'S'}
+            </button>
+            {showLocked && <div className="titulos-chips" style={{ marginTop: 8 }}>{locked.map(t => renderChip(t, true))}</div>}
+          </>
+        )}
       </div>
     </div>
   );
@@ -5710,7 +5698,7 @@ function ShowcaseItem({ item, theme, rank, season, status }) {
 }
 
 // Vitrine de um campeonato (Fama OU Vergonha) — pódio de 3 + estados.
-function TrophyShowcase({ champ, items, theme, status }) {
+function TrophyShowcase({ champ, items, theme, status, sideRanking, myNick }) {
   const isFame = theme === 'fame';
   if (status === 'soon') {
     return (
@@ -5727,6 +5715,7 @@ function TrophyShowcase({ champ, items, theme, status }) {
       </div>
     );
   }
+  const hasSide = Array.isArray(sideRanking) && sideRanking.length > 0;
   return (
     <div className={'showcase-cab ' + (isFame ? 'fame' : 'shame')}>
       <div className="showcase-cab-head">
@@ -5734,10 +5723,27 @@ function TrophyShowcase({ champ, items, theme, status }) {
         <span className="showcase-cab-season">{champ.season}</span>
         {status === 'ongoing' && <span className="showcase-cab-live">EM ANDAMENTO · PÓDIO PROVISÓRIO</span>}
       </div>
-      <div className="showcase-podium">
-        {items.map((it, i) => (
-          <ShowcaseItem key={it.teamId || i} item={it} theme={theme} rank={i} season={champ.season} status={status} />
-        ))}
+      <div className={'showcase-body' + (hasSide ? ' with-side' : '')}>
+        <div className="showcase-podium">
+          {items.map((it, i) => (
+            <ShowcaseItem key={it.teamId || i} item={it} theme={theme} rank={i} season={champ.season} status={status} />
+          ))}
+        </div>
+        {hasSide && (
+          <div className="showcase-side">
+            <div className="showcase-side-head"><Icon name="coin" size={13} /> RANKING DOS APOSTADORES</div>
+            <div className="showcase-side-list">
+              {sideRanking.map((r, i) => (
+                <div key={r.nick} className={'showcase-side-row' + (r.nick === myNick ? ' me' : '')}>
+                  <span className="showcase-side-pos">{i + 1}</span>
+                  <Avatar nick={r.nick} teamPlayers={r._tp} cosmetics={r.cosmetics} size={26} />
+                  <span className="showcase-side-nick">@{r.nick}</span>
+                  <span className="showcase-side-pc">{r.pc.toLocaleString('pt-BR')}<small>PC</small></span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -5746,14 +5752,21 @@ function TrophyShowcase({ champ, items, theme, status }) {
 // Champ "virtual" da Copa pra reusar o TrophyShowcase.
 const COPA_CHAMP = { id: 'copa', name: 'Copa do Mundo · Bolão', season: '2026' };
 
-function HallDaFamaView({ cs, users, teamPlayers, worldcup, wcFixtures }) {
+function HallDaFamaView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick }) {
   const copa = computeCopaStandings(worldcup, wcFixtures);
+  // Ranking dos apostadores (por saldo PC) — exibido ao lado do pódio da FIFA.
+  const apostadores = Object.entries(users || {})
+    .filter(([nick]) => nick !== ADMIN_NICK)
+    .map(([nick, u]) => ({ nick, pc: u.pc || 0, cosmetics: u.cosmetics || null, _tp: teamPlayers }))
+    .sort((a, b) => b.pc - a.pc)
+    .slice(0, 8);
   return (
     <div>
       {CHAMPIONSHIPS.map(c => {
         const { status, standings } = computeChampStandings(c.id, cs);
         const items = status !== 'soon' ? buildShowcase('fame', standings, users, teamPlayers) : [];
-        return <TrophyShowcase key={c.id} champ={c} items={items} theme="fame" status={status} />;
+        return <TrophyShowcase key={c.id} champ={c} items={items} theme="fame" status={status}
+          sideRanking={c.id === 'fifa' ? apostadores : null} myNick={myNick} />;
       })}
       <TrophyShowcase
         champ={COPA_CHAMP}
@@ -5783,7 +5796,7 @@ function HallDaVergonhaView({ cs, users, teamPlayers, worldcup, wcFixtures }) {
 }
 
 // HallView — vitrine de troféus (Fama + Vergonha) com subTabs.
-function HallView({ cs, users, teamPlayers, worldcup, wcFixtures }) {
+function HallView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick }) {
   const [subTab, setSubTab] = useState('fama'); // 'fama' | 'vergonha'
   const season = (CHAMPIONSHIPS.find(c => c.id === 'fifa') || {}).season || '';
   return (
@@ -5812,7 +5825,7 @@ function HallView({ cs, users, teamPlayers, worldcup, wcFixtures }) {
           <Icon name="toilet" size={14} /> TÁRTARO
         </button>
       </div>
-      {subTab === 'fama'     && <HallDaFamaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} />}
+      {subTab === 'fama'     && <HallDaFamaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} myNick={myNick} />}
       {subTab === 'vergonha' && <HallDaVergonhaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} />}
     </div>
   );
