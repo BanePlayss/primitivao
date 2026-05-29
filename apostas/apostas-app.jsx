@@ -40,8 +40,8 @@
 //      auto-cleanup de cosmético inválido)
 //
 // 4. NAVIGATION & SHELL
-//    - TOP BAR (primary-nav: INÍCIO/CAMPEONATOS/COPA/HALL/DISCORD + avatar)
-//    - Tabs (campeonato) / Sidebar (MEU ESPAÇO: perfil/tickets/ranking/loja)
+//    - TOP BAR (primary-nav: APOSTAS/CAMPEONATOS/COPA/VITRINE/NEWS/MERCADINHO/DISCORD + avatar)
+//    - MobileNav (hamburger: tudo) / Sidebar (MEU ESPAÇO: perfil/tickets/ranking)
 //    - CAMPEONATO SELECTOR / "em breve"
 //    - ICONES SVG (componente <Icon> — ver ALL_ICON_NAMES / ADMIN CATÁLOGO)
 //
@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-mobile-ux ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-nav-apostas ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1473,23 +1473,15 @@ function App() {
   const [session, _setSession] = useState(loadSession);
   const setSession = (s) => { saveSession(s); _setSession(s); };
 
-  const [tab, setTab]       = useState('apostar');
   const [slip, setSlip]     = useState([]); // [{fixtureId='rXgY', market, pick, odds}]
   const [synced, setSynced] = useState(false);
   const [championship, setChampionship] = useState('fifa');
   // VIEW principal — controla qual "página" mostrar:
-  //   inicio | campeonatos | copa | hall | perfil | tickets | ranking | loja | admin
+  //   apostas | campeonatos | copa | hall | inicio(NEWS) | loja | perfil | tickets | ranking | admin
   // 'discord' não é view — abre link externo direto.
-  // tab só é usado DENTRO de 'campeonatos' (classificacao | apostar).
-  const [view, setView] = useState('inicio');
-  // Garantia: ao entrar em 'campeonatos', o tab precisa ser válido pra UI
-  // (classificacao ou apostar). Se vier de outra view com tab antigo, força
-  // 'apostar' (JOGOS) como default — evita tela vazia.
-  useEffect(() => {
-    if (view === 'campeonatos' && tab !== 'classificacao' && tab !== 'apostar') {
-      setTab('apostar');
-    }
-  }, [view]);
+  // APOSTAS (jogos pra apostar) é a tela inicial. CAMPEONATOS = classificação.
+  // Ambas são escopadas pelo `championship` selecionado.
+  const [view, setView] = useState('apostas');
   // Cupom compartilhado por URL (?cupom=...) — quando setado, mostra modal
   // de preview com botão "USAR" que joga as legs no slip atual.
   const [sharedSlip, setSharedSlip] = useState(null);
@@ -1826,7 +1818,7 @@ function App() {
     }
   };
 
-  const logout = () => { setSession(null); setTab('apostar'); setSlip([]); };
+  const logout = () => { setSession(null); setView('apostas'); setSlip([]); };
 
   // Bônus semanal via transação: revalida elegibilidade contra dados REMOTOS
   // pra evitar dois cliques rápidos creditarem em dobro, ou ser sobrescrito.
@@ -2285,12 +2277,12 @@ function App() {
 
   const active = CHAMP_BY_ID[championship] || CHAMPIONSHIPS[0];
   const isActiveChamp = active.status === 'active';
-  // Tabs específicas do CAMPEONATO ativo (precisam de cs.rounds, games, etc).
-  // MEUS TICKETS é global (mostra apostas do user em qualquer estado).
-  const champTabs = new Set(['classificacao', 'apostar']);
-  // Quando o campeonato selecionado não tá ativo, e o usuário tenta acessar
-  // uma aba "do campeonato", mostramos a página "EM BREVE" no lugar.
-  const showPlaceholder = !isActiveChamp && champTabs.has(tab);
+  // APOSTAS e CAMPEONATOS são escopadas pelo campeonato selecionado (precisam
+  // de cs.rounds, games, etc). As demais views são globais.
+  const champScopedView = view === 'apostas' || view === 'campeonatos';
+  // Quando o campeonato selecionado não tá ativo e o usuário está numa view
+  // escopada por campeonato, mostramos a página "EM BREVE" no lugar.
+  const showPlaceholder = champScopedView && !isActiveChamp;
 
   return (
     <>
@@ -2304,7 +2296,6 @@ function App() {
         onClaimWeekly={claimWeekly}
         view={view}
         onView={setView}
-        onTab={setTab}
         teamPlayers={teamPlayers || {}}
         myCosmetics={me?.cosmetics || {}}
       />
@@ -2312,9 +2303,9 @@ function App() {
         <div className="content-area">
           <div className="page">
             {/* Navegação mobile (some no desktop). Sempre montada pra que as
-                telas globais — loja/tickets/ranking — sejam alcançáveis de
+                telas globais — perfil/tickets/ranking — sejam alcançáveis de
                 qualquer view, já que a Sidebar fica escondida no mobile. */}
-            <MobileNav view={view} tab={tab} setView={setView} setTab={setTab} isAdmin={isAdmin} />
+            <MobileNav view={view} setView={setView} isAdmin={isAdmin} />
             {view === 'inicio' && (
               <InicioView
                 session={session}
@@ -2339,41 +2330,56 @@ function App() {
             {view === 'hall' && (
               <HallView cs={cs} users={users} teamPlayers={teamPlayers || {}} worldcup={worldcup} wcFixtures={wcData.matches} myNick={session.nick} />
             )}
+            {/* APOSTAS — tela inicial: jogos pra apostar do campeonato selecionado. */}
+            {view === 'apostas' && (<>
+              <ChampionshipSelector
+                value={championship}
+                onChange={setChampionship}
+                interests={interests || {}}
+              />
+              {showPlaceholder ? (
+                <ChampionshipPlaceholder
+                  champ={active}
+                  session={session}
+                  interested={!!(interests?.[active.id]?.[session.nick])}
+                  count={Object.keys(interests?.[active.id] || {}).length}
+                  list={Object.keys(interests?.[active.id] || {}).sort()}
+                  isAdmin={isAdmin}
+                  onToggleInterest={() => toggleInterest(active.id)}
+                />
+              ) : (
+                <ApostarView
+                  games={games} gamesById={gamesById} bets={bets} me={me} session={session} users={users}
+                  weeklyReady={weeklyReady} weeklyIn={weeklyIn} onClaim={claimWeekly}
+                  slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
+                  onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin}
+                  slipPruneMsg={slipPruneMsg}
+                  onToggleLock={toggleGameLock}
+                />
+              )}
+            </>)}
+
+            {/* CAMPEONATOS — classificação do campeonato selecionado. */}
             {view === 'campeonatos' && (<>
-            <ChampionshipSelector
-              value={championship}
-              onChange={setChampionship}
-              interests={interests || {}}
-            />
-
-            <Tabs tab={tab} setTab={setTab} />
-
-        {showPlaceholder && (
-          <ChampionshipPlaceholder
-            champ={active}
-            session={session}
-            interested={!!(interests?.[active.id]?.[session.nick])}
-            count={Object.keys(interests?.[active.id] || {}).length}
-            list={Object.keys(interests?.[active.id] || {}).sort()}
-            isAdmin={isAdmin}
-            onToggleInterest={() => toggleInterest(active.id)}
-          />
-        )}
-
-        {!showPlaceholder && tab === 'apostar' && (
-          <ApostarView
-            games={games} gamesById={gamesById} bets={bets} me={me} session={session} users={users}
-            weeklyReady={weeklyReady} weeklyIn={weeklyIn} onClaim={claimWeekly}
-            slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
-            onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin}
-            slipPruneMsg={slipPruneMsg}
-            onToggleLock={toggleGameLock}
-          />
-        )}
-        {!showPlaceholder && tab === 'classificacao' && (
-          <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin}
-                             users={users} teamPlayers={teamPlayers || {}} />
-        )}
+              <ChampionshipSelector
+                value={championship}
+                onChange={setChampionship}
+                interests={interests || {}}
+              />
+              {showPlaceholder ? (
+                <ChampionshipPlaceholder
+                  champ={active}
+                  session={session}
+                  interested={!!(interests?.[active.id]?.[session.nick])}
+                  count={Object.keys(interests?.[active.id] || {}).length}
+                  list={Object.keys(interests?.[active.id] || {}).sort()}
+                  isAdmin={isAdmin}
+                  onToggleInterest={() => toggleInterest(active.id)}
+                />
+              ) : (
+                <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin}
+                                   users={users} teamPlayers={teamPlayers || {}} />
+              )}
             </>)}
 
             {/* Globais — independem de campeonato. Cada um é uma view inteira. */}
@@ -2429,8 +2435,7 @@ function App() {
           onClose={() => setSharedSlip(null)}
           onUse={(legs) => {
             setSlip(legs);
-            setTab('apostar');
-            setView('campeonatos');
+            setView('apostas');
             showToast(`${legs.length} palpite${legs.length === 1 ? '' : 's'} adicionado${legs.length === 1 ? '' : 's'} ao seu cupom`, 'success');
           }}
         />
@@ -2441,7 +2446,7 @@ function App() {
 }
 
 // ─── TOP BAR / TABS ─────────────────────────────────────────────────────────
-function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly, view, onView, onTab, teamPlayers, myCosmetics }) {
+function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly, view, onView, teamPlayers, myCosmetics }) {
   const days = Math.floor(weeklyIn / (24 * 60 * 60 * 1000));
   const hrs  = Math.floor((weeklyIn % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
   const mins = Math.floor((weeklyIn % (60 * 60 * 1000)) / (60 * 1000));
@@ -2457,10 +2462,12 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
         </div>
       </div>
       <nav className="primary-nav" aria-label="Navegação principal">
-        <button className={'pnav ' + (view === 'inicio' ? 'active' : '')} onClick={() => onView && onView('inicio')}>INÍCIO</button>
+        <button className={'pnav ' + (view === 'apostas' ? 'active' : '')} onClick={() => onView && onView('apostas')}>APOSTAS</button>
         <button className={'pnav ' + (view === 'campeonatos' ? 'active' : '')} onClick={() => onView && onView('campeonatos')}>CAMPEONATOS</button>
         <button className={'pnav ' + (view === 'copa' ? 'active' : '')} onClick={() => onView && onView('copa')}>COPA DO MUNDO</button>
         <button className={'pnav ' + (view === 'hall' ? 'active' : '')} onClick={() => onView && onView('hall')}>VITRINE</button>
+        <button className={'pnav ' + (view === 'inicio' ? 'active' : '')} onClick={() => onView && onView('inicio')}>NEWS</button>
+        <button className={'pnav ' + (view === 'loja' ? 'active' : '')} onClick={() => onView && onView('loja')}>MERCADINHO</button>
         <button className="pnav pnav-ext" onClick={goDiscord} title="Abre em nova aba">
           DISCORD <span className="pnav-ext-icon"><Icon name="arrow-up-right" size={12} /></span>
         </button>
@@ -2632,47 +2639,32 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
   );
 }
 
-// Lista canônica de tabs: definida fora pra Tabs (topo) e Sidebar (lateral)
-// usarem a mesma fonte da verdade.
+// Itens de navegação — fonte única pra Sidebar (desktop) e MobileNav (mobile).
+// sectionItems = páginas principais (= primary-nav no desktop). globalItems =
+// "meu espaço" (sidebar no desktop). MERCADINHO foi pro topo (sectionItems).
 function getTabItems(isAdmin) {
-  const champItems = [
-    { id: 'classificacao', label: 'CLASSIFICAÇÃO', icon: 'chart' },
-    { id: 'apostar',       label: 'JOGOS',          icon: 'target' },
+  const sectionItems = [
+    { id: 'apostas',     label: 'APOSTAS',       icon: 'ticket' },
+    { id: 'campeonatos', label: 'CAMPEONATOS',   icon: 'chart' },
+    { id: 'copa',        label: 'COPA DO MUNDO', icon: 'globe' },
+    { id: 'hall',        label: 'VITRINE',       icon: 'trophy' },
+    { id: 'inicio',      label: 'NEWS',          icon: 'newspaper' },
+    { id: 'loja',        label: 'MERCADINHO',    icon: 'coin' },
   ];
   const globalItems = [
     { id: 'perfil',   label: 'MEU PERFIL',   icon: 'user' },
     { id: 'tickets',  label: 'MEUS TICKETS', icon: 'ticket' },
     { id: 'ranking',  label: 'RANKING',      icon: 'trophy' },
-    { id: 'loja',     label: 'MERCADINHO',   icon: 'coin' },
   ];
   if (isAdmin) globalItems.push({ id: 'admin', label: 'ADMIN', icon: 'shield' });
-  return { champItems, globalItems };
+  return { sectionItems, globalItems };
 }
 
-// Tabs DO CAMPEONATO (CLASSIFICAÇÃO / JOGOS). Só desktop — barra horizontal no
-// topo do conteúdo. No mobile a navegação inteira fica no MobileNav (hamburger).
-function Tabs({ tab, setTab }) {
-  const { champItems } = getTabItems(false);
-  return (
-    <div className="tabs">
-      <div className="tabs-group tabs-group-left">
-        {champItems.map(it => (
-          <button key={it.id} className={'tab ' + (tab === it.id ? 'active' : '')} onClick={() => setTab(it.id)}>
-            {it.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Navegação MOBILE: hamburger + drawer com as sub-abas do campeonato E as telas
-// globais (perfil/tickets/ranking/loja/admin). Some no desktop — lá a primary-nav
-// (topo) + Sidebar (direita) cobrem. É a ÚNICA porta de entrada mobile pras telas
-// globais, então fica SEMPRE montado (não só na view de campeonatos) e navega via
-// setView (telas globais) / setView+setTab (sub-abas do campeonato).
-function MobileNav({ view, tab, setView, setTab, isAdmin }) {
-  const { champItems, globalItems } = getTabItems(isAdmin);
+// Navegação MOBILE: hamburger + drawer com TODAS as páginas (seções + globais).
+// Some no desktop — lá a primary-nav (topo) + Sidebar (direita) cobrem. No mobile
+// a primary-nav fica escondida (CSS), então este é o menu único de navegação.
+function MobileNav({ view, setView, isAdmin }) {
+  const { sectionItems, globalItems } = getTabItems(isAdmin);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -2691,18 +2683,15 @@ function MobileNav({ view, tab, setView, setTab, isAdmin }) {
     };
   }, [open]);
 
-  // Label do botão = tela atual. Em campeonatos, mostra a sub-aba ativa; nas
-  // views de topo (primary-nav) mostra o nome delas.
-  const TOP_LABELS = { inicio: 'INÍCIO', campeonatos: 'CAMPEONATOS', copa: 'COPA DO MUNDO', hall: 'VITRINE' };
-  let currentLabel;
-  if (view === 'campeonatos') {
-    currentLabel = (champItems.find(it => it.id === tab) || champItems[0]).label;
-  } else {
-    currentLabel = (globalItems.find(it => it.id === view) || {}).label || TOP_LABELS[view] || 'MENU';
-  }
+  // Label do botão = nome da tela atual.
+  const allItems = [...sectionItems, ...globalItems];
+  const currentLabel = (allItems.find(it => it.id === view) || {}).label || 'MENU';
 
-  const goChamp  = (id) => { setView('campeonatos'); setTab(id); setOpen(false); };
-  const goGlobal = (id) => { setView(id); setOpen(false); };
+  const go = (id) => { setView(id); setOpen(false); };
+  const goDiscord = () => {
+    window.open('https://discord.gg/CgjuJSYW5u', '_blank', 'noopener,noreferrer');
+    setOpen(false);
+  };
 
   return (
     <div className="tabs-mobile">
@@ -2718,22 +2707,23 @@ function MobileNav({ view, tab, setView, setTab, isAdmin }) {
       </button>
       {open && (
         <div className="tabs-drawer" role="menu">
-          <div className="tabs-drawer-section-label">DESTE CAMPEONATO</div>
-          {champItems.map(it => (
+          <div className="tabs-drawer-section-label">NAVEGAR</div>
+          {sectionItems.map(it => (
             <button key={it.id} role="menuitem"
-                    className={'tabs-drawer-item ' + (view === 'campeonatos' && tab === it.id ? 'active' : '')}
-                    onClick={() => goChamp(it.id)}>
+                    className={'tabs-drawer-item ' + (view === it.id ? 'active' : '')}
+                    onClick={() => go(it.id)}>
               {it.label}
             </button>
           ))}
-          <div className="tabs-drawer-section-label">GLOBAL</div>
+          <div className="tabs-drawer-section-label">MEU ESPAÇO</div>
           {globalItems.map(it => (
             <button key={it.id} role="menuitem"
                     className={'tabs-drawer-item ' + (view === it.id ? 'active' : '')}
-                    onClick={() => goGlobal(it.id)}>
+                    onClick={() => go(it.id)}>
               {it.label}
             </button>
           ))}
+          <button role="menuitem" className="tabs-drawer-item" onClick={goDiscord}>DISCORD</button>
         </div>
       )}
     </div>

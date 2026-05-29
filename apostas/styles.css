@@ -1524,14 +1524,9 @@
       .weekly-chip { padding: 4px 8px; }
       .weekly-chip-main { font-size: 12px; }
       .weekly-chip-sub { font-size: 7px; letter-spacing: 0.16em; }
-      /* Primary nav vira segunda linha embaixo da brand+wallet */
-      .primary-nav {
-        order: 99; width: 100%;
-        justify-content: center;
-        flex-wrap: wrap; gap: 2px;
-        padding-top: 6px; border-top: 1.5px dashed rgba(244,234,215,0.18);
-      }
-      .pnav { padding: 6px 12px; font-size: 11px; letter-spacing: 0.12em; }
+      /* No mobile a navegação inteira vive no MobileNav (hamburger drawer),
+         então a primary-nav do topo some pra não duplicar. */
+      .primary-nav { display: none; }
       /* Hero do início encolhe */
       .inicio-hero { padding: 14px 16px; }
       .inicio-hero-title { font-size: 22px; }
