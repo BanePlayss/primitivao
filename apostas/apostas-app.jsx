@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260528-hall-2lugares ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260528-nomes ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2365,7 +2365,7 @@ function TopBar({ nick, pc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWee
         <button className={'pnav ' + (view === 'inicio' ? 'active' : '')} onClick={() => onView && onView('inicio')}>INÍCIO</button>
         <button className={'pnav ' + (view === 'campeonatos' ? 'active' : '')} onClick={() => onView && onView('campeonatos')}>CAMPEONATOS</button>
         <button className={'pnav ' + (view === 'copa' ? 'active' : '')} onClick={() => onView && onView('copa')}>COPA DO MUNDO</button>
-        <button className={'pnav ' + (view === 'hall' ? 'active' : '')} onClick={() => onView && onView('hall')}>HALL</button>
+        <button className={'pnav ' + (view === 'hall' ? 'active' : '')} onClick={() => onView && onView('hall')}>VITRINE</button>
         <button className="pnav pnav-ext" onClick={goDiscord} title="Abre em nova aba">
           DISCORD <span className="pnav-ext-icon"><Icon name="arrow-up-right" size={12} /></span>
         </button>
@@ -2548,7 +2548,7 @@ function getTabItems(isAdmin) {
     { id: 'perfil',   label: 'MEU PERFIL',   icon: 'user' },
     { id: 'tickets',  label: 'MEUS TICKETS', icon: 'ticket' },
     { id: 'ranking',  label: 'RANKING',      icon: 'trophy' },
-    { id: 'loja',     label: 'LOJA',         icon: 'coin' },
+    { id: 'loja',     label: 'MERCADINHO',   icon: 'coin' },
   ];
   if (isAdmin) globalItems.push({ id: 'admin', label: 'ADMIN', icon: 'shield' });
   return { champItems, globalItems };
@@ -2640,7 +2640,7 @@ function Sidebar({ view, setView, isAdmin }) {
   return (
     <aside className="app-sidebar">
       <div className="sidebar-nav">
-        <div className="sidebar-label">MEU ESPAÇO</div>
+        <div className="sidebar-label">VESTIÁRIO</div>
         {globalItems.map(it => {
           const active = view === it.id;
           return (
@@ -5047,7 +5047,7 @@ function ColecaoCard({ nick, me, previewTeamId, ctx, onEquip }) {
         {owned.length === 0 ? (
           <div className="empty">
             <div className="e1">COLEÇÃO VAZIA</div>
-            <div className="e2">Compre molduras e distintivos na LOJA, ou desbloqueie por conquista. Eles aparecem aqui pra equipar.</div>
+            <div className="e2">Compre molduras e distintivos no MERCADINHO, ou desbloqueie por conquista. Eles aparecem aqui pra equipar.</div>
           </div>
         ) : (
           <>
@@ -5300,13 +5300,13 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
     <div>
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-head">
-          <div className="title"><Icon name="trophy" size={16} /> LOJA</div>
+          <div className="title"><Icon name="coin" size={16} /> MERCADINHO</div>
           <div className="sub">SEU SALDO: {pc} PC</div>
         </div>
         <div className="card-body">
           <p style={{ marginTop: 0, lineHeight: 1.5, fontSize: 13 }}>
             Compra molduras com PC e equipa distintivos desbloqueados por conquista.
-            Items equipados aparecem no seu avatar em todo o site (TopBar, Ranking, Perfil, Hall).
+            Items equipados aparecem no seu avatar em todo o site (TopBar, Ranking, Perfil, Vitrine).
           </p>
         </div>
       </div>
@@ -5711,20 +5711,24 @@ function HallView({ cs, users, teamPlayers }) {
         <div className="hall-hero-ornament" aria-hidden="true">
           <Icon name="star" size={12} /><span /><Icon name="trophy" size={16} /><span /><Icon name="star" size={12} />
         </div>
-        <div className="hall-hero-tag">PRIMITIVÃO · VITRINE DOS CAMPEÕES · {season}</div>
-        <div className="hall-hero-title">{subTab === 'fama' ? 'HALL DA FAMA' : 'HALL DA VERGONHA'}</div>
+        <div className="hall-hero-tag">
+          {subTab === 'fama'
+            ? `PRIMITIVÃO · MORADA DOS DEUSES · ${season}`
+            : `PRIMITIVÃO · ABISMO DOS CONDENADOS · ${season}`}
+        </div>
+        <div className="hall-hero-title">{subTab === 'fama' ? 'OLIMPO PRIMITIVÃO' : 'TÁRTARO'}</div>
         <div className="hall-hero-sub">
           {subTab === 'fama'
-            ? 'Os reis de cada temporada. Imortalizados em ouro, prata e bronze.'
-            : 'Os que afundaram. Privada, escova e o resto do fundo do poço.'}
+            ? 'Os deuses de cada temporada. Imortalizados em ouro e prata no alto do Olimpo.'
+            : 'O abismo onde os condenados penam. Privada, escova e o fundo do poço pra eternidade.'}
         </div>
       </div>
       <div className="hall-subtabs">
         <button className={'hall-subtab fame ' + (subTab === 'fama' ? 'active' : '')} onClick={() => setSubTab('fama')}>
-          <Icon name="trophy" size={14} /> HALL DA FAMA
+          <Icon name="trophy" size={14} /> OLIMPO
         </button>
         <button className={'hall-subtab shame ' + (subTab === 'vergonha' ? 'active' : '')} onClick={() => setSubTab('vergonha')}>
-          <Icon name="toilet" size={14} /> HALL DA VERGONHA
+          <Icon name="toilet" size={14} /> TÁRTARO
         </button>
       </div>
       {subTab === 'fama'     && <HallDaFamaView cs={cs} users={users} teamPlayers={teamPlayers} />}
