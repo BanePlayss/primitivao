@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-cc-pill ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-cc-merito ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2269,6 +2269,9 @@ function App() {
     } catch (e) { console.warn('setSelectedTitle failed', e); }
   };
 
+  // Contexto pra calcular CC (saldo derivado de títulos + participação).
+  const ccCtx = useMemo(() => ({ bets, users, teamPlayers, cs, worldcup, interests }), [bets, users, teamPlayers, cs, worldcup, interests]);
+
   const adjustPc = async (nick, delta) => {
     try {
       await commitBetDocUpdate(remote => {
@@ -2280,13 +2283,14 @@ function App() {
     } catch (e) { console.warn('adjustPc failed', e); }
   };
 
-  // Ajuste de CAMPEÃO COINS (cc) pelo admin — moeda da loja (PC é só aposta).
+  // Ajuste manual de CAMPEÃO COINS pelo admin = mexe no `ccBonus` (o saldo é
+  // derivado: ganho + ccBonus - gasto). Pode ser negativo; o saldo nunca passa de 0.
   const adjustCc = async (nick, delta) => {
     try {
       await commitBetDocUpdate(remote => {
         const u = (remote.users || {})[nick];
         if (!u) return null;
-        const users = { ...remote.users, [nick]: { ...u, cc: Math.max(0, (u.cc || 0) + delta) } };
+        const users = { ...remote.users, [nick]: { ...u, ccBonus: ((u.ccBonus || 0) + delta) } };
         return { ...remote, users };
       });
     } catch (e) { console.warn('adjustCc failed', e); }
@@ -2332,16 +2336,20 @@ function App() {
     if (!item || !item.price) return { err: 'item inválido' };
     if (!session?.nick) return { err: 'precisa logar' };
     const userNick = session.nick;
+    // CC ganho é derivado de títulos/participação (precisa de cs/worldcup, que
+    // não estão no doc da transação) — calcula no cliente e valida na transação.
+    const earnedCc = ccEarnedFor(userNick, ccCtx);
     try {
       const res = await commitBetDocUpdate(remote => {
         const u = (remote.users || {})[userNick];
         if (!u) return { __abort: true, result: { err: 'usuário não encontrado' } };
         const inv = Array.isArray(u.inventory) ? u.inventory : [];
         if (inv.includes(itemId)) return { __abort: true, result: { err: 'você já tem esse item' } };
-        if ((u.cc || 0) < item.price) return { __abort: true, result: { err: 'Campeão Coins insuficientes (tem ' + (u.cc || 0) + ' CC).' } };
+        const bal = Math.max(0, earnedCc + (u.ccBonus || 0) - (u.ccSpent || 0));
+        if (bal < item.price) return { __abort: true, result: { err: 'Campeão Coins insuficientes (tem ' + bal + ' CC).' } };
         const next = {
           ...u,
-          cc: (u.cc || 0) - item.price,
+          ccSpent: (u.ccSpent || 0) + item.price,
           inventory: [...inv, itemId],
         };
         return { ...remote, users: { ...remote.users, [userNick]: next } };
@@ -2431,7 +2439,7 @@ function App() {
       <TopBar
         nick={session.nick}
         pc={isAdmin ? '∞' : me.pc}
-        cc={isAdmin ? '∞' : (me.cc || 0)}
+        cc={isAdmin ? '∞' : ccBalanceFor(session.nick, me, ccCtx)}
         isAdmin={isAdmin}
         onLogout={logout}
         weeklyReady={weeklyReady}
@@ -2537,7 +2545,7 @@ function App() {
               <LojaView
                 nick={session.nick}
                 me={me}
-                ctx={{ bets, users, teamPlayers: teamPlayers || {}, cs, worldcup }}
+                ctx={{ bets, users, teamPlayers: teamPlayers || {}, cs, worldcup, interests }}
                 onBuy={buyItem}
                 onEquip={equipItem}
               />
@@ -2545,7 +2553,7 @@ function App() {
             {view === 'admin' && isAdmin && (
               <AdminView
                 bets={bets} users={users} adjustPc={adjustPc} adjustCc={adjustCc}
-                splitCurrency={splitCurrency}
+                splitCurrency={splitCurrency} ccCtx={ccCtx}
                 teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
                 discordWebhook={discordWebhook} remoteNews={remoteNews}
                 cs={cs} weeklyReady={weeklyReady}
@@ -5379,6 +5387,30 @@ function getTitleDef(id) {
   return TITLE_DEFS.find(t => t.id === id) || null;
 }
 
+// ── CAMPEÃO COINS (CC) — moeda da loja, RARA e de mérito ────────────────────
+// Saldo DERIVADO (não some ao gastar): saldo = ganho + bônus_admin - gasto.
+// GANHO vem de mérito: cada TÍTULO conquistado + cada CAMPEONATO em que o cara
+// participou (inscrição). Valores propositalmente altos vs preços da loja —
+// CC é pra ser raro. Ajuste as 2 constantes abaixo pra calibrar a economia.
+const CC_PER_TITLE = 100;          // por título conquistado
+const CC_PER_PARTICIPATION = 25;   // por campeonato em que participou (inscrito)
+function ccEarnedFor(nick, ctx) {
+  if (!nick) return 0;
+  let earned = 0;
+  try { earned += titlesForNick(nick, ctx || {}).length * CC_PER_TITLE; } catch (_) {}
+  const interests = (ctx && ctx.interests) || {};
+  for (const cid of Object.keys(interests)) {
+    const m = interests[cid];
+    if (m && m[nick]) earned += CC_PER_PARTICIPATION;
+  }
+  return earned;
+}
+// Saldo gastável de CC. `ccBonus` = ajuste manual do admin; `ccSpent` = total
+// gasto na loja (transacional no buyItem). Nunca negativo.
+function ccBalanceFor(nick, user, ctx) {
+  return Math.max(0, ccEarnedFor(nick, ctx) + ((user && user.ccBonus) || 0) - ((user && user.ccSpent) || 0));
+}
+
 // Badge compacto pra renderizar em standings/ranking ao lado de nomes.
 function TitleBadge({ titleId, size }) {
   const t = getTitleDef(titleId);
@@ -5534,7 +5566,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
           {myTeamId && <Avatar teamId={myTeamId} cosmetics={me?.cosmetics} size={120} className="profile-avatar" />}
           <div>
             <div className="title" style={{ fontSize: 24 }}>@{nick}</div>
-            <div className="sub">{isAdmin ? 'ADMIN' : `${me?.pc ?? 0} PC · ${me?.cc ?? 0} CC`}{myTeam ? ` · ${myTeam.name}` : ''}</div>
+            <div className="sub">{isAdmin ? 'ADMIN' : `${me?.pc ?? 0} PC · ${ccBalanceFor(nick, me, { bets, users, teamPlayers, cs, worldcup, interests })} CC`}{myTeam ? ` · ${myTeam.name}` : ''}</div>
           </div>
         </div>
       </div>
@@ -5722,7 +5754,7 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
   const [busy, setBusy] = useState({}); // { itemId: 'buy' | 'equip' }
   const inv = useMemo(() => effectiveInventory(nick, me, ctx), [nick, me, ctx]);
   const equipped = me?.cosmetics || {};
-  const cc = me?.cc || 0;
+  const cc = ccBalanceFor(nick, me, ctx);
 
   const handleBuy = async (item) => {
     if (busy[item.id]) return;
@@ -7902,7 +7934,7 @@ function CatalogoAdminPanel({ cs, teamPlayers }) {
   );
 }
 
-function AdminView({ bets, users, adjustPc, adjustCc, splitCurrency, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, weeklyReady, worldcup, wcFixtures }) {
+function AdminView({ bets, users, adjustPc, adjustCc, splitCurrency, ccCtx, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, weeklyReady, worldcup, wcFixtures }) {
   const [splitting, setSplitting] = useState(false);
   const handleSplit = async () => {
     if (splitting) return;
@@ -7975,7 +8007,7 @@ function AdminView({ bets, users, adjustPc, adjustCc, splitCurrency, teamPlayers
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                       <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: 'var(--pv-orange)' }}>CC</span>
                       <button onClick={() => adjustCc(nick, -50)} style={pm}>-</button>
-                      <div className="lb-pc mono" style={{ minWidth: 52, textAlign: 'center' }}>{u.cc || 0}</div>
+                      <div className="lb-pc mono" style={{ minWidth: 52, textAlign: 'center' }}>{ccBalanceFor(nick, u, ccCtx)}</div>
                       <button onClick={() => adjustCc(nick, 50)} style={pmPlus}>+</button>
                     </div>
                   </div>
