@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-tabloide-art ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-sempre-ativo ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1527,6 +1527,19 @@ function App() {
       window.history.replaceState({}, '', newUrl);
     } catch (e) { /* ignora */ }
   }, []);
+
+  // "SEMPRE no campeonato ATIVO": ver um campeonato "em breve" só vale enquanto
+  // você está NA aba CAMPEONATOS (pra inscrição/preview). Ao sair pra qualquer
+  // outra aba (APOSTAS, etc.), a seleção volta pro primeiro ATIVO — então nada
+  // fica preso num "em breve". Só há 1 ativo + a Copa, então o ativo é o default.
+  useEffect(() => {
+    if (view === 'campeonatos') return;
+    const act = (CHAMP_BY_ID[championship] || CHAMPIONSHIPS[0]).status === 'active';
+    if (!act) {
+      const firstActive = (CHAMPIONSHIPS.find(c => c.status === 'active') || CHAMPIONSHIPS[0]).id;
+      setChampionship(firstActive);
+    }
+  }, [view, championship]);
 
   // Dados estáticos da Copa do Mundo 2026 (carregados de JSON).
   const [wcData, setWcData] = useState({ matches: [], teamsByName: {} });
@@ -6680,7 +6693,11 @@ function currentRoundMatchups(cs) {
 // Monta os dados do tabloide a partir do estado (classificação + jogos).
 // Tudo é editável no painel; isto é só o ponto de partida.
 function buildTabloidData(cs) {
-  const { standings } = computeChampStandings('fifa', cs);
+  // O tabloide é sempre do campeonato ATIVO (hoje FIFA) — segue a mesma regra
+  // do app: o que está rolando agora. As odds/confrontos vêm de cs (rodada
+  // aberta). Sai todo domingo: abre o painel, já vem preenchido, exporta.
+  const activeId = (CHAMPIONSHIPS.find(c => c.status === 'active') || CHAMPIONSHIPS[0]).id;
+  const { standings } = computeChampStandings(activeId, cs);
   const champ = standings[0] || null;
   const vice = standings[1] || null;
   const n = standings.length;
