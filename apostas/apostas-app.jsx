@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-melhorias ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-arte-edicao ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -7102,6 +7102,20 @@ function buildTabloidData(ctx, champId, type) {
 //   rodada   = recap (campeão + classificação + confrontos)
 //   eventos  = central cheio (arte + caixas PRÊMIO/REGRAS + confrontos)
 //   polemica = grid de zoeira (cards com avatar + alfinetada)
+// Emblema/"arte" padrão da edição quando não há imagem subida: o ícone do
+// campeonato dentro de um brasão (cor do campeonato) + caractere decorativo de
+// fundo. Faz o tabloide nunca ficar com buraco vazio.
+function TpEmblem({ icon, accent, size }) {
+  return (
+    <div className="tp-emblem" style={size ? { minHeight: size, height: size, width: size } : undefined}>
+      {accent && <span className="tp-emblem-accent">{accent}</span>}
+      <span className="tp-emblem-ring" style={size ? { width: size * 0.74, height: size * 0.74 } : undefined}>
+        <Icon name={icon || 'star'} size={size ? Math.round(size * 0.42) : 150} />
+      </span>
+    </div>
+  );
+}
+
 function TabloidPoster({ data, teamPlayers }) {
   const d = data || {};
   const t = d.type || 'rodada';
@@ -7146,7 +7160,7 @@ function TabloidPoster({ data, teamPlayers }) {
                 ? <img className="tp-hero-img" src={d.heroImage} alt="" crossOrigin="anonymous" />
                 : ((champ.teamId || champ.nick)
                     ? <Avatar teamId={champ.teamId} nick={champ.nick} teamPlayers={teamPlayers} fullBody size={300} className="tp-hero-av" />
-                    : <div className="tp-av-empty" style={{ width: 300, height: 300 }} />)}
+                    : <TpEmblem icon={champIcon} accent={d.accent} size={300} />)}
             </div>
             <div className="tp-hero-text">
               <div className="tp-hero-title">{champ.title}</div>
@@ -7203,7 +7217,7 @@ function TabloidPoster({ data, teamPlayers }) {
           <div className="tp-event-hero">
             {d.heroImage
               ? <img className="tp-hero-img" src={d.heroImage} alt="" crossOrigin="anonymous" />
-              : <div className="tp-av-empty tp-event-empty">ARTE DA EDIÇÃO</div>}
+              : <TpEmblem icon={champIcon} accent={d.accent} />}
           </div>
           <div className="tp-boxes">
             {(d.boxes || []).filter(b => b && (b.title || b.body)).map((b, i) => (
@@ -7217,7 +7231,7 @@ function TabloidPoster({ data, teamPlayers }) {
       )}
 
       {/* ── TIPO: POLÊMICA (grid de zoeira) ── */}
-      {t === 'polemica' && (
+      {t === 'polemica' && ((d.stories || []).length > 0 ? (
         <div className="tp-stories">
           {(d.stories || []).map((s, i) => (
             <div key={i} className={'tp-story tp-story-' + (s.tone || 'spice')}>
@@ -7232,7 +7246,12 @@ function TabloidPoster({ data, teamPlayers }) {
             </div>
           ))}
         </div>
-      )}
+      ) : (
+        <div className="tp-empty-note">
+          <TpEmblem icon={champIcon} accent={d.accent} size={220} />
+          <div className="tp-empty-note-txt">SEM BARRACO ESSA SEMANA… <strong>AINDA.</strong><br />Quando os jogos rolarem, a zoeira vem sozinha.</div>
+        </div>
+      ))}
 
       {(t === 'rodada' || t === 'eventos') && matchups.length > 0 && (
         <div className="tp-matches">
