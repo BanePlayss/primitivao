@@ -72,83 +72,106 @@ function lastCompleteRound() {
   return 0;
 }
 
-const R = roundArg ? parseInt(roundArg, 10) : lastCompleteRound();
-if (!R || R < 1 || R > rounds.length) { console.error('Rodada inválida: ' + R); process.exit(1); }
+const ALL = flags.has('--all');
+const lastComplete = lastCompleteRound();
 
-const roundGames = (rounds[R - 1] || []).filter(isPlayed);
-if (roundGames.length === 0) { console.error('Rodada ' + R + ' não tem resultados lançados.'); process.exit(1); }
+// Monta o item de notícia da rodada R (ou null se não tem resultados).
+function buildItem(R) {
+  const roundGames = (rounds[R - 1] || []).filter(isPlayed);
+  if (roundGames.length === 0) return null;
+  const RR = String(R).padStart(2, '0');
+  const tbl = standings(R);
+  const leader = tbl[0], lanterna = tbl[tbl.length - 1];
+  const allClosed = (rounds[R - 1] || []).length > 0 && (rounds[R - 1] || []).every(isPlayed);
+  const byMargin = roundGames.slice().sort((a, b) => Math.abs(+b.gh - +b.ga) - Math.abs(+a.gh - +a.ga));
+  const gl = byMargin[0];
+  const glWin = (+gl.gh > +gl.ga) ? gl.home : gl.away;
+  const glLose = (+gl.gh > +gl.ga) ? gl.away : gl.home;
+  const glHi = Math.max(+gl.gh, +gl.ga), glLo = Math.min(+gl.gh, +gl.ga);
+  const resultLines = roundGames.map(g => {
+    const draw = +g.gh === +g.ga;
+    const win = draw ? null : (+g.gh > +g.ga ? name(g.home) : name(g.away));
+    return `- **${name(g.home)} ${g.gh} x ${g.ga} ${name(g.away)}**` + (draw ? ' — ficou no empate, ninguém quis ganhar.' : ` — ${win} levou.`);
+  });
+  const secondClause = leader.id === glWin
+    ? ` E AINDA ${glHi}x${glLo} NO ${name(glLose).toUpperCase()}`
+    : `, ${name(glWin).toUpperCase()} ATROPELA`;
+  const title = `RODADA ${RR}: ${name(leader.id).toUpperCase()} NA PONTA${secondClause}`;
+  const subtitle = `Resultados, classificação e a zoeira da rodada ${RR}. ${name(glLose)} levou ${glHi}x${glLo} e a tabela mexeu.`;
+  // IMPORTANTE: linha em branco entre o título da seção e a lista, senão o
+  // renderizador (NewsBodyText) junta tudo num parágrafo em vez de <ul>/<ol>.
+  const body = [
+    `**A RODADA ${RR} ${allClosed ? 'FECHOU' : 'ROLOU'} E DEU PANO PRA MANGA!**`,
+    '',
+    '**RESULTADOS**',
+    '',
+    ...resultLines,
+    '',
+    '**O QUE A TABELA DIZ**',
+    '',
+    `- **NA PONTA:** ${name(leader.id)} lidera com **${leader.p} pts** (${leader.v}V ${leader.emp}E ${leader.d}D, saldo ${sgOf(leader)}). O resto que corra atrás.`,
+    `- **NA LANTERNA:** ${name(lanterna.id)} no fundo do poço com ${lanterna.p} pts (saldo ${sgOf(lanterna)}). Vexame moldurado.`,
+    `- **MASSACRE DA RODADA:** ${name(glWin)} ${glHi}x${glLo} ${name(glLose)}. Foi covardia, chama o SAMU.`,
+    '',
+    `**CLASSIFICAÇÃO (após a rodada ${RR})**`,
+    '',
+    ...tbl.map((s, i) => `${i + 1}. **${name(s.id)}** — ${s.p} pts (${s.v}-${s.emp}-${s.d}, saldo ${sgOf(s)})`),
+    '',
+    `Próxima rodada já vem aí. Monta teu cupom: ${SITE}`,
+  ].join('\n');
+  // Data = data do 1º jogo da rodada (display), senão hoje.
+  const gdate = (rounds[R - 1] || []).map(g => g && g.date).find(Boolean);
+  const item = {
+    id: 'auto-rodada-' + R, title, subtitle, tag: `RODADA ${RR}`,
+    date: gdate || new Date().toLocaleDateString('pt-BR'), image: '', body, at: 0,
+  };
+  return { R, item, resultLines, leader };
+}
 
-const newsId = 'auto-rodada-' + R;
-if (!FORCE && existingNews.some(n => n.id === newsId)) {
-  console.log('Notícia da rodada ' + R + ' já existe. (use --force pra regerar). Nada a fazer.');
+// Decide quais rodadas publicar.
+let built = [];
+if (ALL) {
+  for (let r = 1; r <= lastComplete; r++) {
+    const b = buildItem(r);
+    if (b) { b.item.at = Date.now() - (lastComplete - r) * 60000; built.push(b); } // mais antiga = at menor
+  }
+  if (!built.length) { console.error('Nenhuma rodada com resultados.'); process.exit(1); }
+} else {
+  const R = roundArg ? parseInt(roundArg, 10) : lastComplete;
+  if (!R || R < 1 || R > rounds.length) { console.error('Rodada inválida: ' + R); process.exit(1); }
+  if (!FORCE && existingNews.some(n => n.id === 'auto-rodada-' + R)) {
+    console.log('Notícia da rodada ' + R + ' já existe. (use --force pra regerar). Nada a fazer.');
+    process.exit(0);
+  }
+  const b = buildItem(R);
+  if (!b) { console.error('Rodada ' + R + ' não tem resultados lançados.'); process.exit(1); }
+  b.item.at = Date.now();
+  built = [b];
+}
+
+console.log('Rodadas a publicar: ' + built.map(b => b.R).join(', '));
+built.forEach(b => console.log('  R' + String(b.R).padStart(2, '0') + ': ' + b.item.title));
+
+if (DRY) {
+  console.log('\n--- EXEMPLO (rodada ' + built[built.length - 1].R + ') ---\n' + built[built.length - 1].item.body);
+  console.log('\n[--dry] Nada foi escrito. (' + built.length + ' notícia(s))');
   process.exit(0);
 }
 
-const RR = String(R).padStart(2, '0');
-const tbl = standings(R);
-const leader = tbl[0], lanterna = tbl[tbl.length - 1];
-const allClosed = (rounds[R - 1] || []).length > 0 && (rounds[R - 1] || []).every(isPlayed);
-
-// Maior goleada da rodada.
-const byMargin = roundGames.slice().sort((a, b) => Math.abs(+b.gh - +b.ga) - Math.abs(+a.gh - +a.ga));
-const gl = byMargin[0];
-const glWin = (+gl.gh > +gl.ga) ? gl.home : gl.away;
-const glLose = (+gl.gh > +gl.ga) ? gl.away : gl.home;
-const glHi = Math.max(+gl.gh, +gl.ga), glLo = Math.min(+gl.gh, +gl.ga);
-
-const resultLines = roundGames.map(g => {
-  const draw = +g.gh === +g.ga;
-  const win = draw ? null : (+g.gh > +g.ga ? name(g.home) : name(g.away));
-  return `- **${name(g.home)} ${g.gh} x ${g.ga} ${name(g.away)}**` + (draw ? ' — ficou no empate, ninguém quis ganhar.' : ` — ${win} levou.`);
-});
-
-const secondClause = leader.id === glWin
-  ? ` E AINDA ${glHi}x${glLo} NO ${name(glLose).toUpperCase()}`
-  : `, ${name(glWin).toUpperCase()} ATROPELA`;
-const title = `RODADA ${RR}: ${name(leader.id).toUpperCase()} NA PONTA${secondClause}`;
-const subtitle = `Resultados, classificação e a zoeira da rodada ${RR}. ${name(glLose)} levou ${glHi}x${glLo} e a tabela mexeu.`;
-
-const body = [
-  `**A RODADA ${RR} ${allClosed ? 'FECHOU' : 'ROLOU'} E DEU PANO PRA MANGA!**`,
-  '',
-  '**RESULTADOS**',
-  ...resultLines,
-  '',
-  '**O QUE A TABELA DIZ**',
-  `- **NA PONTA:** ${name(leader.id)} lidera com **${leader.p} pts** (${leader.v}V ${leader.emp}E ${leader.d}D, saldo ${sgOf(leader)}). O resto que corra atrás.`,
-  `- **NA LANTERNA:** ${name(lanterna.id)} no fundo do poço com ${lanterna.p} pts (saldo ${sgOf(lanterna)}). Vexame moldurado.`,
-  `- **MASSACRE DA RODADA:** ${name(glWin)} ${glHi}x${glLo} ${name(glLose)}. Foi covardia, chama o SAMU.`,
-  '',
-  `**CLASSIFICAÇÃO (após a rodada ${RR})**`,
-  ...tbl.map((s, i) => `${i + 1}. **${name(s.id)}** — ${s.p} pts (${s.v}-${s.emp}-${s.d}, saldo ${sgOf(s)})`),
-  '',
-  `Próxima rodada já vem aí. Monta teu cupom: ${SITE}`,
-].join('\n');
-
-const item = {
-  id: newsId, title, subtitle, tag: `RODADA ${RR}`,
-  date: new Date().toLocaleDateString('pt-BR'), image: '', body, at: Date.now(),
-};
-
-console.log('================ NOTÍCIA GERADA (rodada ' + R + ') ================');
-console.log(title);
-console.log(subtitle);
-console.log('------------------------------------------------------------');
-console.log(body);
-console.log('============================================================');
-
-if (DRY) { console.log('\n[--dry] Nada foi escrito.'); process.exit(0); }
-
-const updatedNews = [item, ...existingNews.filter(n => n.id !== newsId)];
+// Escrita ÚNICA: novas no topo (ordenadas por at desc), removendo as versões antigas dos mesmos ids.
+const newIds = new Set(built.map(b => b.item.id));
+const items = built.map(b => b.item).sort((a, b) => b.at - a.at);
+const updatedNews = [...items, ...existingNews.filter(n => !newIds.has(n.id))];
 await setDoc(doc(db, 'primitivao', 'apostas'), { news: updatedNews }, { merge: true });
-console.log('\n✓ Publicada no site (campo news).');
+console.log('\n✓ Publicada(s) ' + items.length + ' notícia(s) no site (campo news).');
 
 if (DISCORD) {
   const webhook = apostas.discord_webhook;
   if (webhook && String(webhook).startsWith('https://discord.com/api/webhooks/')) {
+    const last = built[built.length - 1]; // no --all evita spam: posta só a mais recente
     const dMsg = [
-      `**${title}**`, subtitle, '', ...resultLines, '',
-      `${name(leader.id)} lidera com ${leader.p} pts. Tabela e zoeira completa no site:`, SITE,
+      `**${last.item.title}**`, last.item.subtitle, '', ...last.resultLines, '',
+      `${name(last.leader.id)} lidera com ${last.leader.p} pts. Tabela e zoeira completa no site:`, SITE,
     ].join('\n').slice(0, 1900);
     try {
       const res = await fetch(webhook, {
