@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-arte-edicao ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-news-fmt ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4403,6 +4403,17 @@ function NewsBodyText({ text }) {
             <li key={i}>{renderInline(l.replace(/^\s*-\s+/, ''))}</li>
           ))}
         </ul>
+      );
+    }
+    // Lista numerada ("1. ... 2. ...") — ex: a classificação na notícia da rodada.
+    const isNumList = lines.length > 0 && lines.every(l => /^\s*\d+\.\s/.test(l));
+    if (isNumList) {
+      return (
+        <ol key={bi} className="news-ol">
+          {lines.map((l, i) => (
+            <li key={i}>{renderInline(l.replace(/^\s*\d+\.\s+/, ''))}</li>
+          ))}
+        </ol>
       );
     }
     return (

@@ -246,6 +246,8 @@
     }
     .news-text p { margin: 0 0 10px; }
     .news-text ul { margin: 6px 0 10px; padding-left: 20px; }
+    .news-text ol { margin: 6px 0 10px; padding-left: 24px; }
+    .news-text ol.news-ol li { margin-bottom: 3px; font-variant-numeric: tabular-nums; }
     .news-text li { margin-bottom: 4px; }
     .inicio-foot {
       text-align: center; padding: 20px;
