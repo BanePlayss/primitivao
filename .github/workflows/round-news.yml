@@ -1,0 +1,36 @@
+name: Auto Round News
+
+# Gera e publica a NOTÍCIA da rodada automaticamente (site + Discord).
+# - Agendado: todo dia 02:00 UTC (23:00 BRT, depois dos jogos). Pega a última
+#   rodada COMPLETA; se a notícia dela já existe, não faz nada (idempotente).
+# - Manual (Run workflow): dá pra escolher uma rodada específica (ex: backfill
+#   das rodadas 01..06) e se posta no Discord.
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      round:
+        description: 'Rodada específica (vazio = última completa)'
+        required: false
+        default: ''
+      discord:
+        description: 'Postar no Discord?'
+        type: boolean
+        default: true
+
+jobs:
+  news:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase (Web SDK)
+        run: npm install --no-save firebase@^10
+      - name: Generate + publish round news
+        run: >
+          node scripts/generate-round-news.mjs
+          ${{ github.event.inputs.round }}
+          ${{ (github.event_name == 'schedule' || github.event.inputs.discord != 'false') && '--discord' || '' }}
