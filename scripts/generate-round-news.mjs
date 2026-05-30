@@ -76,7 +76,8 @@ const ALL = flags.has('--all');
 const lastComplete = lastCompleteRound();
 
 // Monta o item de notícia da rodada R (ou null se não tem resultados).
-function buildItem(R) {
+// avoidIdx = índice do ângulo usado na rodada anterior (pra não repetir).
+function buildItem(R, avoidIdx) {
   const roundGames = (rounds[R - 1] || []).filter(isPlayed);
   if (roundGames.length === 0) return null;
   const RR = String(R).padStart(2, '0');
@@ -98,18 +99,24 @@ function buildItem(R) {
   const up = (id) => name(id).toUpperCase();
   const totalGoals = roundGames.reduce((s, g) => s + (+g.gh) + (+g.ga), 0);
   const close = roundGames.filter(g => +g.gh !== +g.ga).sort((a, b) => Math.abs(+a.gh - +a.ga) - Math.abs(+b.gh - +b.ga))[0];
+  const closeMargin = close ? Math.abs(+close.gh - +close.ga) : 99;
   const closeWin = close ? (+close.gh > +close.ga ? close.home : close.away) : null;
   let topScore = 0, topTeam = null;
   for (const g of roundGames) { if (+g.gh > topScore) { topScore = +g.gh; topTeam = g.home; } if (+g.ga > topScore) { topScore = +g.ga; topTeam = g.away; } }
-  const headlines = [
-    `MASSACRE: ${up(glWin)} ${glHi}x${glLo} NO ${up(glLose)}`,
+  // Cada ângulo só entra se for VERDADE pra essa rodada (senão null). Rotaciona
+  // a ordem de preferência por rodada e evita repetir o ângulo da anterior.
+  const angle = [
+    (glHi - glLo >= 3) ? `MASSACRE: ${up(glWin)} ${glHi}x${glLo} NO ${up(glLose)}` : null,
     `${up(leader.id)} SEGUE VOANDO NA LIDERANÇA`,
-    `VEXAME: ${up(lanterna.id)} AFUNDA COM ${lanterna.p} PTS`,
-    `CHUVA DE GOLS: ${totalGoals} NA RODADA ${RR}`,
-    close ? `${up(closeWin)} VENCE NO SUFOCO E EMBOLA A TABELA` : `${up(glWin)} ATROPELA E ASSUSTA O CAMPEONATO`,
-    topTeam ? `${up(topTeam)} FEZ ${topScore} E NINGUÉM SEGUROU` : `A RODADA ${RR} MEXEU COM A TABELA`,
+    (lanterna.p <= 1) ? `VEXAME: ${up(lanterna.id)} AFUNDA COM ${lanterna.p} PTS` : null,
+    (totalGoals >= 18) ? `CHUVA DE GOLS: ${totalGoals} NA RODADA ${RR}` : null,
+    (close && closeMargin <= 1) ? `${up(closeWin)} VENCE NO SUFOCO (${close.gh}x${close.ga}) E EMBOLA A TABELA` : null,
+    (topTeam && topScore >= 5) ? `${up(topTeam)} FEZ ${topScore} E NINGUÉM SEGUROU` : null,
   ];
-  const title = headlines[(R - 1) % headlines.length];
+  let title = null, angleIdx = -1;
+  for (let i = 0; i < angle.length; i++) { const idx = (i + (R - 1)) % angle.length; if (angle[idx] && idx !== avoidIdx) { title = angle[idx]; angleIdx = idx; break; } }
+  if (!title) { for (let i = 0; i < angle.length; i++) { const idx = (i + (R - 1)) % angle.length; if (angle[idx]) { title = angle[idx]; angleIdx = idx; break; } } }
+  if (!title) title = `A RODADA ${RR} MEXEU COM A TABELA`;
   const subtitle = `Os placares, a classificação após a ${R}ª rodada e a zoeira de sempre. ${name(leader.id)} lidera com ${leader.p} pts; ${name(lanterna.id)} amarga a lanterna.`;
   // IMPORTANTE: linha em branco entre o título da seção e a lista, senão o
   // renderizador (NewsBodyText) junta tudo num parágrafo em vez de <ul>/<ol>.
@@ -138,15 +145,16 @@ function buildItem(R) {
     id: 'auto-rodada-' + R, title, subtitle, tag: `RODADA ${RR}`,
     date: gdate || new Date().toLocaleDateString('pt-BR'), image: '', body, at: 0,
   };
-  return { R, item, resultLines, leader };
+  return { R, item, resultLines, leader, angleIdx };
 }
 
 // Decide quais rodadas publicar.
 let built = [];
 if (ALL) {
+  let prevAngle = -1;
   for (let r = 1; r <= lastComplete; r++) {
-    const b = buildItem(r);
-    if (b) { b.item.at = Date.now() - (lastComplete - r) * 60000; built.push(b); } // mais antiga = at menor
+    const b = buildItem(r, prevAngle);
+    if (b) { prevAngle = b.angleIdx; b.item.at = Date.now() - (lastComplete - r) * 60000; built.push(b); } // mais antiga = at menor
   }
   if (!built.length) { console.error('Nenhuma rodada com resultados.'); process.exit(1); }
 } else {
@@ -156,7 +164,7 @@ if (ALL) {
     console.log('Notícia da rodada ' + R + ' já existe. (use --force pra regerar). Nada a fazer.');
     process.exit(0);
   }
-  const b = buildItem(R);
+  const b = buildItem(R, -1);
   if (!b) { console.error('Rodada ' + R + ' não tem resultados lançados.'); process.exit(1); }
   b.item.at = Date.now();
   built = [b];
