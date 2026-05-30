@@ -93,11 +93,24 @@ function buildItem(R) {
     const win = draw ? null : (+g.gh > +g.ga ? name(g.home) : name(g.away));
     return `- **${name(g.home)} ${g.gh} x ${g.ga} ${name(g.away)}**` + (draw ? ' — ficou no empate, ninguém quis ganhar.' : ` — ${win} levou.`);
   });
-  const secondClause = leader.id === glWin
-    ? ` E AINDA ${glHi}x${glLo} NO ${name(glLose).toUpperCase()}`
-    : `, ${name(glWin).toUpperCase()} ATROPELA`;
-  const title = `RODADA ${RR}: ${name(leader.id).toUpperCase()} NA PONTA${secondClause}`;
-  const subtitle = `Resultados, classificação e a zoeira da rodada ${RR}. ${name(glLose)} levou ${glHi}x${glLo} e a tabela mexeu.`;
+  // Manchete VARIADA: rotaciona o ângulo por rodada (massacre, líder, lanterna,
+  // gols, sufoco, artilheiro) pra não repetir "fulano na ponta" toda semana.
+  const up = (id) => name(id).toUpperCase();
+  const totalGoals = roundGames.reduce((s, g) => s + (+g.gh) + (+g.ga), 0);
+  const close = roundGames.filter(g => +g.gh !== +g.ga).sort((a, b) => Math.abs(+a.gh - +a.ga) - Math.abs(+b.gh - +b.ga))[0];
+  const closeWin = close ? (+close.gh > +close.ga ? close.home : close.away) : null;
+  let topScore = 0, topTeam = null;
+  for (const g of roundGames) { if (+g.gh > topScore) { topScore = +g.gh; topTeam = g.home; } if (+g.ga > topScore) { topScore = +g.ga; topTeam = g.away; } }
+  const headlines = [
+    `MASSACRE: ${up(glWin)} ${glHi}x${glLo} NO ${up(glLose)}`,
+    `${up(leader.id)} SEGUE VOANDO NA LIDERANÇA`,
+    `VEXAME: ${up(lanterna.id)} AFUNDA COM ${lanterna.p} PTS`,
+    `CHUVA DE GOLS: ${totalGoals} NA RODADA ${RR}`,
+    close ? `${up(closeWin)} VENCE NO SUFOCO E EMBOLA A TABELA` : `${up(glWin)} ATROPELA E ASSUSTA O CAMPEONATO`,
+    topTeam ? `${up(topTeam)} FEZ ${topScore} E NINGUÉM SEGUROU` : `A RODADA ${RR} MEXEU COM A TABELA`,
+  ];
+  const title = headlines[(R - 1) % headlines.length];
+  const subtitle = `Os placares, a classificação após a ${R}ª rodada e a zoeira de sempre. ${name(leader.id)} lidera com ${leader.p} pts; ${name(lanterna.id)} amarga a lanterna.`;
   // IMPORTANTE: linha em branco entre o título da seção e a lista, senão o
   // renderizador (NewsBodyText) junta tudo num parágrafo em vez de <ul>/<ol>.
   const body = [
