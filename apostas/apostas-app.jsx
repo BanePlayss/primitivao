@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-sorteio2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-abertura ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5666,8 +5666,49 @@ function MeuJogadorView({ nick, isAdmin, users, interests, onSave }) {
 // CAMPEONATOS -> MK pro ADMIN: classificação (8 primeiros com borda colorida)
 // + sorteio das rodadas (ida/volta). Só admin enxerga por enquanto — inscrições
 // ainda estão abertas, então o sorteio é provisório (regera no clique, não grava).
+// Abertura do MK: palco de jazz escuro + refletor, cortinas de veludo vermelho
+// abrindo e revelando o wordmark "MORTAL KOMBAT". Toca uma vez (1ª entrada na
+// aba); clicar pula. Respeita prefers-reduced-motion. onDone desmonta/marca visto.
+function MkCurtainOpening({ onDone }) {
+  const [phase, setPhase] = useState('closed'); // closed -> opening -> done
+  const doneRef = useRef(false);
+  const finish = () => { if (doneRef.current) return; doneRef.current = true; onDone(); };
+  useEffect(() => {
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) { finish(); return; }
+    const t1 = setTimeout(() => setPhase('opening'), 420);  // batida antes de abrir
+    const t2 = setTimeout(() => setPhase('done'), 3300);    // começa o fade-out
+    const t3 = setTimeout(finish, 4000);                    // desmonta
+    return () => { [t1, t2, t3].forEach(clearTimeout); };
+  }, []);
+  return (
+    <div className={'mk-curtain mk-curtain-' + phase} onClick={finish} role="presentation">
+      <div className="mk-stage">
+        <div className="mk-spotlight" />
+        <div className="mk-stage-floor" />
+        <div className="mk-stage-title">
+          <div className="mk-stage-eyebrow">PRIMITIVÃO APRESENTA</div>
+          <div className="mk-stage-wordmark">MORTAL KOMBAT</div>
+          <div className="mk-stage-sub">SEASON 1 <span className="mk-stage-dot">·</span> FIGHT!</div>
+        </div>
+      </div>
+      <div className="mk-curtain-panel mk-curtain-left" />
+      <div className="mk-curtain-panel mk-curtain-right" />
+      <div className="mk-valance" />
+      <div className="mk-curtain-skip">clique pra pular</div>
+    </div>
+  );
+}
+
+const MK_CURTAIN_KEY = 'mk_curtain_seen';
+
 function MkChampionshipView({ players, users, teamPlayers }) {
   const [draw, setDraw] = useState(null);
+  const [curtain, setCurtain] = useState(() => {
+    try { return !localStorage.getItem(MK_CURTAIN_KEY); } catch (e) { return false; }
+  });
+  const closeCurtain = () => { try { localStorage.setItem(MK_CURTAIN_KEY, '1'); } catch (e) {} setCurtain(false); };
+  const replayCurtain = () => { try { localStorage.removeItem(MK_CURTAIN_KEY); } catch (e) {} setCurtain(true); };
   const insc = (players || []).slice().sort();
   // Sem resultados ainda -> tudo zerado, ordem alfabética. Os 8 primeiros já
   // recebem a borda (vão acompanhar o top-8 quando os pontos entrarem).
@@ -5680,13 +5721,17 @@ function MkChampionshipView({ players, users, teamPlayers }) {
 
   return (
     <div className="mk-champ">
+      {curtain && <MkCurtainOpening onDone={closeCurtain} />}
       <div className="card mk-card" style={{ marginBottom: 14 }}>
         <div className="card-head">
           <div className="title"><Icon name="skull" size={16} /> CLASSIFICAÇÃO · MORTAL KOMBAT</div>
           <div className="sub">{insc.length} INSCRITOS · TOP 8 VAI PRO MATA-MATA</div>
         </div>
         <div className="card-body">
-          <div className="mk-admin-note"><Icon name="lock" size={12} /> Prévia só do ADMIN. Inscrições abertas — números provisórios.</div>
+          <div className="mk-admin-row">
+            <div className="mk-admin-note"><Icon name="lock" size={12} /> Prévia só do ADMIN. Inscrições abertas — números provisórios.</div>
+            <button type="button" className="mk-replay" onClick={replayCurtain}><Icon name="refresh" size={12} /> REVER ABERTURA</button>
+          </div>
           {insc.length === 0 ? (
             <div className="empty"><div className="e1">SEM INSCRITOS</div><div className="e2">Ninguém inscrito no MK ainda.</div></div>
           ) : (
