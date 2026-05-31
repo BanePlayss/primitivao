@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-grid ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-rodada ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3198,6 +3198,10 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
       return <svg {...common}><path d="M7 17L17 7M9 7h8v8" /></svg>;
     case 'arrow-down':
       return <svg {...common}><path d="M12 5v14M6 13l6 6 6-6" /></svg>;
+    case 'chevron-left':
+      return <svg {...common}><path d="M15 6l-6 6 6 6" /></svg>;
+    case 'chevron-right':
+      return <svg {...common}><path d="M9 6l6 6-6 6" /></svg>;
     case 'refresh':
       return (
         <svg {...common}>
@@ -5818,50 +5822,74 @@ function MkChampionshipView({ players, users, teamPlayers }) {
       </div>
 
       <aside>
-      <div className="card mk-card">
+      <div className="card mk-card mk-rodada-card">
         <div className="card-head">
-          <div className="title"><Icon name="dice" size={16} /> SORTEIO + RESULTADOS</div>
-          <div className="sub">IDA E VOLTA</div>
+          <div className="title">{draw && curRound ? 'RODADA ' + String(curRound.n).padStart(2, '0') : 'RODADAS'}</div>
+          <div className="sub">{draw && curRound ? (curRound.phase === 'IDA' ? 'IDA' : 'VOLTA') + ' · EDITÁVEL' : 'SORTEAR'}</div>
         </div>
         <div className="card-body">
-          <p style={{ marginTop: 0, fontSize: 12.5, lineHeight: 1.5 }}>
-            Sorteia o chaveamento (ida e volta) e lança o placar de cada confronto em rounds.
-            A classificação ao lado recalcula sozinha. É <strong>prévia</strong> — nada é gravado.
-          </p>
-          <button className="tp-btn-go" onClick={doDraw} disabled={insc.length < 2}>
-            <Icon name="dice" size={15} /> {draw ? 'SORTEAR DE NOVO' : 'SORTEAR RODADAS'}
-          </button>
-          {draw && curRound && (
-            <div className="mk-draw">
-              <div className="mk-draw-sum">{insc.length} jogadores · {draw.length} rodadas · {matches.length} jogos · {playedCount} lançados</div>
-              <div className="round-tabs mk-round-tabs">
-                {draw.map((r, i) => (
-                  <button key={i} className={'rt ' + (i === viewRound ? 'active' : '')} onClick={() => setViewRound(i)}>
-                    {r.phase[0]}{r.n}
-                  </button>
-                ))}
+          {!draw || !curRound ? (
+            <div className="mk-sorteio-empty">
+              <div className="mk-sorteio-ic"><Icon name="dice" size={30} /></div>
+              <p>Sorteia o chaveamento <strong>todos contra todos</strong> (ida e volta) e lança o placar de cada confronto em rounds. A classificação ao lado recalcula sozinha.</p>
+              <button className="tp-btn-go" onClick={doDraw} disabled={insc.length < 2}>
+                <Icon name="dice" size={15} /> SORTEAR RODADAS
+              </button>
+              <div className="mk-sorteio-foot">Prévia — nada é gravado. {insc.length} inscritos.</div>
+            </div>
+          ) : (
+            <>
+              <div className="mk-rnav">
+                <button className="mk-rnav-btn" onClick={() => setViewRound(v => Math.max(0, v - 1))} disabled={viewRound === 0} aria-label="Rodada anterior">
+                  <Icon name="chevron-left" size={18} />
+                </button>
+                <div className="mk-rnav-mid">
+                  <div className="mk-rnav-phase">{curRound.phase === 'IDA' ? 'TURNO · IDA' : 'RETURNO · VOLTA'}</div>
+                  <div className="mk-rnav-count">{viewRound + 1} <span>/ {draw.length}</span></div>
+                </div>
+                <button className="mk-rnav-btn" onClick={() => setViewRound(v => Math.min(draw.length - 1, v + 1))} disabled={viewRound === draw.length - 1} aria-label="Próxima rodada">
+                  <Icon name="chevron-right" size={18} />
+                </button>
               </div>
-              <div className="mk-round-head">RODADA {curRound.n} · {curRound.phase === 'IDA' ? 'IDA' : 'VOLTA'}</div>
-              <div className="mk-games">
+              <div className="mk-fixtures">
                 {curRound.games.map((g, gi) => {
                   const k = gKey(curRound, gi);
                   const sc = scores[k] || {};
+                  const done = !Number.isNaN(parseInt(sc.rh, 10)) && !Number.isNaN(parseInt(sc.ra, 10));
                   return (
-                    <div key={gi} className="mk-game-row">
-                      <span className="mk-gr-home">@{g.home}</span>
-                      <div className="mk-gr-score">
-                        <input className="cscore-in" value={sc.rh || ''} placeholder="–" inputMode="numeric"
-                          onChange={e => setScore(k, 'rh', e.target.value)} />
-                        <span className="display">×</span>
-                        <input className="cscore-in" value={sc.ra || ''} placeholder="–" inputMode="numeric"
-                          onChange={e => setScore(k, 'ra', e.target.value)} />
+                    <div key={gi} className={'mk-fx' + (done ? ' done' : '')}>
+                      <div className="mk-fx-top">
+                        <span>JOGO {String(gi + 1).padStart(2, '0')}</span>
+                        {done && <span className="mk-fx-done"><Icon name="check" size={11} /> LANÇADO</span>}
                       </div>
-                      <span className="mk-gr-away">@{g.away}</span>
+                      <div className="mk-fx-body">
+                        <div className="mk-fx-side">
+                          <Avatar nick={g.home} teamPlayers={teamPlayers} size={40} />
+                          <div className="mk-fx-nick">@{g.home}</div>
+                          <div className="mk-fx-role mandante">MANDANTE</div>
+                        </div>
+                        <div className="mk-fx-score">
+                          <input className="cscore-in" value={sc.rh || ''} placeholder="–" inputMode="numeric" maxLength={1}
+                            onChange={e => setScore(k, 'rh', e.target.value)} />
+                          <span className="mk-fx-x">×</span>
+                          <input className="cscore-in" value={sc.ra || ''} placeholder="–" inputMode="numeric" maxLength={1}
+                            onChange={e => setScore(k, 'ra', e.target.value)} />
+                        </div>
+                        <div className="mk-fx-side">
+                          <Avatar nick={g.away} teamPlayers={teamPlayers} size={40} />
+                          <div className="mk-fx-nick">@{g.away}</div>
+                          <div className="mk-fx-role visitante">VISITANTE</div>
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            </div>
+              <div className="mk-sorteio-bar">
+                <span>{matches.length} jogos · {playedCount} lançados</span>
+                <button className="mk-resort" onClick={doDraw}><Icon name="refresh" size={12} /> SORTEAR DE NOVO</button>
+              </div>
+            </>
           )}
         </div>
       </div>
