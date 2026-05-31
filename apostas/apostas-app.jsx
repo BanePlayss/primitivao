@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-2col2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-bonito2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5815,8 +5815,8 @@ function MkChampionshipView({ players, users, teamPlayers }) {
             </div>
           )}
           <div className="mk-legend">
-            <strong>SR</strong> = saldo de rounds (cada confronto tem {MK_ROUNDS_PER_MATCH} rounds: 6×0, 5×1, 4×2, 3×3…).
-            Vitória vale 3, empate (3×3) vale 1. Os <strong>8 primeiros</strong> (cada um com sua cor) vão pro mata-mata; do 9º pra baixo, eliminados na fase de grupos.
+            <strong>SR</strong> = saldo de rounds (cada confronto tem {MK_ROUNDS_PER_MATCH} rounds — 6×0, 5×1, 4×2, 3×3…). Vitória vale 3, empate (3×3) vale 1.
+            <br /><strong>Todo mundo passa de fase</strong> — o que muda é por onde entra no mata-mata: <strong>1º e 2º</strong> são cabeças de chave (entram uma fase à frente), do <strong>3º ao 8º</strong> entram privilegiados (cada um com sua cor) e do <strong>9º pra baixo</strong> entram sem vantagem.
           </div>
         </div>
       </div>
@@ -5851,7 +5851,6 @@ function MkChampionshipView({ players, users, teamPlayers }) {
                   <Icon name="chevron-right" size={18} />
                 </button>
               </div>
-              <div className="mk-fx-legend"><span className="mk-fx-key on" /> mandante (manda no confronto) <span className="mk-fx-key" /> visitante</div>
               <div className="mk-fixtures">
                 {curRound.games.map((g, gi) => {
                   const k = gKey(curRound, gi);
@@ -5861,19 +5860,30 @@ function MkChampionshipView({ players, users, teamPlayers }) {
                     <div key={gi} className={'mk-fx' + (done ? ' done' : '')}>
                       <div className="mk-fx-top">
                         <span>JOGO {String(gi + 1).padStart(2, '0')}</span>
-                        {done && <span className="mk-fx-done"><Icon name="check" size={10} /></span>}
+                        {done && <span className="mk-fx-done"><Icon name="check" size={11} /> LANÇADO</span>}
                       </div>
-                      <div className="mk-fx-line home">
-                        <span className="mk-fx-key on" title="Mandante" />
-                        <span className="mk-fx-ln-nick">@{g.home}</span>
-                        <input className="mk-sc" value={sc.rh || ''} placeholder="–" inputMode="numeric" maxLength={1}
-                          onChange={e => setScore(k, 'rh', e.target.value)} />
-                      </div>
-                      <div className="mk-fx-line away">
-                        <span className="mk-fx-key" title="Visitante" />
-                        <span className="mk-fx-ln-nick">@{g.away}</span>
-                        <input className="mk-sc" value={sc.ra || ''} placeholder="–" inputMode="numeric" maxLength={1}
-                          onChange={e => setScore(k, 'ra', e.target.value)} />
+                      <div className="mk-fx-body">
+                        <div className="mk-fx-side home">
+                          <Avatar nick={g.home} teamPlayers={teamPlayers} size={28} noBadge />
+                          <div className="mk-fx-id">
+                            <div className="mk-fx-nick">@{g.home}</div>
+                            <div className="mk-fx-role mandante">MANDANTE</div>
+                          </div>
+                        </div>
+                        <div className="mk-fx-score">
+                          <input className="cscore-in" value={sc.rh || ''} placeholder="–" inputMode="numeric" maxLength={1}
+                            onChange={e => setScore(k, 'rh', e.target.value)} />
+                          <span className="mk-fx-x">×</span>
+                          <input className="cscore-in" value={sc.ra || ''} placeholder="–" inputMode="numeric" maxLength={1}
+                            onChange={e => setScore(k, 'ra', e.target.value)} />
+                        </div>
+                        <div className="mk-fx-side away">
+                          <Avatar nick={g.away} teamPlayers={teamPlayers} size={28} noBadge />
+                          <div className="mk-fx-id">
+                            <div className="mk-fx-nick">@{g.away}</div>
+                            <div className="mk-fx-role visitante">VISITANTE</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   );
