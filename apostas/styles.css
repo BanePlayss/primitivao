@@ -3107,8 +3107,19 @@
     .mk-bet-nav { max-width: 320px; margin: 0 auto 16px; }
     .mk-bet-games { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
     .mk-bet-game { border: 2px solid var(--pv-charcoal); background: var(--pv-bone); padding: 10px 12px; }
-    .mk-bet-match { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; font-size: 12.5px; color: var(--pv-charcoal); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1.5px dashed rgba(28,22,18,0.2); }
-    .mk-bm-vs { color: var(--pv-orange); }
+    .mk-bet-match { display: flex; align-items: flex-start; justify-content: center; gap: 10px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1.5px dashed rgba(28,22,18,0.2); }
+    .mk-bm-side { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; flex: 1; }
+    .mk-bm-side.right { align-items: flex-end; }
+    .mk-bm-nick { max-width: 100%; font-weight: 800; font-size: 12px; color: var(--pv-charcoal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mk-bm-nick.mand { color: var(--pv-orange); }
+    .mk-bm-role { font-size: 7px; font-weight: 800; letter-spacing: 0.06em; color: rgba(28,22,18,0.4); }
+    .mk-bm-role.mand { color: var(--pv-orange); opacity: 0.9; }
+    .mk-bm-vs { color: var(--pv-orange); font-weight: 800; padding-top: 2px; flex-shrink: 0; }
+    .mk-bet-mkt-hint { font-weight: 600; letter-spacing: 0; color: rgba(28,22,18,0.4); font-size: 8px; }
+    .mk-odd-pl { display: inline-flex; align-items: center; font-weight: 800; font-size: 10px; }
+    .mk-sc-h { color: var(--pv-orange); }
+    .mk-sc-x { color: rgba(28,22,18,0.35); margin: 0 1px; }
+    .mk-sc-a { color: rgba(28,22,18,0.6); }
     .mk-bet-mkt { margin-bottom: 9px; }
     .mk-bet-mkt:last-child { margin-bottom: 0; }
     .mk-bet-mkt-h { font-size: 8.5px; font-weight: 800; letter-spacing: 0.1em; color: rgba(28,22,18,0.5); margin-bottom: 5px; }

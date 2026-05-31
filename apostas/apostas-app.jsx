@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-odds2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-placar2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6036,14 +6036,28 @@ function MkChampionshipView({ players, users, teamPlayers }) {
                   const odds = computeMkGameOdds(g.home, g.away, metrics);
                   return (
                     <div key={gi} className="mk-bet-game">
-                      <div className="mk-bet-match"><span>@{g.home}</span><span className="mk-bm-vs">×</span><span>@{g.away}</span></div>
+                      <div className="mk-bet-match">
+                        <span className="mk-bm-side">
+                          <span className="mk-bm-nick mand">@{g.home}</span>
+                          <span className="mk-bm-role mand">MANDANTE</span>
+                        </span>
+                        <span className="mk-bm-vs">×</span>
+                        <span className="mk-bm-side right">
+                          <span className="mk-bm-nick">@{g.away}</span>
+                          <span className="mk-bm-role">VISITANTE</span>
+                        </span>
+                      </div>
                       {MK_MARKETS.map(mkt => (
                         <div key={mkt} className="mk-bet-mkt">
-                          <div className="mk-bet-mkt-h">{MK_MARKET_TITLE[mkt]}</div>
+                          <div className="mk-bet-mkt-h">{MK_MARKET_TITLE[mkt]}{mkt === 'PLACAR' && <span className="mk-bet-mkt-hint"> · mandante × visitante</span>}</div>
                           <div className="mk-bet-picks">
-                            {Object.keys(odds[mkt]).map(pick => (
+                            {(mkt === 'PLACAR' ? MK_PLACAR_PICKS : Object.keys(odds[mkt])).map(pick => (
                               <button key={pick} type="button" className="mk-odd">
-                                <span className="mk-odd-l">{mkPickLabel(mkt, pick)}</span>
+                                <span className="mk-odd-l">
+                                  {mkt === 'PLACAR'
+                                    ? <span className="mk-odd-pl"><span className="mk-sc-h">{pick[0]}</span><span className="mk-sc-x">×</span><span className="mk-sc-a">{pick[1]}</span></span>
+                                    : mkPickLabel(mkt, pick)}
+                                </span>
                                 <span className="mk-odd-v">{odds[mkt][pick].toFixed(2)}</span>
                               </button>
                             ))}
