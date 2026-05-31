@@ -3115,6 +3115,9 @@
 
     .mk-admin-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
     .mk-admin-row .mk-admin-note { margin-bottom: 0; }
+    .mk-admin-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .mk-preview-note { display: inline-flex; align-items: center; gap: 5px; margin: 9px 0 2px; font-size: 10.5px; font-weight: 700; color: var(--pv-orange); }
+    .mk-preview-note svg { color: var(--pv-orange); flex-shrink: 0; }
     .mk-replay {
       display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
       font-family: inherit; font-weight: 800; font-size: 10.5px; letter-spacing: 0.04em;

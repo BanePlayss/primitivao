@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-chars ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-sortchars ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5746,6 +5746,7 @@ function MkChampionshipView({ players, users, teamPlayers }) {
   const [draw, setDraw] = useState(null);
   const [scores, setScores] = useState({});   // chave 'IDA-3-2' -> { rh, ra }
   const [viewRound, setViewRound] = useState(0);
+  const [previewChars, setPreviewChars] = useState(null); // prévia (admin): nick -> [3 chars], NÃO grava
   const [curtain, setCurtain] = useState(() => {
     try { return !localStorage.getItem(MK_CURTAIN_KEY); } catch (e) { return false; }
   });
@@ -5754,6 +5755,14 @@ function MkChampionshipView({ players, users, teamPlayers }) {
   const insc = (players || []).slice().sort();
 
   const doDraw = () => { setDraw(generateMkDraw(shuffleArr(insc))); setScores({}); setViewRound(0); };
+  // Prévia (admin): sorteia 3 personagens aleatórios pra cada inscrito só pra ver
+  // como fica nos confrontos. Ephemeral — não escreve no banco.
+  const drawPreviewChars = () => {
+    const map = {};
+    insc.forEach(nick => { map[nick] = shuffleArr(MK_CHARACTERS).slice(0, MK_MAX_CHARS); });
+    setPreviewChars(map);
+  };
+  const clearPreviewChars = () => setPreviewChars(null);
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const setScore = (key, side, val) => {
     const v = val.replace(/[^0-6]/g, '').slice(0, 1); // 1 dígito, 0..6
@@ -5767,7 +5776,7 @@ function MkChampionshipView({ players, users, teamPlayers }) {
   })) : [];
   const playedCount = matches.filter(m => !Number.isNaN(parseInt(m.rh, 10)) && !Number.isNaN(parseInt(m.ra, 10))).length;
   const standings = computeMkStandings(insc, matches);
-  const charsFor = (nick) => ((users || {})[nick] || {}).mkChars || [];
+  const charsFor = (nick) => (previewChars && previewChars[nick]) || ((users || {})[nick] || {}).mkChars || [];
   const curRound = draw ? draw[viewRound] : null;
 
   return (
@@ -5782,8 +5791,13 @@ function MkChampionshipView({ players, users, teamPlayers }) {
         <div className="card-body">
           <div className="mk-admin-row">
             <div className="mk-admin-note"><Icon name="lock" size={12} /> Prévia só do ADMIN. Inscrições abertas — números provisórios.</div>
-            <button type="button" className="mk-replay" onClick={replayCurtain}><Icon name="refresh" size={12} /> REVER ABERTURA</button>
+            <div className="mk-admin-actions">
+              <button type="button" className="mk-replay" onClick={drawPreviewChars}><Icon name="fist" size={12} /> {previewChars ? 'RESORTEAR PERSONAGENS' : 'SORTEAR PERSONAGENS'}</button>
+              {previewChars && <button type="button" className="mk-replay" onClick={clearPreviewChars}><Icon name="x" size={12} /> LIMPAR</button>}
+              <button type="button" className="mk-replay" onClick={replayCurtain}><Icon name="refresh" size={12} /> REVER ABERTURA</button>
+            </div>
           </div>
+          {previewChars && <div className="mk-preview-note"><Icon name="fist" size={11} /> Personagens sorteados só pra <strong>prévia</strong> — não fica salvo (some ao recarregar).</div>}
           {insc.length === 0 ? (
             <div className="empty"><div className="e1">SEM INSCRITOS</div><div className="e2">Ninguém inscrito no MK ainda.</div></div>
           ) : (
