@@ -3101,6 +3101,11 @@
     .mk-brut-tog { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; font-family: inherit; font-weight: 800; font-size: 7.5px; letter-spacing: 0.05em; color: rgba(28,22,18,0.42); background: transparent; border: 1px solid rgba(28,22,18,0.25); padding: 2px 5px; border-radius: 2px; }
     .mk-brut-tog svg { flex-shrink: 0; }
     .mk-brut-tog.on { color: #fff; background: var(--pv-orange); border-color: var(--pv-orange); }
+    /* seletor de finalização no lançamento */
+    .mk-fx-finish { display: flex; align-items: center; gap: 8px; margin-top: 7px; padding-top: 7px; border-top: 1px dashed rgba(28,22,18,0.14); }
+    .mk-fx-finish-l { display: inline-flex; align-items: center; gap: 4px; font-size: 8.5px; font-weight: 800; letter-spacing: 0.05em; color: rgba(28,22,18,0.5); flex-shrink: 0; }
+    .mk-fx-finish-l svg { color: var(--pv-orange); }
+    .mk-fx-finish-sel { flex: 1; min-width: 0; font-family: inherit; font-weight: 700; font-size: 11px; padding: 4px 6px; border: 1.5px solid rgba(28,22,18,0.25); background: var(--pv-bone); color: var(--pv-charcoal); cursor: pointer; }
 
     /* painel de apostas do MK — mercados + odds automáticas */
     .mk-betting .card-head .title svg { color: var(--pv-orange); }

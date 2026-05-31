@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-cupom ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-firstto6 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -453,64 +453,93 @@ function computeMkStandings(players, matches) {
   });
 }
 
-// ─── ODDS DO MK — mercados automáticos a partir da força (rounds/vitórias) ───
-// Modelo: dos pontos+saldo de cada jogador sai p = prob do MANDANTE vencer 1
-// round; como são sempre 6 rounds, a binomial dá todos os placares e mercados.
-const MK_MARKETS = ['VENC', 'PLACAR', 'MARG', 'FLAW', 'DRAW', 'BRUT'];
-const MK_MARKET_TITLE = { VENC: 'VENCEDOR', PLACAR: 'PLACAR EXATO', MARG: 'MARGEM', FLAW: 'VITÓRIA PERFEITA', DRAW: 'SAI EMPATE? (3×3)', BRUT: 'BRUTALITY' };
-const MK_PLACAR_PICKS = ['60', '51', '42', '33', '24', '15', '06']; // mandante x visitante
-const MK_BRUTALITY_PROB = 0.45; // brutality não sai do placar -> probabilidade fixa
+// ─── ODDS DO MK — mercados automáticos. Modelo: PRIMEIRO A 6 ROUNDS VENCE.
+// O vencedor sempre faz 6, o perdedor 0..5 (NÃO tem empate). Da força sai p
+// (prob do mandante vencer 1 round); a distribuição negativo-binomial ("corrida
+// até 6") dá todos os placares e mercados.
+const MK_MARKETS = ['VENC', 'PLACAR', 'MARG', 'SWEEP', 'FLAW', 'FINISH'];
+const MK_MARKET_TITLE = { VENC: 'VENCEDOR', PLACAR: 'PLACAR EXATO', MARG: 'MARGEM', SWEEP: 'FAZ 6×0?', FLAW: 'FLAWLESS VICTORY', FINISH: 'FINALIZAÇÃO' };
+const MK_PLACAR_PICKS = ['60', '61', '62', '63', '64', '65', '56', '46', '36', '26', '16', '06']; // mandante x visitante
+const MK_MARG_PICKS = ['6', '5', '4', '3', '2', '1']; // diferença de rounds (vencedor fez 6)
+const MK_FLAWLESS_PROB = 0.30; // flawless não sai do placar -> prob fixa
+// Finalizações: você escolhe o tipo na aposta; o admin marca qual rolou. Odds fixas.
+const MK_FINISHERS = [
+  { id: 'fatality', name: 'Fatality', p: 0.40 },
+  { id: 'brutality', name: 'Brutality', p: 0.24 },
+  { id: 'friendship', name: 'Friendship', p: 0.13 },
+  { id: 'quitality', name: 'Quitality', p: 0.10 },
+  { id: 'animality', name: 'Animality', p: 0.07 },
+  { id: 'babality', name: 'Babality', p: 0.05 },
+];
 
-function mkBinom6(p) {
-  const C = [1, 6, 15, 20, 15, 6, 1], out = [];
-  for (let k = 0; k <= 6; k++) out[k] = C[k] * Math.pow(p, k) * Math.pow(1 - p, 6 - k);
-  return out; // out[k] = P(mandante vence k rounds) -> placar k x (6-k)
+// "Corrida até 6": home[k] = P(mandante 6 x k), away[k] = P(k x 6), k = 0..5.
+function mkFirstTo6(p) {
+  const C = [1, 6, 21, 56, 126, 252]; // C(5+k, k)
+  const home = [], away = [];
+  for (let k = 0; k <= 5; k++) {
+    home[k] = C[k] * Math.pow(p, 6) * Math.pow(1 - p, k);
+    away[k] = C[k] * Math.pow(1 - p, 6) * Math.pow(p, k);
+  }
+  return { home, away };
 }
 function computeMkPlayerMetrics(players, matches) {
   const out = {};
   computeMkStandings(players, matches).forEach(s => { out[s.nick] = { strength: s.p * 3 + (s.rp - s.rc) }; });
   return out;
 }
-// p (prob do mandante vencer 1 round) e as odds de todos os mercados do confronto.
 function mkRoundWinProb(home, away, metrics) {
   const H = (metrics || {})[home] || { strength: 0 }, A = (metrics || {})[away] || { strength: 0 };
   return Math.max(0.25, Math.min(0.75, sigmoid((H.strength - A.strength) * 0.04)));
 }
 function computeMkGameOdds(home, away, metrics) {
-  const P = mkBinom6(mkRoundWinProb(home, away, metrics));
-  const pH = P[6] + P[5] + P[4], pD = P[3], pA = P[2] + P[1] + P[0];
-  const pFlaw = P[6] + P[0], pFolg = P[6] + P[5] + P[1] + P[0], pSua = P[4] + P[2];
+  const { home: H, away: A } = mkFirstTo6(mkRoundWinProb(home, away, metrics));
+  const pHome = H.reduce((a, b) => a + b, 0), pAway = A.reduce((a, b) => a + b, 0);
+  const placar = {};
+  for (let k = 0; k <= 5; k++) placar['6' + k] = toOdd(H[k]);   // 6x0..6x5
+  for (let k = 5; k >= 0; k--) placar[k + '6'] = toOdd(A[k]);   // 5x6..0x6
+  const marg = {};
+  for (let m = 6; m >= 1; m--) { const k = 6 - m; marg['' + m] = toOdd(H[k] + A[k]); }
+  const pSweep = H[0] + A[0]; // margem 6 = 6x0 / 0x6
+  const finish = {};
+  MK_FINISHERS.forEach(f => { finish[f.id] = toOdd(f.p); });
   return {
-    VENC:   { H: toOdd(pH), D: toOdd(pD), A: toOdd(pA) },
-    PLACAR: { '60': toOdd(P[6]), '51': toOdd(P[5]), '42': toOdd(P[4]), '33': toOdd(P[3]), '24': toOdd(P[2]), '15': toOdd(P[1]), '06': toOdd(P[0]) },
-    MARG:   { F: toOdd(pFolg), S: toOdd(pSua), E: toOdd(pD) },
-    FLAW:   { Y: toOdd(pFlaw), N: toOdd(1 - pFlaw) },
-    DRAW:   { Y: toOdd(pD), N: toOdd(1 - pD) },
-    BRUT:   { Y: toOdd(MK_BRUTALITY_PROB), N: toOdd(1 - MK_BRUTALITY_PROB) },
+    VENC:   { H: toOdd(pHome), A: toOdd(pAway) },
+    PLACAR: placar,
+    MARG:   marg,
+    SWEEP:  { Y: toOdd(pSweep), N: toOdd(1 - pSweep) },
+    FLAW:   { Y: toOdd(MK_FLAWLESS_PROB), N: toOdd(1 - MK_FLAWLESS_PROB) },
+    FINISH: finish,
   };
 }
-// Como cada palpite resolve, dado o placar (rh x ra) e se rolou brutality.
-function mkLegResult(market, pick, rh, ra, brutality) {
+// Ordem de exibição dos palpites (chaves "inteiras" do JS reordenam — fixar aqui).
+function mkMarketPicks(market, odds) {
+  if (market === 'PLACAR') return MK_PLACAR_PICKS;
+  if (market === 'MARG') return MK_MARG_PICKS;
+  if (market === 'FINISH') return MK_FINISHERS.map(f => f.id);
+  return Object.keys(odds[market]);
+}
+// Resolução. extra = { finisher, flawless } do confronto.
+function mkLegResult(market, pick, rh, ra, extra) {
   if (Number.isNaN(rh) || Number.isNaN(ra)) return 'pending';
-  const hWin = rh > ra, draw = rh === ra, margin = Math.abs(rh - ra);
+  const margin = Math.abs(rh - ra);
   let win = false;
   switch (market) {
-    case 'VENC':   win = pick === (hWin ? 'H' : draw ? 'D' : 'A'); break;
+    case 'VENC':   win = pick === (rh > ra ? 'H' : 'A'); break;
     case 'PLACAR': win = pick === ('' + rh + ra); break;
-    case 'MARG':   win = pick === (draw ? 'E' : margin >= 4 ? 'F' : 'S'); break;
-    case 'FLAW':   win = (margin === 6) === (pick === 'Y'); break;
-    case 'DRAW':   win = draw === (pick === 'Y'); break;
-    case 'BRUT':   win = !!brutality === (pick === 'Y'); break;
+    case 'MARG':   win = pick === String(margin); break;
+    case 'SWEEP':  win = (margin === 6) === (pick === 'Y'); break;
+    case 'FLAW':   win = !!(extra && extra.flawless) === (pick === 'Y'); break;
+    case 'FINISH': win = !!(extra && extra.finisher === pick); break;
     default: return 'pending';
   }
   return win ? 'win' : 'lose';
 }
-// Rótulo do palpite pra UI.
 function mkPickLabel(market, pick) {
-  if (market === 'VENC') return { H: 'MANDANTE', D: 'EMPATE', A: 'VISITANTE' }[pick];
+  if (market === 'VENC') return pick === 'H' ? 'MANDANTE' : 'VISITANTE';
   if (market === 'PLACAR') return pick[0] + '×' + pick[1];
-  if (market === 'MARG') return { F: 'FOLGADA (4+)', S: 'SUADA (2)', E: 'EMPATE' }[pick];
-  if (market === 'FLAW' || market === 'DRAW' || market === 'BRUT') return pick === 'Y' ? 'SIM' : 'NÃO';
+  if (market === 'MARG') return 'POR ' + pick;
+  if (market === 'SWEEP' || market === 'FLAW') return pick === 'Y' ? 'SIM' : 'NÃO';
+  if (market === 'FINISH') { const f = MK_FINISHERS.find(x => x.id === pick); return f ? f.name : pick; }
   return pick;
 }
 
@@ -5860,7 +5889,8 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
     const v = val.replace(/[^0-6]/g, '').slice(0, 1); // 1 dígito, 0..6
     setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [side]: v } }));
   };
-  const toggleBrut = (key) => setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), brut: !(prev[key] || {}).brut } }));
+  const setFinisher = (key, val) => setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), finisher: val || undefined } }));
+  const toggleFlawless = (key) => setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), flawless: !(prev[key] || {}).flawless } }));
 
   // Resultados lançados -> confrontos -> classificação (recalcula ao vivo).
   const matches = draw ? draw.flatMap(r => r.games.map((g, gi) => {
@@ -5897,7 +5927,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
             <div style={{ overflowX: 'auto' }}>
               <table className="std-table mk-std-table">
                 <thead>
-                  <tr><th>#</th><th style={{ textAlign: 'left' }}>JOGADOR</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SR</th><th>P</th></tr>
+                  <tr><th>#</th><th style={{ textAlign: 'left' }}>JOGADOR</th><th>J</th><th>V</th><th>D</th><th>SR</th><th>P</th></tr>
                 </thead>
                 <tbody>
                   {standings.map((s, i) => {
@@ -5915,7 +5945,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
                             {chars.length > 0 && <span className="mk-row-chars">{chars.join(' · ')}</span>}
                           </div>
                         </td>
-                        <td>{s.j}</td><td style={{ fontWeight: 800 }}>{s.v}</td><td>{s.e}</td>
+                        <td>{s.j}</td><td style={{ fontWeight: 800 }}>{s.v}</td>
                         <td style={{ color: 'rgba(28,22,18,0.45)' }}>{s.d}</td>
                         <td>{sr > 0 ? '+' + sr : sr}</td>
                         <td style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 16 }}>{s.p}</td>
@@ -5927,7 +5957,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
             </div>
           )}
           <div className="mk-legend">
-            <strong>SR</strong> = saldo de rounds (cada confronto tem {MK_ROUNDS_PER_MATCH} rounds — 6×0, 5×1, 4×2, 3×3…). Vitória vale 3, empate (3×3) vale 1.
+            <strong>SR</strong> = saldo de rounds. Confronto é <strong>primeiro a 6 rounds</strong> (vencedor faz 6, perdedor 0–5; sem empate). Vitória vale 3.
             <br /><strong>Todo mundo passa de fase</strong> — o que muda é por onde entra no mata-mata: <strong>1º e 2º</strong> são cabeças de chave (entram uma fase à frente), do <strong>3º ao 8º</strong> entram privilegiados e do <strong>9º pra baixo</strong> sem vantagem. <span style={{ opacity: 0.8 }}>(Pódio 1º–3º com cor própria; 4º–8º na mesma cor.)</span>
           </div>
         </div>
@@ -5974,8 +6004,8 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
                       <div className="mk-fx-top">
                         <span>JOGO {String(gi + 1).padStart(2, '0')}</span>
                         <span className="mk-fx-top-r">
-                          <button type="button" className={'mk-brut-tog' + (sc.brut ? ' on' : '')} onClick={() => toggleBrut(k)} title="Rolou brutality neste confronto?">
-                            <Icon name="skull" size={11} /> BRUTALITY
+                          <button type="button" className={'mk-brut-tog' + (sc.flawless ? ' on' : '')} onClick={() => toggleFlawless(k)} title="Teve flawless victory neste confronto?">
+                            <Icon name="star" size={11} /> FLAWLESS
                           </button>
                           {done && <span className="mk-fx-done"><Icon name="check" size={11} /> LANÇADO</span>}
                         </span>
@@ -6002,6 +6032,13 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
                             <div className="mk-fx-role visitante">VISITANTE</div>
                           </div>
                         </div>
+                      </div>
+                      <div className="mk-fx-finish">
+                        <span className="mk-fx-finish-l"><Icon name="skull" size={10} /> FINALIZAÇÃO</span>
+                        <select className="mk-fx-finish-sel" value={sc.finisher || ''} onChange={e => setFinisher(k, e.target.value)}>
+                          <option value="">Nenhuma</option>
+                          {MK_FINISHERS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                        </select>
                       </div>
                       {(hc.length > 0 || ac.length > 0) && (
                         <div className="mk-fx-chars">
@@ -6085,7 +6122,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
     let pending = false;
     for (const l of (bet.legs || [])) {
       const sc = (scores || {})[skey(l.phase, l.roundN, l.gi)] || {};
-      const r = mkLegResult(l.market, l.pick, parseInt(sc.rh, 10), parseInt(sc.ra, 10), sc.brut);
+      const r = mkLegResult(l.market, l.pick, parseInt(sc.rh, 10), parseInt(sc.ra, 10), { finisher: sc.finisher, flawless: sc.flawless });
       if (r === 'lose') return 'lost';
       if (r !== 'win') pending = true;
     }
@@ -6133,7 +6170,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
                           <div key={mkt} className="mk-bet-mkt">
                             <div className="mk-bet-mkt-h">{MK_MARKET_TITLE[mkt]}{mkt === 'PLACAR' && <span className="mk-bet-mkt-hint"> · mandante × visitante</span>}</div>
                             <div className="mk-bet-picks">
-                              {(mkt === 'PLACAR' ? MK_PLACAR_PICKS : Object.keys(odds[mkt])).map(pick => {
+                              {mkMarketPicks(mkt, odds).map(pick => {
                                 const on = pickInCupom(gi, mkt, pick);
                                 return (
                                   <button key={pick} type="button" className={'mk-odd' + (on ? ' on' : '') + (isOpen ? '' : ' off')}
