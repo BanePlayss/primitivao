@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-mk-jogador ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-sorteio2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -378,6 +378,44 @@ const MK_CHARACTERS = [
   'Scorpion', 'Sektor', 'Shang Tsung', 'Sindel', 'Smoke', 'Sub-Zero', 'Tanya',
 ];
 const MK_MAX_CHARS = 3;
+
+// 8 cores distintas pras bordas dos 8 primeiros (classificados pro mata-mata).
+const MK_TOP8_COLORS = ['#d4af37', '#c0c0c0', '#cd7f32', '#2e8b3d', '#2470c8', '#9a4dff', '#e0414f', '#18c3b8'];
+
+// Fisher-Yates — embaralha uma cópia (não muta o original). É o "sorteio" de fato:
+// a ordem dos inscritos vira aleatória antes de montar o chaveamento.
+function shuffleArr(arrIn) {
+  const a = (arrIn || []).slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+
+// Sorteio todos-contra-todos IDA e VOLTA (método do círculo). Devolve as rodadas
+// [{ phase:'IDA'|'VOLTA', n, games:[{home,away}] }]. Ephemeral (regera no clique).
+function generateMkDraw(playersIn) {
+  const players = (playersIn || []).slice();
+  if (players.length < 2) return [];
+  if (players.length % 2 === 1) players.push('__bye__');
+  const n = players.length, half = n / 2;
+  const arr = players.slice();
+  const ida = [];
+  for (let r = 0; r < n - 1; r++) {
+    const games = [];
+    for (let i = 0; i < half; i++) {
+      let home = arr[i], away = arr[n - 1 - i];
+      if (home === '__bye__' || away === '__bye__') continue;
+      if (r % 2 === 1) { const t = home; home = away; away = t; } // alterna mando
+      games.push({ home, away });
+    }
+    ida.push({ phase: 'IDA', n: r + 1, games });
+    arr.splice(1, 0, arr.pop()); // rotaciona mantendo o primeiro fixo
+  }
+  const volta = ida.map((rd, i) => ({ phase: 'VOLTA', n: i + 1, games: rd.games.map(g => ({ home: g.away, away: g.home })) }));
+  return [...ida, ...volta];
+}
 
 const START_PC = 50;
 const WEEKLY_PC = 500;
@@ -2526,15 +2564,25 @@ function App() {
             {view === 'campeonatos' && (<>
               <ChampHeader value={championship} onChange={setChampionship} interests={interests || {}} bare />
               {showPlaceholder ? (
-                <ChampionshipPlaceholder
-                  champ={active}
-                  session={session}
-                  interested={!!(interests?.[active.id]?.[session.nick])}
-                  count={Object.keys(interests?.[active.id] || {}).length}
-                  list={Object.keys(interests?.[active.id] || {}).sort()}
-                  isAdmin={isAdmin}
-                  onToggleInterest={() => toggleInterest(active.id)}
-                />
+                (active.id === 'mk' && isAdmin) ? (
+                  // Prévia do MK só pro ADMIN (classificação + sorteio). Jogadores
+                  // ainda veem o "EM BREVE" — inscrições seguem abertas.
+                  <MkChampionshipView
+                    players={Object.keys(interests?.mk || {})}
+                    users={users}
+                    teamPlayers={teamPlayers || {}}
+                  />
+                ) : (
+                  <ChampionshipPlaceholder
+                    champ={active}
+                    session={session}
+                    interested={!!(interests?.[active.id]?.[session.nick])}
+                    count={Object.keys(interests?.[active.id] || {}).length}
+                    list={Object.keys(interests?.[active.id] || {}).sort()}
+                    isAdmin={isAdmin}
+                    onToggleInterest={() => toggleInterest(active.id)}
+                  />
+                )
               ) : (
                 <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin}
                                    users={users} teamPlayers={teamPlayers || {}} />
@@ -5610,6 +5658,95 @@ function MeuJogadorView({ nick, isAdmin, users, interests, onSave }) {
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+// CAMPEONATOS -> MK pro ADMIN: classificação (8 primeiros com borda colorida)
+// + sorteio das rodadas (ida/volta). Só admin enxerga por enquanto — inscrições
+// ainda estão abertas, então o sorteio é provisório (regera no clique, não grava).
+function MkChampionshipView({ players, users, teamPlayers }) {
+  const [draw, setDraw] = useState(null);
+  const insc = (players || []).slice().sort();
+  // Sem resultados ainda -> tudo zerado, ordem alfabética. Os 8 primeiros já
+  // recebem a borda (vão acompanhar o top-8 quando os pontos entrarem).
+  const standings = insc.map(nick => ({
+    nick,
+    pts: 0, j: 0, v: 0, e: 0, d: 0,
+    chars: ((users || {})[nick] || {}).mkChars || [],
+  }));
+  const totalGames = draw ? draw.reduce((s, r) => s + r.games.length, 0) : 0;
+
+  return (
+    <div className="mk-champ">
+      <div className="card mk-card" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <div className="title"><Icon name="skull" size={16} /> CLASSIFICAÇÃO · MORTAL KOMBAT</div>
+          <div className="sub">{insc.length} INSCRITOS · TOP 8 VAI PRO MATA-MATA</div>
+        </div>
+        <div className="card-body">
+          <div className="mk-admin-note"><Icon name="lock" size={12} /> Prévia só do ADMIN. Inscrições abertas — números provisórios.</div>
+          {insc.length === 0 ? (
+            <div className="empty"><div className="e1">SEM INSCRITOS</div><div className="e2">Ninguém inscrito no MK ainda.</div></div>
+          ) : (
+            <div className="mk-standings">
+              {standings.map((s, i) => (
+                <div key={s.nick} className={'mk-stand-row' + (i < 8 ? ' top8' : '')}
+                  style={i < 8 ? { borderLeftColor: MK_TOP8_COLORS[i] } : undefined}>
+                  <span className="mk-pos" style={i < 8 ? { color: MK_TOP8_COLORS[i] } : undefined}>{i + 1}</span>
+                  <Avatar nick={s.nick} teamPlayers={teamPlayers} size={34} />
+                  <div className="mk-stand-id">
+                    <span className="mk-name">@{s.nick}</span>
+                    {s.chars.length > 0 && <span className="mk-stand-chars">{s.chars.join(' · ')}</span>}
+                  </div>
+                  <span className="mk-stand-pts">{s.pts}<small>pts</small></span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mk-legend">8 primeiros = classificados (cada um com sua cor). Do 9º pra baixo, eliminados na fase de grupos.</div>
+        </div>
+      </div>
+
+      <div className="card mk-card">
+        <div className="card-head">
+          <div className="title"><Icon name="dice" size={16} /> SORTEIO DAS RODADAS</div>
+          <div className="sub">TODOS CONTRA TODOS · IDA E VOLTA</div>
+        </div>
+        <div className="card-body">
+          <p style={{ marginTop: 0, fontSize: 13, lineHeight: 1.5 }}>
+            Gera o chaveamento todos-contra-todos (ida e volta) a partir dos inscritos.
+            Como ainda dá pra entrar gente, é só <strong>prévia</strong> — clica de novo pra sortear outra vez.
+          </p>
+          <button className="tp-btn-go" onClick={() => setDraw(generateMkDraw(shuffleArr(insc)))} disabled={insc.length < 2}>
+            <Icon name="dice" size={15} /> {draw ? 'SORTEAR DE NOVO' : 'SORTEAR RODADAS'}
+          </button>
+          {draw && (
+            <div className="mk-draw">
+              <div className="mk-draw-sum">{insc.length} jogadores · {draw.length} rodadas · {totalGames} jogos</div>
+              {['IDA', 'VOLTA'].map(phase => (
+                <div key={phase} className="mk-draw-phase">
+                  <div className="mk-draw-phase-h">{phase === 'IDA' ? 'TURNO (IDA)' : 'RETURNO (VOLTA)'}</div>
+                  <div className="mk-draw-rounds">
+                    {draw.filter(r => r.phase === phase).map(r => (
+                      <div key={phase + r.n} className="mk-draw-round">
+                        <div className="mk-draw-round-h">RODADA {r.n}</div>
+                        {r.games.map((g, gi) => (
+                          <div key={gi} className="mk-draw-game">
+                            <span className="mk-dg-home">@{g.home}</span>
+                            <span className="mk-dg-vs">×</span>
+                            <span className="mk-dg-away">@{g.away}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
