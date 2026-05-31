@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-bonito2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-laranja ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -379,8 +379,13 @@ const MK_CHARACTERS = [
 ];
 const MK_MAX_CHARS = 3;
 
-// 8 cores distintas pras bordas dos 8 primeiros (classificados pro mata-mata).
-const MK_TOP8_COLORS = ['#d4af37', '#c0c0c0', '#cd7f32', '#2e8b3d', '#2470c8', '#9a4dff', '#e0414f', '#18c3b8'];
+// Bordas dos 8 primeiros: pódio (1º-3º) com cor própria, do 4º ao 8º uma cor só.
+const MK_PODIUM_COLORS = ['#d4af37', '#c0c0c0', '#cd7f32']; // ouro, prata, bronze
+const MK_QUALIFIED_COLOR = '#2470c8'; // 4º ao 8º — privilegiados, mesma cor
+const MK_TOP8_COLORS = [
+  MK_PODIUM_COLORS[0], MK_PODIUM_COLORS[1], MK_PODIUM_COLORS[2],
+  MK_QUALIFIED_COLOR, MK_QUALIFIED_COLOR, MK_QUALIFIED_COLOR, MK_QUALIFIED_COLOR, MK_QUALIFIED_COLOR,
+];
 
 // Fisher-Yates — embaralha uma cópia (não muta o original). É o "sorteio" de fato:
 // a ordem dos inscritos vira aleatória antes de montar o chaveamento.
@@ -5816,7 +5821,7 @@ function MkChampionshipView({ players, users, teamPlayers }) {
           )}
           <div className="mk-legend">
             <strong>SR</strong> = saldo de rounds (cada confronto tem {MK_ROUNDS_PER_MATCH} rounds — 6×0, 5×1, 4×2, 3×3…). Vitória vale 3, empate (3×3) vale 1.
-            <br /><strong>Todo mundo passa de fase</strong> — o que muda é por onde entra no mata-mata: <strong>1º e 2º</strong> são cabeças de chave (entram uma fase à frente), do <strong>3º ao 8º</strong> entram privilegiados (cada um com sua cor) e do <strong>9º pra baixo</strong> entram sem vantagem.
+            <br /><strong>Todo mundo passa de fase</strong> — o que muda é por onde entra no mata-mata: <strong>1º e 2º</strong> são cabeças de chave (entram uma fase à frente), do <strong>3º ao 8º</strong> entram privilegiados e do <strong>9º pra baixo</strong> sem vantagem. <span style={{ opacity: 0.8 }}>(Pódio 1º–3º com cor própria; 4º–8º na mesma cor.)</span>
           </div>
         </div>
       </div>
