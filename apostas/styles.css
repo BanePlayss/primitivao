@@ -3042,6 +3042,23 @@
     .mk-stand-pts small { font-size: 9px; font-weight: 700; opacity: 0.5; margin-left: 2px; font-family: inherit; }
     .mk-legend { margin-top: 10px; font-size: 10.5px; line-height: 1.4; color: rgba(28,22,18,0.5); font-weight: 600; }
 
+    /* Classificação estilo FIFA + bordas coloridas no top-8 */
+    .mk-std-table { width: 100%; }
+    .mk-std-table .mk-pos-cell { border-left: 5px solid transparent; font-family: 'Bagel Fat One', Impact, sans-serif; }
+    .mk-std-table tr.mk-top8 .mk-pos-cell { border-left-width: 6px; }
+    .mk-std-table tr.mk-top8 td { background: rgba(179,35,26,0.04); }
+    .mk-std-table tr.mk-out td { opacity: 0.72; }
+    .mk-row-chars { width: 100%; margin-top: 1px; font-size: 10px; font-weight: 600; color: rgba(28,22,18,0.45); }
+
+    /* Lançamento de resultado: abas de rodada (reusa .round-tabs/.rt) + placar */
+    .mk-round-tabs { margin: 14px 0 10px; flex-wrap: wrap; max-height: 96px; overflow-y: auto; }
+    .mk-round-head { font-family: 'Bungee Inline', Impact, sans-serif; font-size: 13px; color: #b3231a; letter-spacing: 0.04em; margin-bottom: 8px; }
+    .mk-games { display: flex; flex-direction: column; gap: 6px; }
+    .mk-game-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: var(--pv-bone-2); border: 1.5px solid rgba(28,22,18,0.14); }
+    .mk-gr-home { flex: 1; text-align: right; font-weight: 700; font-size: 12px; color: var(--pv-charcoal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mk-gr-away { flex: 1; text-align: left; font-weight: 700; font-size: 12px; color: var(--pv-charcoal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mk-gr-score { flex-shrink: 0; display: flex; align-items: center; gap: 5px; }
+
     .mk-draw { margin-top: 14px; }
     .mk-draw-sum { font-weight: 800; font-size: 12px; letter-spacing: 0.02em; color: var(--pv-charcoal); margin-bottom: 12px; padding: 7px 11px; background: rgba(179,35,26,0.08); border-left: 4px solid #b3231a; }
     .mk-draw-phase { margin-bottom: 16px; }

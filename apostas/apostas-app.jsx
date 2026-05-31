@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-abertura ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-rounds ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -415,6 +415,37 @@ function generateMkDraw(playersIn) {
   }
   const volta = ida.map((rd, i) => ({ phase: 'VOLTA', n: i + 1, games: rd.games.map(g => ({ home: g.away, away: g.home })) }));
   return [...ida, ...volta];
+}
+
+// Cada confronto do MK = 6 rounds no total (ex: 6x0, 5x1, 4x2, 3x3). O "saldo de
+// rounds" é o equivalente ao saldo de gols da FIFA.
+const MK_ROUNDS_PER_MATCH = 6;
+
+// Classificação do MK — mesmo espírito de computeStandings (FIFA): vitória 3,
+// empate 1, derrota 0; desempate por pontos -> saldo de rounds -> vitórias ->
+// rounds pró -> nome. `matches`: [{home, away, rh, ra}] (rounds de cada lado).
+function computeMkStandings(players, matches) {
+  const rec = {};
+  (players || []).forEach(p => { rec[p] = { id: p, nick: p, j: 0, v: 0, e: 0, d: 0, rp: 0, rc: 0, p: 0 }; });
+  (matches || []).forEach(m => {
+    const rh = parseInt(m.rh, 10), ra = parseInt(m.ra, 10);
+    if (Number.isNaN(rh) || Number.isNaN(ra)) return;
+    const H = rec[m.home], A = rec[m.away];
+    if (!H || !A) return;
+    H.j++; A.j++;
+    H.rp += rh; H.rc += ra; A.rp += ra; A.rc += rh;
+    if (rh > ra) { H.v++; A.d++; H.p += 3; }
+    else if (rh < ra) { A.v++; H.d++; A.p += 3; }
+    else { H.e++; A.e++; H.p += 1; A.p += 1; }
+  });
+  return Object.values(rec).sort((a, b) => {
+    if (b.p !== a.p) return b.p - a.p;
+    const sa = a.rp - a.rc, sb = b.rp - b.rc;
+    if (sb !== sa) return sb - sa;
+    if (b.v !== a.v) return b.v - a.v;
+    if (b.rp !== a.rp) return b.rp - a.rp;
+    return a.nick.localeCompare(b.nick);
+  });
 }
 
 const START_PC = 50;
@@ -5704,20 +5735,31 @@ const MK_CURTAIN_KEY = 'mk_curtain_seen';
 
 function MkChampionshipView({ players, users, teamPlayers }) {
   const [draw, setDraw] = useState(null);
+  const [scores, setScores] = useState({});   // chave 'IDA-3-2' -> { rh, ra }
+  const [viewRound, setViewRound] = useState(0);
   const [curtain, setCurtain] = useState(() => {
     try { return !localStorage.getItem(MK_CURTAIN_KEY); } catch (e) { return false; }
   });
   const closeCurtain = () => { try { localStorage.setItem(MK_CURTAIN_KEY, '1'); } catch (e) {} setCurtain(false); };
   const replayCurtain = () => { try { localStorage.removeItem(MK_CURTAIN_KEY); } catch (e) {} setCurtain(true); };
   const insc = (players || []).slice().sort();
-  // Sem resultados ainda -> tudo zerado, ordem alfabética. Os 8 primeiros já
-  // recebem a borda (vão acompanhar o top-8 quando os pontos entrarem).
-  const standings = insc.map(nick => ({
-    nick,
-    pts: 0, j: 0, v: 0, e: 0, d: 0,
-    chars: ((users || {})[nick] || {}).mkChars || [],
-  }));
-  const totalGames = draw ? draw.reduce((s, r) => s + r.games.length, 0) : 0;
+
+  const doDraw = () => { setDraw(generateMkDraw(shuffleArr(insc))); setScores({}); setViewRound(0); };
+  const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const setScore = (key, side, val) => {
+    const v = val.replace(/[^0-6]/g, '').slice(0, 1); // 1 dígito, 0..6
+    setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [side]: v } }));
+  };
+
+  // Resultados lançados -> confrontos -> classificação (recalcula ao vivo).
+  const matches = draw ? draw.flatMap(r => r.games.map((g, gi) => {
+    const sc = scores[gKey(r, gi)] || {};
+    return { home: g.home, away: g.away, rh: sc.rh, ra: sc.ra };
+  })) : [];
+  const playedCount = matches.filter(m => !Number.isNaN(parseInt(m.rh, 10)) && !Number.isNaN(parseInt(m.ra, 10))).length;
+  const standings = computeMkStandings(insc, matches);
+  const charsFor = (nick) => ((users || {})[nick] || {}).mkChars || [];
+  const curRound = draw ? draw[viewRound] : null;
 
   return (
     <div className="mk-champ">
@@ -5735,60 +5777,88 @@ function MkChampionshipView({ players, users, teamPlayers }) {
           {insc.length === 0 ? (
             <div className="empty"><div className="e1">SEM INSCRITOS</div><div className="e2">Ninguém inscrito no MK ainda.</div></div>
           ) : (
-            <div className="mk-standings">
-              {standings.map((s, i) => (
-                <div key={s.nick} className={'mk-stand-row' + (i < 8 ? ' top8' : '')}
-                  style={i < 8 ? { borderLeftColor: MK_TOP8_COLORS[i] } : undefined}>
-                  <span className="mk-pos" style={i < 8 ? { color: MK_TOP8_COLORS[i] } : undefined}>{i + 1}</span>
-                  <Avatar nick={s.nick} teamPlayers={teamPlayers} size={34} />
-                  <div className="mk-stand-id">
-                    <span className="mk-name">@{s.nick}</span>
-                    {s.chars.length > 0 && <span className="mk-stand-chars">{s.chars.join(' · ')}</span>}
-                  </div>
-                  <span className="mk-stand-pts">{s.pts}<small>pts</small></span>
-                </div>
-              ))}
+            <div style={{ overflowX: 'auto' }}>
+              <table className="std-table mk-std-table">
+                <thead>
+                  <tr><th>#</th><th style={{ textAlign: 'left' }}>JOGADOR</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SR</th><th>P</th></tr>
+                </thead>
+                <tbody>
+                  {standings.map((s, i) => {
+                    const sr = s.rp - s.rc;
+                    const top8 = i < 8;
+                    const col = top8 ? MK_TOP8_COLORS[i] : undefined;
+                    const chars = charsFor(s.nick);
+                    return (
+                      <tr key={s.nick} className={top8 ? 'mk-top8' : 'mk-out'}>
+                        <td className="std-pos mk-pos-cell" style={top8 ? { borderLeftColor: col, color: col } : undefined}>{String(i + 1).padStart(2, '0')}</td>
+                        <td>
+                          <div className="tnm" style={{ flexWrap: 'wrap' }}>
+                            <Avatar nick={s.nick} teamPlayers={teamPlayers} size={24} />
+                            <span>@{s.nick}</span>
+                            {chars.length > 0 && <span className="mk-row-chars">{chars.join(' · ')}</span>}
+                          </div>
+                        </td>
+                        <td>{s.j}</td><td style={{ fontWeight: 800 }}>{s.v}</td><td>{s.e}</td>
+                        <td style={{ color: 'rgba(28,22,18,0.45)' }}>{s.d}</td>
+                        <td>{sr > 0 ? '+' + sr : sr}</td>
+                        <td style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 16 }}>{s.p}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
-          <div className="mk-legend">8 primeiros = classificados (cada um com sua cor). Do 9º pra baixo, eliminados na fase de grupos.</div>
+          <div className="mk-legend">
+            <strong>SR</strong> = saldo de rounds (cada confronto tem {MK_ROUNDS_PER_MATCH} rounds: 6×0, 5×1, 4×2, 3×3…).
+            Vitória vale 3, empate (3×3) vale 1. Os <strong>8 primeiros</strong> (cada um com sua cor) vão pro mata-mata; do 9º pra baixo, eliminados na fase de grupos.
+          </div>
         </div>
       </div>
 
       <div className="card mk-card">
         <div className="card-head">
-          <div className="title"><Icon name="dice" size={16} /> SORTEIO DAS RODADAS</div>
+          <div className="title"><Icon name="dice" size={16} /> SORTEIO + RESULTADOS</div>
           <div className="sub">TODOS CONTRA TODOS · IDA E VOLTA</div>
         </div>
         <div className="card-body">
           <p style={{ marginTop: 0, fontSize: 13, lineHeight: 1.5 }}>
-            Gera o chaveamento todos-contra-todos (ida e volta) a partir dos inscritos.
-            Como ainda dá pra entrar gente, é só <strong>prévia</strong> — clica de novo pra sortear outra vez.
+            Sorteia o chaveamento (ida e volta) e deixa lançar o placar de cada confronto em rounds.
+            A classificação acima recalcula sozinha. É <strong>prévia</strong> — inscrições abertas, nada é gravado.
           </p>
-          <button className="tp-btn-go" onClick={() => setDraw(generateMkDraw(shuffleArr(insc)))} disabled={insc.length < 2}>
+          <button className="tp-btn-go" onClick={doDraw} disabled={insc.length < 2}>
             <Icon name="dice" size={15} /> {draw ? 'SORTEAR DE NOVO' : 'SORTEAR RODADAS'}
           </button>
-          {draw && (
+          {draw && curRound && (
             <div className="mk-draw">
-              <div className="mk-draw-sum">{insc.length} jogadores · {draw.length} rodadas · {totalGames} jogos</div>
-              {['IDA', 'VOLTA'].map(phase => (
-                <div key={phase} className="mk-draw-phase">
-                  <div className="mk-draw-phase-h">{phase === 'IDA' ? 'TURNO (IDA)' : 'RETURNO (VOLTA)'}</div>
-                  <div className="mk-draw-rounds">
-                    {draw.filter(r => r.phase === phase).map(r => (
-                      <div key={phase + r.n} className="mk-draw-round">
-                        <div className="mk-draw-round-h">RODADA {r.n}</div>
-                        {r.games.map((g, gi) => (
-                          <div key={gi} className="mk-draw-game">
-                            <span className="mk-dg-home">@{g.home}</span>
-                            <span className="mk-dg-vs">×</span>
-                            <span className="mk-dg-away">@{g.away}</span>
-                          </div>
-                        ))}
+              <div className="mk-draw-sum">{insc.length} jogadores · {draw.length} rodadas · {matches.length} jogos · {playedCount} lançados</div>
+              <div className="round-tabs mk-round-tabs">
+                {draw.map((r, i) => (
+                  <button key={i} className={'rt ' + (i === viewRound ? 'active' : '')} onClick={() => setViewRound(i)}>
+                    {r.phase[0]}{r.n}
+                  </button>
+                ))}
+              </div>
+              <div className="mk-round-head">RODADA {curRound.n} · {curRound.phase === 'IDA' ? 'IDA' : 'VOLTA'}</div>
+              <div className="mk-games">
+                {curRound.games.map((g, gi) => {
+                  const k = gKey(curRound, gi);
+                  const sc = scores[k] || {};
+                  return (
+                    <div key={gi} className="mk-game-row">
+                      <span className="mk-gr-home">@{g.home}</span>
+                      <div className="mk-gr-score">
+                        <input className="cscore-in" value={sc.rh || ''} placeholder="–" inputMode="numeric"
+                          onChange={e => setScore(k, 'rh', e.target.value)} />
+                        <span className="display">×</span>
+                        <input className="cscore-in" value={sc.ra || ''} placeholder="–" inputMode="numeric"
+                          onChange={e => setScore(k, 'ra', e.target.value)} />
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                      <span className="mk-gr-away">@{g.away}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
