@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-rounds ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-grid ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5764,7 +5764,8 @@ function MkChampionshipView({ players, users, teamPlayers }) {
   return (
     <div className="mk-champ">
       {curtain && <MkCurtainOpening onDone={closeCurtain} />}
-      <div className="card mk-card" style={{ marginBottom: 14 }}>
+      <div className="grid mk-grid">
+      <div className="card mk-card">
         <div className="card-head">
           <div className="title"><Icon name="skull" size={16} /> CLASSIFICAÇÃO · MORTAL KOMBAT</div>
           <div className="sub">{insc.length} INSCRITOS · TOP 8 VAI PRO MATA-MATA</div>
@@ -5816,15 +5817,16 @@ function MkChampionshipView({ players, users, teamPlayers }) {
         </div>
       </div>
 
+      <aside>
       <div className="card mk-card">
         <div className="card-head">
           <div className="title"><Icon name="dice" size={16} /> SORTEIO + RESULTADOS</div>
-          <div className="sub">TODOS CONTRA TODOS · IDA E VOLTA</div>
+          <div className="sub">IDA E VOLTA</div>
         </div>
         <div className="card-body">
-          <p style={{ marginTop: 0, fontSize: 13, lineHeight: 1.5 }}>
-            Sorteia o chaveamento (ida e volta) e deixa lançar o placar de cada confronto em rounds.
-            A classificação acima recalcula sozinha. É <strong>prévia</strong> — inscrições abertas, nada é gravado.
+          <p style={{ marginTop: 0, fontSize: 12.5, lineHeight: 1.5 }}>
+            Sorteia o chaveamento (ida e volta) e lança o placar de cada confronto em rounds.
+            A classificação ao lado recalcula sozinha. É <strong>prévia</strong> — nada é gravado.
           </p>
           <button className="tp-btn-go" onClick={doDraw} disabled={insc.length < 2}>
             <Icon name="dice" size={15} /> {draw ? 'SORTEAR DE NOVO' : 'SORTEAR RODADAS'}
@@ -5862,6 +5864,8 @@ function MkChampionshipView({ players, users, teamPlayers }) {
             </div>
           )}
         </div>
+      </div>
+      </aside>
       </div>
     </div>
   );
