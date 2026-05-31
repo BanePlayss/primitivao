@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260529-news-fmt ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260529-mk-jogador ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -368,6 +368,16 @@ function scoreWcPick(real, pick) {
   return 0;
 }
 const CHAMP_BY_ID = Object.fromEntries(CHAMPIONSHIPS.map(c => [c.id, c]));
+
+// Personagens jogáveis do Mortal Kombat 1 (2023). Cada jogador escolhe 3 por
+// turno (regra do MK Edição 01). Lista pra "MEU JOGADOR".
+const MK_CHARACTERS = [
+  'Ashrah', 'Baraka', 'Cyrax', 'Ermac', 'General Shao', 'Geras', 'Havik',
+  'Johnny Cage', 'Kenshi', 'Kitana', 'Kung Lao', 'Li Mei', 'Liu Kang',
+  'Mileena', 'Nitara', 'Noob Saibot', 'Quan Chi', 'Raiden', 'Rain', 'Reptile',
+  'Scorpion', 'Sektor', 'Shang Tsung', 'Sindel', 'Smoke', 'Sub-Zero', 'Tanya',
+];
+const MK_MAX_CHARS = 3;
 
 const START_PC = 50;
 const WEEKLY_PC = 500;
@@ -2329,6 +2339,19 @@ function App() {
     } catch (e) { console.warn('splitCurrency failed', e); return { err: String(e && e.message || e) }; }
   };
 
+  // MEU JOGADOR (MK): salva os 3 personagens escolhidos por um jogador.
+  const setMkChars = async (targetNick, chars) => {
+    if (!targetNick) return;
+    const clean = (Array.isArray(chars) ? chars : []).filter(c => MK_CHARACTERS.includes(c)).slice(0, MK_MAX_CHARS);
+    try {
+      await commitBetDocUpdate(remote => {
+        const u = (remote.users || {})[targetNick];
+        if (!u) return null;
+        return { ...remote, users: { ...remote.users, [targetNick]: { ...u, mkChars: clean } } };
+      });
+    } catch (e) { console.warn('setMkChars failed', e); }
+  };
+
   // LOJA: compra de item (debita CAMPEÃO COINS — cc — e adiciona ao inventory).
   // PC é só pra apostas; a loja roda na moeda nova `cc`.
   const buyItem = async (itemId) => {
@@ -2540,6 +2563,9 @@ function App() {
             )}
             {view === 'ranking' && (
               <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} />
+            )}
+            {view === 'meujogador' && (
+              <MeuJogadorView nick={session.nick} isAdmin={isAdmin} users={users} interests={interests || {}} onSave={setMkChars} />
             )}
             {view === 'loja' && (
               <LojaView
@@ -2852,6 +2878,9 @@ function getTabItems(isAdmin) {
     { id: 'tickets',  label: 'MEUS TICKETS', icon: 'ticket' },
     { id: 'ranking',  label: 'RANKING',      icon: 'trophy' },
   ];
+  // MEU JOGADOR (MK) — por enquanto SÓ admin (aba secreta de teste). Quando
+  // soltar pros jogadores, trocar a condição por "inscrito no MK".
+  if (isAdmin) globalItems.push({ id: 'meujogador', label: 'MEU JOGADOR', icon: 'fist' });
   if (isAdmin) globalItems.push({ id: 'admin', label: 'ADMIN', icon: 'shield' });
   return { sectionItems, globalItems };
 }
@@ -5511,6 +5540,74 @@ function ColecaoCard({ nick, me, previewTeamId, ctx, onEquip }) {
                 <div className="colecao-grid">{badges.map(renderItem)}</div>
               </>
             )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── MEU JOGADOR (MK) — escolha dos personagens do turno ───────────────────
+function MeuJogadorView({ nick, isAdmin, users, interests, onSave }) {
+  const inscritos = Object.keys((interests && interests.mk) || {}).sort();
+  const [target, setTarget] = useState(isAdmin ? (inscritos[0] || '') : nick);
+  const [sel, setSel] = useState(((users || {})[isAdmin ? (inscritos[0] || '') : nick] || {}).mkChars || []);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setSel(((users || {})[target] || {}).mkChars || []); }, [target, users]);
+
+  const isInscrito = !!(((interests && interests.mk) || {})[target]);
+  const toggle = (c) => setSel(prev => prev.includes(c) ? prev.filter(x => x !== c) : (prev.length >= MK_MAX_CHARS ? prev : [...prev, c]));
+  const save = async () => {
+    if (busy || !target) return;
+    setBusy(true);
+    try { await onSave(target, sel); showToast('Personagens salvos pra @' + target + '!', 'success'); }
+    catch (e) { showToast('Falha ao salvar.', 'error'); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="card mk-card" style={{ marginBottom: 14 }}>
+      <div className="card-head">
+        <div className="title"><Icon name="fist" size={16} /> MEU JOGADOR · MORTAL KOMBAT</div>
+        <div className="sub">ESCOLHE SEUS {MK_MAX_CHARS} PERSONAGENS DO TURNO</div>
+      </div>
+      <div className="card-body">
+        <p style={{ marginTop: 0, fontSize: 13, lineHeight: 1.5 }}>
+          Regra do MK: cada jogador joga o turno com <strong>{MK_MAX_CHARS} personagens fixos</strong>.
+          Dá pra trocar antes da VOLTA e antes do MATA-MATA. Escolhe os teus na lista.
+        </p>
+        {isAdmin && (
+          <label className="tp-fld" style={{ maxWidth: 260, marginBottom: 12 }}>
+            <span className="tp-fld-label">Testar como (jogador inscrito no MK)</span>
+            <select value={target} onChange={e => setTarget(e.target.value)} className="tp-input tp-select">
+              {inscritos.length === 0 && <option value="">— ninguém inscrito —</option>}
+              {inscritos.map(n => <option key={n} value={n}>@{n}</option>)}
+            </select>
+          </label>
+        )}
+        {!isInscrito ? (
+          <div className="empty">
+            <div className="e1">SEM INSCRIÇÃO NO MK</div>
+            <div className="e2">{isAdmin ? 'Esse jogador não está inscrito no MK.' : 'Você não está inscrito no Mortal Kombat. Inscreva-se na aba CAMPEONATOS.'}</div>
+          </div>
+        ) : (
+          <>
+            <div className="mk-roster">
+              {MK_CHARACTERS.map(c => {
+                const on = sel.includes(c);
+                return (
+                  <button key={c} type="button" className={'mk-char' + (on ? ' on' : '')} onClick={() => toggle(c)} title={c}>
+                    {on && <span className="mk-char-slot">{sel.indexOf(c) + 1}</span>}
+                    <span className="mk-char-ic"><Icon name={on ? 'fist' : 'user'} size={18} /></span>
+                    <span className="mk-char-name">{c}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mk-foot">
+              <div className="mk-selected">{sel.length}/{MK_MAX_CHARS} escolhidos{sel.length ? ': ' + sel.join(' · ') : ''}</div>
+              <button className="tp-btn-go" onClick={save} disabled={busy || sel.length === 0}>{busy ? 'SALVANDO…' : 'SALVAR PERSONAGENS'}</button>
+            </div>
           </>
         )}
       </div>
