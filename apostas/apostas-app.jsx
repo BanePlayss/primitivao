@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-sortchars ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-odds2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -451,6 +451,67 @@ function computeMkStandings(players, matches) {
     if (b.rp !== a.rp) return b.rp - a.rp;
     return a.nick.localeCompare(b.nick);
   });
+}
+
+// ─── ODDS DO MK — mercados automáticos a partir da força (rounds/vitórias) ───
+// Modelo: dos pontos+saldo de cada jogador sai p = prob do MANDANTE vencer 1
+// round; como são sempre 6 rounds, a binomial dá todos os placares e mercados.
+const MK_MARKETS = ['VENC', 'PLACAR', 'MARG', 'FLAW', 'DRAW', 'BRUT'];
+const MK_MARKET_TITLE = { VENC: 'VENCEDOR', PLACAR: 'PLACAR EXATO', MARG: 'MARGEM', FLAW: 'VITÓRIA PERFEITA', DRAW: 'SAI EMPATE? (3×3)', BRUT: 'BRUTALITY' };
+const MK_PLACAR_PICKS = ['60', '51', '42', '33', '24', '15', '06']; // mandante x visitante
+const MK_BRUTALITY_PROB = 0.45; // brutality não sai do placar -> probabilidade fixa
+
+function mkBinom6(p) {
+  const C = [1, 6, 15, 20, 15, 6, 1], out = [];
+  for (let k = 0; k <= 6; k++) out[k] = C[k] * Math.pow(p, k) * Math.pow(1 - p, 6 - k);
+  return out; // out[k] = P(mandante vence k rounds) -> placar k x (6-k)
+}
+function computeMkPlayerMetrics(players, matches) {
+  const out = {};
+  computeMkStandings(players, matches).forEach(s => { out[s.nick] = { strength: s.p * 3 + (s.rp - s.rc) }; });
+  return out;
+}
+// p (prob do mandante vencer 1 round) e as odds de todos os mercados do confronto.
+function mkRoundWinProb(home, away, metrics) {
+  const H = (metrics || {})[home] || { strength: 0 }, A = (metrics || {})[away] || { strength: 0 };
+  return Math.max(0.25, Math.min(0.75, sigmoid((H.strength - A.strength) * 0.04)));
+}
+function computeMkGameOdds(home, away, metrics) {
+  const P = mkBinom6(mkRoundWinProb(home, away, metrics));
+  const pH = P[6] + P[5] + P[4], pD = P[3], pA = P[2] + P[1] + P[0];
+  const pFlaw = P[6] + P[0], pFolg = P[6] + P[5] + P[1] + P[0], pSua = P[4] + P[2];
+  return {
+    VENC:   { H: toOdd(pH), D: toOdd(pD), A: toOdd(pA) },
+    PLACAR: { '60': toOdd(P[6]), '51': toOdd(P[5]), '42': toOdd(P[4]), '33': toOdd(P[3]), '24': toOdd(P[2]), '15': toOdd(P[1]), '06': toOdd(P[0]) },
+    MARG:   { F: toOdd(pFolg), S: toOdd(pSua), E: toOdd(pD) },
+    FLAW:   { Y: toOdd(pFlaw), N: toOdd(1 - pFlaw) },
+    DRAW:   { Y: toOdd(pD), N: toOdd(1 - pD) },
+    BRUT:   { Y: toOdd(MK_BRUTALITY_PROB), N: toOdd(1 - MK_BRUTALITY_PROB) },
+  };
+}
+// Como cada palpite resolve, dado o placar (rh x ra) e se rolou brutality.
+function mkLegResult(market, pick, rh, ra, brutality) {
+  if (Number.isNaN(rh) || Number.isNaN(ra)) return 'pending';
+  const hWin = rh > ra, draw = rh === ra, margin = Math.abs(rh - ra);
+  let win = false;
+  switch (market) {
+    case 'VENC':   win = pick === (hWin ? 'H' : draw ? 'D' : 'A'); break;
+    case 'PLACAR': win = pick === ('' + rh + ra); break;
+    case 'MARG':   win = pick === (draw ? 'E' : margin >= 4 ? 'F' : 'S'); break;
+    case 'FLAW':   win = (margin === 6) === (pick === 'Y'); break;
+    case 'DRAW':   win = draw === (pick === 'Y'); break;
+    case 'BRUT':   win = !!brutality === (pick === 'Y'); break;
+    default: return 'pending';
+  }
+  return win ? 'win' : 'lose';
+}
+// Rótulo do palpite pra UI.
+function mkPickLabel(market, pick) {
+  if (market === 'VENC') return { H: 'MANDANTE', D: 'EMPATE', A: 'VISITANTE' }[pick];
+  if (market === 'PLACAR') return pick[0] + '×' + pick[1];
+  if (market === 'MARG') return { F: 'FOLGADA (4+)', S: 'SUADA (2)', E: 'EMPATE' }[pick];
+  if (market === 'FLAW' || market === 'DRAW' || market === 'BRUT') return pick === 'Y' ? 'SIM' : 'NÃO';
+  return pick;
 }
 
 const START_PC = 50;
@@ -5744,8 +5805,9 @@ const MK_CURTAIN_KEY = 'mk_curtain_seen';
 
 function MkChampionshipView({ players, users, teamPlayers }) {
   const [draw, setDraw] = useState(null);
-  const [scores, setScores] = useState({});   // chave 'IDA-3-2' -> { rh, ra }
+  const [scores, setScores] = useState({});   // chave 'IDA-3-2' -> { rh, ra, brut }
   const [viewRound, setViewRound] = useState(0);
+  const [betRound, setBetRound] = useState(0); // rodada vista no painel de apostas
   const [previewChars, setPreviewChars] = useState(null); // prévia (admin): nick -> [3 chars], NÃO grava
   const [curtain, setCurtain] = useState(() => {
     try { return !localStorage.getItem(MK_CURTAIN_KEY); } catch (e) { return false; }
@@ -5768,16 +5830,29 @@ function MkChampionshipView({ players, users, teamPlayers }) {
     const v = val.replace(/[^0-6]/g, '').slice(0, 1); // 1 dígito, 0..6
     setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [side]: v } }));
   };
+  const toggleBrut = (key) => setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), brut: !(prev[key] || {}).brut } }));
 
   // Resultados lançados -> confrontos -> classificação (recalcula ao vivo).
   const matches = draw ? draw.flatMap(r => r.games.map((g, gi) => {
     const sc = scores[gKey(r, gi)] || {};
-    return { home: g.home, away: g.away, rh: sc.rh, ra: sc.ra };
+    return { home: g.home, away: g.away, rh: sc.rh, ra: sc.ra, brut: sc.brut };
   })) : [];
   const playedCount = matches.filter(m => !Number.isNaN(parseInt(m.rh, 10)) && !Number.isNaN(parseInt(m.ra, 10))).length;
   const standings = computeMkStandings(insc, matches);
   const charsFor = (nick) => (previewChars && previewChars[nick]) || ((users || {})[nick] || {}).mkChars || [];
   const curRound = draw ? draw[viewRound] : null;
+  // Rodada está concluída quando TODOS os jogos dela têm placar.
+  const roundConcluded = (ri) => !!(draw && draw[ri]) && draw[ri].games.every((g, gi) => {
+    const sc = scores[gKey(draw[ri], gi)] || {};
+    return !Number.isNaN(parseInt(sc.rh, 10)) && !Number.isNaN(parseInt(sc.ra, 10));
+  });
+  // Odds usam só rodadas FECHADAS (recalcula quando a rodada termina, igual FIFA).
+  const oddsMatches = draw ? draw.flatMap((r, ri) => roundConcluded(ri)
+    ? r.games.map((g, gi) => { const sc = scores[gKey(r, gi)] || {}; return { home: g.home, away: g.away, rh: sc.rh, ra: sc.ra }; })
+    : []) : [];
+  const metrics = computeMkPlayerMetrics(insc, oddsMatches); // força p/ odds automáticas
+  // Aposta simples só na 1ª rodada ainda aberta cuja anterior já fechou.
+  const bettableRoundIdx = draw ? draw.findIndex((r, ri) => !roundConcluded(ri) && (ri === 0 || roundConcluded(ri - 1))) : -1;
 
   return (
     <div className="mk-champ">
@@ -5880,7 +5955,12 @@ function MkChampionshipView({ players, users, teamPlayers }) {
                     <div key={gi} className={'mk-fx' + (done ? ' done' : '')}>
                       <div className="mk-fx-top">
                         <span>JOGO {String(gi + 1).padStart(2, '0')}</span>
-                        {done && <span className="mk-fx-done"><Icon name="check" size={11} /> LANÇADO</span>}
+                        <span className="mk-fx-top-r">
+                          <button type="button" className={'mk-brut-tog' + (sc.brut ? ' on' : '')} onClick={() => toggleBrut(k)} title="Rolou brutality neste confronto?">
+                            <Icon name="skull" size={11} /> BRUTALITY
+                          </button>
+                          {done && <span className="mk-fx-done"><Icon name="check" size={11} /> LANÇADO</span>}
+                        </span>
                       </div>
                       <div className="mk-fx-body">
                         <div className="mk-fx-side home">
@@ -5930,6 +6010,53 @@ function MkChampionshipView({ players, users, teamPlayers }) {
         </div>
       </div>
       </aside>
+      </div>
+
+      <div className="card mk-card mk-betting" style={{ marginTop: 14 }}>
+        <div className="card-head">
+          <div className="title"><Icon name="coin" size={16} /> APOSTAS · MORTAL KOMBAT</div>
+          <div className="sub">ODDS AUTOMÁTICAS</div>
+        </div>
+        <div className="card-body">
+          {!draw ? (
+            <div className="empty"><div className="e1">SORTEIE AS RODADAS</div><div className="e2">As odds aparecem depois do sorteio.</div></div>
+          ) : (
+            <>
+              <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="lock" size={11} /> Prévia das odds (admin). Calculadas da força em rounds — recalculam quando a rodada fecha. Lançar aposta + casada vêm no próximo passo.</div>
+              <div className="mk-rnav mk-bet-nav">
+                <button className="mk-rnav-btn" onClick={() => setBetRound(v => Math.max(0, v - 1))} disabled={betRound === 0} aria-label="Rodada anterior"><Icon name="chevron-left" size={18} /></button>
+                <div className="mk-rnav-mid">
+                  <div className="mk-rnav-phase">RODADA {draw[betRound].n} · {draw[betRound].phase}</div>
+                  <div className="mk-rnav-count">{betRound + 1} <span>/ {draw.length}</span></div>
+                </div>
+                <button className="mk-rnav-btn" onClick={() => setBetRound(v => Math.min(draw.length - 1, v + 1))} disabled={betRound === draw.length - 1} aria-label="Próxima rodada"><Icon name="chevron-right" size={18} /></button>
+              </div>
+              <div className="mk-bet-games">
+                {draw[betRound].games.map((g, gi) => {
+                  const odds = computeMkGameOdds(g.home, g.away, metrics);
+                  return (
+                    <div key={gi} className="mk-bet-game">
+                      <div className="mk-bet-match"><span>@{g.home}</span><span className="mk-bm-vs">×</span><span>@{g.away}</span></div>
+                      {MK_MARKETS.map(mkt => (
+                        <div key={mkt} className="mk-bet-mkt">
+                          <div className="mk-bet-mkt-h">{MK_MARKET_TITLE[mkt]}</div>
+                          <div className="mk-bet-picks">
+                            {Object.keys(odds[mkt]).map(pick => (
+                              <button key={pick} type="button" className="mk-odd">
+                                <span className="mk-odd-l">{mkPickLabel(mkt, pick)}</span>
+                                <span className="mk-odd-v">{odds[mkt][pick].toFixed(2)}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
