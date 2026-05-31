@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-laranja ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-chars ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5861,6 +5861,7 @@ function MkChampionshipView({ players, users, teamPlayers }) {
                   const k = gKey(curRound, gi);
                   const sc = scores[k] || {};
                   const done = !Number.isNaN(parseInt(sc.rh, 10)) && !Number.isNaN(parseInt(sc.ra, 10));
+                  const hc = charsFor(g.home), ac = charsFor(g.away);
                   return (
                     <div key={gi} className={'mk-fx' + (done ? ' done' : '')}>
                       <div className="mk-fx-top">
@@ -5890,6 +5891,18 @@ function MkChampionshipView({ players, users, teamPlayers }) {
                           </div>
                         </div>
                       </div>
+                      {(hc.length > 0 || ac.length > 0) && (
+                        <div className="mk-fx-chars">
+                          <span className="mk-fx-ch home">
+                            <Icon name="fist" size={9} />
+                            <span className={'mk-fx-ch-n' + (hc.length ? '' : ' empty')}>{hc.length ? hc.join(' · ') : 'a escolher'}</span>
+                          </span>
+                          <span className="mk-fx-ch away">
+                            <span className={'mk-fx-ch-n' + (ac.length ? '' : ' empty')}>{ac.length ? ac.join(' · ') : 'a escolher'}</span>
+                            <Icon name="fist" size={9} />
+                          </span>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

@@ -3087,6 +3087,14 @@
     .mk-fx-x { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 13px; color: rgba(28,22,18,0.4); }
     /* reusa o look da caixa de placar da FIFA, um tiquinho menor pro aside */
     .mk-fx-score .cscore-in { width: 30px; height: 36px; font-size: 17px; }
+    /* personagens da galera no confronto — discreto, no rodapé do card */
+    .mk-fx-chars { display: flex; align-items: center; gap: 10px; margin-top: 7px; padding-top: 6px; border-top: 1px dashed rgba(28,22,18,0.16); }
+    .mk-fx-ch { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; font-size: 8.5px; font-weight: 700; letter-spacing: 0.01em; color: rgba(28,22,18,0.55); }
+    .mk-fx-ch.away { flex-direction: row-reverse; }
+    .mk-fx-ch svg { flex-shrink: 0; color: var(--pv-orange); opacity: 0.85; }
+    .mk-fx-ch-n { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mk-fx-ch.away .mk-fx-ch-n { text-align: right; }
+    .mk-fx-ch-n.empty { font-style: italic; opacity: 0.5; font-weight: 600; }
 
     .mk-sorteio-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1.5px dashed rgba(28,22,18,0.2); font-size: 10.5px; font-weight: 700; color: rgba(28,22,18,0.55); }
     .mk-resort { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-family: inherit; font-weight: 800; font-size: 10px; letter-spacing: 0.04em; color: var(--pv-orange); background: transparent; border: 1.5px solid rgba(215,100,20,0.4); padding: 5px 9px; transition: background .1s ease; }
