@@ -117,11 +117,11 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-betking-season ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260601-mk-oficial ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
-  { id: 'mk',   name: 'Primitivão — Mortal Kombat 2026',         season: 'Season 1', tag: 'MK',   status: 'soon'   },
+  { id: 'mk',   name: 'Primitivão — Mortal Kombat 2026',         season: 'Season 1', tag: 'MK',   status: 'active' },
   { id: 'rl',   name: 'Primitivão — Rocket League 2026',         season: 'Season 1', tag: 'RL',   status: 'soon'   },
   { id: 'lol',  name: 'Primitivão — League of Legends 2026',     season: 'Season 1', tag: 'LoL',  status: 'soon'   },
   { id: 'cs',   name: 'Primitivão — Counter-Strike 2026',        season: 'Season 1', tag: 'CS',   status: 'soon'   },
@@ -1724,18 +1724,41 @@ function App() {
   const [slip, setSlip]     = useState([]); // [{fixtureId='rXgY', market, pick, odds}]
   const [synced, setSynced] = useState(false);
   const [championship, setChampionship] = useState('fifa');
-  // Estado do MK (prévia admin) compartilhado entre CAMPEONATOS (gerência:
-  // sorteio + resultados) e APOSTAS (odds + aposta). Ephemeral — não grava.
+  // Estado OFICIAL do MK — persiste no campo `mk` do doc de apostas (commit
+  // transacional já blindado; NÃO toca no doc da FIFA). Lido na subscription do
+  // BET_DOC; escrito via os helpers persistMk* abaixo (optimistic local + commit).
+  //   mk = { draw, scores, lineups, locked }
   const [mkDraw, setMkDraw] = useState(null);
   const [mkScores, setMkScores] = useState({});
-  const [mkPreviewChars, setMkPreviewChars] = useState(null);
+  const [mkPreviewChars, setMkPreviewChars] = useState(null); // prévia admin (não grava)
   // MEU JOGO: escalação por confronto montada pelo MANDANTE (os dois lados das 2
-  // partidas, a partir do elenco de 3 de cada jogador). Keyed por gKey do confronto:
-  //   mkLineups[gKey] = { p1: { home, away }, p2: { home, away } }. Ephemeral.
+  // partidas). Keyed por gKey: mkLineups[gKey] = { p1:{home,away}, p2:{home,away} }.
   const [mkLineups, setMkLineups] = useState({});
-  const [mkBets, setMkBets] = useState([]); // apostas do MK (prévia admin, ephemeral)
-  const placeMkBet = (bet) => setMkBets(prev => [bet, ...prev]);
-  const removeMkBet = (id) => setMkBets(prev => prev.filter(b => b.id !== id));
+  const [mkLocked, setMkLocked] = useState(false); // chaveamento publicado -> inscrições fechadas
+
+  // Muta o campo `mk` no doc de apostas, preservando o resto. Optimistic: o caller
+  // já atualizou o estado local; aqui só persiste.
+  const persistMk = (mutator) => commitBetDocUpdate(remote => {
+    const cur = (remote.mk && typeof remote.mk === 'object') ? remote.mk : {};
+    const base = { draw: null, scores: {}, lineups: {}, locked: false, ...cur };
+    return { ...remote, mk: mutator(base) };
+  }).catch(e => console.warn('persistMk failed', e));
+
+  // ADMIN: sorteia e PUBLICA o chaveamento (fecha inscrições, zera placares).
+  const publishMkDraw = (draw) => {
+    setMkDraw(draw); setMkScores({}); setMkLocked(true);
+    return persistMk(mk => ({ ...mk, draw, scores: {}, locked: true }));
+  };
+  // ADMIN: lança placar/finalização/flawless de um confronto (patch parcial).
+  const setMkScoreField = (key, patch) => {
+    setMkScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), ...patch } }));
+    return persistMk(mk => ({ ...mk, scores: { ...mk.scores, [key]: { ...((mk.scores || {})[key] || {}), ...patch } } }));
+  };
+  // MANDANTE: escala um lado de uma partida do seu confronto (MEU JOGO).
+  const setMkLineupSlot = (key, part, side, val) => {
+    setMkLineups(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [part]: { ...((prev[key] || {})[part] || {}), [side]: val || undefined } } }));
+    return persistMk(mk => ({ ...mk, lineups: { ...mk.lineups, [key]: { ...((mk.lineups || {})[key] || {}), [part]: { ...(((mk.lineups || {})[key] || {})[part] || {}), [side]: val || undefined } } } }));
+  };
   // VIEW principal — controla qual "página" mostrar:
   //   apostas | campeonatos | copa | hall | inicio(NEWS) | loja | perfil | tickets | ranking | admin
   // 'discord' não é view — abre link externo direto.
@@ -1870,6 +1893,12 @@ function App() {
           worldcup,
           teamPlayers:  remote.teamPlayers && typeof remote.teamPlayers === 'object' ? remote.teamPlayers : {},
         });
+        // Estado oficial do MK (campo `mk` do mesmo doc). Source of truth remoto.
+        const mk = (remote.mk && typeof remote.mk === 'object') ? remote.mk : {};
+        setMkDraw(Array.isArray(mk.draw) ? mk.draw : null);
+        setMkScores(mk.scores && typeof mk.scores === 'object' ? mk.scores : {});
+        setMkLineups(mk.lineups && typeof mk.lineups === 'object' ? mk.lineups : {});
+        setMkLocked(!!mk.locked);
         hasLoadedRef.current = true; setSynced(true);
         // Migração one-shot: promove interests do json pra campo top-level.
         if (needsMigration) {
@@ -2035,6 +2064,60 @@ function App() {
     }, 600);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [cs]);
+
+  // Liquidação das apostas do MK (champId='mk'): keyed em mkScores. Usa
+  // mkLegResult e paga/estorna PC. Espelha a da FIFA, mas SÓ toca tickets do MK
+  // (FIFA settle ignora legs 'mk:' porque parseGameId não casa). Idempotente.
+  useEffect(() => {
+    if (!hasLoadedRef.current) return;
+    const snap = mkScores;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
+      try {
+        await commitBetDocUpdate(remote => {
+          const remoteBets = remote.bets || [];
+          if (!remoteBets.some(b => b && b.champId === 'mk')) return null;
+          const newUsers = { ...(remote.users || {}) };
+          let dirty = false;
+          const newBets = remoteBets.map(b => {
+            if (!b || b.champId !== 'mk') return b;
+            let changed = false;
+            const legs = (b.legs || []).map(l => {
+              const gk = (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) ? l.fixtureId.slice(3) : null;
+              const sc = gk ? (snap[gk] || {}) : {};
+              const done = !!mkMatchOutcome(sc);
+              if (l.result && !done) { changed = true; return { ...l, result: undefined }; }
+              if (!l.result && done) {
+                const won = mkLegResult(l.market, l.pick, sc, sc) === 'win';
+                changed = true;
+                return { ...l, result: won ? 'win' : 'lose' };
+              }
+              return l;
+            });
+            if (!changed) return b;
+            const newStatus = ticketStatusFromLegs(legs);
+            const oldStatus = b.status;
+            const oldPayout = b.payout || 0;
+            let newPayout = b.payout;
+            if (oldStatus === 'won' && newStatus !== 'won' && oldPayout > 0 && newUsers[b.user]) {
+              newUsers[b.user] = { ...newUsers[b.user], pc: Math.max(0, newUsers[b.user].pc - oldPayout) };
+            }
+            if (newStatus === 'won' && oldStatus !== 'won') {
+              newPayout = Math.round(b.amount * b.combinedOdds);
+              if (newUsers[b.user]) newUsers[b.user] = { ...newUsers[b.user], pc: newUsers[b.user].pc + newPayout };
+            } else if (newStatus === 'lost') { newPayout = 0; }
+            else if (newStatus === 'pending') { newPayout = undefined; }
+            dirty = true;
+            return { ...b, legs, status: newStatus, payout: newPayout };
+          });
+          if (!dirty) return null;
+          return { ...remote, users: newUsers, bets: newBets };
+        });
+      } catch (e) { if (!cancelled) console.warn('mk auto-settle failed', e); }
+    }, 600);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [mkScores]);
 
   // Derivados de cs.rounds: métricas dos times + jogos disponíveis com odds.
   const rounds   = cs?.rounds || [];
@@ -2256,12 +2339,62 @@ function App() {
     }
   };
 
+  // ── APOSTAS DO MK (valendo PC) ────────────────────────────────────────────
+  // Ticket entra no MESMO array `bets` com champId='mk'. Carrega aliases
+  // (nick/stake/combined/odd) pro display do MkBettingView funcionar sem reescrever.
+  const placeMkBet = async (payload) => {
+    const nick = session && session.nick;
+    if (!nick || !payload || !Array.isArray(payload.legs) || payload.legs.length === 0) return { err: 'cupom inválido' };
+    const stake = Math.floor(Number(payload.stake) || 0);
+    if (!(stake > 0)) return { err: 'valor inválido' };
+    const combined = +Number(payload.combined).toFixed(2);
+    const ticket = {
+      id: 'mkb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      user: nick, amount: stake, status: 'pending', createdAt: Date.now(),
+      champId: 'mk', combinedOdds: combined, casada: !!payload.casada,
+      roundN: payload.roundN, phase: payload.phase,
+      nick, stake, combined, // aliases (display)
+      legs: payload.legs.map(l => ({
+        fixtureId: 'mk:' + payload.phase + '-' + payload.roundN + '-' + l.gi,
+        market: l.market, pick: l.pick, odds: l.odd, odd: l.odd,
+        home: l.home, away: l.away, gi: l.gi, roundN: payload.roundN, phase: payload.phase,
+      })),
+    };
+    try {
+      const res = await commitBetDocUpdate(remote => {
+        const u = (remote.users || {})[nick];
+        if (!u) return { __abort: true, result: { err: 'Conta não sincronizada. Faz login de novo.' } };
+        if ((u.pc || 0) < stake) return { __abort: true, result: { err: 'Saldo insuficiente (tem ' + (u.pc || 0) + ' PC).' } };
+        if ((remote.bets || []).some(b => b.id === ticket.id)) return null;
+        return { ...remote, users: { ...remote.users, [nick]: { ...u, pc: u.pc - stake } }, bets: [ticket, ...(remote.bets || [])] };
+      });
+      if (res && res.err) { showToast(res.err, 'error'); return res; }
+      return { ok: true };
+    } catch (e) { console.warn('placeMkBet failed', e); showToast('Erro ao apostar. Tenta de novo.', 'error'); return { err: String(e) }; }
+  };
+  const removeMkBet = async (ticketId) => {
+    try {
+      const res = await commitBetDocUpdate(remote => {
+        const t = (remote.bets || []).find(b => b.id === ticketId && b.champId === 'mk');
+        if (!t) return null;
+        if (t.user !== session.nick && session.nick !== ADMIN_NICK) return { __abort: true, result: { err: 'Só o dono ou o admin.' } };
+        if (t.status !== 'pending' || (t.legs || []).some(l => !!l.result)) return { __abort: true, result: { err: 'Aposta já em resolução.' } };
+        const u = (remote.users || {})[t.user];
+        const users = u ? { ...remote.users, [t.user]: { ...u, pc: (u.pc || 0) + (t.amount || 0) } } : remote.users;
+        return { ...remote, users, bets: (remote.bets || []).filter(b => b.id !== ticketId) };
+      });
+      if (res && res.err) showToast(res.err, 'error');
+    } catch (e) { console.warn('removeMkBet failed', e); }
+  };
+
   // ── INSCRIÇÕES (campeonatos "em breve") ───────────────────────────────────
   // Transação atômica direto no Firestore — evita race com outras escritas
   // que poderiam sobrescrever a lista de inscritos. Local state atualiza
   // sozinho via snapshot depois do write.
   const toggleInterest = async (champId) => {
     if (!session || !session.nick) return;
+    // MK lançado: chaveamento publicado fecha as inscrições (não entra nem sai).
+    if (champId === 'mk' && mkLocked) { showToast('Inscrições do MK já encerraram (chaveamento publicado).', 'error'); return; }
     const nick = session.nick;
     const ref = BET_DOC();
     let newMap = null;
@@ -2658,6 +2791,7 @@ function App() {
   // mexer na seleção do CAMPEONATOS. (Fix: voltar pra APOSTAS ficava "em breve".)
   const firstActiveChampId = (CHAMPIONSHIPS.find(c => c.status === 'active') || CHAMPIONSHIPS[0]).id;
   const apostasChampId = isActiveChamp ? championship : firstActiveChampId;
+  const mkInscrito = !!(interests && interests.mk && session && interests.mk[session.nick]);
   // CAMPEONATOS mostra a página "EM BREVE" quando o campeonato selecionado não
   // está ativo. APOSTAS nunca mostra (sempre usa apostasChampId, que é ativo).
   const showPlaceholder = view === 'campeonatos' && !isActiveChamp;
@@ -2684,7 +2818,7 @@ function App() {
             {/* Navegação mobile (some no desktop). Sempre montada pra que as
                 telas globais — perfil/tickets/ranking — sejam alcançáveis de
                 qualquer view, já que a Sidebar fica escondida no mobile. */}
-            <MobileNav view={view} setView={setView} isAdmin={isAdmin} />
+            <MobileNav view={view} setView={setView} isAdmin={isAdmin} mkInscrito={mkInscrito} />
             <ViewBoundary key={view}>
             {view === 'inicio' && (
               <InicioView
@@ -2715,9 +2849,8 @@ function App() {
                 seleção do CAMPEONATOS. Inscrição em "em breve" é na aba
                 CAMPEONATOS (e o cancelamento no MEU PERFIL). */}
             {view === 'apostas' && (
-              (isAdmin && championship === 'mk') ? (
-                // Prévia das apostas do MK na própria aba APOSTAS (admin). Seleciona
-                // MK em CAMPEONATOS (ou aqui no TROCAR); volta pro ativo escolhendo FIFA.
+              (apostasChampId === 'mk') ? (
+                // APOSTAS do MK (valendo PC). MK é ativo — todo mundo aposta aqui.
                 <>
                   <ChampHeader value={championship} onChange={setChampionship} interests={interests || {}} bare />
                   <MkBettingView
@@ -2726,11 +2859,12 @@ function App() {
                     teamPlayers={teamPlayers || {}}
                     draw={mkDraw}
                     scores={mkScores}
-                    bets={mkBets}
+                    bets={(bets || []).filter(b => b.champId === 'mk')}
                     onPlaceBet={placeMkBet}
                     onRemoveBet={removeMkBet}
                     myNick={session.nick}
-                    balance={isAdmin ? Infinity : (me?.pc ?? 0)}
+                    isAdmin={isAdmin}
+                    balance={me?.pc ?? 0}
                   />
                 </>
               ) : (
@@ -2750,29 +2884,28 @@ function App() {
             {/* CAMPEONATOS — classificação do campeonato selecionado. */}
             {view === 'campeonatos' && (<>
               <ChampHeader value={championship} onChange={setChampionship} interests={interests || {}} bare />
-              {showPlaceholder ? (
-                (active.id === 'mk' && isAdmin) ? (
-                  // Prévia do MK só pro ADMIN (classificação + sorteio). Jogadores
-                  // ainda veem o "EM BREVE" — inscrições seguem abertas.
-                  <MkChampionshipView
-                    players={Object.keys(interests?.mk || {})}
-                    users={users}
-                    teamPlayers={teamPlayers || {}}
-                    draw={mkDraw} setDraw={setMkDraw}
-                    scores={mkScores} setScores={setMkScores}
-                    previewChars={mkPreviewChars} setPreviewChars={setMkPreviewChars}
-                  />
-                ) : (
-                  <ChampionshipPlaceholder
-                    champ={active}
-                    session={session}
-                    interested={!!(interests?.[active.id]?.[session.nick])}
-                    count={Object.keys(interests?.[active.id] || {}).length}
-                    list={Object.keys(interests?.[active.id] || {}).sort()}
-                    isAdmin={isAdmin}
-                    onToggleInterest={() => toggleInterest(active.id)}
-                  />
-                )
+              {active.id === 'mk' ? (
+                // MK OFICIAL: classificação + sorteio (admin) + placar (admin).
+                // Visível a todos; controles de edição são admin-only no componente.
+                <MkChampionshipView
+                  players={Object.keys(interests?.mk || {})}
+                  users={users}
+                  teamPlayers={teamPlayers || {}}
+                  draw={mkDraw} onPublishDraw={publishMkDraw}
+                  scores={mkScores} onScore={setMkScoreField}
+                  previewChars={mkPreviewChars} setPreviewChars={setMkPreviewChars}
+                  isAdmin={isAdmin} locked={mkLocked}
+                />
+              ) : showPlaceholder ? (
+                <ChampionshipPlaceholder
+                  champ={active}
+                  session={session}
+                  interested={!!(interests?.[active.id]?.[session.nick])}
+                  count={Object.keys(interests?.[active.id] || {}).length}
+                  list={Object.keys(interests?.[active.id] || {}).sort()}
+                  isAdmin={isAdmin}
+                  onToggleInterest={() => toggleInterest(active.id)}
+                />
               ) : (
                 <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin}
                                    users={users} teamPlayers={teamPlayers || {}} />
@@ -2805,7 +2938,7 @@ function App() {
             {view === 'meujogo' && (
               <MeuJogoView
                 nick={session.nick} isAdmin={isAdmin} users={users} interests={interests || {}} onSave={setMkChars}
-                draw={mkDraw} scores={mkScores} lineups={mkLineups} setLineups={setMkLineups}
+                draw={mkDraw} scores={mkScores} lineups={mkLineups} onSlot={setMkLineupSlot}
                 previewChars={mkPreviewChars} teamPlayers={teamPlayers || {}}
               />
             )}
@@ -2835,6 +2968,7 @@ function App() {
           view={view}
           setView={setView}
           isAdmin={isAdmin}
+          mkInscrito={mkInscrito}
         />
       </div>
       {sharedSlip && (
@@ -3106,7 +3240,7 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
 // Itens de navegação — fonte única pra Sidebar (desktop) e MobileNav (mobile).
 // sectionItems = páginas principais (= primary-nav no desktop). globalItems =
 // "meu espaço" (sidebar no desktop). MERCADINHO foi pro topo (sectionItems).
-function getTabItems(isAdmin) {
+function getTabItems(isAdmin, mkInscrito) {
   const sectionItems = [
     { id: 'apostas',     label: 'APOSTAS',       icon: 'ticket' },
     { id: 'campeonatos', label: 'CAMPEONATOS',   icon: 'chart' },
@@ -3120,9 +3254,8 @@ function getTabItems(isAdmin) {
     { id: 'tickets',  label: 'MEUS TICKETS', icon: 'ticket' },
     { id: 'ranking',  label: 'RANKING',      icon: 'trophy' },
   ];
-  // MEU JOGO (MK) — por enquanto SÓ admin (aba secreta de teste). Quando
-  // soltar pros jogadores, trocar a condição por "inscrito no MK".
-  if (isAdmin) globalItems.push({ id: 'meujogo', label: 'MEU JOGO', icon: 'fist' });
+  // MEU JOGO (MK) — admin e inscritos no MK (campeonato oficial).
+  if (isAdmin || mkInscrito) globalItems.push({ id: 'meujogo', label: 'MEU JOGO', icon: 'fist' });
   if (isAdmin) globalItems.push({ id: 'admin', label: 'ADMIN', icon: 'shield' });
   return { sectionItems, globalItems };
 }
@@ -3130,8 +3263,8 @@ function getTabItems(isAdmin) {
 // Navegação MOBILE: hamburger + drawer com TODAS as páginas (seções + globais).
 // Some no desktop — lá a primary-nav (topo) + Sidebar (direita) cobrem. No mobile
 // a primary-nav fica escondida (CSS), então este é o menu único de navegação.
-function MobileNav({ view, setView, isAdmin }) {
-  const { sectionItems, globalItems } = getTabItems(isAdmin);
+function MobileNav({ view, setView, isAdmin, mkInscrito }) {
+  const { sectionItems, globalItems } = getTabItems(isAdmin, mkInscrito);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -3206,8 +3339,8 @@ function MobileNav({ view, setView, isAdmin }) {
 
 // Sidebar VERTICAL à direita no desktop. Renderiza só os itens GLOBAIS.
 // Escondida no mobile (hamburger drawer cobre).
-function Sidebar({ view, setView, isAdmin }) {
-  const { globalItems } = getTabItems(isAdmin);
+function Sidebar({ view, setView, isAdmin, mkInscrito }) {
+  const { globalItems } = getTabItems(isAdmin, mkInscrito);
   // Cada item da sidebar é uma VIEW própria — clica, navega direto.
   // Highlight visual: view === itemId → barra laranja à esquerda + bg.
   return (
@@ -5377,11 +5510,14 @@ function TicketsView({ bets, gamesById, cs, onCancel }) {
                 <div className="pick">
                   <small>{multi ? `CASADA · ${t.legs.length} PALPITES` : 'SIMPLES'} · @ {Number(t.combinedOdds).toFixed(2)}</small>
                   {t.legs.map((l, i) => {
-                    const f = resolveGame(l.fixtureId);
+                    const isMk = typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0;
+                    const f = isMk ? null : resolveGame(l.fixtureId);
                     const lg = { ...l, _fix: f };
                     const iconName = l.result === 'win' ? 'check' : l.result === 'lose' ? 'x' : null;
                     const iconColor = l.result === 'win' ? '#3a7d2a' : l.result === 'lose' ? '#c33' : 'rgba(28,22,18,0.5)';
-                    const label = f ? legLabel(lg) : '(jogo removido)';
+                    const label = isMk
+                      ? 'MK · @' + l.home + '×@' + l.away + ': ' + (MK_MARKET_TITLE[l.market] || l.market) + ' ' + mkPickLabel(l.market, l.pick)
+                      : (f ? legLabel(lg) : '(jogo removido)');
                     return <div key={i} style={{ fontWeight: 700, fontSize: 13, marginTop: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
                       {iconName ? <span style={{ color: iconColor, display: 'inline-flex' }}><Icon name={iconName} size={12} /></span> : <span style={{ color: iconColor }}>•</span>}
                       <span>{label} <span style={{ color: 'var(--pv-orange)' }}>@{l.odds.toFixed(2)}</span></span>
@@ -5982,7 +6118,7 @@ function MkFighterShow({ nick, char, teamPlayers }) {
 // ─── MEU JOGO (MK) — elenco do turno + escalação dos confrontos ────────────
 // O MANDANTE escala as 2 partidas dos jogos onde é mando (boneco dos DOIS lados,
 // vindo do elenco de 3 de cada um). O VISITANTE só vê como o mandante dispôs.
-function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, lineups, setLineups, previewChars, teamPlayers }) {
+function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, lineups, onSlot, previewChars, teamPlayers }) {
   const inscritos = Object.keys((interests && interests.mk) || {}).sort();
   const [target, setTarget] = useState(isAdmin ? (inscritos[0] || '') : nick);
   const [sel, setSel] = useState(((users || {})[isAdmin ? (inscritos[0] || '') : nick] || {}).mkChars || []);
@@ -6019,9 +6155,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
     });
   }
   // Atualiza um slot da escalação (mandante). lineups[key] = { p1:{home,away}, p2:{home,away} }
-  const setSlot = (key, part, side, val) => setLineups(prev => ({
-    ...prev, [key]: { ...(prev[key] || {}), [part]: { ...((prev[key] || {})[part] || {}), [side]: val || undefined } },
-  }));
+  const setSlot = (key, part, side, val) => onSlot(key, part, side, val);
 
   return (
     <div className="card mk-card" style={{ marginBottom: 14 }}>
@@ -6201,8 +6335,8 @@ function MkCurtainOpening({ onDone }) {
 
 const MK_CURTAIN_KEY = 'mk_curtain_seen';
 
-function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores, setScores, previewChars, setPreviewChars }) {
-  // draw/scores/previewChars vêm do App (compartilhado com a aba APOSTAS).
+function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, scores, onScore, previewChars, setPreviewChars, isAdmin, locked }) {
+  // draw/scores vêm do App (persistidos no doc de apostas, campo `mk`).
   const [viewRound, setViewRound] = useState(0);
   const [curtain, setCurtain] = useState(() => {
     try { return !localStorage.getItem(MK_CURTAIN_KEY); } catch (e) { return false; }
@@ -6211,7 +6345,12 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
   const replayCurtain = () => { try { localStorage.removeItem(MK_CURTAIN_KEY); } catch (e) {} setCurtain(true); };
   const insc = (players || []).slice().sort();
 
-  const doDraw = () => { setDraw(generateMkDraw(shuffleArr(insc))); setScores({}); setViewRound(0); };
+  // ADMIN sorteia e PUBLICA o chaveamento. Se já existe, confirma (zera placares).
+  const doDraw = () => {
+    if (draw && !window.confirm('Refazer o chaveamento? Isso ZERA todos os placares lançados e as apostas seguem valendo no novo confronto. Confirma?')) return;
+    onPublishDraw(generateMkDraw(shuffleArr(insc)));
+    setViewRound(0);
+  };
   // Prévia (admin): sorteia 3 personagens aleatórios pra cada inscrito só pra ver
   // como fica nos confrontos. Ephemeral — não escreve no banco.
   const drawPreviewChars = () => {
@@ -6223,10 +6362,10 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const setScore = (key, side, val) => {
     const v = val.replace(/[^0-2]/g, '').slice(0, 1); // 1 dígito, 0..2 (primeiro a 2)
-    setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [side]: v } }));
+    onScore(key, { [side]: v });
   };
-  const setFinisher = (key, which, val) => setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [which]: val || undefined } }));
-  const toggleFlawless = (key) => setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), flawless: !(prev[key] || {}).flawless } }));
+  const setFinisher = (key, which, val) => onScore(key, { [which]: val || undefined });
+  const toggleFlawless = (key) => onScore(key, { flawless: !(scores[key] || {}).flawless });
 
   // Resultados lançados -> confrontos -> classificação (recalcula ao vivo).
   const matches = draw ? draw.flatMap(r => r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: scores[gKey(r, gi)] || {} }))) : [];
@@ -6245,15 +6384,19 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
           <div className="sub">{insc.length} INSCRITOS · TOP 8 VAI PRO MATA-MATA</div>
         </div>
         <div className="card-body">
-          <div className="mk-admin-row">
-            <div className="mk-admin-note"><Icon name="lock" size={12} /> Prévia só do ADMIN. Inscrições abertas — números provisórios.</div>
-            <div className="mk-admin-actions">
-              <button type="button" className="mk-replay" onClick={drawPreviewChars}><Icon name="fist" size={12} /> {previewChars ? 'RESORTEAR PERSONAGENS' : 'SORTEAR PERSONAGENS'}</button>
-              {previewChars && <button type="button" className="mk-replay" onClick={clearPreviewChars}><Icon name="x" size={12} /> LIMPAR</button>}
-              <button type="button" className="mk-replay" onClick={replayCurtain}><Icon name="refresh" size={12} /> REVER ABERTURA</button>
+          {isAdmin ? (<>
+            <div className="mk-admin-row">
+              <div className="mk-admin-note"><Icon name="shield" size={12} /> ADMIN — sorteie o chaveamento e lance os placares. {locked ? 'Inscrições fechadas.' : 'Sortear FECHA as inscrições.'}</div>
+              <div className="mk-admin-actions">
+                <button type="button" className="mk-replay" onClick={drawPreviewChars}><Icon name="fist" size={12} /> {previewChars ? 'RESORTEAR PERSONAGENS' : 'SORTEAR PERSONAGENS'}</button>
+                {previewChars && <button type="button" className="mk-replay" onClick={clearPreviewChars}><Icon name="x" size={12} /> LIMPAR</button>}
+                <button type="button" className="mk-replay" onClick={replayCurtain}><Icon name="refresh" size={12} /> REVER ABERTURA</button>
+              </div>
             </div>
-          </div>
-          {previewChars && <div className="mk-preview-note"><Icon name="fist" size={11} /> Personagens sorteados só pra <strong>prévia</strong> — não fica salvo (some ao recarregar).</div>}
+            {previewChars && <div className="mk-preview-note"><Icon name="fist" size={11} /> Personagens sorteados só pra <strong>prévia</strong> — não fica salvo (some ao recarregar).</div>}
+          </>) : (
+            <div className="mk-admin-note" style={{ width: '100%', marginBottom: 12 }}><Icon name="skull" size={12} /> Classificação oficial — atualiza sozinha conforme os placares saem.</div>
+          )}
           {insc.length === 0 ? (
             <div className="empty"><div className="e1">SEM INSCRITOS</div><div className="e2">Ninguém inscrito no MK ainda.</div></div>
           ) : (
@@ -6300,17 +6443,21 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
       <div className="card mk-card mk-rodada-card">
         <div className="card-head">
           <div className="title">{draw && curRound ? 'RODADA ' + String(curRound.n).padStart(2, '0') : 'RODADAS'}</div>
-          <div className="sub">{draw && curRound ? (curRound.phase === 'IDA' ? 'IDA' : 'VOLTA') + ' · EDITÁVEL' : 'SORTEAR'}</div>
+          <div className="sub">{draw && curRound ? (curRound.phase === 'IDA' ? 'IDA' : 'VOLTA') : (isAdmin ? 'SORTEAR' : 'AGUARDANDO')}</div>
         </div>
         <div className="card-body">
           {!draw || !curRound ? (
             <div className="mk-sorteio-empty">
               <div className="mk-sorteio-ic"><Icon name="dice" size={30} /></div>
-              <p>Sorteia o chaveamento <strong>todos contra todos</strong> (ida e volta) e lança o placar de cada confronto em rounds. A classificação ao lado recalcula sozinha.</p>
-              <button className="tp-btn-go" onClick={doDraw} disabled={insc.length < 2}>
-                <Icon name="dice" size={15} /> SORTEAR RODADAS
-              </button>
-              <div className="mk-sorteio-foot">Prévia — nada é gravado. {insc.length} inscritos.</div>
+              {isAdmin ? (<>
+                <p>Sorteia o chaveamento <strong>todos contra todos</strong> (ida e volta). Isso <strong>fecha as inscrições</strong> e fixa os confrontos pra todo mundo. A classificação recalcula conforme os placares saem.</p>
+                <button className="tp-btn-go" onClick={doDraw} disabled={insc.length < 2}>
+                  <Icon name="dice" size={15} /> SORTEAR E PUBLICAR
+                </button>
+                <div className="mk-sorteio-foot">{insc.length} inscritos.</div>
+              </>) : (
+                <p>O chaveamento ainda não foi sorteado. Assim que o admin publicar, os seus confrontos aparecem aqui.</p>
+              )}
             </div>
           ) : (
             <>
@@ -6349,15 +6496,15 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
                         <div className="mk-fx-score mk-fx-score2">
                           <div className="mk-fx-partida">
                             <span className="mk-fx-pl">P1</span>
-                            <input className="cscore-in" value={sc.p1h || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p1h', e.target.value)} />
+                            <input className="cscore-in" value={sc.p1h || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isAdmin} onChange={e => setScore(k, 'p1h', e.target.value)} />
                             <span className="mk-fx-x">×</span>
-                            <input className="cscore-in" value={sc.p1a || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p1a', e.target.value)} />
+                            <input className="cscore-in" value={sc.p1a || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isAdmin} onChange={e => setScore(k, 'p1a', e.target.value)} />
                           </div>
                           <div className="mk-fx-partida">
                             <span className="mk-fx-pl">P2</span>
-                            <input className="cscore-in" value={sc.p2h || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p2h', e.target.value)} />
+                            <input className="cscore-in" value={sc.p2h || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isAdmin} onChange={e => setScore(k, 'p2h', e.target.value)} />
                             <span className="mk-fx-x">×</span>
-                            <input className="cscore-in" value={sc.p2a || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p2a', e.target.value)} />
+                            <input className="cscore-in" value={sc.p2a || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isAdmin} onChange={e => setScore(k, 'p2a', e.target.value)} />
                           </div>
                         </div>
                         <div className="mk-fx-side away">
@@ -6368,22 +6515,24 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
                           </div>
                         </div>
                       </div>
-                      <div className="mk-fx-finish">
-                        <span className="mk-fx-finish-l"><Icon name="skull" size={10} /> FINALIZAÇÕES <span className="mk-fx-finish-adm">só admin</span></span>
-                        <span className="mk-fx-finish-pl">P1</span>
-                        <select className="mk-fx-finish-sel" value={sc.finisher1 || ''} onChange={e => setFinisher(k, 'finisher1', e.target.value)}>
-                          <option value="">Nenhuma</option>
-                          {MK_FINISHERS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                        </select>
-                        <span className="mk-fx-finish-pl">P2</span>
-                        <select className="mk-fx-finish-sel" value={sc.finisher2 || ''} onChange={e => setFinisher(k, 'finisher2', e.target.value)}>
-                          <option value="">Nenhuma</option>
-                          {MK_FINISHERS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                        </select>
-                        <button type="button" className={'mk-brut-tog' + (sc.flawless ? ' on' : '')} onClick={() => toggleFlawless(k)} title="Teve flawless victory?">
-                          <Icon name="star" size={10} /> FLAWLESS
-                        </button>
-                      </div>
+                      {isAdmin && (
+                        <div className="mk-fx-finish">
+                          <span className="mk-fx-finish-l"><Icon name="skull" size={10} /> FINALIZAÇÕES <span className="mk-fx-finish-adm">só admin</span></span>
+                          <span className="mk-fx-finish-pl">P1</span>
+                          <select className="mk-fx-finish-sel" value={sc.finisher1 || ''} onChange={e => setFinisher(k, 'finisher1', e.target.value)}>
+                            <option value="">Nenhuma</option>
+                            {MK_FINISHERS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                          </select>
+                          <span className="mk-fx-finish-pl">P2</span>
+                          <select className="mk-fx-finish-sel" value={sc.finisher2 || ''} onChange={e => setFinisher(k, 'finisher2', e.target.value)}>
+                            <option value="">Nenhuma</option>
+                            {MK_FINISHERS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                          </select>
+                          <button type="button" className={'mk-brut-tog' + (sc.flawless ? ' on' : '')} onClick={() => toggleFlawless(k)} title="Teve flawless victory?">
+                            <Icon name="star" size={10} /> FLAWLESS
+                          </button>
+                        </div>
+                      )}
                       {(hc.length > 0 || ac.length > 0) && (
                         <div className="mk-fx-chars">
                           <span className="mk-fx-ch home">
@@ -6402,7 +6551,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
               </div>
               <div className="mk-sorteio-bar">
                 <span>{matches.length} jogos · {playedCount} lançados</span>
-                <button className="mk-resort" onClick={doDraw}><Icon name="refresh" size={12} /> SORTEAR DE NOVO</button>
+                {isAdmin && <button className="mk-resort" onClick={doDraw}><Icon name="refresh" size={12} /> SORTEAR DE NOVO</button>}
               </div>
             </>
           )}
@@ -6418,7 +6567,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
 // compartilhados (App). Cupom = palpites da MESMA rodada (2+ = casada). Só dá
 // pra apostar na rodada ABERTA (a anterior tem que ter fechado).
 function mkLegLabel(l) { return mkPickLabel(l.market, l.pick); }
-function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlaceBet, onRemoveBet, myNick, balance }) {
+function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlaceBet, onRemoveBet, myNick, isAdmin, balance }) {
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
@@ -6457,14 +6606,15 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
   };
   const combined = cupom.reduce((p, l) => p + l.odd, 0); // SOMA, igual à FIFA
   const isCasada = cupom.length >= 2;
-  const place = () => {
+  const place = async () => {
     if (!isOpen || !cupom.length || !(stake > 0)) return;
-    onPlaceBet({
-      id: 'mkb-' + Date.now(), nick: myNick, roundN: rd.n, phase: rd.phase,
+    const res = await onPlaceBet({
+      nick: myNick, roundN: rd.n, phase: rd.phase,
       legs: cupom.map(({ key, ...l }) => l), stake, combined: +combined.toFixed(2), casada: isCasada,
     });
+    if (res && res.err) return; // erro já avisado por toast
     setCupom([]);
-    showToast((isCasada ? 'Casada' : 'Aposta') + ' registrada (prévia)!', 'success');
+    showToast((isCasada ? 'Casada' : 'Aposta') + ' feita! ' + stake + ' PC', 'success');
   };
   const betStatus = (bet) => {
     let pending = false;
@@ -6488,7 +6638,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
           <div className="empty"><div className="e1">SEM SORTEIO AINDA</div><div className="e2">O admin sorteia as rodadas em CAMPEONATOS → MK. Aí as odds aparecem aqui.</div></div>
         ) : (
           <>
-            <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="lock" size={11} /> Prévia (admin). Casada combina palpites da <strong>mesma rodada</strong>; só dá pra apostar na rodada <strong>aberta</strong> (a anterior precisa ter fechado).</div>
+            <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="coin" size={11} /> Apostas valendo <strong>PC</strong>. Casada combina palpites da <strong>mesma rodada</strong>; só dá pra apostar na rodada <strong>aberta</strong> (a anterior precisa ter fechado). Não dá pra apostar no próprio jogo.</div>
             <div className="mk-bet-layout">
               <div className="mk-bet-main">
                 <div className="mk-rnav mk-bet-nav">
@@ -6628,7 +6778,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
                           <span className="mk-br-who">@{b.nick}</span>
                           {b.casada && <span className="mk-br-casada">CASADA ×{b.legs.length}</span>}
                           <span className={'mk-br-st ' + st}>{st === 'won' ? 'GANHOU' : st === 'lost' ? 'PERDEU' : 'EM ABERTO'}</span>
-                          {onRemoveBet && <button className="mk-br-x" onClick={() => onRemoveBet(b.id)} aria-label="Apagar"><Icon name="trash" size={11} /></button>}
+                          {onRemoveBet && st === 'pending' && (isAdmin || b.nick === myNick) && <button className="mk-br-x" onClick={() => onRemoveBet(b.id)} aria-label="Apagar"><Icon name="trash" size={11} /></button>}
                         </div>
                         <div className="mk-br-legs">{b.legs.map((l, i) => <span key={i} className="mk-br-leg">@{l.home}×@{l.away}: <strong>{MK_MARKET_TITLE[l.market]} {mkLegLabel(l)}</strong> ({l.odd.toFixed(2)})</span>)}</div>
                         <div className="mk-br-foot"><span>{b.stake} PC @ {b.combined.toFixed(2)}×</span><strong>→ {Math.round(b.stake * b.combined)} PC</strong></div>
