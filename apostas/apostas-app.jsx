@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-betking ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-betking-season ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2195,6 +2195,7 @@ function App() {
     const ticket = {
       id: 't' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
       user: session.nick, amount, status: 'pending', createdAt: Date.now(),
+      champId: apostasChampId, // marca a season/campeonato pra ranking de apostas por edição
       combinedOdds: co,
       legs: slip.map(l => ({ fixtureId: l.fixtureId, market: l.market, pick: l.pick, odds: l.odds })),
     };
@@ -5451,6 +5452,28 @@ function trophiesForNick(nick, cs, teamPlayers) {
   return trophies;
 }
 
+// REI DAS APOSTAS — um por SEASON de cada jogo (campeonato). Pra cada campeonato
+// FECHADO, o rei é quem teve mais LUCRO (payout - aposta) nas apostas DAQUELE
+// campeonato. Apostas antigas sem `champId` contam como FIFA (único com apostas
+// até agora). Retorna [{ champId }] das seasons em que o nick foi o rei.
+function betKingChamps(nick, cs, bets) {
+  const out = [];
+  for (const c of CHAMPIONSHIPS) {
+    if (computeChampStandings(c.id, cs).status !== 'closed') continue;
+    const profit = {};
+    (bets || []).forEach(b => {
+      if ((b.champId || 'fifa') !== c.id) return;
+      if (b.status !== 'won' && b.status !== 'lost') return; // só apostas resolvidas
+      const net = (b.status === 'won' ? (b.payout || 0) : 0) - (b.amount || 0);
+      if (b.user === 'admin') return;
+      profit[b.user] = (profit[b.user] || 0) + net;
+    });
+    const ranked = Object.entries(profit).sort((a, b) => b[1] - a[1]);
+    if (ranked.length && ranked[0][0] === nick) out.push({ champId: c.id });
+  }
+  return out;
+}
+
 // ─── HELPERS DE CONQUISTA (compartilhados por títulos e distintivos) ────────
 
 // Posição do nick na classificação FECHADA da FIFA. null se não fechou ou
@@ -6687,15 +6710,13 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
     return out;
   })() : [];
   const showTrophies = myTrophies.length ? myTrophies : previewTrophies;
-  // REI DAS APOSTAS — vencedor do ranking de apostas (#1 por PC). Troféu ÚNICO,
-  // mostrado SEPARADO dos troféus de edição. Admin vê na prévia.
-  const betRanked = Object.entries(users || {})
-    .filter(([n, u]) => n !== 'admin' && u && typeof u.pc === 'number')
-    .sort((a, b) => b[1].pc - a[1].pc);
-  const betKingNick = betRanked.length ? betRanked[0][0] : null;
-  const realBetKing = !isAdmin && betKingNick === nick;
-  const showBetKing = realBetKing || (isAdmin && myTrophies.length === 0);
-  const betKingPc = realBetKing ? (me?.pc ?? null) : (betKingNick ? users[betKingNick].pc : null);
+  // REI DAS APOSTAS — um por SEASON de cada jogo (campeonato fechado): rei = quem
+  // mais lucrou nas apostas daquela edição. Troféu SEPARADO dos de edição; lista
+  // as seasons conquistadas. Admin vê na prévia.
+  const betKingSeasons = (isAdmin && myTrophies.length === 0)
+    ? [{ tag: 'FIFA', season: 'Season 1' }, { tag: 'MK', season: 'Season 1' }, { tag: 'FIFA', season: 'Season 2' }]
+    : betKingChamps(nick, cs, bets).map(b => { const c = CHAMP_BY_ID[b.champId]; return { tag: c?.tag, season: c?.season }; });
+  const showBetKing = betKingSeasons.length > 0;
 
   return (
     <div>
@@ -6809,15 +6830,16 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
           {previewTrophies.length > 0 && (
             <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="lock" size={11} /> Prévia (admin): todos os troféus pra você conferir o visual. Cada jogador vê só os que conquistou.</div>
           )}
-          {/* REI DAS APOSTAS — troféu ÚNICO, sempre separado dos de edição */}
+          {/* REI DAS APOSTAS — um por SEASON, sempre separado dos de edição */}
           {showBetKing && (
             <div className="tr-betking">
               <div className="tr-betking-art"><Icon name="tr-betking" size={42} /></div>
               <div className="tr-betking-txt">
-                <div className="tr-betking-label">REI DAS APOSTAS</div>
-                <div className="tr-betking-sub">Nº 1 do ranking de apostas{betKingPc != null ? ` · ${betKingPc} PC` : ''}</div>
+                <div className="tr-betking-label">REI DAS APOSTAS{betKingSeasons.length > 1 ? ` · ${betKingSeasons.length}` : ''}</div>
+                <div className="tr-betking-eds">
+                  {betKingSeasons.map((s, i) => <span key={i} className="tr-betking-ed">{s.tag} · {s.season}</span>)}
+                </div>
               </div>
-              <div className="tr-betking-badge">1</div>
             </div>
           )}
           {showTrophies.length === 0 ? (
