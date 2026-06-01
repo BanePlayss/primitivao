@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-2finish ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-finishback ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -466,13 +466,14 @@ function computeMkStandings(players, matches) {
 // ─── ODDS DO MK — modelo de 2 níveis (round -> partida -> confronto). Da força
 // sai p (prob do mandante vencer 1 round); daí a binomial negativa "primeiro a 3"
 // dá a partida, e as 2 partidas independentes dão o confronto.
-// Finalização/Flawless saíram das apostas (viram só do admin); mercados = placar/rounds.
-const MK_MARKETS = ['VENC', 'RESULT', 'P1', 'P2', 'TOTAL'];
+// Finalização e Flawless são mercados; o ADMIN marca o resultado no lançamento
+// (cartão admin-only), com DUAS finalizações por confronto (uma por partida).
+const MK_MARKETS = ['VENC', 'RESULT', 'P1', 'P2', 'TOTAL', 'FINISH', 'FLAW'];
 const MK_MARKET_TITLE = { VENC: 'VENCEDOR', RESULT: 'RESULTADO (PARTIDAS)', P1: 'PLACAR PARTIDA 1', P2: 'PLACAR PARTIDA 2', TOTAL: 'TOTAL DE ROUNDS', FINISH: 'FINALIZAÇÃO', FLAW: 'FLAWLESS VICTORY' };
 const MK_RESULT_PICKS = ['20', '11', '02'];          // 2×0 / 1×1 / 0×2
 const MK_PARTIDA_PICKS = ['30', '31', '32', '23', '13', '03']; // mandante x visitante
 const MK_TOTAL_PICKS = ['6', '7', '8', '9', '10'];   // total de rounds das 2 partidas
-const MK_FLAWLESS_PROB = 0.30;
+const MK_FLAWLESS_PROB = 0.40; // pode rolar em qualquer das 2 partidas
 const MK_FINISHERS = [
   { id: 'fatality', name: 'Fatality', p: 0.40 },
   { id: 'brutality', name: 'Brutality', p: 0.24 },
@@ -510,7 +511,8 @@ function computeMkGameOdds(home, away, metrics) {
   const total = { '6': a * a, '7': 2 * a * b, '8': 2 * a * c + b * b, '9': 2 * b * c, '10': c * c };
   const partida = {}; MK_PARTIDA_PICKS.forEach(pk => { partida[pk] = toOdd(pd[pk]); });
   const totalO = {}; MK_TOTAL_PICKS.forEach(t => { totalO[t] = toOdd(total[t]); });
-  const finish = {}; MK_FINISHERS.forEach(f => { finish[f.id] = toOdd(f.p); });
+  // finalização pode sair em QUALQUER das 2 partidas -> P = 1 - (1-p)^2.
+  const finish = {}; MK_FINISHERS.forEach(f => { finish[f.id] = toOdd(1 - Math.pow(1 - f.p, 2)); });
   return {
     VENC:   { H: toOdd(p20), D: toOdd(p11), A: toOdd(p02) },
     RESULT: { '20': toOdd(p20), '11': toOdd(p11), '02': toOdd(p02) },
@@ -527,18 +529,19 @@ function mkMarketPicks(market, odds) {
   if (market === 'FINISH') return MK_FINISHERS.map(f => f.id);
   return Object.keys(odds[market]);
 }
-// Resolução. sc = placar do confronto; extra = { finisher, flawless }.
+// Resolução. sc = placar do confronto; extra = { finisher1, finisher2, flawless }.
 function mkLegResult(market, pick, sc, extra) {
   const o = mkMatchOutcome(sc);
   if (!o) return 'pending'; // confronto não concluído -> tudo pendente
+  const e = extra || {};
   switch (market) {
     case 'VENC':   return pick === o.winner ? 'win' : 'lose';
     case 'RESULT': return pick === ('' + o.confH + o.confA) ? 'win' : 'lose';
     case 'P1':     return pick === ('' + o.p1h + o.p1a) ? 'win' : 'lose';
     case 'P2':     return pick === ('' + o.p2h + o.p2a) ? 'win' : 'lose';
     case 'TOTAL':  return pick === String(o.total) ? 'win' : 'lose';
-    case 'FLAW':   return (!!(extra && extra.flawless) === (pick === 'Y')) ? 'win' : 'lose';
-    case 'FINISH': return (extra && extra.finisher === pick) ? 'win' : 'lose';
+    case 'FLAW':   return (!!e.flawless === (pick === 'Y')) ? 'win' : 'lose';
+    case 'FINISH': return (e.finisher1 === pick || e.finisher2 === pick) ? 'win' : 'lose'; // saiu em qualquer partida
     default: return 'pending';
   }
 }
@@ -5911,6 +5914,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
     setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [side]: v } }));
   };
   const setFinisher = (key, which, val) => setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [which]: val || undefined } }));
+  const toggleFlawless = (key) => setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), flawless: !(prev[key] || {}).flawless } }));
 
   // Resultados lançados -> confrontos -> classificação (recalcula ao vivo).
   const matches = draw ? draw.flatMap(r => r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: scores[gKey(r, gi)] || {} }))) : [];
@@ -6053,7 +6057,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
                         </div>
                       </div>
                       <div className="mk-fx-finish">
-                        <span className="mk-fx-finish-l"><Icon name="skull" size={10} /> FINALIZAÇÕES</span>
+                        <span className="mk-fx-finish-l"><Icon name="skull" size={10} /> FINALIZAÇÕES <span className="mk-fx-finish-adm">só admin</span></span>
                         <span className="mk-fx-finish-pl">P1</span>
                         <select className="mk-fx-finish-sel" value={sc.finisher1 || ''} onChange={e => setFinisher(k, 'finisher1', e.target.value)}>
                           <option value="">Nenhuma</option>
@@ -6064,6 +6068,9 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
                           <option value="">Nenhuma</option>
                           {MK_FINISHERS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                         </select>
+                        <button type="button" className={'mk-brut-tog' + (sc.flawless ? ' on' : '')} onClick={() => toggleFlawless(k)} title="Teve flawless victory?">
+                          <Icon name="star" size={10} /> FLAWLESS
+                        </button>
                       </div>
                       {(hc.length > 0 || ac.length > 0) && (
                         <div className="mk-fx-chars">
@@ -6151,7 +6158,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
     let pending = false;
     for (const l of (bet.legs || [])) {
       const sc = (scores || {})[skey(l.phase, l.roundN, l.gi)] || {};
-      const r = mkLegResult(l.market, l.pick, sc, { finisher: sc.finisher, flawless: sc.flawless });
+      const r = mkLegResult(l.market, l.pick, sc, { finisher1: sc.finisher1, finisher2: sc.finisher2, flawless: sc.flawless });
       if (r === 'lose') return 'lost';
       if (r !== 'win') pending = true;
     }
