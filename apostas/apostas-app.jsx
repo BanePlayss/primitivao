@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-vitrine-group ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-trofeus-bronze ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3558,62 +3558,79 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
         </svg>
       );
     // ── Ícones da VITRINE DE TROFÉUS (cheios, com brilho/sombra, reutilizáveis) ──
-    case 'tr-champion': // troféu — campeão da edição
+    case 'tr-champion': // troféu — campeão da edição (1º)
       return (
         <svg {...common} fill="currentColor" stroke="none">
-          <path d="M5.8 4.4C3.4 4.2 1.8 5.5 1.8 7.5c0 1.9 1.5 3.2 3.7 3.2V8.9c-1.2 0-2-.6-2-1.4 0-.8.7-1.3 1.8-1.1l.5.1z" />
-          <path d="M18.2 4.4c2.4-.2 4 1.1 4 3.1 0 1.9-1.5 3.2-3.7 3.2V8.9c1.2 0 2-.6 2-1.4 0-.8-.7-1.3-1.8-1.1l-.5.1z" />
-          <path d="M5.3 3h13.4l-.3 5a6.4 6.4 0 0 1-12.8 0l-.3-5z" />
-          <rect x="5.3" y="3" width="13.4" height="1.2" fill="#fff" opacity="0.22" />
-          <rect x="10.7" y="13" width="2.6" height="3.3" />
-          <path d="M8.2 18.8l.5-1.6h6.6l.5 1.6z" />
-          <rect x="6.6" y="18.6" width="10.8" height="2" rx="0.4" />
-          <rect x="6.6" y="20.1" width="10.8" height="0.6" fill="#000" opacity="0.18" />
-          <path d="M12 4.7l.95 1.93 2.13.31-1.54 1.5.36 2.12L12 9.66l-1.9 1 .36-2.12-1.54-1.5 2.13-.31z" fill="#fff" opacity="0.6" />
+          {/* alças laterais */}
+          <path d="M6.5 4.8C3.2 4.8 3.4 9.6 7 9.9L7 8.6C4.9 8.3 4.9 6.1 6.6 6Z" />
+          <path d="M17.5 4.8C20.8 4.8 20.6 9.6 17 9.9L17 8.6C19.1 8.3 19.1 6.1 17.4 6Z" />
+          {/* taça */}
+          <path d="M6.5 4H17.5V5.2C17.5 9.6 15 11.8 12 11.8C9 11.8 6.5 9.6 6.5 5.2Z" />
+          <rect x="6.5" y="4" width="11" height="0.9" fill="#fff" opacity="0.28" />
+          {/* haste, colar e base */}
+          <path d="M10.8 11.6H13.2L13 14.2H11Z" />
+          <rect x="10.1" y="13.9" width="3.8" height="1.2" rx="0.5" />
+          <path d="M8.4 18.7L9.1 15H14.9L15.6 18.7Z" />
+          <rect x="7.2" y="18.5" width="9.6" height="2" rx="0.5" />
+          <rect x="7.2" y="20" width="9.6" height="0.5" fill="#000" opacity="0.16" />
+          {/* estrela */}
+          <path d="M12 5.6L12.47 6.95L13.9 6.98L12.76 7.85L13.18 9.22L12 8.4L10.82 9.22L11.24 7.85L10.1 6.98L11.53 6.95Z" fill="#fff" opacity="0.6" />
         </svg>
       );
-    case 'tr-vice': // medalha de prata — vice
+    case 'tr-vice': // medalha de prata — vice (2º)
       return (
         <svg {...common} fill="currentColor" stroke="none">
-          <path d="M6.5 2h3.4l2 5.6-3 1.5z" />
-          <path d="M17.5 2h-3.4l-2 5.6 3 1.5z" />
-          <circle cx="12" cy="15.5" r="6" />
-          <circle cx="12" cy="15.5" r="6" fill="none" stroke="#fff" strokeWidth="0.7" opacity="0.28" />
-          <circle cx="12" cy="15.5" r="3.8" fill="#fff" opacity="0.2" />
-          <path d="M12 12.4l.8 1.6 1.78.26-1.29 1.26.3 1.77L12 16.3l-1.59.82.3-1.77-1.29-1.26 1.78-.26z" fill="#fff" opacity="0.62" />
+          <path d="M6.8 2.4H9.3L12.4 10.2L10.2 11Z" />
+          <path d="M17.2 2.4H14.7L11.6 10.2L13.8 11Z" />
+          <circle cx="12" cy="15.2" r="6" />
+          <circle cx="12" cy="15.2" r="6" fill="none" stroke="#000" strokeWidth="0.8" opacity="0.16" />
+          <circle cx="12" cy="15.2" r="4.6" fill="none" stroke="#fff" strokeWidth="0.9" opacity="0.45" />
+          <text x="12" y="15.2" textAnchor="middle" dominantBaseline="central" fontSize="7.4" fontWeight="800" fontFamily="'Space Grotesk', system-ui, sans-serif" fill="#fff" opacity="0.92">2</text>
         </svg>
       );
-    case 'tr-participou': // medalha de participação (com check)
+    case 'tr-terceiro': // medalha de bronze — terceiro (3º)
       return (
         <svg {...common} fill="currentColor" stroke="none">
-          <path d="M7 2h3.2l1.8 5.4-2.8 1.4z" />
-          <path d="M17 2h-3.2l-1.8 5.4 2.8 1.4z" />
-          <circle cx="12" cy="15" r="6" />
-          <circle cx="12" cy="15" r="6" fill="none" stroke="#fff" strokeWidth="0.7" opacity="0.25" />
-          <path d="M9.4 15.2l1.6 1.7 3.1-3.5 1.2 1.05-4.3 4.85-2.7-2.85z" fill="#fff" opacity="0.7" />
+          <path d="M6.8 2.4H9.3L12.4 10.2L10.2 11Z" />
+          <path d="M17.2 2.4H14.7L11.6 10.2L13.8 11Z" />
+          <circle cx="12" cy="15.2" r="6" />
+          <circle cx="12" cy="15.2" r="6" fill="none" stroke="#000" strokeWidth="0.8" opacity="0.18" />
+          <circle cx="12" cy="15.2" r="4.6" fill="none" stroke="#fff" strokeWidth="0.9" opacity="0.4" />
+          <text x="12" y="15.2" textAnchor="middle" dominantBaseline="central" fontSize="7.4" fontWeight="800" fontFamily="'Space Grotesk', system-ui, sans-serif" fill="#fff" opacity="0.9">3</text>
         </svg>
       );
-    case 'tr-penultimo': // escova de dente — penúltimo
+    case 'tr-participou': // medalha de participação (check)
       return (
         <svg {...common} fill="currentColor" stroke="none">
-          <rect x="2.4" y="14.5" width="13" height="1.6" rx="0.8" />
-          <circle cx="3.2" cy="15.3" r="1.5" />
-          <rect x="14.5" y="13.9" width="4.7" height="2.8" rx="0.6" />
-          <rect x="15" y="11.6" width="0.7" height="2.5" rx="0.35" />
-          <rect x="16" y="11.1" width="0.7" height="3" rx="0.35" />
-          <rect x="17.1" y="11.1" width="0.7" height="3" rx="0.35" />
-          <rect x="18.2" y="11.6" width="0.7" height="2.5" rx="0.35" />
+          <path d="M6.8 2.4H9.3L12.4 10.2L10.2 11Z" />
+          <path d="M17.2 2.4H14.7L11.6 10.2L13.8 11Z" />
+          <circle cx="12" cy="15.2" r="6" />
+          <circle cx="12" cy="15.2" r="6" fill="none" stroke="#000" strokeWidth="0.8" opacity="0.16" />
+          <circle cx="12" cy="15.2" r="4.6" fill="none" stroke="#fff" strokeWidth="0.9" opacity="0.4" />
+          <path d="M15.4 12.7L11 17.5L8.5 14.9L9.6 13.8L11 15.3L14.3 11.6Z" fill="#fff" opacity="0.88" />
         </svg>
       );
-    case 'tr-lanterna': // privada — último
+    case 'tr-penultimo': // escova de dente — penúltimo (vergonha)
       return (
         <svg {...common} fill="currentColor" stroke="none">
-          <rect x="3.3" y="3.5" width="4.8" height="7" rx="0.8" />
-          <rect x="4.8" y="4.5" width="1.8" height="0.9" rx="0.4" fill="#fff" opacity="0.4" />
-          <ellipse cx="13.5" cy="9.4" rx="6" ry="2.1" />
-          <path d="M8 9.4a5.5 2.1 0 0 0 11 0l-1 4a4 4 0 0 1-3.4 3.1l-.4 2.8h-1.6l-.4-2.8A4 4 0 0 1 9 13.4z" />
-          <ellipse cx="13.5" cy="9.4" rx="3.6" ry="1.2" fill="#fff" opacity="0.45" />
-          <rect x="10" y="18.6" width="6.6" height="1.7" rx="0.4" />
+          <rect x="2.6" y="13.7" width="13" height="2.1" rx="1.05" />
+          <rect x="4" y="14.1" width="6.5" height="0.6" rx="0.3" fill="#fff" opacity="0.3" />
+          <rect x="14.4" y="13.3" width="4.9" height="2.9" rx="0.8" />
+          <rect x="15.1" y="11" width="0.9" height="2.5" rx="0.45" />
+          <rect x="16.3" y="10.7" width="0.9" height="2.8" rx="0.45" />
+          <rect x="17.5" y="10.7" width="0.9" height="2.8" rx="0.45" />
+          <rect x="18.6" y="11" width="0.9" height="2.5" rx="0.45" />
+        </svg>
+      );
+    case 'tr-lanterna': // privada — último (vergonha)
+      return (
+        <svg {...common} fill="currentColor" stroke="none">
+          <rect x="7.4" y="2.6" width="9.2" height="4" rx="1" />
+          <rect x="11.3" y="3.2" width="1.4" height="0.9" rx="0.4" fill="#fff" opacity="0.4" />
+          <ellipse cx="12" cy="9.4" rx="6.2" ry="2.9" />
+          <ellipse cx="12" cy="9.6" rx="3.8" ry="1.7" fill="#fff" opacity="0.5" />
+          <path d="M6.8 10.4C7.1 13.8 9 16.2 10.6 16.8L10.2 19.4H13.8L13.4 16.8C15 16.2 16.9 13.8 17.2 10.4Z" />
+          <rect x="9" y="19" width="6" height="1.7" rx="0.5" />
         </svg>
       );
     case 'crown': // coroa — campeão / rei
@@ -5387,7 +5404,7 @@ function reverseTeamMap(teamPlayers) {
   return out;
 }
 
-// Retorna [{ champId, kind: 'champion'|'vice'|'lanterna'|'penultimo' }] pro nick dado.
+// Retorna [{ champId, kind: 'champion'|'vice'|'terceiro'|'participou'|'penultimo'|'lanterna' }] pro nick dado.
 function trophiesForNick(nick, cs, teamPlayers) {
   const playerTeam = reverseTeamMap(teamPlayers);
   const myTeam = playerTeam[nick];
@@ -5400,6 +5417,8 @@ function trophiesForNick(nick, cs, teamPlayers) {
     const last = standings.length - 1;
     if (standings[0].id === myTeam)        trophies.push({ champId: c.id, kind: 'champion' });
     else if (standings[1].id === myTeam)   trophies.push({ champId: c.id, kind: 'vice' });
+    // 3º lugar (bronze) só conta se o pódio não encostar na lanterna/penúltimo (5+ times)
+    else if (last > 3 && standings[2].id === myTeam) trophies.push({ champId: c.id, kind: 'terceiro' });
     else if (standings[last].id === myTeam)   trophies.push({ champId: c.id, kind: 'lanterna' });
     else if (standings[last - 1].id === myTeam) trophies.push({ champId: c.id, kind: 'penultimo' });
     else trophies.push({ champId: c.id, kind: 'participou' }); // jogou e ficou no meio
@@ -6461,12 +6480,12 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
   // Admin não tem time -> vitrine vazia. DEMO: como se tivesse jogado todas as
   // S1 + algumas S2 e S3, com tipos variados (só pra ver a vitrine cheia).
   const previewTrophies = (isAdmin && myTrophies.length === 0) ? (() => {
-    const kinds = ['champion', 'vice', 'participou', 'penultimo', 'lanterna'];
+    const kinds = ['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'];
     const out = CHAMPIONSHIPS.map((c, i) => ({ champId: c.id, kind: kinds[i % kinds.length] }));
     [
       { tag: 'FIFA', season: 'Season 2', kind: 'champion' },
       { tag: 'MK', season: 'Season 2', kind: 'vice' },
-      { tag: 'RL', season: 'Season 2', kind: 'participou' },
+      { tag: 'RL', season: 'Season 2', kind: 'terceiro' },
       { tag: 'FIFA', season: 'Season 3', kind: 'champion' },
       { tag: 'MK', season: 'Season 3', kind: 'lanterna' },
     ].forEach((e, i) => out.push({ champId: '_demo' + i, kind: e.kind, _tag: e.tag, _season: e.season }));
@@ -6593,7 +6612,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
             </div>
           ) : (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              {['champion', 'vice', 'participou', 'penultimo', 'lanterna'].map(kind => {
+              {['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'].map(kind => {
                 const group = showTrophies.filter(t => t.kind === kind);
                 if (!group.length) return null;
                 const editions = group.map(t => {
@@ -6881,11 +6900,12 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
 // Um card por TIPO de troféu (campeão/vice/...), com a lista de edições embaixo.
 function TrophyGroup({ kind, editions }) {
   const meta = {
-    champion:   { icon: 'tr-champion',  label: 'CAMPEÃO',    color: '#d4af37', bg: '#fbf3d3' },
-    vice:       { icon: 'tr-vice',      label: 'VICE',       color: '#8a8a8a', bg: '#ededed' },
-    participou: { icon: 'tr-participou', label: 'PARTICIPOU', color: '#b87333', bg: '#f6ece1' },
-    penultimo:  { icon: 'tr-penultimo', label: 'PENÚLTIMO',  color: '#6b4423', bg: '#f0e7df' },
-    lanterna:   { icon: 'tr-lanterna',  label: 'ÚLTIMO',     color: '#7a2222', bg: '#fce4e4' },
+    champion:   { icon: 'tr-champion',   label: 'CAMPEÃO',    color: '#d4af37', bg: '#fbf3d3' },
+    vice:       { icon: 'tr-vice',       label: 'VICE',       color: '#9aa3ad', bg: '#eef0f2' },
+    terceiro:   { icon: 'tr-terceiro',   label: 'TERCEIRO',   color: '#cd7f32', bg: '#f7e9da' },
+    participou: { icon: 'tr-participou', label: 'PARTICIPOU', color: '#5e7186', bg: '#eef1f4' },
+    penultimo:  { icon: 'tr-penultimo',  label: 'PENÚLTIMO',  color: '#6b4423', bg: '#f0e7df' },
+    lanterna:   { icon: 'tr-lanterna',   label: 'ÚLTIMO',     color: '#7a2222', bg: '#fce4e4' },
   }[kind] || { icon: null, label: '', color: '#000', bg: '#eee' };
   const shame = kind === 'lanterna' || kind === 'penultimo';
   return (
