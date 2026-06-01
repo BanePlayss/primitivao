@@ -106,7 +106,13 @@
     /* ──── TOP BAR ──── */
     .topbar {
       background: var(--pv-charcoal); color: var(--pv-bone);
-      padding: 14px 24px;
+      /* env(safe-area-inset-*) só vale com viewport-fit=cover (ver index.html).
+         Mantém o brand fora do notch no topo e nas laterais (landscape). */
+      padding:
+        max(14px, env(safe-area-inset-top))
+        max(24px, env(safe-area-inset-right))
+        14px
+        max(24px, env(safe-area-inset-left));
       display: flex; align-items: center; justify-content: space-between;
       border-bottom: 4px solid var(--pv-orange);
       position: sticky; top: 0; z-index: 50;
@@ -980,13 +986,72 @@
       border-color: var(--pv-orange);
     }
 
-    .apostar-aside { /* coluna lateral DENTRO da .grid */ }
+    .apostar-aside { /* coluna lateral DENTRO da .grid (desktop) */ }
+    /* Handle e backdrop só existem no modo bottom-sheet (mobile, ver ≤880px). */
+    .cupom-sheet-handle { display: none; }
+    .cupom-sheet-backdrop { display: none; }
+
+    /* FEEDBACK DE TOQUE: no celular não há hover, então damos resposta tátil no
+       :active (afunda/escurece de leve). Inofensivo no mouse. */
+    .chip:active:not(:disabled) { transform: scale(0.96); }
+    .tabs-mobile-btn:active { transform: translateY(1px); }
+    .tabs-drawer-item:active { background: rgba(215,100,20,0.18); }
+    .sidebar-tab:active { transform: translateX(2px); }
+    .round-card-head:active { background: rgba(215,100,20,0.06); }
+    .cupom-fab:active { transform: translate(2px, 2px); box-shadow: none; }
+
     .cupom-sticky {
       position: sticky;
       top: 90px;
     }
     @media (max-width: 880px) {
       .cupom-sticky { position: static; }
+
+      /* ──── CUPOM = BOTTOM-SHEET ────
+         No mobile o cupom não vive mais no fim da página: vira uma gaveta que
+         sobe por cima do conteúdo quando o usuário toca no FAB "VER CUPOM". */
+      .apostar-aside {
+        position: fixed; left: 0; right: 0; bottom: 0;
+        z-index: 95;
+        max-height: 85vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        background: var(--pv-bone);
+        border-top: 4px solid var(--pv-orange);
+        box-shadow: 0 -10px 30px rgba(0,0,0,0.35);
+        transform: translateY(110%);
+        transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+        padding: 0 12px max(14px, env(safe-area-inset-bottom));
+      }
+      .apostar-aside.cupom-open { transform: translateY(0); }
+
+      /* Handle fixo no topo do sheet (puxador + fechar) */
+      .cupom-sheet-handle {
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        position: sticky; top: 0; z-index: 2;
+        width: calc(100% + 24px); margin: 0 -12px 12px;
+        padding: 16px 12px 12px;
+        background: var(--pv-charcoal); color: var(--pv-bone);
+        border: none; cursor: pointer;
+        font-family: inherit; font-weight: 800;
+        font-size: 11px; letter-spacing: 0.22em;
+      }
+      .cupom-sheet-handle .cupom-sheet-grip {
+        position: absolute; top: 7px; left: 50%; transform: translateX(-50%);
+        width: 42px; height: 4px; border-radius: 99px;
+        background: rgba(244,234,215,0.45);
+      }
+      .cupom-sheet-handle-label { color: var(--pv-orange); }
+
+      /* Backdrop escurece o fundo; toque fecha */
+      .cupom-sheet-backdrop {
+        display: block;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.45);
+        z-index: 90; border: none; cursor: pointer;
+        animation: pv-fade 0.2s ease;
+      }
     }
 
     /* FAB mobile do cupom */
@@ -1096,12 +1161,16 @@
     }
     .odd-btn .lab { font-size: 9px; letter-spacing: 0.26em; color: rgba(28,22,18,0.6); transition: color var(--dur) var(--ease); }
     .odd-btn .val { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 22px; color: var(--pv-charcoal); margin-top: 2px; transition: color var(--dur) var(--ease); }
-    .odd-btn:hover:not(:disabled) {
-      background: var(--pv-orange); border-color: var(--pv-charcoal);
-      transform: translateY(-2px); box-shadow: var(--sh-sm);
+    /* Só aplica o hover laranja onde HÁ hover real (mouse). Em touch isso "gruda"
+       — o botão fica laranja preso depois do tap, fingindo seleção. */
+    @media (hover: hover) {
+      .odd-btn:hover:not(:disabled) {
+        background: var(--pv-orange); border-color: var(--pv-charcoal);
+        transform: translateY(-2px); box-shadow: var(--sh-sm);
+      }
+      .odd-btn:hover:not(:disabled) .val { color: var(--pv-bone); }
+      .odd-btn:hover:not(:disabled) .lab { color: var(--pv-bone); }
     }
-    .odd-btn:hover:not(:disabled) .val { color: var(--pv-bone); }
-    .odd-btn:hover:not(:disabled) .lab { color: var(--pv-bone); }
     .odd-btn:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
     .odd-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     /* selecionada: pulsa de leve uma vez ao marcar (feedback) */
@@ -1620,8 +1689,15 @@
       .app-sidebar { display: none; }
       .below-topbar { display: block; min-height: 0; }
 
-      /* TOPBAR encolhe e envolve se precisar */
-      .topbar { padding: 10px 12px; flex-wrap: wrap; gap: 8px; }
+      /* TOPBAR encolhe e envolve se precisar (respeitando o notch) */
+      .topbar {
+        padding:
+          max(10px, env(safe-area-inset-top))
+          max(12px, env(safe-area-inset-right))
+          10px
+          max(12px, env(safe-area-inset-left));
+        flex-wrap: wrap; gap: 8px;
+      }
       .brand { gap: 10px; min-width: 0; }
       .brand-text .t1 { font-size: 18px; }
       .brand-text .t2 { font-size: 9px; letter-spacing: 0.24em; }
@@ -1650,6 +1726,21 @@
 
       /* PAGE: menos respiro lateral */
       .page { padding: 14px 12px; }
+
+      /* CHIPS DE FILTRO: viram uma faixa rolável horizontal em vez de quebrar
+         em 3-4 linhas (que empurram os jogos pra baixo). Sangra até as bordas
+         da .page (padding 12px) e esconde a barra de rolagem. */
+      .filter-chips {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        scroll-snap-type: x proximity;
+        margin: 0 -12px 12px;
+        padding: 0 12px 2px;
+      }
+      .filter-chips::-webkit-scrollbar { display: none; }
+      .chip { flex: 0 0 auto; scroll-snap-align: start; }
 
       /* TABS: esconde a barra desktop, mostra o hamburger drawer.
          Wrapper precisa de position: relative pro drawer ancorar. */
@@ -1750,7 +1841,18 @@
     /* ─────────────────── ULTRA NARROW (≤ 420px) ───────────────────────── */
     /* ════════════════════════════════════════════════════════════════════ */
     @media (max-width: 420px) {
-      .topbar { padding: 8px 10px; }
+      .topbar {
+        padding:
+          max(8px, env(safe-area-inset-top))
+          max(10px, env(safe-area-inset-right))
+          8px
+          max(10px, env(safe-area-inset-left));
+      }
+      /* Wallet mais enxuta: o badge P/C já identifica a moeda, então os rótulos
+         longos ("PRIMITIVO COINS"/"CAMPEÃO COINS") saem pra caber numa linha. */
+      .pc-unit { display: none; }
+      .pc-pill { padding: 5px 9px 5px 6px; }
+      .pc-amt { line-height: 1.1; }
       .brand-text .t1 { font-size: 16px; }
       .brand-text .t2 { font-size: 8px; letter-spacing: 0.2em; }
       .pc-amt { font-size: 15px; }
@@ -2442,6 +2544,17 @@
       .cupom-leg-x,
       .comment-del,
       .shared-slip-close { min-width: 44px; min-height: 44px; }
+      /* Controles principais do fluxo de aposta ganham altura confortável de toque */
+      .chip,
+      .logout-btn,
+      .round-tabs .rt { min-height: 40px; }
+      .round-card-head { min-height: 56px; }
+      /* Botões de odd: alvo grande e conteúdo centralizado verticalmente */
+      .odd-btn {
+        min-height: 56px;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+      }
     }
 
     /* ──── AVATARES ──── */
