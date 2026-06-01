@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-cupomfifa ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-2finish ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -466,7 +466,8 @@ function computeMkStandings(players, matches) {
 // ─── ODDS DO MK — modelo de 2 níveis (round -> partida -> confronto). Da força
 // sai p (prob do mandante vencer 1 round); daí a binomial negativa "primeiro a 3"
 // dá a partida, e as 2 partidas independentes dão o confronto.
-const MK_MARKETS = ['VENC', 'RESULT', 'P1', 'P2', 'TOTAL', 'FINISH', 'FLAW'];
+// Finalização/Flawless saíram das apostas (viram só do admin); mercados = placar/rounds.
+const MK_MARKETS = ['VENC', 'RESULT', 'P1', 'P2', 'TOTAL'];
 const MK_MARKET_TITLE = { VENC: 'VENCEDOR', RESULT: 'RESULTADO (PARTIDAS)', P1: 'PLACAR PARTIDA 1', P2: 'PLACAR PARTIDA 2', TOTAL: 'TOTAL DE ROUNDS', FINISH: 'FINALIZAÇÃO', FLAW: 'FLAWLESS VICTORY' };
 const MK_RESULT_PICKS = ['20', '11', '02'];          // 2×0 / 1×1 / 0×2
 const MK_PARTIDA_PICKS = ['30', '31', '32', '23', '13', '03']; // mandante x visitante
@@ -5909,8 +5910,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
     const v = val.replace(/[^0-3]/g, '').slice(0, 1); // 1 dígito, 0..3 (primeiro a 3)
     setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [side]: v } }));
   };
-  const setFinisher = (key, val) => setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), finisher: val || undefined } }));
-  const toggleFlawless = (key) => setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), flawless: !(prev[key] || {}).flawless } }));
+  const setFinisher = (key, which, val) => setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [which]: val || undefined } }));
 
   // Resultados lançados -> confrontos -> classificação (recalcula ao vivo).
   const matches = draw ? draw.flatMap(r => r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: scores[gKey(r, gi)] || {} }))) : [];
@@ -6020,12 +6020,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
                     <div key={gi} className={'mk-fx' + (done ? ' done' : '')}>
                       <div className="mk-fx-top">
                         <span>JOGO {String(gi + 1).padStart(2, '0')}</span>
-                        <span className="mk-fx-top-r">
-                          <button type="button" className={'mk-brut-tog' + (sc.flawless ? ' on' : '')} onClick={() => toggleFlawless(k)} title="Teve flawless victory neste confronto?">
-                            <Icon name="star" size={11} /> FLAWLESS
-                          </button>
-                          {done && <span className="mk-fx-done"><Icon name="check" size={11} /> LANÇADO</span>}
-                        </span>
+                        {done && <span className="mk-fx-done"><Icon name="check" size={11} /> LANÇADO</span>}
                       </div>
                       <div className="mk-fx-body">
                         <div className="mk-fx-side home">
@@ -6058,8 +6053,14 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
                         </div>
                       </div>
                       <div className="mk-fx-finish">
-                        <span className="mk-fx-finish-l"><Icon name="skull" size={10} /> FINALIZAÇÃO</span>
-                        <select className="mk-fx-finish-sel" value={sc.finisher || ''} onChange={e => setFinisher(k, e.target.value)}>
+                        <span className="mk-fx-finish-l"><Icon name="skull" size={10} /> FINALIZAÇÕES</span>
+                        <span className="mk-fx-finish-pl">P1</span>
+                        <select className="mk-fx-finish-sel" value={sc.finisher1 || ''} onChange={e => setFinisher(k, 'finisher1', e.target.value)}>
+                          <option value="">Nenhuma</option>
+                          {MK_FINISHERS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                        </select>
+                        <span className="mk-fx-finish-pl">P2</span>
+                        <select className="mk-fx-finish-sel" value={sc.finisher2 || ''} onChange={e => setFinisher(k, 'finisher2', e.target.value)}>
                           <option value="">Nenhuma</option>
                           {MK_FINISHERS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                         </select>
