@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260601-mods ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260601-mk-lock ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1762,6 +1762,12 @@ function App() {
     setMkLineups(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [part]: { ...((prev[key] || {})[part] || {}), [side]: val || undefined } } }));
     return persistMk(mk => ({ ...mk, lineups: { ...mk.lineups, [key]: { ...((mk.lineups || {})[key] || {}), [part]: { ...(((mk.lineups || {})[key] || {})[part] || {}), [side]: val || undefined } } } }));
   };
+  // ADMIN/MOD: trava/destrava as apostas de UM confronto (guarda em mk.scores[key].locked;
+  // o cálculo de resultado ignora esse campo). Bloqueia novas apostas naquele jogo.
+  const toggleMkGameLock = (key) => {
+    const cur = !!((mkScores || {})[key] || {}).locked;
+    return setMkScoreField(key, { locked: !cur });
+  };
   // VIEW principal — controla qual "página" mostrar:
   //   apostas | campeonatos | copa | hall | inicio(NEWS) | loja | perfil | tickets | ranking | admin
   // 'discord' não é view — abre link externo direto.
@@ -2868,8 +2874,9 @@ function App() {
                     bets={(bets || []).filter(b => b.champId === 'mk')}
                     onPlaceBet={placeMkBet}
                     onRemoveBet={removeMkBet}
+                    onToggleGameLock={toggleMkGameLock}
                     myNick={session.nick}
-                    isAdmin={isAdmin}
+                    isAdmin={isAdmin} isMod={isMod}
                     balance={me?.pc ?? 0}
                   />
                 </>
@@ -6564,7 +6571,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, 
 // compartilhados (App). Cupom = palpites da MESMA rodada (2+ = casada). Só dá
 // pra apostar na rodada ABERTA (a anterior tem que ter fechado).
 function mkLegLabel(l) { return mkPickLabel(l.market, l.pick); }
-function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlaceBet, onRemoveBet, myNick, isAdmin, balance }) {
+function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlaceBet, onRemoveBet, onToggleGameLock, myNick, isAdmin, isMod, balance }) {
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
@@ -6588,6 +6595,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
   const toggleLeg = (gi, g, market, pick, odd) => {
     if (!isOpen) return;
     if (myNick && (g.home === myNick || g.away === myNick)) { showToast('Você não pode apostar no próprio jogo.', 'error'); return; }
+    if (((scores || {})[gKey(rd, gi)] || {}).locked) { showToast('As apostas desse jogo estão travadas.', 'error'); return; }
     const key = legKey(gi, market);
     const ex = cupom.find(l => l.key === key);
     if (ex && ex.pick === pick) { setCupom(prev => prev.filter(l => l.key !== key)); return; } // desmarca
@@ -6655,16 +6663,25 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
                   {rd.games.map((g, gi) => {
                     const odds = computeMkGameOdds(g.home, g.away, metrics);
                     const ownGame = !!myNick && (g.home === myNick || g.away === myNick);
-                    const locked = !isOpen || ownGame;
+                    const gameLocked = !!((scores || {})[gKey(rd, gi)] || {}).locked;
+                    const locked = !isOpen || ownGame || gameLocked;
                     const scoreMkt = (m) => m === 'RESULT' || m === 'P1' || m === 'P2';
                     return (
-                      <div key={gi} className={'mk-bet-game' + (ownGame ? ' own' : '')}>
+                      <div key={gi} className={'mk-bet-game' + (ownGame ? ' own' : '') + (gameLocked ? ' locked' : '')}>
                         <div className="mk-bet-match">
                           <span className="mk-bm-side"><span className="mk-bm-nick mand">@{g.home}</span><span className="mk-bm-role mand">MANDANTE</span></span>
                           <span className="mk-bm-vs">×</span>
                           <span className="mk-bm-side right"><span className="mk-bm-nick">@{g.away}</span><span className="mk-bm-role">VISITANTE</span></span>
                         </div>
                         {ownGame && <div className="mk-bet-own"><Icon name="lock" size={10} /> VOCÊ JOGA ESSE — não pode apostar</div>}
+                        {gameLocked && !ownGame && <div className="mk-bet-own lock"><Icon name="lock" size={10} /> APOSTAS TRAVADAS</div>}
+                        {isMod && onToggleGameLock && (
+                          <div className="mk-bet-locktoggle">
+                            <button type="button" className={'mk-bet-lockbtn' + (gameLocked ? ' on' : '')} onClick={() => onToggleGameLock(gKey(rd, gi))}>
+                              <Icon name={gameLocked ? 'unlock' : 'lock'} size={11} /> {gameLocked ? 'DESTRAVAR APOSTAS' : 'TRAVAR APOSTAS'}
+                            </button>
+                          </div>
+                        )}
                         {MK_MARKETS.map(mkt => (
                           <div key={mkt} className="mk-bet-mkt">
                             <div className="mk-bet-mkt-h">{MK_MARKET_TITLE[mkt]}</div>

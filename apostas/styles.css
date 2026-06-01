@@ -3231,7 +3231,13 @@
     .mk-bet-games { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
     .mk-bet-game { border: 2px solid var(--pv-charcoal); background: var(--pv-bone); padding: 10px 12px; }
     .mk-bet-game.own { opacity: 0.72; }
+    .mk-bet-game.locked { border-color: #7a2222; }
     .mk-bet-own { display: flex; align-items: center; gap: 5px; margin-bottom: 9px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; color: #fff; background: var(--pv-charcoal); padding: 4px 8px; }
+    .mk-bet-own.lock { background: #7a2222; }
+    .mk-bet-locktoggle { display: flex; justify-content: flex-end; margin-bottom: 9px; }
+    .mk-bet-lockbtn { display: inline-flex; align-items: center; gap: 6px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 9.5px; letter-spacing: 0.1em; padding: 5px 10px; border-radius: 4px; cursor: pointer; background: transparent; color: var(--pv-charcoal); border: 1.5px solid var(--pv-charcoal); }
+    .mk-bet-lockbtn:hover { background: rgba(28,22,18,0.06); }
+    .mk-bet-lockbtn.on { background: #7a2222; color: #fff; border-color: #7a2222; }
     /* cupom do MK = mesmo .card.cupom da FIFA, num wrapper sticky que cabe na tela */
     .mk-cupom-wrap { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; display: block; }
     .mk-cupom-wrap .cupom { margin: 0; }
