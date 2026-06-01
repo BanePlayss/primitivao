@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-meu-jogo ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-meu-jogo-2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2802,7 +2802,7 @@ function App() {
             {view === 'meujogo' && (
               <MeuJogoView
                 nick={session.nick} isAdmin={isAdmin} users={users} interests={interests || {}} onSave={setMkChars}
-                draw={mkDraw} lineups={mkLineups} setLineups={setMkLineups}
+                draw={mkDraw} scores={mkScores} lineups={mkLineups} setLineups={setMkLineups}
                 previewChars={mkPreviewChars} teamPlayers={teamPlayers || {}}
               />
             )}
@@ -5887,7 +5887,7 @@ function ColecaoCard({ nick, me, previewTeamId, ctx, onEquip }) {
 // ─── MEU JOGO (MK) — elenco do turno + escalação dos confrontos ────────────
 // O MANDANTE escala as 2 partidas dos jogos onde é mando (boneco dos DOIS lados,
 // vindo do elenco de 3 de cada um). O VISITANTE só vê como o mandante dispôs.
-function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, lineups, setLineups, previewChars, teamPlayers }) {
+function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, lineups, setLineups, previewChars, teamPlayers }) {
   const inscritos = Object.keys((interests && interests.mk) || {}).sort();
   const [target, setTarget] = useState(isAdmin ? (inscritos[0] || '') : nick);
   const [sel, setSel] = useState(((users || {})[isAdmin ? (inscritos[0] || '') : nick] || {}).mkChars || []);
@@ -5905,15 +5905,23 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, lineups, s
     finally { setBusy(false); }
   };
 
-  // Confrontos do jogador (onde ele é mandante ou visitante), na ordem do sorteio.
+  // Só a RODADA ATUAL: a 1ª ainda não concluída cuja anterior já fechou (tudo
+  // fechado -> última). Mesma regra da aba APOSTAS.
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const roundConcluded = (ri) => !!(draw && draw[ri]) && draw[ri].games.every((g, gi) => !!mkMatchOutcome((scores || {})[gKey(draw[ri], gi)] || {}));
+  let curRoundIdx = -1;
+  if (draw && draw.length) {
+    curRoundIdx = draw.findIndex((r, ri) => !roundConcluded(ri) && (ri === 0 || roundConcluded(ri - 1)));
+    if (curRoundIdx < 0) curRoundIdx = draw.length - 1;
+  }
+  const curRound = curRoundIdx >= 0 ? draw[curRoundIdx] : null;
   const myGames = [];
-  if (draw && target) {
-    draw.forEach(r => r.games.forEach((g, gi) => {
+  if (curRound && target) {
+    curRound.games.forEach((g, gi) => {
       if (g.home === target || g.away === target) {
-        myGames.push({ key: gKey(r, gi), phase: r.phase, n: r.n, g, mandante: g.home === target });
+        myGames.push({ key: gKey(curRound, gi), phase: curRound.phase, n: curRound.n, g, mandante: g.home === target });
       }
-    }));
+    });
   }
   // Atualiza um slot da escalação (mandante). lineups[key] = { p1:{home,away}, p2:{home,away} }
   const setSlot = (key, part, side, val) => setLineups(prev => ({
@@ -5965,13 +5973,13 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, lineups, s
               </div>
             </div>
 
-            {/* MEUS JOGOS (escalação por confronto) */}
+            {/* MEU JOGO DA RODADA ATUAL (escalação do confronto) */}
             <div className="mk-jogo-sec">
-              <div className="mk-jogo-sec-h"><Icon name="skull" size={13} /> MEUS JOGOS <span className="mk-jogo-sec-c">{myGames.length}</span></div>
+              <div className="mk-jogo-sec-h"><Icon name="skull" size={13} /> MEU JOGO DA RODADA {curRound && <span className="mk-jogo-sec-c">{String(curRound.n).padStart(2, '0')} · {curRound.phase}</span>}</div>
               {!draw ? (
                 <div className="mk-jogo-empty"><Icon name="dice" size={20} /> As rodadas ainda não foram sorteadas. {isAdmin ? 'Sorteie em CAMPEONATOS.' : 'Aguarde o sorteio.'}</div>
               ) : myGames.length === 0 ? (
-                <div className="mk-jogo-empty">Nenhum confronto pra @{target} no chaveamento atual.</div>
+                <div className="mk-jogo-empty">@{target} não joga na rodada atual (folga).</div>
               ) : (
                 <div className="mk-jogo-list">
                   {myGames.map(mg => {
@@ -6001,20 +6009,27 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, lineups, s
                                 {awayChars.length === 0 && <span>@{opp} ainda não tem elenco — não dá pra escalar o lado dele.</span>}
                               </div>
                             )}
-                            {['p1', 'p2'].map(p => (
-                              <div key={p} className="mk-jogo-part">
-                                <span className="mk-jogo-part-l">{p.toUpperCase()}</span>
-                                <select className="mk-jogo-sel" value={(lu[p] || {}).home || ''} disabled={homeChars.length === 0} onChange={e => setSlot(mg.key, p, 'home', e.target.value)}>
-                                  <option value="">@{mg.g.home}…</option>
-                                  {homeChars.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                                <span className="mk-jogo-part-x">×</span>
-                                <select className="mk-jogo-sel" value={(lu[p] || {}).away || ''} disabled={awayChars.length === 0} onChange={e => setSlot(mg.key, p, 'away', e.target.value)}>
-                                  <option value="">@{mg.g.away}…</option>
-                                  {awayChars.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                              </div>
-                            ))}
+                            {['p1', 'p2'].map(p => {
+                              // mesmo jogador não repete boneco nas 2 partidas: trava o
+                              // que já foi usado na outra partida do mesmo lado.
+                              const oP = p === 'p1' ? 'p2' : 'p1';
+                              const takenH = (lu[oP] || {}).home, takenA = (lu[oP] || {}).away;
+                              const curH = (lu[p] || {}).home, curA = (lu[p] || {}).away;
+                              return (
+                                <div key={p} className="mk-jogo-part">
+                                  <span className="mk-jogo-part-l">{p.toUpperCase()}</span>
+                                  <select className="mk-jogo-sel" value={curH || ''} disabled={homeChars.length === 0} onChange={e => setSlot(mg.key, p, 'home', e.target.value)}>
+                                    <option value="">@{mg.g.home}…</option>
+                                    {homeChars.map(c => { const used = c === takenH && c !== curH; return <option key={c} value={c} disabled={used}>{c}{used ? ' (em uso)' : ''}</option>; })}
+                                  </select>
+                                  <span className="mk-jogo-part-x">×</span>
+                                  <select className="mk-jogo-sel" value={curA || ''} disabled={awayChars.length === 0} onChange={e => setSlot(mg.key, p, 'away', e.target.value)}>
+                                    <option value="">@{mg.g.away}…</option>
+                                    {awayChars.map(c => { const used = c === takenA && c !== curA; return <option key={c} value={c} disabled={used}>{c}{used ? ' (em uso)' : ''}</option>; })}
+                                  </select>
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : (
                           <div className="mk-jogo-arr ro">
