@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-vitrine-demo2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-vitrine-group ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6593,7 +6593,15 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
             </div>
           ) : (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              {showTrophies.map(t => <TrophyItem key={t.champId + t.kind} trophy={t} />)}
+              {['champion', 'vice', 'participou', 'penultimo', 'lanterna'].map(kind => {
+                const group = showTrophies.filter(t => t.kind === kind);
+                if (!group.length) return null;
+                const editions = group.map(t => {
+                  const cc = CHAMP_BY_ID[t.champId];
+                  return { tag: t._tag || cc?.tag, season: t._season || cc?.season };
+                });
+                return <TrophyGroup key={kind} kind={kind} editions={editions} />;
+              })}
             </div>
           )}
         </div>
@@ -6870,32 +6878,30 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
   );
 }
 
-function TrophyItem({ trophy }) {
-  const c = CHAMP_BY_ID[trophy.champId];
-  const tag = trophy._tag || c?.tag;       // _tag/_season: troféus de demo (S2/S3)
-  const season = trophy._season || c?.season;
+// Um card por TIPO de troféu (campeão/vice/...), com a lista de edições embaixo.
+function TrophyGroup({ kind, editions }) {
   const meta = {
     champion:   { icon: 'tr-champion',  label: 'CAMPEÃO',    color: '#d4af37', bg: '#fbf3d3' },
     vice:       { icon: 'tr-vice',      label: 'VICE',       color: '#8a8a8a', bg: '#ededed' },
     participou: { icon: 'tr-participou', label: 'PARTICIPOU', color: '#b87333', bg: '#f6ece1' },
     penultimo:  { icon: 'tr-penultimo', label: 'PENÚLTIMO',  color: '#6b4423', bg: '#f0e7df' },
     lanterna:   { icon: 'tr-lanterna',  label: 'ÚLTIMO',     color: '#7a2222', bg: '#fce4e4' },
-  }[trophy.kind] || { icon: null, label: '', color: '#000', bg: '#eee' };
-  const shame = trophy.kind === 'lanterna' || trophy.kind === 'penultimo';
+  }[kind] || { icon: null, label: '', color: '#000', bg: '#eee' };
+  const shame = kind === 'lanterna' || kind === 'penultimo';
   return (
-    <div className={'tr-card tr-' + trophy.kind} style={{
-      flex: '0 0 calc(50% - 6px)', maxWidth: 220,
+    <div className={'tr-card tr-' + kind} style={{
+      flex: '0 0 calc(50% - 6px)', maxWidth: 240,
       background: meta.bg, border: `2px solid ${meta.color}`,
-      padding: 12, textAlign: 'center', '--tr-c': meta.color,
+      padding: 12, textAlign: 'center',
     }}>
       <div className={'tr-art' + (shame ? ' shame' : '')} style={{ lineHeight: 1, color: meta.color, display: 'flex', justifyContent: 'center' }}>
-        {meta.icon && <Icon name={meta.icon} size={42} />}
+        {meta.icon && <Icon name={meta.icon} size={44} />}
       </div>
-      <div style={{ marginTop: 4, fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, color: meta.color }}>
-        {meta.label}
+      <div style={{ marginTop: 5, fontSize: 11, letterSpacing: '0.2em', fontWeight: 800, color: meta.color }}>
+        {meta.label}{editions.length > 1 ? ` ·${editions.length}` : ''}
       </div>
-      <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: 'rgba(28,22,18,0.75)' }}>
-        {tag} · {season}
+      <div className="tr-eds">
+        {editions.map((e, i) => <div key={i} className="tr-ed">{e.tag} · {e.season}</div>)}
       </div>
     </div>
   );
