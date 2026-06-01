@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-dlc ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-2rounds ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -426,7 +426,7 @@ function generateMkDraw(playersIn) {
   return [...ida, ...volta];
 }
 
-// ─── MODELO DO MK — confronto = 2 PARTIDAS, cada uma PRIMEIRO A 3 ROUNDS.
+// ─── MODELO DO MK — confronto = 2 PARTIDAS, cada uma PRIMEIRO A 2 ROUNDS.
 // Resultado em partidas: 2×0 (vitória) / 1×1 (empate) / 0×2 (derrota).
 // sc = { p1h, p1a, p2h, p2a } (rounds de cada lado nas 2 partidas).
 function mkMatchOutcome(sc) {
@@ -468,15 +468,15 @@ function computeMkStandings(players, matches) {
 }
 
 // ─── ODDS DO MK — modelo de 2 níveis (round -> partida -> confronto). Da força
-// sai p (prob do mandante vencer 1 round); daí a binomial negativa "primeiro a 3"
+// sai p (prob do mandante vencer 1 round); daí a binomial negativa "primeiro a 2"
 // dá a partida, e as 2 partidas independentes dão o confronto.
 // Finalização e Flawless são mercados; o ADMIN marca o resultado no lançamento
 // (cartão admin-only), com DUAS finalizações por confronto (uma por partida).
 const MK_MARKETS = ['VENC', 'RESULT', 'P1', 'P2', 'TOTAL', 'FINISH', 'FLAW'];
 const MK_MARKET_TITLE = { VENC: 'VENCEDOR', RESULT: 'RESULTADO (PARTIDAS)', P1: 'PLACAR PARTIDA 1', P2: 'PLACAR PARTIDA 2', TOTAL: 'TOTAL DE ROUNDS', FINISH: 'FINALIZAÇÃO', FLAW: 'FLAWLESS VICTORY' };
 const MK_RESULT_PICKS = ['20', '11', '02'];          // 2×0 / 1×1 / 0×2
-const MK_PARTIDA_PICKS = ['30', '31', '32', '23', '13', '03']; // mandante x visitante
-const MK_TOTAL_PICKS = ['6', '7', '8', '9', '10'];   // total de rounds das 2 partidas
+const MK_PARTIDA_PICKS = ['20', '21', '12', '02']; // mandante x visitante (primeiro a 2)
+const MK_TOTAL_PICKS = ['4', '5', '6'];   // total de rounds das 2 partidas
 const MK_FLAWLESS_PROB = 0.40; // pode rolar em qualquer das 2 partidas
 const MK_FINISHERS = [
   { id: 'fatality', name: 'Fatality', p: 0.40 },
@@ -487,14 +487,15 @@ const MK_FINISHERS = [
   { id: 'babality', name: 'Babality', p: 0.05 },
 ];
 
-// prob do mandante VENCER 1 partida (primeiro a 3) dado p (prob de 1 round).
-function mkPartidaWinProb(p) { return Math.pow(p, 3) * (1 + 3 * (1 - p) + 6 * Math.pow(1 - p, 2)); }
-// distribuição do placar de UMA partida.
+// prob do mandante VENCER 1 partida (primeiro a 2) dado p (prob de 1 round).
+// primeiro a 2 = melhor de 3: P(vence) = p² + 2p²(1-p) = p²(3-2p).
+function mkPartidaWinProb(p) { return p * p * (3 - 2 * p); }
+// distribuição do placar de UMA partida (primeiro a 2 rounds).
 function mkPartidaDist(p) {
   const q = 1 - p;
   return {
-    '30': Math.pow(p, 3), '31': 3 * Math.pow(p, 3) * q, '32': 6 * Math.pow(p, 3) * q * q,
-    '23': 6 * Math.pow(q, 3) * p * p, '13': 3 * Math.pow(q, 3) * p, '03': Math.pow(q, 3),
+    '20': p * p, '21': 2 * p * p * q,
+    '12': 2 * p * q * q, '02': q * q,
   };
 }
 function computeMkPlayerMetrics(players, matches) {
@@ -511,8 +512,8 @@ function computeMkGameOdds(home, away, metrics) {
   const q = mkPartidaWinProb(p);                  // mandante vence uma partida
   const p20 = q * q, p11 = 2 * q * (1 - q), p02 = (1 - q) * (1 - q);
   const pd = mkPartidaDist(p);
-  const a = pd['30'] + pd['03'], b = pd['31'] + pd['13'], c = pd['32'] + pd['23']; // 3,4,5 rounds/partida
-  const total = { '6': a * a, '7': 2 * a * b, '8': 2 * a * c + b * b, '9': 2 * b * c, '10': c * c };
+  const a = pd['20'] + pd['02'], b = pd['21'] + pd['12']; // partida com 2 ou 3 rounds
+  const total = { '4': a * a, '5': 2 * a * b, '6': b * b };
   const partida = {}; MK_PARTIDA_PICKS.forEach(pk => { partida[pk] = toOdd(pd[pk]); });
   const totalO = {}; MK_TOTAL_PICKS.forEach(t => { totalO[t] = toOdd(total[t]); });
   // finalização pode sair em QUALQUER das 2 partidas -> P = 1 - (1-p)^2.
@@ -6186,7 +6187,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
   const clearPreviewChars = () => setPreviewChars(null);
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const setScore = (key, side, val) => {
-    const v = val.replace(/[^0-3]/g, '').slice(0, 1); // 1 dígito, 0..3 (primeiro a 3)
+    const v = val.replace(/[^0-2]/g, '').slice(0, 1); // 1 dígito, 0..2 (primeiro a 2)
     setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [side]: v } }));
   };
   const setFinisher = (key, which, val) => setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [which]: val || undefined } }));
@@ -6254,7 +6255,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
             </div>
           )}
           <div className="mk-legend">
-            <strong>SR</strong> = saldo de rounds. Confronto = <strong>2 partidas</strong> (cada uma primeiro a 3 rounds). Resultado: 2×0 vence, <strong>1×1 empata</strong>, 0×2 perde. Vitória 3, empate 1.
+            <strong>SR</strong> = saldo de rounds. Confronto = <strong>2 partidas</strong> (cada uma primeiro a 2 rounds). Resultado: 2×0 vence, <strong>1×1 empata</strong>, 0×2 perde. Vitória 3, empate 1.
             <br /><strong>Todo mundo passa de fase</strong> — o que muda é por onde entra no mata-mata: <strong>1º e 2º</strong> são cabeças de chave (entram uma fase à frente), do <strong>3º ao 8º</strong> entram privilegiados e do <strong>9º pra baixo</strong> sem vantagem. <span style={{ opacity: 0.8 }}>(Pódio 1º–3º com cor própria; 4º–8º na mesma cor.)</span>
           </div>
         </div>
