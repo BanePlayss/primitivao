@@ -121,7 +121,11 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
+<<<<<<< HEAD
 console.log('%c PRIMITIVÃO v=20260601-mobile-ux ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+=======
+console.log('%c PRIMITIVÃO v=20260601-mk-restore-fix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+>>>>>>> 3eab406 (Fix: restore de backup so admin + preserva MK ao vivo (causa do sorteio sumido))
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -882,6 +886,18 @@ async function restoreFromBackup(payload) {
     if (apostas != null) {
       // Separa campos top-level (que ficam siblings do `json` stringificado).
       const { interests, comments, worldcup, news, discord_webhook, ...rest } = apostas;
+      // SALVAGUARDA: dados AO VIVO que o backup pode não ter — restaurar um backup
+      // ANTIGO não deve apagar o campeonato MK em andamento (sorteio/placar/apostas).
+      // Se o backup não traz `mk` mas o doc atual tem, preserva o atual.
+      if (rest.mk == null) {
+        try {
+          const curSnap = await BET_DOC().get();
+          if (curSnap.exists && typeof curSnap.data().json === 'string') {
+            const cur = JSON.parse(curSnap.data().json);
+            if (cur && cur.mk && Array.isArray(cur.mk.draw)) rest.mk = cur.mk;
+          }
+        } catch (e) { console.warn('restore: preservar mk ao vivo falhou', e); }
+      }
       const wcSafe = (worldcup && typeof worldcup === 'object')
         ? { results: worldcup.results || {}, picks: worldcup.picks || {} }
         : { results: {}, picks: {} };
@@ -9438,8 +9454,11 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, splitCurrency
       {tab === 'backup' && (
         <>
           <BackupPanel />
-          <HistoricBackupsPanel />
-          <RestorePanel />
+          {/* RESTAURAR/HISTÓRICO sobrescrevem TODO o estado (destrutivo) -> só admin
+              de verdade. Mod baixa backup (read-only), mas não restaura. */}
+          {isFullAdmin ? <><HistoricBackupsPanel /><RestorePanel /></> : (
+            <div className="mk-admin-note" style={{ marginTop: 14 }}><Icon name="lock" size={11} /> Restaurar backup é só do admin (sobrescreve tudo). Você pode baixar o backup acima.</div>
+          )}
         </>
       )}
 
