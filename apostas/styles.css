@@ -3023,7 +3023,7 @@
     .mk-jogo-sec-c { margin-left: auto; font-size: 11px; font-weight: 800; color: var(--pv-orange); background: rgba(215,100,20,0.1); border-radius: 999px; padding: 1px 9px; }
     .mk-jogo-hint { margin: 8px 0 12px; font-size: 12.5px; line-height: 1.5; color: rgba(28,22,18,0.7); }
     .mk-jogo-empty { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: rgba(28,22,18,0.55); background: rgba(28,22,18,0.03); border: 1px dashed rgba(28,22,18,0.18); border-radius: 8px; padding: 14px; margin-top: 8px; }
-    .mk-jogo-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 10px; margin-top: 10px; }
+    .mk-jogo-list { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; max-width: 540px; }
     .mk-jogo-card { border: 1.5px solid rgba(28,22,18,0.14); border-radius: 10px; padding: 11px 12px; background: #fff; }
     .mk-jogo-card.is-mandante { border-color: rgba(215,100,20,0.5); box-shadow: inset 0 0 0 1px rgba(215,100,20,0.14); }
     .mk-jogo-card-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -3047,6 +3047,54 @@
     .mk-jogo-boneco { flex: 1; min-width: 0; font-size: 12px; font-weight: 700; padding: 6px 8px; border-radius: 6px; background: rgba(28,22,18,0.05); color: var(--pv-charcoal); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .mk-jogo-boneco.empty { color: rgba(28,22,18,0.35); font-weight: 800; }
     .mk-jogo-wait { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: rgba(28,22,18,0.5); padding: 4px 0; }
+
+    /* ─── CARD DE LUTA (MK character select): portraits + VS + FIGHT! ─── */
+    .mk-fc { margin-top: 4px; border-radius: 12px; padding: 11px 12px;
+      background: radial-gradient(120% 90% at 50% 0%, #2c1518 0%, #161010 58%, #0d0a0a 100%);
+      border: 1px solid rgba(215,100,20,0.4); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 14px rgba(0,0,0,0.25); }
+    .mk-fc-part { padding: 8px 0; }
+    .mk-fc-part + .mk-fc-part { border-top: 1px dashed rgba(255,255,255,0.1); }
+    .mk-fc-part-h { display: flex; align-items: center; gap: 7px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 10.5px; letter-spacing: 0.18em; color: rgba(255,255,255,0.72); text-transform: uppercase; margin-bottom: 9px; }
+    .mk-fc-num { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(180deg, #f0b450, #d76414); color: #1a0f08; font-size: 11px; font-weight: 800; box-shadow: 0 0 8px rgba(215,100,20,0.5); }
+    .mk-fc-row { display: flex; align-items: stretch; gap: 8px; }
+    .mk-fc-side { flex: 1; min-width: 0; }
+    .mk-fc-nick { display: flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; color: rgba(255,255,255,0.8); margin-bottom: 6px; }
+    .mk-fc-side.ro:last-child .mk-fc-nick, .mk-fc-row > .mk-fc-side:last-child .mk-fc-nick { justify-content: flex-end; }
+    .mk-fc-vs { flex-shrink: 0; align-self: center; display: flex; flex-direction: column; align-items: center; gap: 0; color: #f0b450; font-family: 'Bagel Fat One', Impact; font-size: 12px; letter-spacing: 0.04em; text-shadow: 0 0 10px rgba(240,180,80,0.6); padding-top: 14px; }
+    .mk-fc-chips { display: flex; gap: 5px; }
+    .mk-fc-chip { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 3px 6px;
+      border-radius: 10px; border: 1.5px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); cursor: pointer;
+      transition: transform 0.12s ease, border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease; }
+    .mk-fc-chip:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(240,180,80,0.6); background: rgba(255,255,255,0.07); }
+    .mk-fc-chip.on { border-color: #f0b450; background: rgba(215,100,20,0.18); box-shadow: 0 0 0 1px #f0b450, 0 0 16px rgba(215,100,20,0.5); }
+    .mk-fc-chip.locked { opacity: 0.3; cursor: not-allowed; filter: grayscale(0.7); }
+    .mk-fc-mono { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9px;
+      font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 13px; color: #fff;
+      background: linear-gradient(155deg, hsl(var(--hue), 68%, 54%), hsl(var(--hue), 62%, 34%));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -3px 5px rgba(0,0,0,0.35); text-shadow: 0 1px 2px rgba(0,0,0,0.45); }
+    .mk-fc-cname { font-size: 8.5px; font-weight: 700; letter-spacing: 0.01em; color: rgba(255,255,255,0.72); text-align: center; line-height: 1.1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mk-fc-chip.on .mk-fc-cname { color: #ffd9a8; }
+    .mk-fc-badge { position: absolute; top: -5px; right: -4px; width: 15px; height: 15px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #1a0f08; }
+    .mk-fc-badge.pick { background: #f0b450; box-shadow: 0 0 8px rgba(240,180,80,0.85); }
+    .mk-fc-badge.lock { background: rgba(255,255,255,0.55); }
+    .mk-fc-side.ro { display: flex; flex-direction: column; }
+    .mk-fc-chosen { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 9px 6px; border-radius: 10px; border: 1.5px solid rgba(240,180,80,0.5); background: rgba(215,100,20,0.12); }
+    .mk-fc-chosen .mk-fc-mono { width: 42px; height: 42px; font-size: 16px; }
+    .mk-fc-chosen .mk-fc-cname { font-size: 10px; color: #ffd9a8; }
+    .mk-fc-noelenco { font-size: 10px; color: rgba(255,255,255,0.4); text-align: center; padding: 14px 0; font-style: italic; }
+    .mk-fc-ready { margin-top: 11px; text-align: center; font-family: 'Bagel Fat One', Impact; font-size: 13.5px; letter-spacing: 0.07em; color: #1a0f08;
+      background: linear-gradient(180deg, #f3bd5e, #d76414); border-radius: 9px; padding: 9px; display: flex; align-items: center; justify-content: center; gap: 7px;
+      animation: mkFcPulse 1.8s ease-in-out infinite; }
+    @keyframes mkFcPulse { 0%,100% { box-shadow: 0 0 12px rgba(215,100,20,0.4); } 50% { box-shadow: 0 0 24px rgba(215,100,20,0.8); } }
+    .mk-fc-todo { margin-top: 11px; text-align: center; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); }
+    .mk-fc-todo strong { color: #f0b450; }
+    .mk-fc-wait { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 18px; color: rgba(255,255,255,0.6); font-size: 12px; font-weight: 600; }
+    @media (prefers-reduced-motion: reduce) { .mk-fc-ready { animation: none; } }
+    @media (max-width: 430px) {
+      .mk-fc-row { flex-direction: column; gap: 4px; }
+      .mk-fc-vs { flex-direction: row; gap: 6px; padding: 2px 0; }
+      .mk-fc-row > .mk-fc-side:last-child .mk-fc-nick { justify-content: flex-start; }
+    }
 
     /* ─── CAMPEONATOS -> MK (admin): classificação + sorteio das rodadas ─── */
     .mk-admin-note {

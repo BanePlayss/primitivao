@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-meu-jogo-2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-meu-jogo-fightcard ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5884,6 +5884,61 @@ function ColecaoCard({ nick, me, previewTeamId, ctx, onEquip }) {
   );
 }
 
+// "Portrait" fake do lutador: monograma (iniciais) + cor própria por personagem
+// (hue estável via hash do nome) — dá o ar de "character select" sem precisar de
+// imagem real de cada boneco.
+function mkMono(name) {
+  const w = String(name).split(/[\s-]+/).filter(Boolean);
+  return (w.length > 1 ? (w[0][0] + w[1][0]) : String(name).slice(0, 2)).toUpperCase();
+}
+function mkHue(name) {
+  let h = 0;
+  for (let i = 0; i < String(name).length; i++) h = (h * 31 + String(name).charCodeAt(i)) % 360;
+  return h;
+}
+// Lado do confronto (mandante OU visitante) com os 3 bonecos como portraits
+// clicáveis. `cur` = escolhido nessa partida; `taken` = travado (usado na outra).
+function MkFighterPick({ nick, chars, cur, taken, onPick, teamPlayers }) {
+  return (
+    <div className="mk-fc-side">
+      <div className="mk-fc-nick"><Avatar nick={nick} teamPlayers={teamPlayers} size={18} noBadge /> @{nick}</div>
+      {chars.length === 0 ? (
+        <div className="mk-fc-noelenco">sem elenco</div>
+      ) : (
+        <div className="mk-fc-chips">
+          {chars.map(c => {
+            const on = c === cur;
+            const locked = c === taken && c !== cur;
+            return (
+              <button key={c} type="button" className={'mk-fc-chip' + (on ? ' on' : '') + (locked ? ' locked' : '')}
+                disabled={locked} onClick={() => onPick(on ? '' : c)} title={locked ? c + ' (em uso na outra partida)' : c}>
+                <span className="mk-fc-mono" style={{ '--hue': mkHue(c) }}>{mkMono(c)}</span>
+                <span className="mk-fc-cname">{c}</span>
+                {on && <span className="mk-fc-badge pick"><Icon name="check" size={9} /></span>}
+                {locked && <span className="mk-fc-badge lock"><Icon name="lock" size={8} /></span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+// Lado read-only (visitante): mostra só o boneco escalado pelo mandante.
+function MkFighterShow({ nick, char, teamPlayers }) {
+  return (
+    <div className="mk-fc-side ro">
+      <div className="mk-fc-nick"><Avatar nick={nick} teamPlayers={teamPlayers} size={18} noBadge /> @{nick}</div>
+      {char ? (
+        <div className="mk-fc-chosen">
+          <span className="mk-fc-mono" style={{ '--hue': mkHue(char) }}>{mkMono(char)}</span>
+          <span className="mk-fc-cname">{char}</span>
+        </div>
+      ) : <div className="mk-fc-noelenco">a definir</div>}
+    </div>
+  );
+}
+
 // ─── MEU JOGO (MK) — elenco do turno + escalação dos confrontos ────────────
 // O MANDANTE escala as 2 partidas dos jogos onde é mando (boneco dos DOIS lados,
 // vindo do elenco de 3 de cada um). O VISITANTE só vê como o mandante dispôs.
@@ -6002,51 +6057,56 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
 
                         {mg.mandante ? (
                           <div className="mk-jogo-arr">
-                            <div className="mk-jogo-arr-hint"><Icon name="fist" size={11} /> Você monta as 2 partidas — boneco dos dois lados.</div>
-                            {(homeChars.length === 0 || awayChars.length === 0) && (
-                              <div className="mk-jogo-warn">
-                                {homeChars.length === 0 && <span>Escolhe teu elenco acima. </span>}
-                                {awayChars.length === 0 && <span>@{opp} ainda não tem elenco — não dá pra escalar o lado dele.</span>}
-                              </div>
+                            <div className="mk-jogo-arr-hint"><Icon name="fist" size={11} /> Monta o CARD DE LUTA — escolhe o boneco dos dois lados em cada partida.</div>
+                            {homeChars.length === 0 && (
+                              <div className="mk-jogo-warn">Escolhe teu elenco acima pra poder escalar.</div>
                             )}
-                            {['p1', 'p2'].map(p => {
-                              // mesmo jogador não repete boneco nas 2 partidas: trava o
-                              // que já foi usado na outra partida do mesmo lado.
-                              const oP = p === 'p1' ? 'p2' : 'p1';
-                              const takenH = (lu[oP] || {}).home, takenA = (lu[oP] || {}).away;
-                              const curH = (lu[p] || {}).home, curA = (lu[p] || {}).away;
-                              return (
-                                <div key={p} className="mk-jogo-part">
-                                  <span className="mk-jogo-part-l">{p.toUpperCase()}</span>
-                                  <select className="mk-jogo-sel" value={curH || ''} disabled={homeChars.length === 0} onChange={e => setSlot(mg.key, p, 'home', e.target.value)}>
-                                    <option value="">@{mg.g.home}…</option>
-                                    {homeChars.map(c => { const used = c === takenH && c !== curH; return <option key={c} value={c} disabled={used}>{c}{used ? ' (em uso)' : ''}</option>; })}
-                                  </select>
-                                  <span className="mk-jogo-part-x">×</span>
-                                  <select className="mk-jogo-sel" value={curA || ''} disabled={awayChars.length === 0} onChange={e => setSlot(mg.key, p, 'away', e.target.value)}>
-                                    <option value="">@{mg.g.away}…</option>
-                                    {awayChars.map(c => { const used = c === takenA && c !== curA; return <option key={c} value={c} disabled={used}>{c}{used ? ' (em uso)' : ''}</option>; })}
-                                  </select>
-                                </div>
-                              );
-                            })}
+                            <div className="mk-fc">
+                              {['p1', 'p2'].map((p, pi) => {
+                                // mesmo jogador não repete boneco nas 2 partidas: trava o
+                                // que já foi usado na outra partida do mesmo lado.
+                                const oP = p === 'p1' ? 'p2' : 'p1';
+                                const takenH = (lu[oP] || {}).home, takenA = (lu[oP] || {}).away;
+                                const curH = (lu[p] || {}).home, curA = (lu[p] || {}).away;
+                                return (
+                                  <div key={p} className="mk-fc-part">
+                                    <div className="mk-fc-part-h"><span className="mk-fc-num">{pi + 1}</span> PARTIDA {pi + 1}</div>
+                                    <div className="mk-fc-row">
+                                      <MkFighterPick nick={mg.g.home} chars={homeChars} cur={curH} taken={takenH} teamPlayers={teamPlayers} onPick={c => setSlot(mg.key, p, 'home', c)} />
+                                      <div className="mk-fc-vs"><Icon name="skull" size={13} /><span>VS</span></div>
+                                      <MkFighterPick nick={mg.g.away} chars={awayChars} cur={curA} taken={takenA} teamPlayers={teamPlayers} onPick={c => setSlot(mg.key, p, 'away', c)} />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {(() => {
+                                const filled = ['p1', 'p2'].reduce((nn, p) => nn + ((lu[p] || {}).home ? 1 : 0) + ((lu[p] || {}).away ? 1 : 0), 0);
+                                return filled === 4
+                                  ? <div className="mk-fc-ready"><Icon name="skull" size={13} /> ESCALAÇÃO PRONTA — FIGHT!</div>
+                                  : <div className="mk-fc-todo">Escala os 2 lados das 2 partidas · <strong>{filled}/4</strong></div>;
+                              })()}
+                            </div>
                           </div>
                         ) : (
                           <div className="mk-jogo-arr ro">
-                            <div className="mk-jogo-arr-hint"><Icon name="eye" size={11} /> @{mg.g.home} (mandante) escala — você só vê.</div>
-                            {arranged ? ['p1', 'p2'].map(p => {
-                              const h = (lu[p] || {}).home, a = (lu[p] || {}).away;
-                              return (
-                                <div key={p} className="mk-jogo-part ro">
-                                  <span className="mk-jogo-part-l">{p.toUpperCase()}</span>
-                                  <span className={'mk-jogo-boneco' + (h ? '' : ' empty')}>{h || '—'}</span>
-                                  <span className="mk-jogo-part-x">×</span>
-                                  <span className={'mk-jogo-boneco' + (a ? '' : ' empty')}>{a || '—'}</span>
-                                </div>
-                              );
-                            }) : (
-                              <div className="mk-jogo-wait"><Icon name="refresh" size={12} /> Aguardando @{mg.g.home} dispor as partidas.</div>
-                            )}
+                            <div className="mk-jogo-arr-hint"><Icon name="eye" size={11} /> @{mg.g.home} (mandante) monta o card — você só vê.</div>
+                            <div className="mk-fc ro">
+                              {arranged ? ['p1', 'p2'].map((p, pi) => {
+                                const h = (lu[p] || {}).home, a = (lu[p] || {}).away;
+                                return (
+                                  <div key={p} className="mk-fc-part">
+                                    <div className="mk-fc-part-h"><span className="mk-fc-num">{pi + 1}</span> PARTIDA {pi + 1}</div>
+                                    <div className="mk-fc-row">
+                                      <MkFighterShow nick={mg.g.home} char={h} teamPlayers={teamPlayers} />
+                                      <div className="mk-fc-vs"><Icon name="skull" size={13} /><span>VS</span></div>
+                                      <MkFighterShow nick={mg.g.away} char={a} teamPlayers={teamPlayers} />
+                                    </div>
+                                  </div>
+                                );
+                              }) : (
+                                <div className="mk-fc-wait"><Icon name="refresh" size={13} /> Aguardando @{mg.g.home} montar o card de luta.</div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
