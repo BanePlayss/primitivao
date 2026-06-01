@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260601-mk-lock ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260601-mk-odd-cap ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -480,6 +480,9 @@ const MK_MARKETS = ['VENC', 'RESULT', 'P1', 'P2', 'TOTAL', 'FINISH', 'FLAW'];
 const MK_MARKET_TITLE = { VENC: 'VENCEDOR', RESULT: 'RESULTADO (PARTIDAS)', P1: 'PLACAR PARTIDA 1', P2: 'PLACAR PARTIDA 2', TOTAL: 'TOTAL DE ROUNDS', FINISH: 'FINALIZAÇÃO', FLAW: 'FLAWLESS VICTORY' };
 const MK_RESULT_PICKS = ['20', '11', '02'];          // 2×0 / 1×1 / 0×2
 const MK_PARTIDA_PICKS = ['20', '21', '12', '02']; // mandante x visitante (primeiro a 2)
+// Teto da odd do MK: deixa o pagamento mais conservador (no simétrico, placares
+// que seriam 4.00 saem em 2.25). Só afeta o MK — a FIFA usa toOdd direto.
+const MK_ODD_MAX = 2.25;
 const MK_TOTAL_PICKS = ['4', '5', '6'];   // total de rounds das 2 partidas
 const MK_FLAWLESS_PROB = 0.40; // pode rolar em qualquer das 2 partidas
 // Só Brutality é apostável (a Fatality é obrigatória ao vencer, então não vira
@@ -515,16 +518,17 @@ function computeMkGameOdds(home, away, metrics) {
   const pd = mkPartidaDist(p);
   const a = pd['20'] + pd['02'], b = pd['21'] + pd['12']; // partida com 2 ou 3 rounds
   const total = { '4': a * a, '5': 2 * a * b, '6': b * b };
-  const partida = {}; MK_PARTIDA_PICKS.forEach(pk => { partida[pk] = toOdd(pd[pk]); });
-  const totalO = {}; MK_TOTAL_PICKS.forEach(t => { totalO[t] = toOdd(total[t]); });
+  const mko = (pp) => Math.min(MK_ODD_MAX, toOdd(pp)); // odd do MK com teto
+  const partida = {}; MK_PARTIDA_PICKS.forEach(pk => { partida[pk] = mko(pd[pk]); });
+  const totalO = {}; MK_TOTAL_PICKS.forEach(t => { totalO[t] = mko(total[t]); });
   // finalização pode sair em QUALQUER das 2 partidas -> P = 1 - (1-p)^2.
-  const finish = {}; MK_FINISHERS.forEach(f => { finish[f.id] = toOdd(1 - Math.pow(1 - f.p, 2)); });
+  const finish = {}; MK_FINISHERS.forEach(f => { finish[f.id] = mko(1 - Math.pow(1 - f.p, 2)); });
   return {
-    VENC:   { H: toOdd(p20), D: toOdd(p11), A: toOdd(p02) },
-    RESULT: { '20': toOdd(p20), '11': toOdd(p11), '02': toOdd(p02) },
+    VENC:   { H: mko(p20), D: mko(p11), A: mko(p02) },
+    RESULT: { '20': mko(p20), '11': mko(p11), '02': mko(p02) },
     P1: partida, P2: partida, TOTAL: totalO,
     FINISH: finish,
-    FLAW:   { Y: toOdd(MK_FLAWLESS_PROB), N: toOdd(1 - MK_FLAWLESS_PROB) },
+    FLAW:   { Y: mko(MK_FLAWLESS_PROB), N: mko(1 - MK_FLAWLESS_PROB) },
   };
 }
 // Ordem de exibição (chaves "inteiras" do JS reordenam — fixar aqui).
