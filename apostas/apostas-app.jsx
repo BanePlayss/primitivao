@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-finishback ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-titulos-novos ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5415,6 +5415,7 @@ const ACH = {
   champion:    ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.pos === 1; },
   vice:        ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.pos === 2; },
   lanterna:    ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.isLast; },
+  penultimo:   ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.isPenult; },
   millionaire: ({ nick, users }) => ((users || {})[nick]?.pc || 0) >= 100000,
   broke:       ({ nick, users, bets }) => ((users || {})[nick]?.pc || 0) <= 0 && betsOf(bets, nick).length >= 3,
   grinder50:   ({ nick, bets }) => betsOf(bets, nick).length >= 50,
@@ -5431,6 +5432,8 @@ const ACH = {
   whale:       ({ nick, bets }) => totalWagered(bets, nick) >= 1000000,
   allIn:       ({ nick, bets }) => betsOf(bets, nick).some(b => Array.isArray(b.legs) && b.legs.length >= 8),
   collector:   (ctx) => effectiveInventory(ctx.nick, (ctx.users || {})[ctx.nick], ctx).length >= 5,
+  ironStreak:  ({ nick, bets }) => maxBetStreak(bets, nick, 'won') >= 10,
+  cursed:      ({ nick, bets }) => maxBetStreak(bets, nick, 'lost') >= 10,
 };
 
 // ─── TÍTULOS DO USUÁRIO ─────────────────────────────────────────────────────
@@ -5440,10 +5443,12 @@ const TITLE_DEFS = [
   // ── Participação / campeonato ──
   { id: 'beta_tester', name: 'BETA TESTER', icon: 'flask', color: '#7a4dc9',
     desc: 'Jogou a primeira temporada do Primitivão (FIFA 2026 Season 1).', check: ACH.betaTester },
-  { id: 'campeao', name: 'CAMPEÃO', icon: 'crown', color: '#c9a227',
-    desc: 'Terminou uma temporada da FIFA em PRIMEIRO lugar. O rei.', check: ACH.champion },
+  { id: 'campeao', name: 'CAMPEÃO', icon: 'trophy', color: '#d4af37',
+    desc: 'Terminou uma temporada da FIFA em PRIMEIRO lugar. Leva o troféu pra casa.', check: ACH.champion },
   { id: 'vice', name: 'VICE-CAMPEÃO', icon: 'medal', color: '#9a9a9a',
-    desc: 'Terminou em SEGUNDO. Tão perto, tão longe.', check: ACH.vice },
+    desc: 'Terminou em SEGUNDO. A medalha de prata — tão perto, tão longe.', check: ACH.vice },
+  { id: 'penultimo', name: 'PENÚLTIMO', icon: 'toothbrush', color: '#6b4423',
+    desc: 'Terminou em PENÚLTIMO. Escapou da lanterna por um fio — mas o gostinho é quase o mesmo.', check: ACH.penultimo },
   { id: 'lanterna', name: 'LANTERNA', icon: 'toilet', color: '#7a2222',
     desc: 'Terminou a temporada em ÚLTIMO. Vexame carimbado.', check: ACH.lanterna },
   // ── Apostas: valor ──
@@ -5468,8 +5473,12 @@ const TITLE_DEFS = [
     desc: 'Venceu uma aposta casada com 5 palpites ou mais. Tudo ou nada.', check: ACH.parlayKing },
   { id: 'mao_quente', name: 'MÃO QUENTE', icon: 'fire', color: '#d76414',
     desc: 'Venceu 5 apostas seguidas. Tá pegando fogo, bicho.', check: ACH.hotHand },
+  { id: 'invencivel', name: 'INVENCÍVEL', icon: 'bolt', color: '#c9a227',
+    desc: 'Venceu 10 apostas SEGUIDAS. Intocável — ninguém segura.', check: ACH.ironStreak },
   { id: 'pe_frio', name: 'PÉ FRIO', icon: 'skull', color: '#5a5a5a',
     desc: 'Perdeu 5 apostas seguidas. O VARIMITIVÃO tá de olho.', check: ACH.coldFoot },
+  { id: 'amaldicoado', name: 'AMALDIÇOADO', icon: 'skull', color: '#3e0f0f',
+    desc: 'Perdeu 10 apostas SEGUIDAS. O VARIMITIVÃO lavou as mãos.', check: ACH.cursed },
   { id: 'azarao', name: 'AZARÃO', icon: 'arrow-up-right', color: '#2a8f3f',
     desc: 'Venceu uma aposta simples com odd 5x ou mais. Ninguém dava nada por ele.', check: ACH.underdog },
   { id: 'sorte_novato', name: 'SORTE DE NOVATO', icon: 'sparkle', color: '#c9a227',
@@ -5559,9 +5568,14 @@ const ITEMS = [
     drop: ACH.brokeBank,
   },
   {
-    id: 'badge-campeao', slot: 'badge', name: 'Troféu do Campeão', icon: 'crown', color: '#d4af37', rarity: 'lendaria',
-    desc: 'Foi CAMPEÃO de uma temporada da FIFA. Só os reais.',
+    id: 'badge-campeao', slot: 'badge', name: 'Troféu do Campeão', icon: 'trophy', color: '#d4af37', rarity: 'lendaria',
+    desc: 'Foi CAMPEÃO de uma temporada da FIFA. O troféu de ouro, pra ostentar.',
     drop: ACH.champion,
+  },
+  {
+    id: 'badge-penultimo', slot: 'badge', name: 'Escova Solitária', icon: 'toothbrush', color: '#6b4423', rarity: 'lendaria',
+    desc: 'Foi PENÚLTIMO. A privada foi pro vizinho, sobrou a escova da vergonha.',
+    drop: ACH.penultimo,
   },
   {
     id: 'badge-lanterna', slot: 'badge', name: 'Selo da Vergonha', icon: 'toilet', color: '#7a2222', rarity: 'lendaria',
