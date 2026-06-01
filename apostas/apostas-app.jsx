@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-meu-jogo-fightcard ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-dlc ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -370,12 +370,16 @@ function scoreWcPick(real, pick) {
 const CHAMP_BY_ID = Object.fromEntries(CHAMPIONSHIPS.map(c => [c.id, c]));
 
 // Personagens jogáveis do Mortal Kombat 1 (2023). Cada jogador escolhe 3 por
-// turno (regra do MK Edição 01). Lista pra "MEU JOGO".
+// turno (regra do MK Edição 01). Lista pra "MEU JOGO". Inclui os DLC:
+// Kombat Pack 1 (Omni-Man, Quan Chi, Peacemaker, Ermac, Homelander, Takeda) +
+// Khaos Reigns (Noob Saibot, Cyrax, Sektor, Ghostface, T-1000, Conan).
 const MK_CHARACTERS = [
-  'Ashrah', 'Baraka', 'Cyrax', 'Ermac', 'General Shao', 'Geras', 'Havik',
-  'Johnny Cage', 'Kenshi', 'Kitana', 'Kung Lao', 'Li Mei', 'Liu Kang',
-  'Mileena', 'Nitara', 'Noob Saibot', 'Quan Chi', 'Raiden', 'Rain', 'Reptile',
-  'Scorpion', 'Sektor', 'Shang Tsung', 'Sindel', 'Smoke', 'Sub-Zero', 'Tanya',
+  'Ashrah', 'Baraka', 'Conan', 'Cyrax', 'Ermac', 'General Shao', 'Geras',
+  'Ghostface', 'Havik', 'Homelander', 'Johnny Cage', 'Kenshi', 'Kitana',
+  'Kung Lao', 'Li Mei', 'Liu Kang', 'Mileena', 'Nitara', 'Noob Saibot',
+  'Omni-Man', 'Peacemaker', 'Quan Chi', 'Raiden', 'Rain', 'Reptile',
+  'Scorpion', 'Sektor', 'Shang Tsung', 'Sindel', 'Smoke', 'Sub-Zero',
+  'T-1000', 'Takeda', 'Tanya',
 ];
 const MK_MAX_CHARS = 3;
 
