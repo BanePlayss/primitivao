@@ -101,6 +101,10 @@ const TEAMS = [
 const TEAM = (id) => TEAMS.find(t => t.id === id) || TEAMS[0];
 
 const ADMIN_NICK = 'admin';
+// MODERADORES: contas de jogador com poderes de gestão da liga — lançar placar e
+// travar apostas — e acesso à aba ADMIN. NÃO têm as operações destrutivas/de
+// moeda (apagar tudo, migração, ajustar PC/CC), que seguem só pro 'admin'.
+const MOD_NICKS = ['bane', 'vitinho', 'mohamed'];
 // Senha do admin guardada como hash SHA-256 (texto = 'primitivaoseguro').
 // Pra trocar: gera o hash com `echo -n "novasenha" | sha256sum` e cola aqui.
 const ADMIN_PASS_HASH = '969c1c616baed41d32c81907be42da9185cff6193cb6d067c94a32ab933c7ab9';
@@ -117,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260601-mk-oficial2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260601-mods ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2153,6 +2157,9 @@ function App() {
 
   const me = session ? users[session.nick] : null;
   const isAdmin = session && session.nick === ADMIN_NICK;
+  // Moderador: lança placar + trava apostas + vê a aba ADMIN (sem destrutivos).
+  // O admin de verdade é mod também (superconjunto de poderes).
+  const isMod = isAdmin || !!(session && MOD_NICKS.includes(session.nick));
 
   // Login/signup via transação: cadastro atomico contra remote — evita perder
   // user novo se outro write concorrer.
@@ -2817,7 +2824,7 @@ function App() {
             {/* Navegação mobile (some no desktop). Sempre montada pra que as
                 telas globais — perfil/tickets/ranking — sejam alcançáveis de
                 qualquer view, já que a Sidebar fica escondida no mobile. */}
-            <MobileNav view={view} setView={setView} isAdmin={isAdmin} mkInscrito={mkInscrito} />
+            <MobileNav view={view} setView={setView} isAdmin={isAdmin} mkInscrito={mkInscrito} isMod={isMod} />
             <ViewBoundary key={view}>
             {view === 'inicio' && (
               <InicioView
@@ -2871,7 +2878,7 @@ function App() {
                   games={games} gamesById={gamesById} bets={bets} me={me} session={session} users={users}
                   weeklyReady={weeklyReady} weeklyIn={weeklyIn} onClaim={claimWeekly}
                   slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
-                  onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin}
+                  onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin} canLock={isMod}
                   slipPruneMsg={slipPruneMsg}
                   onToggleLock={toggleGameLock}
                   championship={apostasChampId} setChampionship={setChampionship}
@@ -2884,15 +2891,15 @@ function App() {
             {view === 'campeonatos' && (<>
               <ChampHeader value={championship} onChange={setChampionship} interests={interests || {}} bare />
               {active.id === 'mk' ? (
-                // MK OFICIAL: classificação + sorteio (admin) + placar (admin).
-                // Visível a todos; controles de edição são admin-only no componente.
+                // MK OFICIAL: classificação visível a todos. Sorteio = só admin.
+                // Lançar placar = mod (admin + bane/vitinho/mohamed).
                 <MkChampionshipView
                   players={Object.keys(interests?.mk || {})}
                   users={users}
                   teamPlayers={teamPlayers || {}}
                   draw={mkDraw} onPublishDraw={publishMkDraw}
                   scores={mkScores} onScore={setMkScoreField}
-                  isAdmin={isAdmin} locked={mkLocked}
+                  isAdmin={isAdmin} isMod={isMod} locked={mkLocked}
                 />
               ) : showPlaceholder ? (
                 <ChampionshipPlaceholder
@@ -2905,7 +2912,7 @@ function App() {
                   onToggleInterest={() => toggleInterest(active.id)}
                 />
               ) : (
-                <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isAdmin}
+                <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isMod}
                                    users={users} teamPlayers={teamPlayers || {}} />
               )}
             </>)}
@@ -2949,8 +2956,9 @@ function App() {
                 onEquip={equipItem}
               />
             )}
-            {view === 'admin' && isAdmin && (
+            {view === 'admin' && isMod && (
               <AdminView
+                isFullAdmin={isAdmin}
                 bets={bets} users={users} adjustPc={adjustPc} adjustCc={adjustCc}
                 splitCurrency={splitCurrency} ccCtx={ccCtx}
                 teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
@@ -2967,6 +2975,7 @@ function App() {
           setView={setView}
           isAdmin={isAdmin}
           mkInscrito={mkInscrito}
+          isMod={isMod}
         />
       </div>
       {sharedSlip && (
@@ -3238,7 +3247,7 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
 // Itens de navegação — fonte única pra Sidebar (desktop) e MobileNav (mobile).
 // sectionItems = páginas principais (= primary-nav no desktop). globalItems =
 // "meu espaço" (sidebar no desktop). MERCADINHO foi pro topo (sectionItems).
-function getTabItems(isAdmin, mkInscrito) {
+function getTabItems(isAdmin, mkInscrito, isMod) {
   const sectionItems = [
     { id: 'apostas',     label: 'APOSTAS',       icon: 'ticket' },
     { id: 'campeonatos', label: 'CAMPEONATOS',   icon: 'chart' },
@@ -3254,15 +3263,15 @@ function getTabItems(isAdmin, mkInscrito) {
   ];
   // MEU JOGO (MK) — admin e inscritos no MK (campeonato oficial).
   if (isAdmin || mkInscrito) globalItems.push({ id: 'meujogo', label: 'MEU JOGO', icon: 'fist' });
-  if (isAdmin) globalItems.push({ id: 'admin', label: 'ADMIN', icon: 'shield' });
+  if (isMod) globalItems.push({ id: 'admin', label: 'ADMIN', icon: 'shield' });
   return { sectionItems, globalItems };
 }
 
 // Navegação MOBILE: hamburger + drawer com TODAS as páginas (seções + globais).
 // Some no desktop — lá a primary-nav (topo) + Sidebar (direita) cobrem. No mobile
 // a primary-nav fica escondida (CSS), então este é o menu único de navegação.
-function MobileNav({ view, setView, isAdmin, mkInscrito }) {
-  const { sectionItems, globalItems } = getTabItems(isAdmin, mkInscrito);
+function MobileNav({ view, setView, isAdmin, mkInscrito, isMod }) {
+  const { sectionItems, globalItems } = getTabItems(isAdmin, mkInscrito, isMod);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -3337,8 +3346,8 @@ function MobileNav({ view, setView, isAdmin, mkInscrito }) {
 
 // Sidebar VERTICAL à direita no desktop. Renderiza só os itens GLOBAIS.
 // Escondida no mobile (hamburger drawer cobre).
-function Sidebar({ view, setView, isAdmin, mkInscrito }) {
-  const { globalItems } = getTabItems(isAdmin, mkInscrito);
+function Sidebar({ view, setView, isAdmin, mkInscrito, isMod }) {
+  const { globalItems } = getTabItems(isAdmin, mkInscrito, isMod);
   // Cada item da sidebar é uma VIEW própria — clica, navega direto.
   // Highlight visual: view === itemId → barra laranja à esquerda + bg.
   return (
@@ -5038,12 +5047,13 @@ function formatCommentTime(ts) {
 }
 
 function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, weeklyIn, onClaim,
-                        slip, onToggleLeg, onRemoveLeg, onClearSlip, onPlaceBet, isAdmin, slipPruneMsg,
+                        slip, onToggleLeg, onRemoveLeg, onClearSlip, onPlaceBet, isAdmin, canLock, slipPruneMsg,
                         onToggleLock, championship, setChampionship, interests }) {
-  // Admin vê todos os jogos abertos (inclusive travados, pra poder destravar);
-  // user comum só vê os destravados.
+  // Quem trava (admin/mod) vê todos os jogos abertos (inclusive travados, pra
+  // poder destravar); jogador comum só vê os destravados. (Jogo travado não é
+  // apostável por ninguém — vide GameRow.)
   const open = (games || [])
-    .filter(g => isAdmin || !g.locked)
+    .filter(g => canLock || !g.locked)
     .slice()
     .sort((a, b) => a.round - b.round || a.gi - b.gi);
 
@@ -5114,7 +5124,7 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
                   <span style={{ color: 'var(--pv-orange)' }}><strong>{myPicksInSlip}</strong> palpite{myPicksInSlip === 1 ? '' : 's'} no cupom</span>
                 </>
               )}
-              {isAdmin && lockedCount > 0 && (
+              {canLock && lockedCount > 0 && (
                 <>
                   <span>·</span>
                   <span style={{ color: '#ff8a8a', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="lock" size={12} /> <strong>{lockedCount}</strong> travado{lockedCount === 1 ? '' : 's'}</span>
@@ -5201,7 +5211,7 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
                   <div className="card-body">
                     {byRound[rn].map(g => (
                       <GameRow key={g.id} game={g} slip={slip} onToggleLeg={onToggleLeg} canBet={!isAdmin}
-                               isAdmin={isAdmin} onToggleLock={() => onToggleLock(g.ri, g.gi)} />
+                               canLock={canLock} onToggleLock={() => onToggleLock(g.ri, g.gi)} />
                     ))}
                   </div>
                 )}
@@ -5240,7 +5250,7 @@ function OddBtn({ lab, val, selected, disabled, onClick }) {
   );
 }
 
-function GameRow({ game, slip, onToggleLeg, canBet, isAdmin, onToggleLock }) {
+function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock }) {
   const h = TEAM(game.home), a = TEAM(game.away);
   const sel = (market, pick) => slip.some(s => s.fixtureId === game.id && s.market === market && s.pick === pick);
   const isLocked = !!game.locked;
@@ -5299,7 +5309,7 @@ function GameRow({ game, slip, onToggleLeg, canBet, isAdmin, onToggleLock }) {
         </div>
       </button>
 
-      {isAdmin && onToggleLock && (
+      {canLock && onToggleLock && (
         <div style={{ marginTop: 8, textAlign: 'right' }}>
           <button
             type="button"
@@ -6333,7 +6343,7 @@ function MkCurtainOpening({ onDone }) {
 
 const MK_CURTAIN_KEY = 'mk_curtain_seen';
 
-function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, scores, onScore, isAdmin, locked }) {
+function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, scores, onScore, isAdmin, isMod, locked }) {
   // draw/scores vêm do App (persistidos no doc de apostas, campo `mk`).
   const [viewRound, setViewRound] = useState(0);
   const [curtain, setCurtain] = useState(() => {
@@ -6374,9 +6384,9 @@ function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, 
           <div className="sub">{insc.length} INSCRITOS · TOP 8 VAI PRO MATA-MATA</div>
         </div>
         <div className="card-body">
-          {isAdmin ? (
+          {isMod ? (
             <div className="mk-admin-row">
-              <div className="mk-admin-note"><Icon name="shield" size={12} /> ADMIN — sorteie o chaveamento e lance os placares. {locked ? 'Inscrições fechadas.' : 'Sortear FECHA as inscrições.'}</div>
+              <div className="mk-admin-note"><Icon name="shield" size={12} /> {isAdmin ? 'ADMIN — sorteie o chaveamento e lance os placares.' : 'MODERADOR — lance os placares dos confrontos.'} {locked ? 'Inscrições fechadas.' : (isAdmin ? 'Sortear FECHA as inscrições.' : '')}</div>
               <div className="mk-admin-actions">
                 <button type="button" className="mk-replay" onClick={replayCurtain}><Icon name="refresh" size={12} /> REVER ABERTURA</button>
               </div>
@@ -6483,15 +6493,15 @@ function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, 
                         <div className="mk-fx-score mk-fx-score2">
                           <div className="mk-fx-partida">
                             <span className="mk-fx-pl">P1</span>
-                            <input className="cscore-in" value={sc.p1h || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isAdmin} onChange={e => setScore(k, 'p1h', e.target.value)} />
+                            <input className="cscore-in" value={sc.p1h || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isMod} onChange={e => setScore(k, 'p1h', e.target.value)} />
                             <span className="mk-fx-x">×</span>
-                            <input className="cscore-in" value={sc.p1a || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isAdmin} onChange={e => setScore(k, 'p1a', e.target.value)} />
+                            <input className="cscore-in" value={sc.p1a || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isMod} onChange={e => setScore(k, 'p1a', e.target.value)} />
                           </div>
                           <div className="mk-fx-partida">
                             <span className="mk-fx-pl">P2</span>
-                            <input className="cscore-in" value={sc.p2h || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isAdmin} onChange={e => setScore(k, 'p2h', e.target.value)} />
+                            <input className="cscore-in" value={sc.p2h || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isMod} onChange={e => setScore(k, 'p2h', e.target.value)} />
                             <span className="mk-fx-x">×</span>
-                            <input className="cscore-in" value={sc.p2a || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isAdmin} onChange={e => setScore(k, 'p2a', e.target.value)} />
+                            <input className="cscore-in" value={sc.p2a || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isMod} onChange={e => setScore(k, 'p2a', e.target.value)} />
                           </div>
                         </div>
                         <div className="mk-fx-side away">
@@ -6502,7 +6512,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, 
                           </div>
                         </div>
                       </div>
-                      {isAdmin && (
+                      {isMod && (
                         <div className="mk-fx-finish">
                           <span className="mk-fx-finish-l"><Icon name="skull" size={10} /> FINALIZAÇÕES <span className="mk-fx-finish-adm">só admin</span></span>
                           <span className="mk-fx-finish-pl">P1</span>
@@ -9258,7 +9268,7 @@ function CatalogoAdminPanel({ cs, teamPlayers }) {
   );
 }
 
-function AdminView({ bets, users, adjustPc, adjustCc, splitCurrency, ccCtx, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, weeklyReady, worldcup, wcFixtures }) {
+function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, splitCurrency, ccCtx, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, weeklyReady, worldcup, wcFixtures }) {
   const [splitting, setSplitting] = useState(false);
   const handleSplit = async () => {
     if (splitting) return;
@@ -9272,28 +9282,31 @@ function AdminView({ bets, users, adjustPc, adjustCc, splitCurrency, ccCtx, team
   };
   // Tabs do admin: USUÁRIOS / TIMES / NEWS / JORNALISTA / DISCORD / BACKUP / PERIGO.
   // PERIGO ficou em aba separada pra não ser clicado por engano.
-  const [tab, setTab] = useState('usuarios');
+  const [tab, setTab] = useState(isFullAdmin ? 'usuarios' : 'jornalista');
   const playerTeam = reverseTeamMap(teamPlayers);
 
   return (
     <>
+      {!isFullAdmin && (
+        <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="shield" size={12} /> Você é MODERADOR — lança placar e trava aposta. Operações de moeda e perigo ficam só com o admin.</div>
+      )}
       <div className="tabs" style={{ marginBottom: 14 }}>
-        <button className={'tab ' + (tab === 'usuarios' ? 'active' : '')} onClick={() => setTab('usuarios')}>USUÁRIOS</button>
+        {isFullAdmin && <button className={'tab ' + (tab === 'usuarios' ? 'active' : '')} onClick={() => setTab('usuarios')}>USUÁRIOS</button>}
         <button className={'tab ' + (tab === 'times' ? 'active' : '')} onClick={() => setTab('times')}>TIMES</button>
         <button className={'tab ' + (tab === 'news' ? 'active' : '')} onClick={() => setTab('news')}>NEWS</button>
         <button className={'tab ' + (tab === 'jornalista' ? 'active' : '')} onClick={() => setTab('jornalista')}>JORNALISTA</button>
-        <button className={'tab ' + (tab === 'catalogo' ? 'active' : '')} onClick={() => setTab('catalogo')}>CATÁLOGO</button>
-        <button className={'tab ' + (tab === 'discord' ? 'active' : '')} onClick={() => setTab('discord')}>DISCORD</button>
+        {isFullAdmin && <button className={'tab ' + (tab === 'catalogo' ? 'active' : '')} onClick={() => setTab('catalogo')}>CATÁLOGO</button>}
+        {isFullAdmin && <button className={'tab ' + (tab === 'discord' ? 'active' : '')} onClick={() => setTab('discord')}>DISCORD</button>}
         <button className={'tab ' + (tab === 'backup' ? 'active' : '')} onClick={() => setTab('backup')}>BACKUP</button>
-        <button className={'tab ' + (tab === 'perigo' ? 'active' : '')} onClick={() => setTab('perigo')} style={{ color: tab === 'perigo' ? '#c33' : 'rgba(195,51,51,0.6)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="warning" size={12} /> PERIGO</button>
+        {isFullAdmin && <button className={'tab ' + (tab === 'perigo' ? 'active' : '')} onClick={() => setTab('perigo')} style={{ color: tab === 'perigo' ? '#c33' : 'rgba(195,51,51,0.6)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="warning" size={12} /> PERIGO</button>}
       </div>
 
       {tab === 'news' && <NewsAdminPanel remoteNews={remoteNews} />}
       {tab === 'jornalista' && <JournalistAdminPanel cs={cs} bets={bets} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} />}
-      {tab === 'catalogo' && <CatalogoAdminPanel cs={cs} teamPlayers={teamPlayers} />}
-      {tab === 'discord' && <DiscordAdminPanel webhook={discordWebhook} />}
+      {tab === 'catalogo' && isFullAdmin && <CatalogoAdminPanel cs={cs} teamPlayers={teamPlayers} />}
+      {tab === 'discord' && isFullAdmin && <DiscordAdminPanel webhook={discordWebhook} />}
 
-      {tab === 'usuarios' && (
+      {tab === 'usuarios' && isFullAdmin && (
         <div className="card">
           <div className="card-head"><div className="title">USUÁRIOS</div><div className="sub">{Object.keys(users).length} CADASTRADOS</div></div>
           <div className="card-body">
@@ -9384,7 +9397,7 @@ function AdminView({ bets, users, adjustPc, adjustCc, splitCurrency, ccCtx, team
         </>
       )}
 
-      {tab === 'perigo' && (
+      {tab === 'perigo' && isFullAdmin && (
         <DangerZone />
       )}
     </>
