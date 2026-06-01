@@ -3213,6 +3213,19 @@
     .tr-eds { margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(28,22,18,0.18); display: flex; flex-direction: column; gap: 3px; }
     .tr-ed { font-size: 10.5px; font-weight: 700; color: rgba(28,22,18,0.72); line-height: 1.25; }
 
+    /* REI DAS APOSTAS — troféu único do vencedor do ranking (banner separado) */
+    .tr-betking { display: flex; align-items: center; gap: 14px; padding: 13px 16px; border-radius: 12px; margin-bottom: 14px;
+      background: linear-gradient(120deg, #fff7db 0%, #ffe9a6 46%, #f3cd64 100%);
+      border: 2px solid #d4af37; box-shadow: 0 4px 16px rgba(212,175,55,0.32); position: relative; }
+    .tr-betking-art { flex-shrink: 0; color: #b8901f; display: flex; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.18)); animation: trFloat 3.2s ease-in-out infinite; }
+    .tr-betking-txt { flex: 1; min-width: 0; }
+    .tr-betking-label { font-family: 'Bagel Fat One', Impact; font-size: 17px; letter-spacing: 0.03em; color: #7a5a10; line-height: 1.05; }
+    .tr-betking-sub { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; color: rgba(122,90,16,0.82); margin-top: 4px; text-transform: uppercase; }
+    .tr-betking-badge { flex-shrink: 0; font-family: 'Bagel Fat One', Impact; font-size: 22px; color: #fff;
+      background: linear-gradient(180deg, #e8a33d, #c98a1a); width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 6px rgba(0,0,0,0.22); }
+    @media (prefers-reduced-motion: reduce) { .tr-betking-art { animation: none; } }
+
     /* painel de apostas do MK — mercados + odds automáticas */
     .mk-betting .card-head .title svg { color: var(--pv-orange); }
     .mk-bet-nav { max-width: 320px; margin: 0 auto 16px; }

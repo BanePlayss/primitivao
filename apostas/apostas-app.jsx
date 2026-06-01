@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-finish ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-betking ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3643,6 +3643,21 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
           <rect x="9" y="19" width="6" height="1.7" rx="0.5" />
         </svg>
       );
+    case 'tr-betking': // coroa — REI DAS APOSTAS (vencedor do ranking, troféu único)
+      return (
+        <svg {...common} fill="currentColor" stroke="none">
+          <path d="M4.3 16L5.6 8.2L9 11.6L12 5.6L15 11.6L18.4 8.2L19.7 16Z" />
+          <rect x="4.6" y="15.4" width="14.8" height="3.6" rx="1.1" />
+          <rect x="4.6" y="15.4" width="14.8" height="1" fill="#fff" opacity="0.28" />
+          <rect x="4.6" y="18.4" width="14.8" height="0.6" fill="#000" opacity="0.16" />
+          <circle cx="5.6" cy="8.2" r="1.3" />
+          <circle cx="12" cy="5.6" r="1.5" />
+          <circle cx="18.4" cy="8.2" r="1.3" />
+          <circle cx="12" cy="17.2" r="1.35" fill="#fff" opacity="0.55" />
+          <circle cx="8.5" cy="17.2" r="0.85" fill="#fff" opacity="0.35" />
+          <circle cx="15.5" cy="17.2" r="0.85" fill="#fff" opacity="0.35" />
+        </svg>
+      );
     case 'crown': // coroa — campeão / rei
       return (
         <svg {...common}>
@@ -6672,6 +6687,15 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
     return out;
   })() : [];
   const showTrophies = myTrophies.length ? myTrophies : previewTrophies;
+  // REI DAS APOSTAS — vencedor do ranking de apostas (#1 por PC). Troféu ÚNICO,
+  // mostrado SEPARADO dos troféus de edição. Admin vê na prévia.
+  const betRanked = Object.entries(users || {})
+    .filter(([n, u]) => n !== 'admin' && u && typeof u.pc === 'number')
+    .sort((a, b) => b[1].pc - a[1].pc);
+  const betKingNick = betRanked.length ? betRanked[0][0] : null;
+  const realBetKing = !isAdmin && betKingNick === nick;
+  const showBetKing = realBetKing || (isAdmin && myTrophies.length === 0);
+  const betKingPc = realBetKing ? (me?.pc ?? null) : (betKingNick ? users[betKingNick].pc : null);
 
   return (
     <div>
@@ -6785,11 +6809,24 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
           {previewTrophies.length > 0 && (
             <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="lock" size={11} /> Prévia (admin): todos os troféus pra você conferir o visual. Cada jogador vê só os que conquistou.</div>
           )}
-          {showTrophies.length === 0 ? (
-            <div className="empty">
-              <div className="e1">VITRINE VAZIA</div>
-              <div className="e2">Você ainda não conquistou nenhum campeonato encerrado.</div>
+          {/* REI DAS APOSTAS — troféu ÚNICO, sempre separado dos de edição */}
+          {showBetKing && (
+            <div className="tr-betking">
+              <div className="tr-betking-art"><Icon name="tr-betking" size={42} /></div>
+              <div className="tr-betking-txt">
+                <div className="tr-betking-label">REI DAS APOSTAS</div>
+                <div className="tr-betking-sub">Nº 1 do ranking de apostas{betKingPc != null ? ` · ${betKingPc} PC` : ''}</div>
+              </div>
+              <div className="tr-betking-badge">1</div>
             </div>
+          )}
+          {showTrophies.length === 0 ? (
+            !showBetKing && (
+              <div className="empty">
+                <div className="e1">VITRINE VAZIA</div>
+                <div className="e2">Você ainda não conquistou nenhum campeonato encerrado.</div>
+              </div>
+            )
           ) : (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
               {['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'].map(kind => {
