@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-vitrine-anim ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-vitrine-demo2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6458,10 +6458,20 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
   const totalReturn = wonBets.reduce((s, b) => s + (b.payout || 0), 0);
 
   const myTrophies = trophiesForNick(nick, cs, teamPlayers);
-  // Admin não tem time -> vitrine vazia. Mostra uma PRÉVIA dos 5 troféus pra conferir o visual.
-  const previewTrophies = (isAdmin && myTrophies.length === 0)
-    ? ['champion', 'vice', 'participou', 'penultimo', 'lanterna'].map(kind => ({ champId: (CHAMPIONSHIPS[0] || {}).id, kind }))
-    : [];
+  // Admin não tem time -> vitrine vazia. DEMO: como se tivesse jogado todas as
+  // S1 + algumas S2 e S3, com tipos variados (só pra ver a vitrine cheia).
+  const previewTrophies = (isAdmin && myTrophies.length === 0) ? (() => {
+    const kinds = ['champion', 'vice', 'participou', 'penultimo', 'lanterna'];
+    const out = CHAMPIONSHIPS.map((c, i) => ({ champId: c.id, kind: kinds[i % kinds.length] }));
+    [
+      { tag: 'FIFA', season: 'Season 2', kind: 'champion' },
+      { tag: 'MK', season: 'Season 2', kind: 'vice' },
+      { tag: 'RL', season: 'Season 2', kind: 'participou' },
+      { tag: 'FIFA', season: 'Season 3', kind: 'champion' },
+      { tag: 'MK', season: 'Season 3', kind: 'lanterna' },
+    ].forEach((e, i) => out.push({ champId: '_demo' + i, kind: e.kind, _tag: e.tag, _season: e.season }));
+    return out;
+  })() : [];
   const showTrophies = myTrophies.length ? myTrophies : previewTrophies;
 
   return (
@@ -6862,6 +6872,8 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
 
 function TrophyItem({ trophy }) {
   const c = CHAMP_BY_ID[trophy.champId];
+  const tag = trophy._tag || c?.tag;       // _tag/_season: troféus de demo (S2/S3)
+  const season = trophy._season || c?.season;
   const meta = {
     champion:   { icon: 'tr-champion',  label: 'CAMPEÃO',    color: '#d4af37', bg: '#fbf3d3' },
     vice:       { icon: 'tr-vice',      label: 'VICE',       color: '#8a8a8a', bg: '#ededed' },
@@ -6883,7 +6895,7 @@ function TrophyItem({ trophy }) {
         {meta.label}
       </div>
       <div style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: 'rgba(28,22,18,0.75)' }}>
-        {c?.tag} · {c?.season}
+        {tag} · {season}
       </div>
     </div>
   );
