@@ -986,9 +986,10 @@
       border-color: var(--pv-orange);
     }
 
-    .apostar-aside { /* coluna lateral DENTRO da .grid */ }
-    /* O FAB "VER CUPOM" rola até aqui; offset pro topo não sumir sob a topbar fixa. */
-    #cupom-anchor { scroll-margin-top: 90px; }
+    .apostar-aside { /* coluna lateral DENTRO da .grid (desktop) */ }
+    /* Handle e backdrop só existem no modo bottom-sheet (mobile, ver ≤880px). */
+    .cupom-sheet-handle { display: none; }
+    .cupom-sheet-backdrop { display: none; }
 
     /* FEEDBACK DE TOQUE: no celular não há hover, então damos resposta tátil no
        :active (afunda/escurece de leve). Inofensivo no mouse. */
@@ -1005,6 +1006,52 @@
     }
     @media (max-width: 880px) {
       .cupom-sticky { position: static; }
+
+      /* ──── CUPOM = BOTTOM-SHEET ────
+         No mobile o cupom não vive mais no fim da página: vira uma gaveta que
+         sobe por cima do conteúdo quando o usuário toca no FAB "VER CUPOM". */
+      .apostar-aside {
+        position: fixed; left: 0; right: 0; bottom: 0;
+        z-index: 95;
+        max-height: 85vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        background: var(--pv-bone);
+        border-top: 4px solid var(--pv-orange);
+        box-shadow: 0 -10px 30px rgba(0,0,0,0.35);
+        transform: translateY(110%);
+        transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+        padding: 0 12px max(14px, env(safe-area-inset-bottom));
+      }
+      .apostar-aside.cupom-open { transform: translateY(0); }
+
+      /* Handle fixo no topo do sheet (puxador + fechar) */
+      .cupom-sheet-handle {
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        position: sticky; top: 0; z-index: 2;
+        width: calc(100% + 24px); margin: 0 -12px 12px;
+        padding: 16px 12px 12px;
+        background: var(--pv-charcoal); color: var(--pv-bone);
+        border: none; cursor: pointer;
+        font-family: inherit; font-weight: 800;
+        font-size: 11px; letter-spacing: 0.22em;
+      }
+      .cupom-sheet-handle .cupom-sheet-grip {
+        position: absolute; top: 7px; left: 50%; transform: translateX(-50%);
+        width: 42px; height: 4px; border-radius: 99px;
+        background: rgba(244,234,215,0.45);
+      }
+      .cupom-sheet-handle-label { color: var(--pv-orange); }
+
+      /* Backdrop escurece o fundo; toque fecha */
+      .cupom-sheet-backdrop {
+        display: block;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.45);
+        z-index: 90; border: none; cursor: pointer;
+        animation: pv-fade 0.2s ease;
+      }
     }
 
     /* FAB mobile do cupom */

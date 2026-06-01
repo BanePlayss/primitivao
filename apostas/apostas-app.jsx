@@ -5082,6 +5082,10 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
   // FILTRO: 'all' | 'mine' | 'rN'
   const [filter, setFilter] = useState('all');
 
+  // No mobile o cupom vira um bottom-sheet que sobe por cima do conteúdo
+  // (em vez de morar lá no fim da página). O FAB abre; handle/backdrop fecham.
+  const [cupomOpen, setCupomOpen] = useState(false);
+
   // ROUND EXPANSION: por padrão SÓ a próxima rodada (firstRound) começa
   // expandida. Estado guarda override explícito (true/false) pra cada rodada.
   const [explicitExp, setExplicitExp] = useState({});
@@ -5112,11 +5116,13 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
   const myPicksInSlip = slip.length;
   const myGamesCount = open.filter(g => slip.some(s => s.fixtureId === g.id)).length;
 
-  // FAB scroll-to-cupom no mobile
-  const scrollToCupom = () => {
-    const el = document.getElementById('cupom-anchor');
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  // Fecha o sheet com ESC (acessibilidade) quando aberto.
+  useEffect(() => {
+    if (!cupomOpen) return;
+    const onEsc = (e) => { if (e.key === 'Escape') setCupomOpen(false); };
+    document.addEventListener('keydown', onEsc);
+    return () => document.removeEventListener('keydown', onEsc);
+  }, [cupomOpen]);
 
   return (
     <div className="grid">
@@ -5239,18 +5245,30 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
         )}
       </div>
 
-      <aside className="apostar-aside" id="cupom-anchor">
+      <aside className={'apostar-aside' + (cupomOpen ? ' cupom-open' : '')} id="cupom-anchor">
         {!isAdmin && (
           <div className="cupom-sticky">
+            {/* Handle aparece só no modo bottom-sheet (mobile) — fecha o cupom. */}
+            <button type="button" className="cupom-sheet-handle" onClick={() => setCupomOpen(false)}>
+              <span className="cupom-sheet-grip" aria-hidden="true" />
+              <span className="cupom-sheet-handle-label">FECHAR CUPOM</span>
+              <Icon name="caret-down" size={14} />
+            </button>
             <Cupom slip={slip} gamesById={gamesById} balance={me ? me.pc : 0} pruneMsg={slipPruneMsg}
                    onRemoveLeg={onRemoveLeg} onClearSlip={onClearSlip} onPlaceBet={onPlaceBet} />
           </div>
         )}
       </aside>
 
-      {/* FAB mobile: aparece quando há pernas no slip, scrolla pro cupom */}
-      {!isAdmin && slip.length > 0 && (
-        <button className="cupom-fab" onClick={scrollToCupom} type="button">
+      {/* Backdrop do bottom-sheet (mobile): toca fora pra fechar. */}
+      {!isAdmin && cupomOpen && (
+        <button className="cupom-sheet-backdrop" type="button" aria-label="Fechar cupom"
+                onClick={() => setCupomOpen(false)} />
+      )}
+
+      {/* FAB mobile: aparece quando há pernas no slip; abre o bottom-sheet do cupom. */}
+      {!isAdmin && slip.length > 0 && !cupomOpen && (
+        <button className="cupom-fab" onClick={() => setCupomOpen(true)} type="button">
           <Icon name="ticket" size={18} /> <span className="cupom-fab-num">{slip.length}</span>
           <span className="cupom-fab-label">VER CUPOM</span>
         </button>
