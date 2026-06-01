@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-nocontra ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-cupomfifa ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2719,6 +2719,7 @@ function App() {
                     onPlaceBet={placeMkBet}
                     onRemoveBet={removeMkBet}
                     myNick={session.nick}
+                    balance={isAdmin ? Infinity : (me?.pc ?? 0)}
                   />
                 </>
               ) : (
@@ -6097,7 +6098,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
 // compartilhados (App). Cupom = palpites da MESMA rodada (2+ = casada). Só dá
 // pra apostar na rodada ABERTA (a anterior tem que ter fechado).
 function mkLegLabel(l) { return mkPickLabel(l.market, l.pick); }
-function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlaceBet, onRemoveBet, myNick }) {
+function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlaceBet, onRemoveBet, myNick, balance }) {
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
@@ -6106,7 +6107,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
   const bettableIdx = draw ? draw.findIndex((r, ri) => !roundConcluded(ri) && (ri === 0 || roundConcluded(ri - 1))) : -1;
   const [betRound, setBetRound] = useState(0);
   const [cupom, setCupom] = useState([]);
-  const [stake, setStake] = useState(50);
+  const [stake, setStake] = useState(10);
   useEffect(() => { if (bettableIdx >= 0) { setBetRound(bettableIdx); setCupom([]); } }, [bettableIdx]);
 
   const oddsMatches = draw ? draw.flatMap((r, ri) => roundConcluded(ri)
@@ -6120,6 +6121,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
   const pickInCupom = (gi, market, pick) => cupom.some(l => l.key === legKey(gi, market) && l.pick === pick);
   const toggleLeg = (gi, g, market, pick, odd) => {
     if (!isOpen) return;
+    if (myNick && (g.home === myNick || g.away === myNick)) { showToast('Você não pode apostar no próprio jogo.', 'error'); return; }
     const key = legKey(gi, market);
     const ex = cupom.find(l => l.key === key);
     if (ex && ex.pick === pick) { setCupom(prev => prev.filter(l => l.key !== key)); return; } // desmarca
@@ -6133,7 +6135,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
     }
     setCupom(prev => [...prev.filter(l => l.key !== key), newLeg]);
   };
-  const combined = cupom.reduce((p, l) => p * l.odd, 1);
+  const combined = cupom.reduce((p, l) => p + l.odd, 0); // SOMA, igual à FIFA
   const isCasada = cupom.length >= 2;
   const place = () => {
     if (!isOpen || !cupom.length || !(stake > 0)) return;
@@ -6185,24 +6187,28 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
                 <div className="mk-bet-games">
                   {rd.games.map((g, gi) => {
                     const odds = computeMkGameOdds(g.home, g.away, metrics);
+                    const ownGame = !!myNick && (g.home === myNick || g.away === myNick);
+                    const locked = !isOpen || ownGame;
+                    const scoreMkt = (m) => m === 'RESULT' || m === 'P1' || m === 'P2';
                     return (
-                      <div key={gi} className="mk-bet-game">
+                      <div key={gi} className={'mk-bet-game' + (ownGame ? ' own' : '')}>
                         <div className="mk-bet-match">
                           <span className="mk-bm-side"><span className="mk-bm-nick mand">@{g.home}</span><span className="mk-bm-role mand">MANDANTE</span></span>
                           <span className="mk-bm-vs">×</span>
                           <span className="mk-bm-side right"><span className="mk-bm-nick">@{g.away}</span><span className="mk-bm-role">VISITANTE</span></span>
                         </div>
+                        {ownGame && <div className="mk-bet-own"><Icon name="lock" size={10} /> VOCÊ JOGA ESSE — não pode apostar</div>}
                         {MK_MARKETS.map(mkt => (
                           <div key={mkt} className="mk-bet-mkt">
-                            <div className="mk-bet-mkt-h">{MK_MARKET_TITLE[mkt]}{mkt === 'PLACAR' && <span className="mk-bet-mkt-hint"> · mandante × visitante</span>}</div>
+                            <div className="mk-bet-mkt-h">{MK_MARKET_TITLE[mkt]}</div>
                             <div className="mk-bet-picks">
                               {mkMarketPicks(mkt, odds).map(pick => {
                                 const on = pickInCupom(gi, mkt, pick);
                                 return (
-                                  <button key={pick} type="button" className={'mk-odd' + (on ? ' on' : '') + (isOpen ? '' : ' off')}
-                                    onClick={() => toggleLeg(gi, g, mkt, pick, odds[mkt][pick])} disabled={!isOpen}>
+                                  <button key={pick} type="button" className={'mk-odd' + (on ? ' on' : '') + (locked ? ' off' : '')}
+                                    onClick={() => toggleLeg(gi, g, mkt, pick, odds[mkt][pick])} disabled={locked}>
                                     <span className="mk-odd-l">
-                                      {mkt === 'PLACAR'
+                                      {scoreMkt(mkt)
                                         ? <span className="mk-odd-pl"><span className="mk-sc-h">{pick[0]}</span><span className="mk-sc-x">×</span><span className="mk-sc-a">{pick[1]}</span></span>
                                         : mkPickLabel(mkt, pick)}
                                     </span>
@@ -6219,33 +6225,71 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
                 </div>
               </div>
 
-              <aside className="mk-cupom">
-                <div className="mk-cupom-h"><Icon name="ticket" size={13} /> CUPOM {isCasada && <span className="mk-cupom-tag">CASADA ×{cupom.length}</span>}</div>
-                {cupom.length === 0 ? (
-                  <div className="mk-cupom-empty">Clica nas odds da rodada aberta pra montar o bilhete. <strong>2+ palpites da mesma rodada</strong> = casada (odds multiplicam).</div>
-                ) : (
-                  <>
-                    <div className="mk-cupom-legs">
+              <aside className="mk-cupom-wrap">
+                <div className="card cupom">
+                  <div className="card-head">
+                    <div className="title">CUPOM {isCasada ? '· CASADA' : ''}</div>
+                    <div className="sub">{cupom.length} {cupom.length === 1 ? 'PALPITE' : 'PALPITES'}</div>
+                  </div>
+                  <div className="card-body">
+                    {cupom.length === 0 ? (
+                      <div className="empty">
+                        <div className="e1">VAZIO</div>
+                        <div className="e2">Clica nas odds da rodada aberta pra montar. Vários palpites do mesmo jogo (ou jogos diferentes da rodada) = aposta casada.</div>
+                      </div>
+                    ) : (<>
                       {cupom.map(l => (
-                        <div key={l.key} className="mk-cupom-leg">
-                          <div className="mk-cl-txt">
-                            <div className="mk-cl-mkt">{MK_MARKET_TITLE[l.market]} · <strong>{mkLegLabel(l)}</strong></div>
-                            <div className="mk-cl-game">@{l.home} × @{l.away}</div>
+                        <div key={l.key} className="cupom-leg">
+                          <div className="cupom-leg-txt">
+                            <div className="cupom-leg-mkt">{MK_MARKET_TITLE[l.market]}</div>
+                            <div className="cupom-leg-pick">@{l.home}×@{l.away} - <strong>{mkLegLabel(l)}</strong></div>
                           </div>
-                          <div className="mk-cl-odd">{l.odd.toFixed(2)}</div>
-                          <button className="mk-cl-x" onClick={() => setCupom(p => p.filter(x => x.key !== l.key))} aria-label="Remover"><Icon name="x" size={11} /></button>
+                          <div className="cupom-leg-odd mono">{l.odd.toFixed(2)}</div>
+                          <button className="cupom-leg-x" onClick={() => setCupom(p => p.filter(x => x.key !== l.key))}><Icon name="x" size={12} /></button>
                         </div>
                       ))}
-                    </div>
-                    <div className="mk-cupom-foot">
-                      <div className="mk-cupom-line"><span>Odds {isCasada ? 'casada' : ''}</span><strong className="mk-cupom-odd">{combined.toFixed(2)}×</strong></div>
-                      <label className="mk-cupom-stake"><span>Aposta (PC)</span><input className="cscore-in" value={stake} inputMode="numeric" onChange={e => setStake(Math.max(0, parseInt(e.target.value.replace(/\D/g, ''), 10) || 0))} /></label>
-                      <div className="mk-cupom-line"><span>Retorno</span><strong className="mk-cupom-ret">{Math.round(stake * combined)} PC</strong></div>
-                      <button className="tp-btn-go" onClick={place} disabled={!isOpen || !cupom.length || !(stake > 0)} style={{ width: '100%' }}><Icon name="coin" size={14} /> FAZER APOSTA</button>
+                      <div className="modal-row" style={{ marginTop: 10 }}>
+                        <span className="lab">ODDS TOTAL</span>
+                        <span className="mono" style={{ color: 'var(--pv-orange)', fontWeight: 800 }}>{combined.toFixed(2)}x</span>
+                      </div>
+                      <div className="modal-row"><span className="lab">SALDO</span><span className="mono">{Number.isFinite(balance) ? balance + ' PC' : '∞'}</span></div>
+
+                      <div style={{ marginTop: 10 }} className="small-label">QUANTO APOSTAR (PC)</div>
+                      <input type="number" min="1" value={stake} className="stake-input"
+                        onChange={e => setStake(Math.max(0, Math.min(Number.isFinite(balance) ? balance : 1e9, +e.target.value || 0)))} />
+                      <div className="quick">
+                        <button onClick={() => setStake(5)}>5</button>
+                        <button onClick={() => setStake(10)}>10</button>
+                        <button onClick={() => setStake(25)}>25</button>
+                        <button onClick={() => setStake(Number.isFinite(balance) ? balance : 1000)}>MAX</button>
+                      </div>
+
+                      <div className="payout-box">
+                        <div className="nm">RETORNO POTENCIAL</div>
+                        <div className="v">{Math.round(stake * combined)} <span style={{ fontSize: 12, letterSpacing: '0.3em', fontFamily: 'Space Grotesk' }}>PC</span></div>
+                        <div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, color: 'var(--pv-orange)', marginTop: 4 }}>LUCRO LÍQUIDO: +{Math.round(stake * combined) - stake} PC</div>
+                      </div>
+
+                      {isCasada && (
+                        <div style={{ fontSize: 10, letterSpacing: '0.12em', color: 'rgba(28,22,18,0.6)', fontWeight: 700, marginTop: 10, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                          <Icon name="warning" size={12} /> <span>APOSTA CASADA: precisa acertar TODOS os {cupom.length} palpites pra ganhar.</span>
+                        </div>
+                      )}
                       {!isOpen && <div className="mk-cupom-warn">Vá pra rodada aberta pra apostar.</div>}
-                    </div>
-                  </>
-                )}
+
+                      <div className="modal-btns">
+                        <button className="btn-secondary" onClick={() => setCupom([])}>LIMPAR</button>
+                        <button className="btn-primary" disabled={!isOpen || !cupom.length || !(stake > 0)} onClick={place}>APOSTAR {stake} PC</button>
+                      </div>
+                      <button type="button" className="cupom-share" onClick={() => {
+                        const txt = 'Cupom MK: ' + cupom.map(l => MK_MARKET_TITLE[l.market] + ' ' + mkLegLabel(l) + ' @' + l.odd.toFixed(2)).join(' + ') + ' = ' + combined.toFixed(2) + 'x';
+                        try { navigator.clipboard.writeText(txt); showToast('Cupom copiado!', 'success'); } catch (e) { showToast('Falha ao copiar.', 'error'); }
+                      }}>
+                        <Icon name="arrow-up-right" size={13} /> COMPARTILHAR CUPOM
+                      </button>
+                    </>)}
+                  </div>
+                </div>
               </aside>
             </div>
 
