@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-cupom-sticky ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-2partidas ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -422,25 +422,35 @@ function generateMkDraw(playersIn) {
   return [...ida, ...volta];
 }
 
-// Cada confronto do MK = 6 rounds no total (ex: 6x0, 5x1, 4x2, 3x3). O "saldo de
-// rounds" é o equivalente ao saldo de gols da FIFA.
-const MK_ROUNDS_PER_MATCH = 6;
+// ─── MODELO DO MK — confronto = 2 PARTIDAS, cada uma PRIMEIRO A 3 ROUNDS.
+// Resultado em partidas: 2×0 (vitória) / 1×1 (empate) / 0×2 (derrota).
+// sc = { p1h, p1a, p2h, p2a } (rounds de cada lado nas 2 partidas).
+function mkMatchOutcome(sc) {
+  if (!sc) return null;
+  const v = ['p1h', 'p1a', 'p2h', 'p2a'].map(k => parseInt(sc[k], 10));
+  if (v.some(x => Number.isNaN(x))) return null;
+  const [p1h, p1a, p2h, p2a] = v;
+  const confH = (p1h > p1a ? 1 : 0) + (p2h > p2a ? 1 : 0);
+  const confA = 2 - confH;
+  const roundsH = p1h + p2h, roundsA = p1a + p2a;
+  return { p1h, p1a, p2h, p2a, confH, confA, roundsH, roundsA, total: roundsH + roundsA,
+    winner: confH > confA ? 'H' : confH < confA ? 'A' : 'D' }; // D = empate (1×1)
+}
 
-// Classificação do MK — mesmo espírito de computeStandings (FIFA): vitória 3,
-// empate 1, derrota 0; desempate por pontos -> saldo de rounds -> vitórias ->
-// rounds pró -> nome. `matches`: [{home, away, rh, ra}] (rounds de cada lado).
+// Classificação — vitória 3, empate (1×1) 1, derrota 0. Desempate: pontos ->
+// saldo de rounds -> vitórias -> rounds pró -> nome. matches: [{home, away, sc}].
 function computeMkStandings(players, matches) {
   const rec = {};
   (players || []).forEach(p => { rec[p] = { id: p, nick: p, j: 0, v: 0, e: 0, d: 0, rp: 0, rc: 0, p: 0 }; });
   (matches || []).forEach(m => {
-    const rh = parseInt(m.rh, 10), ra = parseInt(m.ra, 10);
-    if (Number.isNaN(rh) || Number.isNaN(ra)) return;
+    const o = mkMatchOutcome(m.sc);
+    if (!o) return;
     const H = rec[m.home], A = rec[m.away];
     if (!H || !A) return;
     H.j++; A.j++;
-    H.rp += rh; H.rc += ra; A.rp += ra; A.rc += rh;
-    if (rh > ra) { H.v++; A.d++; H.p += 3; }
-    else if (rh < ra) { A.v++; H.d++; A.p += 3; }
+    H.rp += o.roundsH; H.rc += o.roundsA; A.rp += o.roundsA; A.rc += o.roundsH;
+    if (o.winner === 'H') { H.v++; A.d++; H.p += 3; }
+    else if (o.winner === 'A') { A.v++; H.d++; A.p += 3; }
     else { H.e++; A.e++; H.p += 1; A.p += 1; }
   });
   return Object.values(rec).sort((a, b) => {
@@ -453,16 +463,15 @@ function computeMkStandings(players, matches) {
   });
 }
 
-// ─── ODDS DO MK — mercados automáticos. Modelo: PRIMEIRO A 6 ROUNDS VENCE.
-// O vencedor sempre faz 6, o perdedor 0..5 (NÃO tem empate). Da força sai p
-// (prob do mandante vencer 1 round); a distribuição negativo-binomial ("corrida
-// até 6") dá todos os placares e mercados.
-const MK_MARKETS = ['VENC', 'PLACAR', 'MARG', 'SWEEP', 'FLAW', 'FINISH'];
-const MK_MARKET_TITLE = { VENC: 'VENCEDOR', PLACAR: 'PLACAR EXATO', MARG: 'MARGEM', SWEEP: 'FAZ 6×0?', FLAW: 'FLAWLESS VICTORY', FINISH: 'FINALIZAÇÃO' };
-const MK_PLACAR_PICKS = ['60', '61', '62', '63', '64', '65', '56', '46', '36', '26', '16', '06']; // mandante x visitante
-const MK_MARG_PICKS = ['6', '5', '4', '3', '2', '1']; // diferença de rounds (vencedor fez 6)
-const MK_FLAWLESS_PROB = 0.30; // flawless não sai do placar -> prob fixa
-// Finalizações: você escolhe o tipo na aposta; o admin marca qual rolou. Odds fixas.
+// ─── ODDS DO MK — modelo de 2 níveis (round -> partida -> confronto). Da força
+// sai p (prob do mandante vencer 1 round); daí a binomial negativa "primeiro a 3"
+// dá a partida, e as 2 partidas independentes dão o confronto.
+const MK_MARKETS = ['VENC', 'RESULT', 'P1', 'P2', 'TOTAL', 'FINISH', 'FLAW'];
+const MK_MARKET_TITLE = { VENC: 'VENCEDOR', RESULT: 'RESULTADO (PARTIDAS)', P1: 'PLACAR PARTIDA 1', P2: 'PLACAR PARTIDA 2', TOTAL: 'TOTAL DE ROUNDS', FINISH: 'FINALIZAÇÃO', FLAW: 'FLAWLESS VICTORY' };
+const MK_RESULT_PICKS = ['20', '11', '02'];          // 2×0 / 1×1 / 0×2
+const MK_PARTIDA_PICKS = ['30', '31', '32', '23', '13', '03']; // mandante x visitante
+const MK_TOTAL_PICKS = ['6', '7', '8', '9', '10'];   // total de rounds das 2 partidas
+const MK_FLAWLESS_PROB = 0.30;
 const MK_FINISHERS = [
   { id: 'fatality', name: 'Fatality', p: 0.40 },
   { id: 'brutality', name: 'Brutality', p: 0.24 },
@@ -472,15 +481,15 @@ const MK_FINISHERS = [
   { id: 'babality', name: 'Babality', p: 0.05 },
 ];
 
-// "Corrida até 6": home[k] = P(mandante 6 x k), away[k] = P(k x 6), k = 0..5.
-function mkFirstTo6(p) {
-  const C = [1, 6, 21, 56, 126, 252]; // C(5+k, k)
-  const home = [], away = [];
-  for (let k = 0; k <= 5; k++) {
-    home[k] = C[k] * Math.pow(p, 6) * Math.pow(1 - p, k);
-    away[k] = C[k] * Math.pow(1 - p, 6) * Math.pow(p, k);
-  }
-  return { home, away };
+// prob do mandante VENCER 1 partida (primeiro a 3) dado p (prob de 1 round).
+function mkPartidaWinProb(p) { return Math.pow(p, 3) * (1 + 3 * (1 - p) + 6 * Math.pow(1 - p, 2)); }
+// distribuição do placar de UMA partida.
+function mkPartidaDist(p) {
+  const q = 1 - p;
+  return {
+    '30': Math.pow(p, 3), '31': 3 * Math.pow(p, 3) * q, '32': 6 * Math.pow(p, 3) * q * q,
+    '23': 6 * Math.pow(q, 3) * p * p, '13': 3 * Math.pow(q, 3) * p, '03': Math.pow(q, 3),
+  };
 }
 function computeMkPlayerMetrics(players, matches) {
   const out = {};
@@ -492,53 +501,51 @@ function mkRoundWinProb(home, away, metrics) {
   return Math.max(0.25, Math.min(0.75, sigmoid((H.strength - A.strength) * 0.04)));
 }
 function computeMkGameOdds(home, away, metrics) {
-  const { home: H, away: A } = mkFirstTo6(mkRoundWinProb(home, away, metrics));
-  const pHome = H.reduce((a, b) => a + b, 0), pAway = A.reduce((a, b) => a + b, 0);
-  const placar = {};
-  for (let k = 0; k <= 5; k++) placar['6' + k] = toOdd(H[k]);   // 6x0..6x5
-  for (let k = 5; k >= 0; k--) placar[k + '6'] = toOdd(A[k]);   // 5x6..0x6
-  const marg = {};
-  for (let m = 6; m >= 1; m--) { const k = 6 - m; marg['' + m] = toOdd(H[k] + A[k]); }
-  const pSweep = H[0] + A[0]; // margem 6 = 6x0 / 0x6
-  const finish = {};
-  MK_FINISHERS.forEach(f => { finish[f.id] = toOdd(f.p); });
+  const p = mkRoundWinProb(home, away, metrics);
+  const q = mkPartidaWinProb(p);                  // mandante vence uma partida
+  const p20 = q * q, p11 = 2 * q * (1 - q), p02 = (1 - q) * (1 - q);
+  const pd = mkPartidaDist(p);
+  const a = pd['30'] + pd['03'], b = pd['31'] + pd['13'], c = pd['32'] + pd['23']; // 3,4,5 rounds/partida
+  const total = { '6': a * a, '7': 2 * a * b, '8': 2 * a * c + b * b, '9': 2 * b * c, '10': c * c };
+  const partida = {}; MK_PARTIDA_PICKS.forEach(pk => { partida[pk] = toOdd(pd[pk]); });
+  const totalO = {}; MK_TOTAL_PICKS.forEach(t => { totalO[t] = toOdd(total[t]); });
+  const finish = {}; MK_FINISHERS.forEach(f => { finish[f.id] = toOdd(f.p); });
   return {
-    VENC:   { H: toOdd(pHome), A: toOdd(pAway) },
-    PLACAR: placar,
-    MARG:   marg,
-    SWEEP:  { Y: toOdd(pSweep), N: toOdd(1 - pSweep) },
-    FLAW:   { Y: toOdd(MK_FLAWLESS_PROB), N: toOdd(1 - MK_FLAWLESS_PROB) },
+    VENC:   { H: toOdd(p20), D: toOdd(p11), A: toOdd(p02) },
+    RESULT: { '20': toOdd(p20), '11': toOdd(p11), '02': toOdd(p02) },
+    P1: partida, P2: partida, TOTAL: totalO,
     FINISH: finish,
+    FLAW:   { Y: toOdd(MK_FLAWLESS_PROB), N: toOdd(1 - MK_FLAWLESS_PROB) },
   };
 }
-// Ordem de exibição dos palpites (chaves "inteiras" do JS reordenam — fixar aqui).
+// Ordem de exibição (chaves "inteiras" do JS reordenam — fixar aqui).
 function mkMarketPicks(market, odds) {
-  if (market === 'PLACAR') return MK_PLACAR_PICKS;
-  if (market === 'MARG') return MK_MARG_PICKS;
+  if (market === 'RESULT') return MK_RESULT_PICKS;
+  if (market === 'P1' || market === 'P2') return MK_PARTIDA_PICKS;
+  if (market === 'TOTAL') return MK_TOTAL_PICKS;
   if (market === 'FINISH') return MK_FINISHERS.map(f => f.id);
   return Object.keys(odds[market]);
 }
-// Resolução. extra = { finisher, flawless } do confronto.
-function mkLegResult(market, pick, rh, ra, extra) {
-  if (Number.isNaN(rh) || Number.isNaN(ra)) return 'pending';
-  const margin = Math.abs(rh - ra);
-  let win = false;
+// Resolução. sc = placar do confronto; extra = { finisher, flawless }.
+function mkLegResult(market, pick, sc, extra) {
+  const o = mkMatchOutcome(sc);
+  if (!o) return 'pending'; // confronto não concluído -> tudo pendente
   switch (market) {
-    case 'VENC':   win = pick === (rh > ra ? 'H' : 'A'); break;
-    case 'PLACAR': win = pick === ('' + rh + ra); break;
-    case 'MARG':   win = pick === String(margin); break;
-    case 'SWEEP':  win = (margin === 6) === (pick === 'Y'); break;
-    case 'FLAW':   win = !!(extra && extra.flawless) === (pick === 'Y'); break;
-    case 'FINISH': win = !!(extra && extra.finisher === pick); break;
+    case 'VENC':   return pick === o.winner ? 'win' : 'lose';
+    case 'RESULT': return pick === ('' + o.confH + o.confA) ? 'win' : 'lose';
+    case 'P1':     return pick === ('' + o.p1h + o.p1a) ? 'win' : 'lose';
+    case 'P2':     return pick === ('' + o.p2h + o.p2a) ? 'win' : 'lose';
+    case 'TOTAL':  return pick === String(o.total) ? 'win' : 'lose';
+    case 'FLAW':   return (!!(extra && extra.flawless) === (pick === 'Y')) ? 'win' : 'lose';
+    case 'FINISH': return (extra && extra.finisher === pick) ? 'win' : 'lose';
     default: return 'pending';
   }
-  return win ? 'win' : 'lose';
 }
 function mkPickLabel(market, pick) {
-  if (market === 'VENC') return pick === 'H' ? 'MANDANTE' : 'VISITANTE';
-  if (market === 'PLACAR') return pick[0] + '×' + pick[1];
-  if (market === 'MARG') return 'POR ' + pick;
-  if (market === 'SWEEP' || market === 'FLAW') return pick === 'Y' ? 'SIM' : 'NÃO';
+  if (market === 'VENC') return { H: 'MANDANTE', D: 'EMPATE', A: 'VISITANTE' }[pick];
+  if (market === 'RESULT' || market === 'P1' || market === 'P2') return pick[0] + '×' + pick[1];
+  if (market === 'TOTAL') return pick + ' rounds';
+  if (market === 'FLAW') return pick === 'Y' ? 'SIM' : 'NÃO';
   if (market === 'FINISH') { const f = MK_FINISHERS.find(x => x.id === pick); return f ? f.name : pick; }
   return pick;
 }
@@ -5886,18 +5893,15 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
   const clearPreviewChars = () => setPreviewChars(null);
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const setScore = (key, side, val) => {
-    const v = val.replace(/[^0-6]/g, '').slice(0, 1); // 1 dígito, 0..6
+    const v = val.replace(/[^0-3]/g, '').slice(0, 1); // 1 dígito, 0..3 (primeiro a 3)
     setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [side]: v } }));
   };
   const setFinisher = (key, val) => setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), finisher: val || undefined } }));
   const toggleFlawless = (key) => setScores(prev => ({ ...prev, [key]: { ...(prev[key] || {}), flawless: !(prev[key] || {}).flawless } }));
 
   // Resultados lançados -> confrontos -> classificação (recalcula ao vivo).
-  const matches = draw ? draw.flatMap(r => r.games.map((g, gi) => {
-    const sc = scores[gKey(r, gi)] || {};
-    return { home: g.home, away: g.away, rh: sc.rh, ra: sc.ra, brut: sc.brut };
-  })) : [];
-  const playedCount = matches.filter(m => !Number.isNaN(parseInt(m.rh, 10)) && !Number.isNaN(parseInt(m.ra, 10))).length;
+  const matches = draw ? draw.flatMap(r => r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: scores[gKey(r, gi)] || {} }))) : [];
+  const playedCount = matches.filter(m => mkMatchOutcome(m.sc)).length;
   const standings = computeMkStandings(insc, matches);
   const charsFor = (nick) => (previewChars && previewChars[nick]) || ((users || {})[nick] || {}).mkChars || [];
   const curRound = draw ? draw[viewRound] : null;
@@ -5927,7 +5931,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
             <div style={{ overflowX: 'auto' }}>
               <table className="std-table mk-std-table">
                 <thead>
-                  <tr><th>#</th><th style={{ textAlign: 'left' }}>JOGADOR</th><th>J</th><th>V</th><th>D</th><th>SR</th><th>P</th></tr>
+                  <tr><th>#</th><th style={{ textAlign: 'left' }}>JOGADOR</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SR</th><th>P</th></tr>
                 </thead>
                 <tbody>
                   {standings.map((s, i) => {
@@ -5945,7 +5949,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
                             {chars.length > 0 && <span className="mk-row-chars">{chars.join(' · ')}</span>}
                           </div>
                         </td>
-                        <td>{s.j}</td><td style={{ fontWeight: 800 }}>{s.v}</td>
+                        <td>{s.j}</td><td style={{ fontWeight: 800 }}>{s.v}</td><td>{s.e}</td>
                         <td style={{ color: 'rgba(28,22,18,0.45)' }}>{s.d}</td>
                         <td>{sr > 0 ? '+' + sr : sr}</td>
                         <td style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 16 }}>{s.p}</td>
@@ -5957,7 +5961,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
             </div>
           )}
           <div className="mk-legend">
-            <strong>SR</strong> = saldo de rounds. Confronto é <strong>primeiro a 6 rounds</strong> (vencedor faz 6, perdedor 0–5; sem empate). Vitória vale 3.
+            <strong>SR</strong> = saldo de rounds. Confronto = <strong>2 partidas</strong> (cada uma primeiro a 3 rounds). Resultado: 2×0 vence, <strong>1×1 empata</strong>, 0×2 perde. Vitória 3, empate 1.
             <br /><strong>Todo mundo passa de fase</strong> — o que muda é por onde entra no mata-mata: <strong>1º e 2º</strong> são cabeças de chave (entram uma fase à frente), do <strong>3º ao 8º</strong> entram privilegiados e do <strong>9º pra baixo</strong> sem vantagem. <span style={{ opacity: 0.8 }}>(Pódio 1º–3º com cor própria; 4º–8º na mesma cor.)</span>
           </div>
         </div>
@@ -5997,7 +6001,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
                 {curRound.games.map((g, gi) => {
                   const k = gKey(curRound, gi);
                   const sc = scores[k] || {};
-                  const done = !Number.isNaN(parseInt(sc.rh, 10)) && !Number.isNaN(parseInt(sc.ra, 10));
+                  const done = !!mkMatchOutcome(sc);
                   const hc = charsFor(g.home), ac = charsFor(g.away);
                   return (
                     <div key={gi} className={'mk-fx' + (done ? ' done' : '')}>
@@ -6018,12 +6022,19 @@ function MkChampionshipView({ players, users, teamPlayers, draw, setDraw, scores
                             <div className="mk-fx-role mandante">MANDANTE</div>
                           </div>
                         </div>
-                        <div className="mk-fx-score">
-                          <input className="cscore-in" value={sc.rh || ''} placeholder="–" inputMode="numeric" maxLength={1}
-                            onChange={e => setScore(k, 'rh', e.target.value)} />
-                          <span className="mk-fx-x">×</span>
-                          <input className="cscore-in" value={sc.ra || ''} placeholder="–" inputMode="numeric" maxLength={1}
-                            onChange={e => setScore(k, 'ra', e.target.value)} />
+                        <div className="mk-fx-score mk-fx-score2">
+                          <div className="mk-fx-partida">
+                            <span className="mk-fx-pl">P1</span>
+                            <input className="cscore-in" value={sc.p1h || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p1h', e.target.value)} />
+                            <span className="mk-fx-x">×</span>
+                            <input className="cscore-in" value={sc.p1a || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p1a', e.target.value)} />
+                          </div>
+                          <div className="mk-fx-partida">
+                            <span className="mk-fx-pl">P2</span>
+                            <input className="cscore-in" value={sc.p2h || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p2h', e.target.value)} />
+                            <span className="mk-fx-x">×</span>
+                            <input className="cscore-in" value={sc.p2a || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p2a', e.target.value)} />
+                          </div>
                         </div>
                         <div className="mk-fx-side away">
                           <Avatar nick={g.away} teamPlayers={teamPlayers} size={28} noBadge />
@@ -6078,10 +6089,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
-  const roundConcluded = (ri) => !!(draw && draw[ri]) && draw[ri].games.every((g, gi) => {
-    const sc = (scores || {})[gKey(draw[ri], gi)] || {};
-    return !Number.isNaN(parseInt(sc.rh, 10)) && !Number.isNaN(parseInt(sc.ra, 10));
-  });
+  const roundConcluded = (ri) => !!(draw && draw[ri]) && draw[ri].games.every((g, gi) => !!mkMatchOutcome((scores || {})[gKey(draw[ri], gi)] || {}));
   // Rodada ABERTA pra aposta: 1ª ainda não fechada cuja anterior já fechou.
   const bettableIdx = draw ? draw.findIndex((r, ri) => !roundConcluded(ri) && (ri === 0 || roundConcluded(ri - 1))) : -1;
   const [betRound, setBetRound] = useState(0);
@@ -6090,7 +6098,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
   useEffect(() => { if (bettableIdx >= 0) { setBetRound(bettableIdx); setCupom([]); } }, [bettableIdx]);
 
   const oddsMatches = draw ? draw.flatMap((r, ri) => roundConcluded(ri)
-    ? r.games.map((g, gi) => { const sc = (scores || {})[gKey(r, gi)] || {}; return { home: g.home, away: g.away, rh: sc.rh, ra: sc.ra }; })
+    ? r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: (scores || {})[gKey(r, gi)] || {} }))
     : []) : [];
   const metrics = computeMkPlayerMetrics(insc, oddsMatches);
   const rd = draw ? draw[Math.min(betRound, draw.length - 1)] : null;
@@ -6122,7 +6130,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
     let pending = false;
     for (const l of (bet.legs || [])) {
       const sc = (scores || {})[skey(l.phase, l.roundN, l.gi)] || {};
-      const r = mkLegResult(l.market, l.pick, parseInt(sc.rh, 10), parseInt(sc.ra, 10), { finisher: sc.finisher, flawless: sc.flawless });
+      const r = mkLegResult(l.market, l.pick, sc, { finisher: sc.finisher, flawless: sc.flawless });
       if (r === 'lose') return 'lost';
       if (r !== 'win') pending = true;
     }

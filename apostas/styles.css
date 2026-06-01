@@ -3087,6 +3087,11 @@
     .mk-fx-x { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 13px; color: rgba(28,22,18,0.4); }
     /* reusa o look da caixa de placar da FIFA, um tiquinho menor pro aside */
     .mk-fx-score .cscore-in { width: 30px; height: 36px; font-size: 17px; }
+    /* 2 partidas no lançamento (cada uma primeiro a 3) */
+    .mk-fx-score2 { flex-direction: column; gap: 5px; }
+    .mk-fx-partida { display: flex; align-items: center; gap: 4px; }
+    .mk-fx-pl { width: 16px; flex-shrink: 0; font-size: 8px; font-weight: 800; letter-spacing: 0.04em; color: var(--pv-orange); }
+    .mk-fx-score2 .cscore-in { width: 26px; height: 28px; font-size: 14px; }
     /* personagens da galera no confronto — discreto, no rodapé do card */
     .mk-fx-chars { display: flex; align-items: center; gap: 10px; margin-top: 7px; padding-top: 6px; border-top: 1px dashed rgba(28,22,18,0.16); }
     .mk-fx-ch { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; font-size: 8.5px; font-weight: 700; letter-spacing: 0.01em; color: rgba(28,22,18,0.55); }
