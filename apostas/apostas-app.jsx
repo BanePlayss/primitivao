@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-2partidas ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-nocontra ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -548,6 +548,18 @@ function mkPickLabel(market, pick) {
   if (market === 'FLAW') return pick === 'Y' ? 'SIM' : 'NÃO';
   if (market === 'FINISH') { const f = MK_FINISHERS.find(x => x.id === pick); return f ? f.name : pick; }
   return pick;
+}
+// Dois palpites do MESMO jogo se contradizem? (não dá pra ganhar os dois juntos)
+function mkLegsContradict(a, b) {
+  const indep = m => m === 'FINISH' || m === 'FLAW';
+  // FINISH/FLAW independem do placar: só contradizem outro do mesmo tipo (pick diferente).
+  if (indep(a.market) || indep(b.market)) return a.market === b.market && a.pick !== b.pick;
+  // ambos baseados em placar: existe algum resultado onde os DOIS ganham?
+  for (const p1 of MK_PARTIDA_PICKS) for (const p2 of MK_PARTIDA_PICKS) {
+    const sc = { p1h: p1[0], p1a: p1[1], p2h: p2[0], p2a: p2[1] };
+    if (mkLegResult(a.market, a.pick, sc) === 'win' && mkLegResult(b.market, b.pick, sc) === 'win') return false;
+  }
+  return true; // nenhum resultado possível satisfaz os dois -> contradiz
 }
 
 const START_PC = 50;
@@ -6109,11 +6121,17 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
   const toggleLeg = (gi, g, market, pick, odd) => {
     if (!isOpen) return;
     const key = legKey(gi, market);
-    setCupom(prev => {
-      const ex = prev.find(l => l.key === key);
-      if (ex && ex.pick === pick) return prev.filter(l => l.key !== key);
-      return [...prev.filter(l => l.key !== key), { key, roundN: rd.n, phase: rd.phase, gi, home: g.home, away: g.away, market, pick, odd }];
-    });
+    const ex = cupom.find(l => l.key === key);
+    if (ex && ex.pick === pick) { setCupom(prev => prev.filter(l => l.key !== key)); return; } // desmarca
+    const newLeg = { key, roundN: rd.n, phase: rd.phase, gi, home: g.home, away: g.away, market, pick, odd };
+    // não dá pra casar palpites que se contradizem NO MESMO jogo (ex: vitória do
+    // mandante + placar onde o visitante ganha).
+    const conflict = cupom.find(l => l.key !== key && l.phase === rd.phase && l.roundN === rd.n && l.gi === gi && mkLegsContradict(l, newLeg));
+    if (conflict) {
+      showToast('Contradiz "' + MK_MARKET_TITLE[conflict.market] + ': ' + mkPickLabel(conflict.market, conflict.pick) + '" do mesmo jogo.', 'error');
+      return;
+    }
+    setCupom(prev => [...prev.filter(l => l.key !== key), newLeg]);
   };
   const combined = cupom.reduce((p, l) => p * l.odd, 1);
   const isCasada = cupom.length >= 2;
