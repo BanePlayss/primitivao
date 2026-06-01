@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-mk-2rounds ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-mk-finish ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -478,13 +478,10 @@ const MK_RESULT_PICKS = ['20', '11', '02'];          // 2×0 / 1×1 / 0×2
 const MK_PARTIDA_PICKS = ['20', '21', '12', '02']; // mandante x visitante (primeiro a 2)
 const MK_TOTAL_PICKS = ['4', '5', '6'];   // total de rounds das 2 partidas
 const MK_FLAWLESS_PROB = 0.40; // pode rolar em qualquer das 2 partidas
+// Só Brutality é apostável (a Fatality é obrigatória ao vencer, então não vira
+// mercado). Flawless Victory é mercado à parte (FLAW) + toggle no lançamento.
 const MK_FINISHERS = [
-  { id: 'fatality', name: 'Fatality', p: 0.40 },
   { id: 'brutality', name: 'Brutality', p: 0.24 },
-  { id: 'friendship', name: 'Friendship', p: 0.13 },
-  { id: 'quitality', name: 'Quitality', p: 0.10 },
-  { id: 'animality', name: 'Animality', p: 0.07 },
-  { id: 'babality', name: 'Babality', p: 0.05 },
 ];
 
 // prob do mandante VENCER 1 partida (primeiro a 2) dado p (prob de 1 round).
