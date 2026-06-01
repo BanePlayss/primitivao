@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260601-mk-odd-cap ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260601-mk-odd-comp ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -480,9 +480,12 @@ const MK_MARKETS = ['VENC', 'RESULT', 'P1', 'P2', 'TOTAL', 'FINISH', 'FLAW'];
 const MK_MARKET_TITLE = { VENC: 'VENCEDOR', RESULT: 'RESULTADO (PARTIDAS)', P1: 'PLACAR PARTIDA 1', P2: 'PLACAR PARTIDA 2', TOTAL: 'TOTAL DE ROUNDS', FINISH: 'FINALIZAÇÃO', FLAW: 'FLAWLESS VICTORY' };
 const MK_RESULT_PICKS = ['20', '11', '02'];          // 2×0 / 1×1 / 0×2
 const MK_PARTIDA_PICKS = ['20', '21', '12', '02']; // mandante x visitante (primeiro a 2)
-// Teto da odd do MK: deixa o pagamento mais conservador (no simétrico, placares
-// que seriam 4.00 saem em 2.25). Só afeta o MK — a FIFA usa toOdd direto.
-const MK_ODD_MAX = 2.25;
+// Odd do MK: pagamento conservador no COMEÇO sem capar o crescimento. Em vez de
+// teto, comprime o "lucro" da odd justa: no simétrico o placar (justo 4.00) sai em
+// ~2.25, mas jogos desequilibrados ainda sobem (até MK_ODD_TOP). Só afeta o MK.
+//   odd = 1 + (1/p - 1) * MK_ODD_K   ->  4.00 vira 1 + 3*0.4167 = 2.25
+const MK_ODD_K = 0.4167;   // 4.00 -> 2.25 no simétrico
+const MK_ODD_TOP = 15.0;   // teto alto: azarões podem chegar até aqui
 const MK_TOTAL_PICKS = ['4', '5', '6'];   // total de rounds das 2 partidas
 const MK_FLAWLESS_PROB = 0.40; // pode rolar em qualquer das 2 partidas
 // Só Brutality é apostável (a Fatality é obrigatória ao vencer, então não vira
@@ -509,7 +512,9 @@ function computeMkPlayerMetrics(players, matches) {
 }
 function mkRoundWinProb(home, away, metrics) {
   const H = (metrics || {})[home] || { strength: 0 }, A = (metrics || {})[away] || { strength: 0 };
-  return Math.max(0.25, Math.min(0.75, sigmoid((H.strength - A.strength) * 0.04)));
+  // Clamp mais largo (era 0.25–0.75): jogos bem desequilibrados geram odds altas
+  // (azarão pode chegar perto do MK_ODD_TOP). No começo (forças iguais) dá 0.5.
+  return Math.max(0.16, Math.min(0.84, sigmoid((H.strength - A.strength) * 0.04)));
 }
 function computeMkGameOdds(home, away, metrics) {
   const p = mkRoundWinProb(home, away, metrics);
@@ -518,7 +523,9 @@ function computeMkGameOdds(home, away, metrics) {
   const pd = mkPartidaDist(p);
   const a = pd['20'] + pd['02'], b = pd['21'] + pd['12']; // partida com 2 ou 3 rounds
   const total = { '4': a * a, '5': 2 * a * b, '6': b * b };
-  const mko = (pp) => Math.min(MK_ODD_MAX, toOdd(pp)); // odd do MK com teto
+  // odd do MK: justa (1/p) com o lucro comprimido por MK_ODD_K; teto MK_ODD_TOP.
+  const mko = (pp) => (!(pp > 0) || !isFinite(pp)) ? MK_ODD_TOP
+    : Math.max(ODD_MIN, Math.min(MK_ODD_TOP, +(1 + (1 / pp - 1) * MK_ODD_K).toFixed(2)));
   const partida = {}; MK_PARTIDA_PICKS.forEach(pk => { partida[pk] = mko(pd[pk]); });
   const totalO = {}; MK_TOTAL_PICKS.forEach(t => { totalO[t] = mko(total[t]); });
   // finalização pode sair em QUALQUER das 2 partidas -> P = 1 - (1-p)^2.
