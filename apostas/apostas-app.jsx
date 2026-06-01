@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-trofeus-bronze ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-meu-jogo ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -370,7 +370,7 @@ function scoreWcPick(real, pick) {
 const CHAMP_BY_ID = Object.fromEntries(CHAMPIONSHIPS.map(c => [c.id, c]));
 
 // Personagens jogáveis do Mortal Kombat 1 (2023). Cada jogador escolhe 3 por
-// turno (regra do MK Edição 01). Lista pra "MEU JOGADOR".
+// turno (regra do MK Edição 01). Lista pra "MEU JOGO".
 const MK_CHARACTERS = [
   'Ashrah', 'Baraka', 'Cyrax', 'Ermac', 'General Shao', 'Geras', 'Havik',
   'Johnny Cage', 'Kenshi', 'Kitana', 'Kung Lao', 'Li Mei', 'Liu Kang',
@@ -1727,6 +1727,10 @@ function App() {
   const [mkDraw, setMkDraw] = useState(null);
   const [mkScores, setMkScores] = useState({});
   const [mkPreviewChars, setMkPreviewChars] = useState(null);
+  // MEU JOGO: escalação por confronto montada pelo MANDANTE (os dois lados das 2
+  // partidas, a partir do elenco de 3 de cada jogador). Keyed por gKey do confronto:
+  //   mkLineups[gKey] = { p1: { home, away }, p2: { home, away } }. Ephemeral.
+  const [mkLineups, setMkLineups] = useState({});
   const [mkBets, setMkBets] = useState([]); // apostas do MK (prévia admin, ephemeral)
   const placeMkBet = (bet) => setMkBets(prev => [bet, ...prev]);
   const removeMkBet = (id) => setMkBets(prev => prev.filter(b => b.id !== id));
@@ -2537,7 +2541,7 @@ function App() {
     } catch (e) { console.warn('splitCurrency failed', e); return { err: String(e && e.message || e) }; }
   };
 
-  // MEU JOGADOR (MK): salva os 3 personagens escolhidos por um jogador.
+  // MEU JOGO (MK): salva o elenco de 3 personagens escolhidos por um jogador.
   const setMkChars = async (targetNick, chars) => {
     if (!targetNick) return;
     const clean = (Array.isArray(chars) ? chars : []).filter(c => MK_CHARACTERS.includes(c)).slice(0, MK_MAX_CHARS);
@@ -2795,8 +2799,12 @@ function App() {
             {view === 'ranking' && (
               <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} />
             )}
-            {view === 'meujogador' && (
-              <MeuJogadorView nick={session.nick} isAdmin={isAdmin} users={users} interests={interests || {}} onSave={setMkChars} />
+            {view === 'meujogo' && (
+              <MeuJogoView
+                nick={session.nick} isAdmin={isAdmin} users={users} interests={interests || {}} onSave={setMkChars}
+                draw={mkDraw} lineups={mkLineups} setLineups={setMkLineups}
+                previewChars={mkPreviewChars} teamPlayers={teamPlayers || {}}
+              />
             )}
             {view === 'loja' && (
               <LojaView
@@ -3109,9 +3117,9 @@ function getTabItems(isAdmin) {
     { id: 'tickets',  label: 'MEUS TICKETS', icon: 'ticket' },
     { id: 'ranking',  label: 'RANKING',      icon: 'trophy' },
   ];
-  // MEU JOGADOR (MK) — por enquanto SÓ admin (aba secreta de teste). Quando
+  // MEU JOGO (MK) — por enquanto SÓ admin (aba secreta de teste). Quando
   // soltar pros jogadores, trocar a condição por "inscrito no MK".
-  if (isAdmin) globalItems.push({ id: 'meujogador', label: 'MEU JOGADOR', icon: 'fist' });
+  if (isAdmin) globalItems.push({ id: 'meujogo', label: 'MEU JOGO', icon: 'fist' });
   if (isAdmin) globalItems.push({ id: 'admin', label: 'ADMIN', icon: 'shield' });
   return { sectionItems, globalItems };
 }
@@ -5876,8 +5884,10 @@ function ColecaoCard({ nick, me, previewTeamId, ctx, onEquip }) {
   );
 }
 
-// ─── MEU JOGADOR (MK) — escolha dos personagens do turno ───────────────────
-function MeuJogadorView({ nick, isAdmin, users, interests, onSave }) {
+// ─── MEU JOGO (MK) — elenco do turno + escalação dos confrontos ────────────
+// O MANDANTE escala as 2 partidas dos jogos onde é mando (boneco dos DOIS lados,
+// vindo do elenco de 3 de cada um). O VISITANTE só vê como o mandante dispôs.
+function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, lineups, setLineups, previewChars, teamPlayers }) {
   const inscritos = Object.keys((interests && interests.mk) || {}).sort();
   const [target, setTarget] = useState(isAdmin ? (inscritos[0] || '') : nick);
   const [sel, setSel] = useState(((users || {})[isAdmin ? (inscritos[0] || '') : nick] || {}).mkChars || []);
@@ -5885,26 +5895,38 @@ function MeuJogadorView({ nick, isAdmin, users, interests, onSave }) {
   useEffect(() => { setSel(((users || {})[target] || {}).mkChars || []); }, [target, users]);
 
   const isInscrito = !!(((interests && interests.mk) || {})[target]);
+  const charsFor = (n) => (previewChars && previewChars[n]) || ((users || {})[n] || {}).mkChars || [];
   const toggle = (c) => setSel(prev => prev.includes(c) ? prev.filter(x => x !== c) : (prev.length >= MK_MAX_CHARS ? prev : [...prev, c]));
   const save = async () => {
     if (busy || !target) return;
     setBusy(true);
-    try { await onSave(target, sel); showToast('Personagens salvos pra @' + target + '!', 'success'); }
+    try { await onSave(target, sel); showToast('Elenco salvo pra @' + target + '!', 'success'); }
     catch (e) { showToast('Falha ao salvar.', 'error'); }
     finally { setBusy(false); }
   };
 
+  // Confrontos do jogador (onde ele é mandante ou visitante), na ordem do sorteio.
+  const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const myGames = [];
+  if (draw && target) {
+    draw.forEach(r => r.games.forEach((g, gi) => {
+      if (g.home === target || g.away === target) {
+        myGames.push({ key: gKey(r, gi), phase: r.phase, n: r.n, g, mandante: g.home === target });
+      }
+    }));
+  }
+  // Atualiza um slot da escalação (mandante). lineups[key] = { p1:{home,away}, p2:{home,away} }
+  const setSlot = (key, part, side, val) => setLineups(prev => ({
+    ...prev, [key]: { ...(prev[key] || {}), [part]: { ...((prev[key] || {})[part] || {}), [side]: val || undefined } },
+  }));
+
   return (
     <div className="card mk-card" style={{ marginBottom: 14 }}>
       <div className="card-head">
-        <div className="title"><Icon name="fist" size={16} /> MEU JOGADOR · MORTAL KOMBAT</div>
-        <div className="sub">ESCOLHE SEUS {MK_MAX_CHARS} PERSONAGENS DO TURNO</div>
+        <div className="title"><Icon name="fist" size={16} /> MEU JOGO · MORTAL KOMBAT</div>
+        <div className="sub">ELENCO DO TURNO + ESCALAÇÃO DOS SEUS CONFRONTOS</div>
       </div>
       <div className="card-body">
-        <p style={{ marginTop: 0, fontSize: 13, lineHeight: 1.5 }}>
-          Regra do MK: cada jogador joga o turno com <strong>{MK_MAX_CHARS} personagens fixos</strong>.
-          Dá pra trocar antes da VOLTA e antes do MATA-MATA. Escolhe os teus na lista.
-        </p>
         {isAdmin && (
           <label className="tp-fld" style={{ maxWidth: 260, marginBottom: 12 }}>
             <span className="tp-fld-label">Testar como (jogador inscrito no MK)</span>
@@ -5921,21 +5943,102 @@ function MeuJogadorView({ nick, isAdmin, users, interests, onSave }) {
           </div>
         ) : (
           <>
-            <div className="mk-roster">
-              {MK_CHARACTERS.map(c => {
-                const on = sel.includes(c);
-                return (
-                  <button key={c} type="button" className={'mk-char' + (on ? ' on' : '')} onClick={() => toggle(c)} title={c}>
-                    {on && <span className="mk-char-slot">{sel.indexOf(c) + 1}</span>}
-                    <span className="mk-char-ic"><Icon name={on ? 'fist' : 'user'} size={18} /></span>
-                    <span className="mk-char-name">{c}</span>
-                  </button>
-                );
-              })}
+            {/* ELENCO DO TURNO (3 fixos) */}
+            <div className="mk-jogo-sec">
+              <div className="mk-jogo-sec-h"><Icon name="user" size={13} /> MEU ELENCO DO TURNO <span className="mk-jogo-sec-c">{sel.length}/{MK_MAX_CHARS}</span></div>
+              <p className="mk-jogo-hint">Seus <strong>{MK_MAX_CHARS} personagens fixos</strong> do turno. Dá pra trocar antes da VOLTA e do MATA-MATA. O mandante escala esses bonecos nas partidas.</p>
+              <div className="mk-roster">
+                {MK_CHARACTERS.map(c => {
+                  const on = sel.includes(c);
+                  return (
+                    <button key={c} type="button" className={'mk-char' + (on ? ' on' : '')} onClick={() => toggle(c)} title={c}>
+                      {on && <span className="mk-char-slot">{sel.indexOf(c) + 1}</span>}
+                      <span className="mk-char-ic"><Icon name={on ? 'fist' : 'user'} size={18} /></span>
+                      <span className="mk-char-name">{c}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mk-foot">
+                <div className="mk-selected">{sel.length}/{MK_MAX_CHARS} escolhidos{sel.length ? ': ' + sel.join(' · ') : ''}</div>
+                <button className="tp-btn-go" onClick={save} disabled={busy || sel.length === 0}>{busy ? 'SALVANDO…' : 'SALVAR ELENCO'}</button>
+              </div>
             </div>
-            <div className="mk-foot">
-              <div className="mk-selected">{sel.length}/{MK_MAX_CHARS} escolhidos{sel.length ? ': ' + sel.join(' · ') : ''}</div>
-              <button className="tp-btn-go" onClick={save} disabled={busy || sel.length === 0}>{busy ? 'SALVANDO…' : 'SALVAR PERSONAGENS'}</button>
+
+            {/* MEUS JOGOS (escalação por confronto) */}
+            <div className="mk-jogo-sec">
+              <div className="mk-jogo-sec-h"><Icon name="skull" size={13} /> MEUS JOGOS <span className="mk-jogo-sec-c">{myGames.length}</span></div>
+              {!draw ? (
+                <div className="mk-jogo-empty"><Icon name="dice" size={20} /> As rodadas ainda não foram sorteadas. {isAdmin ? 'Sorteie em CAMPEONATOS.' : 'Aguarde o sorteio.'}</div>
+              ) : myGames.length === 0 ? (
+                <div className="mk-jogo-empty">Nenhum confronto pra @{target} no chaveamento atual.</div>
+              ) : (
+                <div className="mk-jogo-list">
+                  {myGames.map(mg => {
+                    const opp = mg.mandante ? mg.g.away : mg.g.home;
+                    const lu = lineups[mg.key] || {};
+                    const homeChars = charsFor(mg.g.home);
+                    const awayChars = charsFor(mg.g.away);
+                    const arranged = ['p1', 'p2'].some(p => (lu[p] || {}).home || (lu[p] || {}).away);
+                    return (
+                      <div key={mg.key} className={'mk-jogo-card' + (mg.mandante ? ' is-mandante' : '')}>
+                        <div className="mk-jogo-card-h">
+                          <span className="mk-jogo-rod">RODADA {String(mg.n).padStart(2, '0')} · {mg.phase}</span>
+                          <span className={'mk-jogo-role ' + (mg.mandante ? 'mandante' : 'visitante')}>{mg.mandante ? 'VOCÊ É MANDANTE' : 'VOCÊ É VISITANTE'}</span>
+                        </div>
+                        <div className="mk-jogo-vs">
+                          <span className="mk-jogo-vs-side"><Avatar nick={target} teamPlayers={teamPlayers} size={22} noBadge /> @{target}</span>
+                          <span className="mk-jogo-vs-x">×</span>
+                          <span className="mk-jogo-vs-side opp">@{opp} <Avatar nick={opp} teamPlayers={teamPlayers} size={22} noBadge /></span>
+                        </div>
+
+                        {mg.mandante ? (
+                          <div className="mk-jogo-arr">
+                            <div className="mk-jogo-arr-hint"><Icon name="fist" size={11} /> Você monta as 2 partidas — boneco dos dois lados.</div>
+                            {(homeChars.length === 0 || awayChars.length === 0) && (
+                              <div className="mk-jogo-warn">
+                                {homeChars.length === 0 && <span>Escolhe teu elenco acima. </span>}
+                                {awayChars.length === 0 && <span>@{opp} ainda não tem elenco — não dá pra escalar o lado dele.</span>}
+                              </div>
+                            )}
+                            {['p1', 'p2'].map(p => (
+                              <div key={p} className="mk-jogo-part">
+                                <span className="mk-jogo-part-l">{p.toUpperCase()}</span>
+                                <select className="mk-jogo-sel" value={(lu[p] || {}).home || ''} disabled={homeChars.length === 0} onChange={e => setSlot(mg.key, p, 'home', e.target.value)}>
+                                  <option value="">@{mg.g.home}…</option>
+                                  {homeChars.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                <span className="mk-jogo-part-x">×</span>
+                                <select className="mk-jogo-sel" value={(lu[p] || {}).away || ''} disabled={awayChars.length === 0} onChange={e => setSlot(mg.key, p, 'away', e.target.value)}>
+                                  <option value="">@{mg.g.away}…</option>
+                                  {awayChars.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="mk-jogo-arr ro">
+                            <div className="mk-jogo-arr-hint"><Icon name="eye" size={11} /> @{mg.g.home} (mandante) escala — você só vê.</div>
+                            {arranged ? ['p1', 'p2'].map(p => {
+                              const h = (lu[p] || {}).home, a = (lu[p] || {}).away;
+                              return (
+                                <div key={p} className="mk-jogo-part ro">
+                                  <span className="mk-jogo-part-l">{p.toUpperCase()}</span>
+                                  <span className={'mk-jogo-boneco' + (h ? '' : ' empty')}>{h || '—'}</span>
+                                  <span className="mk-jogo-part-x">×</span>
+                                  <span className={'mk-jogo-boneco' + (a ? '' : ' empty')}>{a || '—'}</span>
+                                </div>
+                              );
+                            }) : (
+                              <div className="mk-jogo-wait"><Icon name="refresh" size={12} /> Aguardando @{mg.g.home} dispor as partidas.</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </>
         )}
