@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-titulos-novos ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-vitrine-icons ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3557,6 +3557,58 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
           <path d="M15 9v-2.5M17 9v-2.5M16 9v-2.5" />
         </svg>
       );
+    // ── Ícones da VITRINE DE TROFÉUS (cheios, reutilizáveis em todo campeonato) ──
+    case 'tr-champion': // troféu lindo — campeão da edição
+      return (
+        <svg {...common} fill="currentColor" stroke="none">
+          <path d="M5.6 3.2h12.8L18 8a6 6 0 0 1-12 0l-.4-4.8z" />
+          <path d="M6 4.6C3.9 4.4 2.4 5.5 2.4 7.3c0 1.7 1.3 2.8 3.1 2.9l-.3-1.7c-.9-.1-1.4-.5-1.4-1.1 0-.6.5-1 1.4-.9.3 0 .6.1.9.2l-.5-2.1z" />
+          <path d="M18 4.6c2.1-.2 3.6.9 3.6 2.7 0 1.7-1.3 2.8-3.1 2.9l.3-1.7c.9-.1 1.4-.5 1.4-1.1 0-.6-.5-1-1.4-.9-.3 0-.6.1-.9.2l.5-2.1z" />
+          <rect x="11" y="12.7" width="2" height="3.2" />
+          <path d="M7 21a5 5 0 0 1 10 0z" />
+          <rect x="9.2" y="19" width="5.6" height="1.8" rx="0.3" />
+          <path d="M12 4.9l.84 1.7 1.88.27-1.36 1.33.32 1.87L12 9.26l-1.68.83.32-1.87L9.28 6.87l1.88-.27z" fill="#fff" opacity="0.5" />
+        </svg>
+      );
+    case 'tr-vice': // medalha de prata — vice
+      return (
+        <svg {...common} fill="currentColor" stroke="none">
+          <path d="M8.2 2.5l2.4 6-2.6 1.4L5.6 4z" />
+          <path d="M15.8 2.5l-2.4 6 2.6 1.4L18.4 4z" />
+          <circle cx="12" cy="15" r="6.2" />
+          <circle cx="12" cy="15" r="3.7" fill="#fff" opacity="0.32" />
+          <path d="M12 11.9l.78 1.6 1.76.25-1.27 1.24.3 1.75L12 15.9l-1.57.79.3-1.75-1.27-1.24 1.76-.25z" fill="#fff" opacity="0.55" />
+        </svg>
+      );
+    case 'tr-participou': // medalha de participação
+      return (
+        <svg {...common} fill="currentColor" stroke="none">
+          <path d="M9 2.5h2L10.2 8H8.6zM15 2.5h-2L13.8 8h1.6z" />
+          <circle cx="12" cy="14.5" r="6" />
+          <circle cx="12" cy="14.5" r="3.6" fill="#fff" opacity="0.3" />
+          <circle cx="12" cy="14.5" r="1.5" fill="#fff" opacity="0.5" />
+        </svg>
+      );
+    case 'tr-penultimo': // escova solitária — penúltimo
+      return (
+        <svg {...common} fill="currentColor" stroke="none">
+          <rect x="2" y="13.6" width="13.5" height="2.8" rx="1.4" />
+          <rect x="15" y="12.4" width="5.2" height="5.2" rx="0.6" />
+          <rect x="15.4" y="10.4" width="0.9" height="2.2" rx="0.3" />
+          <rect x="16.6" y="9.8" width="0.9" height="2.8" rx="0.3" />
+          <rect x="17.8" y="9.8" width="0.9" height="2.8" rx="0.3" />
+          <rect x="19" y="10.4" width="0.9" height="2.2" rx="0.3" />
+        </svg>
+      );
+    case 'tr-lanterna': // privada — último
+      return (
+        <svg {...common} fill="currentColor" stroke="none">
+          <rect x="5.5" y="3" width="13" height="3" rx="0.5" />
+          <rect x="7" y="6" width="2.2" height="2.8" />
+          <path d="M4.5 8.5h15l-.7 4a5 5 0 0 1-3 3.7L15 20h-2l-.3-2.1A5 5 0 0 1 4.5 12.5v-4z" />
+          <ellipse cx="10.8" cy="11.4" rx="3.8" ry="2.1" fill="#fff" opacity="0.4" />
+        </svg>
+      );
     case 'crown': // coroa — campeão / rei
       return (
         <svg {...common}>
@@ -5337,11 +5389,13 @@ function trophiesForNick(nick, cs, teamPlayers) {
   for (const c of CHAMPIONSHIPS) {
     const { status, standings } = computeChampStandings(c.id, cs);
     if (status !== 'closed' || !standings || standings.length < 2) continue;
+    if (!standings.some(s => s.id === myTeam)) continue; // não jogou esta edição
     const last = standings.length - 1;
     if (standings[0].id === myTeam)        trophies.push({ champId: c.id, kind: 'champion' });
     else if (standings[1].id === myTeam)   trophies.push({ champId: c.id, kind: 'vice' });
     else if (standings[last].id === myTeam)   trophies.push({ champId: c.id, kind: 'lanterna' });
     else if (standings[last - 1].id === myTeam) trophies.push({ champId: c.id, kind: 'penultimo' });
+    else trophies.push({ champId: c.id, kind: 'participou' }); // jogou e ficou no meio
   }
   return trophies;
 }
@@ -6794,10 +6848,11 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
 function TrophyItem({ trophy }) {
   const c = CHAMP_BY_ID[trophy.champId];
   const meta = {
-    champion:  { icon: 'trophy',     label: 'CAMPEÃO',   color: '#c9a227', bg: '#fbf3d3' },
-    vice:      { icon: 'medal',      label: 'VICE',       color: '#7a7a7a', bg: '#ececec' },
-    lanterna:  { icon: 'toilet',     label: 'LANTERNA',   color: '#7a2222', bg: '#fce4e4' },
-    penultimo: { icon: 'toothbrush', label: 'PENÚLTIMO',  color: '#3e0f0f', bg: '#f0e2e2' },
+    champion:   { icon: 'tr-champion',  label: 'CAMPEÃO',    color: '#d4af37', bg: '#fbf3d3' },
+    vice:       { icon: 'tr-vice',      label: 'VICE',       color: '#8a8a8a', bg: '#ededed' },
+    participou: { icon: 'tr-participou', label: 'PARTICIPOU', color: '#b87333', bg: '#f6ece1' },
+    penultimo:  { icon: 'tr-penultimo', label: 'PENÚLTIMO',  color: '#6b4423', bg: '#f0e7df' },
+    lanterna:   { icon: 'tr-lanterna',  label: 'ÚLTIMO',     color: '#7a2222', bg: '#fce4e4' },
   }[trophy.kind] || { icon: null, label: '', color: '#000', bg: '#eee' };
   return (
     <div style={{
