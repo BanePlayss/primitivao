@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-vitrine-preview ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-vitrine-anim ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3557,56 +3557,63 @@ function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
           <path d="M15 9v-2.5M17 9v-2.5M16 9v-2.5" />
         </svg>
       );
-    // ── Ícones da VITRINE DE TROFÉUS (cheios, reutilizáveis em todo campeonato) ──
-    case 'tr-champion': // troféu lindo — campeão da edição
+    // ── Ícones da VITRINE DE TROFÉUS (cheios, com brilho/sombra, reutilizáveis) ──
+    case 'tr-champion': // troféu — campeão da edição
       return (
         <svg {...common} fill="currentColor" stroke="none">
-          <path d="M5.6 3.2h12.8L18 8a6 6 0 0 1-12 0l-.4-4.8z" />
-          <path d="M6 4.6C3.9 4.4 2.4 5.5 2.4 7.3c0 1.7 1.3 2.8 3.1 2.9l-.3-1.7c-.9-.1-1.4-.5-1.4-1.1 0-.6.5-1 1.4-.9.3 0 .6.1.9.2l-.5-2.1z" />
-          <path d="M18 4.6c2.1-.2 3.6.9 3.6 2.7 0 1.7-1.3 2.8-3.1 2.9l.3-1.7c.9-.1 1.4-.5 1.4-1.1 0-.6-.5-1-1.4-.9-.3 0-.6.1-.9.2l.5-2.1z" />
-          <rect x="11" y="12.7" width="2" height="3.2" />
-          <path d="M7 21a5 5 0 0 1 10 0z" />
-          <rect x="9.2" y="19" width="5.6" height="1.8" rx="0.3" />
-          <path d="M12 4.9l.84 1.7 1.88.27-1.36 1.33.32 1.87L12 9.26l-1.68.83.32-1.87L9.28 6.87l1.88-.27z" fill="#fff" opacity="0.5" />
+          <path d="M5.8 4.4C3.4 4.2 1.8 5.5 1.8 7.5c0 1.9 1.5 3.2 3.7 3.2V8.9c-1.2 0-2-.6-2-1.4 0-.8.7-1.3 1.8-1.1l.5.1z" />
+          <path d="M18.2 4.4c2.4-.2 4 1.1 4 3.1 0 1.9-1.5 3.2-3.7 3.2V8.9c1.2 0 2-.6 2-1.4 0-.8-.7-1.3-1.8-1.1l-.5.1z" />
+          <path d="M5.3 3h13.4l-.3 5a6.4 6.4 0 0 1-12.8 0l-.3-5z" />
+          <rect x="5.3" y="3" width="13.4" height="1.2" fill="#fff" opacity="0.22" />
+          <rect x="10.7" y="13" width="2.6" height="3.3" />
+          <path d="M8.2 18.8l.5-1.6h6.6l.5 1.6z" />
+          <rect x="6.6" y="18.6" width="10.8" height="2" rx="0.4" />
+          <rect x="6.6" y="20.1" width="10.8" height="0.6" fill="#000" opacity="0.18" />
+          <path d="M12 4.7l.95 1.93 2.13.31-1.54 1.5.36 2.12L12 9.66l-1.9 1 .36-2.12-1.54-1.5 2.13-.31z" fill="#fff" opacity="0.6" />
         </svg>
       );
     case 'tr-vice': // medalha de prata — vice
       return (
         <svg {...common} fill="currentColor" stroke="none">
-          <path d="M8.2 2.5l2.4 6-2.6 1.4L5.6 4z" />
-          <path d="M15.8 2.5l-2.4 6 2.6 1.4L18.4 4z" />
-          <circle cx="12" cy="15" r="6.2" />
-          <circle cx="12" cy="15" r="3.7" fill="#fff" opacity="0.32" />
-          <path d="M12 11.9l.78 1.6 1.76.25-1.27 1.24.3 1.75L12 15.9l-1.57.79.3-1.75-1.27-1.24 1.76-.25z" fill="#fff" opacity="0.55" />
+          <path d="M6.5 2h3.4l2 5.6-3 1.5z" />
+          <path d="M17.5 2h-3.4l-2 5.6 3 1.5z" />
+          <circle cx="12" cy="15.5" r="6" />
+          <circle cx="12" cy="15.5" r="6" fill="none" stroke="#fff" strokeWidth="0.7" opacity="0.28" />
+          <circle cx="12" cy="15.5" r="3.8" fill="#fff" opacity="0.2" />
+          <path d="M12 12.4l.8 1.6 1.78.26-1.29 1.26.3 1.77L12 16.3l-1.59.82.3-1.77-1.29-1.26 1.78-.26z" fill="#fff" opacity="0.62" />
         </svg>
       );
-    case 'tr-participou': // medalha de participação
+    case 'tr-participou': // medalha de participação (com check)
       return (
         <svg {...common} fill="currentColor" stroke="none">
-          <path d="M9 2.5h2L10.2 8H8.6zM15 2.5h-2L13.8 8h1.6z" />
-          <circle cx="12" cy="14.5" r="6" />
-          <circle cx="12" cy="14.5" r="3.6" fill="#fff" opacity="0.3" />
-          <circle cx="12" cy="14.5" r="1.5" fill="#fff" opacity="0.5" />
+          <path d="M7 2h3.2l1.8 5.4-2.8 1.4z" />
+          <path d="M17 2h-3.2l-1.8 5.4 2.8 1.4z" />
+          <circle cx="12" cy="15" r="6" />
+          <circle cx="12" cy="15" r="6" fill="none" stroke="#fff" strokeWidth="0.7" opacity="0.25" />
+          <path d="M9.4 15.2l1.6 1.7 3.1-3.5 1.2 1.05-4.3 4.85-2.7-2.85z" fill="#fff" opacity="0.7" />
         </svg>
       );
-    case 'tr-penultimo': // escova solitária — penúltimo
+    case 'tr-penultimo': // escova de dente — penúltimo
       return (
         <svg {...common} fill="currentColor" stroke="none">
-          <rect x="2" y="13.6" width="13.5" height="2.8" rx="1.4" />
-          <rect x="15" y="12.4" width="5.2" height="5.2" rx="0.6" />
-          <rect x="15.4" y="10.4" width="0.9" height="2.2" rx="0.3" />
-          <rect x="16.6" y="9.8" width="0.9" height="2.8" rx="0.3" />
-          <rect x="17.8" y="9.8" width="0.9" height="2.8" rx="0.3" />
-          <rect x="19" y="10.4" width="0.9" height="2.2" rx="0.3" />
+          <rect x="2.4" y="14.5" width="13" height="1.6" rx="0.8" />
+          <circle cx="3.2" cy="15.3" r="1.5" />
+          <rect x="14.5" y="13.9" width="4.7" height="2.8" rx="0.6" />
+          <rect x="15" y="11.6" width="0.7" height="2.5" rx="0.35" />
+          <rect x="16" y="11.1" width="0.7" height="3" rx="0.35" />
+          <rect x="17.1" y="11.1" width="0.7" height="3" rx="0.35" />
+          <rect x="18.2" y="11.6" width="0.7" height="2.5" rx="0.35" />
         </svg>
       );
     case 'tr-lanterna': // privada — último
       return (
         <svg {...common} fill="currentColor" stroke="none">
-          <rect x="5.5" y="3" width="13" height="3" rx="0.5" />
-          <rect x="7" y="6" width="2.2" height="2.8" />
-          <path d="M4.5 8.5h15l-.7 4a5 5 0 0 1-3 3.7L15 20h-2l-.3-2.1A5 5 0 0 1 4.5 12.5v-4z" />
-          <ellipse cx="10.8" cy="11.4" rx="3.8" ry="2.1" fill="#fff" opacity="0.4" />
+          <rect x="3.3" y="3.5" width="4.8" height="7" rx="0.8" />
+          <rect x="4.8" y="4.5" width="1.8" height="0.9" rx="0.4" fill="#fff" opacity="0.4" />
+          <ellipse cx="13.5" cy="9.4" rx="6" ry="2.1" />
+          <path d="M8 9.4a5.5 2.1 0 0 0 11 0l-1 4a4 4 0 0 1-3.4 3.1l-.4 2.8h-1.6l-.4-2.8A4 4 0 0 1 9 13.4z" />
+          <ellipse cx="13.5" cy="9.4" rx="3.6" ry="1.2" fill="#fff" opacity="0.45" />
+          <rect x="10" y="18.6" width="6.6" height="1.7" rx="0.4" />
         </svg>
       );
     case 'crown': // coroa — campeão / rei
@@ -6862,13 +6869,14 @@ function TrophyItem({ trophy }) {
     penultimo:  { icon: 'tr-penultimo', label: 'PENÚLTIMO',  color: '#6b4423', bg: '#f0e7df' },
     lanterna:   { icon: 'tr-lanterna',  label: 'ÚLTIMO',     color: '#7a2222', bg: '#fce4e4' },
   }[trophy.kind] || { icon: null, label: '', color: '#000', bg: '#eee' };
+  const shame = trophy.kind === 'lanterna' || trophy.kind === 'penultimo';
   return (
-    <div style={{
+    <div className={'tr-card tr-' + trophy.kind} style={{
       flex: '0 0 calc(50% - 6px)', maxWidth: 220,
       background: meta.bg, border: `2px solid ${meta.color}`,
-      padding: 12, textAlign: 'center',
+      padding: 12, textAlign: 'center', '--tr-c': meta.color,
     }}>
-      <div style={{ lineHeight: 1, color: meta.color, display: 'flex', justifyContent: 'center' }}>
+      <div className={'tr-art' + (shame ? ' shame' : '')} style={{ lineHeight: 1, color: meta.color, display: 'flex', justifyContent: 'center' }}>
         {meta.icon && <Icon name={meta.icon} size={42} />}
       </div>
       <div style={{ marginTop: 4, fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, color: meta.color }}>

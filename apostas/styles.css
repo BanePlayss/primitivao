@@ -3115,6 +3115,21 @@
     .mk-fx-finish .mk-brut-tog { margin-left: auto; }
     .mk-fx-finish-sel { flex: 1; min-width: 64px; font-family: inherit; font-weight: 700; font-size: 11px; padding: 4px 6px; border: 1.5px solid rgba(28,22,18,0.25); background: var(--pv-bone); color: var(--pv-charcoal); cursor: pointer; }
 
+    /* ─── VITRINE DE TROFÉUS — animações ─── */
+    .tr-card { animation: trPop 0.45s cubic-bezier(0.34, 1.45, 0.5, 1) both; transition: transform 0.18s ease, box-shadow 0.18s ease; }
+    .tr-card:hover { transform: translateY(-4px) scale(1.04); box-shadow: 0 9px 22px rgba(0,0,0,0.18); z-index: 2; position: relative; }
+    .tr-art { animation: trFloat 3.2s ease-in-out infinite; will-change: transform; }
+    .tr-card:nth-child(2n) .tr-art { animation-delay: -1.1s; }
+    .tr-card:nth-child(3n) .tr-art { animation-delay: -2.1s; }
+    .tr-card:hover .tr-art { animation-duration: 1.1s; }
+    .tr-card.tr-champion .tr-art { animation: trFloat 3.2s ease-in-out infinite, trGlow 2.4s ease-in-out infinite; }
+    .tr-art.shame { animation: trWobble 2.6s ease-in-out infinite; transform-origin: bottom center; }
+    @keyframes trFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+    @keyframes trGlow { 0%, 100% { filter: drop-shadow(0 0 3px rgba(212,175,55,0.35)); } 50% { filter: drop-shadow(0 0 12px rgba(212,175,55,0.9)); } }
+    @keyframes trWobble { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+    @keyframes trPop { from { opacity: 0; transform: scale(0.7) translateY(10px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .tr-card, .tr-art { animation: none !important; } }
+
     /* painel de apostas do MK — mercados + odds automáticas */
     .mk-betting .card-head .title svg { color: var(--pv-orange); }
     .mk-bet-nav { max-width: 320px; margin: 0 auto 16px; }
