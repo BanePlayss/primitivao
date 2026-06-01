@@ -1,0 +1,6550 @@
+{
+  "exportedAt": "2026-06-01T12:42:28.727Z",
+  "version": 4,
+  "source": "github-action",
+  "apostas": {
+    "users": {
+      "celin": {
+        "senha": "1511",
+        "pc": 0,
+        "joined": 1779360519594,
+        "lastWeekly": 1779756523512,
+        "title": "falido",
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {
+          "badge": "badge-mao-quente"
+        }
+      },
+      "bane": {
+        "pc": 13300,
+        "joined": 1779361096485,
+        "lastWeekly": 1779756588914,
+        "title": "tudo_ou_nada",
+        "senhaHash": "2b09dade582b4add6d568503df56f82694ca3ebbadc5ec296edf3eac74d75540",
+        "cosmetics": {},
+        "inventory": [],
+        "cc": 0,
+        "mkChars": [
+          "Sub-Zero",
+          "Rain",
+          "Tanya"
+        ]
+      },
+      "marbello": {
+        "senha": "Rodrigo2704",
+        "pc": 4254,
+        "joined": 1779363607519,
+        "lastWeekly": 1779411351851,
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {}
+      },
+      "jucamelero": {
+        "senha": "Lupalinda1",
+        "pc": 0,
+        "joined": 1779363632865,
+        "lastWeekly": 1779756399879,
+        "title": "falido",
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {
+          "badge": "badge-beta"
+        }
+      },
+      "mohamed": {
+        "pc": 0,
+        "joined": 1779363649433,
+        "lastWeekly": 1779756438677,
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {
+          "badge": "badge-tudo-ou-nada"
+        },
+        "senhaHash": "c725e9c1ce7cb9795826a1e371747094cf34900870368c7ed66b77d779f25fb3",
+        "title": "tudo_ou_nada",
+        "mkChars": [
+          "Nitara",
+          "Ashrah",
+          "Sektor"
+        ]
+      },
+      "magreza": {
+        "senha": "arthurbr1999",
+        "pc": 0,
+        "joined": 1779369658342,
+        "lastWeekly": 1779756544936,
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {}
+      },
+      "vitinho": {
+        "senha": "123456",
+        "pc": 6000,
+        "joined": 1779372200580,
+        "lastWeekly": 1779756609411,
+        "title": "beta_tester",
+        "inventory": [],
+        "cc": 0,
+        "cosmetics": {}
+      },
+      "spider": {
+        "pc": 0,
+        "joined": 1779384981242,
+        "lastWeekly": 1779895493069,
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {
+          "badge": "badge-copa"
+        },
+        "senhaHash": "d727de805a70f47457ebe117863f92563df9924bdfe986058e36f06d10874c90"
+      },
+      "xaolin": {
+        "senha": "Cailinpk",
+        "pc": 50,
+        "joined": 1779386422213,
+        "lastWeekly": 0,
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {}
+      },
+      "oldspriggan": {
+        "senha": "V1t0r1@s50",
+        "pc": 675,
+        "joined": 1779388498792,
+        "lastWeekly": 1779923805760,
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {}
+      },
+      "ricle": {
+        "senha": "201098br",
+        "pc": 5125,
+        "joined": 1779410336535,
+        "lastWeekly": 1779756563197,
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {}
+      },
+      "caco": {
+        "senha": "senha1234",
+        "pc": 358,
+        "joined": 1779410442437,
+        "lastWeekly": 1779924743446,
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {}
+      },
+      "pitera": {
+        "senha": "102030",
+        "pc": 0,
+        "joined": 1779415739480,
+        "lastWeekly": 1779759892340,
+        "title": "high_roller",
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {}
+      },
+      "bamgu": {
+        "pc": 2468,
+        "joined": 1779415107423,
+        "lastWeekly": 1779756632157,
+        "senhaHash": "19695835c5eff10ba0cf95052bfd9ec41bb38eeac7512572d312c73b5cb077c2",
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {}
+      },
+      "duckz3ra": {
+        "senha": "Quorthon66",
+        "pc": 261,
+        "joined": 1779417231182,
+        "lastWeekly": 1779417235501,
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {}
+      },
+      "utirrabianc": {
+        "senha": "YXZRfe5A99qeaGW",
+        "pc": 0,
+        "joined": 1779424242563,
+        "lastWeekly": 1779924866688,
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {}
+      },
+      "deivonha": {
+        "senha": "david@14092007",
+        "pc": 550,
+        "joined": 1779646513482,
+        "lastWeekly": 1779646562663,
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {}
+      },
+      "potato": {
+        "senha": "Hall109247@",
+        "pc": 0,
+        "joined": 1779665383402,
+        "lastWeekly": 1779665385317,
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {}
+      },
+      "kentaroz": {
+        "senha": "0d841a1d",
+        "pc": 2063,
+        "joined": 1779756555332,
+        "lastWeekly": 1779756557187,
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {}
+      },
+      "ivansf": {
+        "senhaHash": "0bfd97f46bc4b51d777dae76f1819368bab002c8bdd38eb8630aff0cf1e074b0",
+        "pc": 50,
+        "joined": 1779993658308,
+        "lastWeekly": 0,
+        "cc": 0,
+        "inventory": [],
+        "cosmetics": {}
+      }
+    },
+    "teamPlayers": {
+      "bane": "bane",
+      "mohamed": "mohamed",
+      "potato": "potato",
+      "magreza": "magreza",
+      "celin": "celin",
+      "juca": "jucamelero",
+      "caco": "caco",
+      "vitinho": "vitinho"
+    },
+    "fixtures": [
+      {
+        "id": "r1g1",
+        "round": 1,
+        "home": "bane",
+        "away": "mohamed",
+        "day": "SEG",
+        "date": "04/05",
+        "time": "21:00",
+        "oddsH": 2,
+        "oddsD": 3,
+        "oddsA": 2.2,
+        "oddsBY": 1.8,
+        "oddsBN": 2,
+        "result": null,
+        "locked": false
+      },
+      {
+        "id": "r1g2",
+        "round": 1,
+        "home": "potato",
+        "away": "magreza",
+        "day": "TER",
+        "date": "05/05",
+        "time": "21:00",
+        "oddsH": 2.3,
+        "oddsD": 3,
+        "oddsA": 2,
+        "oddsBY": 1.8,
+        "oddsBN": 2,
+        "result": null,
+        "locked": false
+      },
+      {
+        "id": "r1g3",
+        "round": 1,
+        "home": "celin",
+        "away": "juca",
+        "day": "QUA",
+        "date": "06/05",
+        "time": "21:00",
+        "oddsH": 2.1,
+        "oddsD": 3,
+        "oddsA": 2.1,
+        "oddsBY": 1.8,
+        "oddsBN": 2,
+        "result": null,
+        "locked": false
+      },
+      {
+        "id": "r1g4",
+        "round": 1,
+        "home": "caco",
+        "away": "vitinho",
+        "day": "QUI",
+        "date": "07/05",
+        "time": "21:00",
+        "oddsH": 2.5,
+        "oddsD": 3,
+        "oddsA": 1.9,
+        "oddsBY": 1.8,
+        "oddsBN": 2,
+        "result": null,
+        "locked": false
+      }
+    ],
+    "bets": [
+      {
+        "id": "t1780181930313-tlgf",
+        "user": "oldspriggan",
+        "amount": 25,
+        "status": "pending",
+        "createdAt": 1780181930313,
+        "combinedOdds": 1.77,
+        "legs": [
+          {
+            "fixtureId": "r6g1",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.77
+          }
+        ]
+      },
+      {
+        "id": "t1780181927808-y91f",
+        "user": "oldspriggan",
+        "amount": 25,
+        "status": "pending",
+        "createdAt": 1780181927808,
+        "combinedOdds": 3.27,
+        "legs": [
+          {
+            "fixtureId": "r6g1",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 3.27
+          }
+        ]
+      },
+      {
+        "id": "t1780181926496-na4i",
+        "user": "oldspriggan",
+        "amount": 25,
+        "status": "pending",
+        "createdAt": 1780181926496,
+        "combinedOdds": 1.1,
+        "legs": [
+          {
+            "fixtureId": "r6g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1
+          }
+        ]
+      },
+      {
+        "id": "t1780181921958-6pxw",
+        "user": "oldspriggan",
+        "amount": 25,
+        "status": "pending",
+        "createdAt": 1780181921958,
+        "combinedOdds": 8.73,
+        "legs": [
+          {
+            "fixtureId": "r6g1",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 8.73
+          }
+        ]
+      },
+      {
+        "id": "t1780181919535-rn6w",
+        "user": "oldspriggan",
+        "amount": 25,
+        "status": "pending",
+        "createdAt": 1780181919535,
+        "combinedOdds": 3.63,
+        "legs": [
+          {
+            "fixtureId": "r6g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 3.63
+          }
+        ]
+      },
+      {
+        "id": "t1780181913688-zn4q",
+        "user": "oldspriggan",
+        "amount": 25,
+        "status": "pending",
+        "createdAt": 1780181913688,
+        "combinedOdds": 3.59,
+        "legs": [
+          {
+            "fixtureId": "r6g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 3.59
+          }
+        ]
+      },
+      {
+        "id": "t1780181912579-njvy",
+        "user": "oldspriggan",
+        "amount": 25,
+        "status": "pending",
+        "createdAt": 1780181912579,
+        "combinedOdds": 7.58,
+        "legs": [
+          {
+            "fixtureId": "r6g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 7.58
+          }
+        ]
+      },
+      {
+        "id": "t1780181905264-9xxb",
+        "user": "oldspriggan",
+        "amount": 25,
+        "status": "pending",
+        "createdAt": 1780181905264,
+        "combinedOdds": 1.1,
+        "legs": [
+          {
+            "fixtureId": "r6g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1
+          }
+        ]
+      },
+      {
+        "id": "t1780181899537-bppf",
+        "user": "oldspriggan",
+        "amount": 25,
+        "status": "pending",
+        "createdAt": 1780181899537,
+        "combinedOdds": 6.02,
+        "legs": [
+          {
+            "fixtureId": "r6g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 6.02
+          }
+        ]
+      },
+      {
+        "id": "t1780181893220-8jqb",
+        "user": "oldspriggan",
+        "amount": 25,
+        "status": "pending",
+        "createdAt": 1780181893220,
+        "combinedOdds": 8.37,
+        "legs": [
+          {
+            "fixtureId": "r6g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 8.37
+          }
+        ]
+      },
+      {
+        "id": "t1780181884139-0do7",
+        "user": "oldspriggan",
+        "amount": 25,
+        "status": "pending",
+        "createdAt": 1780181884139,
+        "combinedOdds": 4.42,
+        "legs": [
+          {
+            "fixtureId": "r6g0",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 4.42
+          }
+        ]
+      },
+      {
+        "id": "t1780181878636-3gtw",
+        "user": "oldspriggan",
+        "amount": 25,
+        "status": "pending",
+        "createdAt": 1780181878636,
+        "combinedOdds": 2.56,
+        "legs": [
+          {
+            "fixtureId": "r6g0",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 2.56
+          }
+        ]
+      },
+      {
+        "id": "t1780181873278-7iyx",
+        "user": "oldspriggan",
+        "amount": 25,
+        "status": "pending",
+        "createdAt": 1780181873278,
+        "combinedOdds": 1.1,
+        "legs": [
+          {
+            "fixtureId": "r6g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1
+          }
+        ]
+      },
+      {
+        "id": "t1780181867166-f3sg",
+        "user": "oldspriggan",
+        "amount": 25,
+        "status": "pending",
+        "createdAt": 1780181867166,
+        "combinedOdds": 1.14,
+        "legs": [
+          {
+            "fixtureId": "r6g0",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.14
+          }
+        ]
+      },
+      {
+        "id": "t1780181862313-x8z7",
+        "user": "oldspriggan",
+        "amount": 25,
+        "status": "pending",
+        "createdAt": 1780181862313,
+        "combinedOdds": 4.69,
+        "legs": [
+          {
+            "fixtureId": "r6g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 4.69
+          }
+        ]
+      },
+      {
+        "id": "t1780091390332-f5u5",
+        "user": "spider",
+        "amount": 1050,
+        "status": "pending",
+        "createdAt": 1780091390332,
+        "combinedOdds": 2.74,
+        "legs": [
+          {
+            "fixtureId": "r6g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.45
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.29
+          }
+        ]
+      },
+      {
+        "id": "t1779928191121-p6vh",
+        "user": "pitera",
+        "amount": 6000,
+        "status": "lost",
+        "createdAt": 1779928191121,
+        "combinedOdds": 7.49,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.87,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.15,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 1.76,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779928172167-e2pd",
+        "user": "pitera",
+        "amount": 2876,
+        "status": "lost",
+        "createdAt": 1779928172167,
+        "combinedOdds": 12.1,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "D",
+            "odds": 5.92,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.15,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 2.32,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779927141456-flma",
+        "user": "bane",
+        "amount": 272,
+        "status": "pending",
+        "createdAt": 1779927141456,
+        "combinedOdds": 24.05,
+        "legs": [
+          {
+            "fixtureId": "r6g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.45
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.29
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.64
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.44
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.77
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 3.11
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.15
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.2
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.2
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 1.39
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.15
+          }
+        ]
+      },
+      {
+        "id": "t1779927111877-40yx",
+        "user": "utirrabianc",
+        "amount": 1050,
+        "status": "pending",
+        "createdAt": 1779927111877,
+        "combinedOdds": 24.05,
+        "legs": [
+          {
+            "fixtureId": "r6g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.45
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.29
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.64
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.44
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.77
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 3.11
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.15
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.2
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.2
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 1.39
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.15
+          }
+        ]
+      },
+      {
+        "id": "t1779927073212-8fy5",
+        "user": "caco",
+        "amount": 500,
+        "status": "pending",
+        "createdAt": 1779927073212,
+        "combinedOdds": 6.56,
+        "legs": [
+          {
+            "fixtureId": "r6g2",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 3.11
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.15
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 2.3
+          }
+        ]
+      },
+      {
+        "id": "t1779927065698-qjtm",
+        "user": "caco",
+        "amount": 500,
+        "status": "pending",
+        "createdAt": 1779927065698,
+        "combinedOdds": 3.27,
+        "legs": [
+          {
+            "fixtureId": "r6g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.12
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.15
+          }
+        ]
+      },
+      {
+        "id": "t1779927037467-ey8s",
+        "user": "caco",
+        "amount": 500,
+        "status": "pending",
+        "createdAt": 1779927037467,
+        "combinedOdds": 8.37,
+        "legs": [
+          {
+            "fixtureId": "r6g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.2
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 6.02
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.15
+          }
+        ]
+      },
+      {
+        "id": "t1779927010665-7d31",
+        "user": "caco",
+        "amount": 500,
+        "status": "pending",
+        "createdAt": 1779927010665,
+        "combinedOdds": 4.3,
+        "legs": [
+          {
+            "fixtureId": "r6g1",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.44
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13
+          }
+        ]
+      },
+      {
+        "id": "t1779926996155-49wg",
+        "user": "caco",
+        "amount": 250,
+        "status": "pending",
+        "createdAt": 1779926996155,
+        "combinedOdds": 6.44,
+        "legs": [
+          {
+            "fixtureId": "r6g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.45
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.14
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.29
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 2.56
+          }
+        ]
+      },
+      {
+        "id": "t1779926966477-pcli",
+        "user": "pitera",
+        "amount": 100000,
+        "status": "lost",
+        "createdAt": 1779926966477,
+        "combinedOdds": 4.12,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.87,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.15,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779925107147-yei9",
+        "user": "bamgu",
+        "amount": 500,
+        "status": "lost",
+        "createdAt": 1779925107147,
+        "combinedOdds": 12.1,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "D",
+            "odds": 5.92,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 2.32,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.15,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779925048636-1867",
+        "user": "bamgu",
+        "amount": 500,
+        "status": "lost",
+        "createdAt": 1779925048636,
+        "combinedOdds": 4.12,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.87,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.15,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779924835256-e3g5",
+        "user": "vitinho",
+        "amount": 81,
+        "status": "lost",
+        "createdAt": 1779924835256,
+        "combinedOdds": 5.73,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.87,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.15,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779924811586-lr90",
+        "user": "mohamed",
+        "amount": 200,
+        "status": "lost",
+        "createdAt": 1779924811586,
+        "combinedOdds": 2.63,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 2.63,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779924802306-wpr8",
+        "user": "mohamed",
+        "amount": 800,
+        "status": "lost",
+        "createdAt": 1779924802306,
+        "combinedOdds": 1.87,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.87,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779924758178-z97i",
+        "user": "caco",
+        "amount": 3500,
+        "status": "lost",
+        "createdAt": 1779924758178,
+        "combinedOdds": 4.63,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.87,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.15,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779924745709-dg9b",
+        "user": "jucamelero",
+        "amount": 18394,
+        "status": "lost",
+        "createdAt": 1779924745709,
+        "combinedOdds": 2.97,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.87,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779922401709-rhbn",
+        "user": "magreza",
+        "amount": 1674,
+        "status": "lost",
+        "createdAt": 1779922401709,
+        "combinedOdds": 3.48,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.87,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779894849518-4csf",
+        "user": "bane",
+        "amount": 1500,
+        "status": "lost",
+        "createdAt": 1779894849518,
+        "combinedOdds": 32.79,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 3.37,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 7.83,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 1.76,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 2.63,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 3.63
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 6.71
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 3.12
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.54
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779892413910-vall",
+        "user": "celin",
+        "amount": 96097,
+        "status": "lost",
+        "createdAt": 1779892413910,
+        "combinedOdds": 2.97,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.87,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779759954104-hqr7",
+        "user": "pitera",
+        "amount": 15788,
+        "status": "won",
+        "createdAt": 1779759954104,
+        "combinedOdds": 3.65,
+        "legs": [
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.38,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.17,
+            "result": "win"
+          }
+        ],
+        "payout": 57626
+      },
+      {
+        "id": "t1779759945183-bb1i",
+        "user": "pitera",
+        "amount": 5000,
+        "status": "won",
+        "createdAt": 1779759945183,
+        "combinedOdds": 10.25,
+        "legs": [
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.38,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.28,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.17,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.32,
+            "result": "win"
+          }
+        ],
+        "payout": 51250
+      },
+      {
+        "id": "t1779756757984-tb16",
+        "user": "bamgu",
+        "amount": 950,
+        "status": "won",
+        "createdAt": 1779756757984,
+        "combinedOdds": 3.65,
+        "legs": [
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.38,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.17,
+            "result": "win"
+          }
+        ],
+        "payout": 3468
+      },
+      {
+        "id": "t1779756680819-jso9",
+        "user": "ricle",
+        "amount": 20,
+        "status": "lost",
+        "createdAt": 1779756680819,
+        "combinedOdds": 12.05,
+        "legs": [
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.38,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.23,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 7.02,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.32,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779756662164-5wex",
+        "user": "ricle",
+        "amount": 500,
+        "status": "won",
+        "createdAt": 1779756662164,
+        "combinedOdds": 10.25,
+        "legs": [
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.38,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.28,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.17,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.32,
+            "result": "win"
+          }
+        ],
+        "payout": 5125
+      },
+      {
+        "id": "t1779756653181-7qrt",
+        "user": "vitinho",
+        "amount": 1666,
+        "status": "won",
+        "createdAt": 1779756653181,
+        "combinedOdds": 3.65,
+        "legs": [
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.38,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.17,
+            "result": "win"
+          }
+        ],
+        "payout": 6081
+      },
+      {
+        "id": "t1779756648406-jdwt",
+        "user": "kentaroz",
+        "amount": 809,
+        "status": "won",
+        "createdAt": 1779756648406,
+        "combinedOdds": 2.55,
+        "legs": [
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.38,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.17,
+            "result": "win"
+          }
+        ],
+        "payout": 2063
+      },
+      {
+        "id": "t1779756584496-8yzj",
+        "user": "bane",
+        "amount": 2932,
+        "status": "won",
+        "createdAt": 1779756584496,
+        "combinedOdds": 4.97,
+        "legs": [
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.38,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.17,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.32,
+            "result": "win"
+          }
+        ],
+        "payout": 14572
+      },
+      {
+        "id": "t1779756567346-h6a6",
+        "user": "kentaroz",
+        "amount": 550,
+        "status": "won",
+        "createdAt": 1779756567346,
+        "combinedOdds": 1.47,
+        "legs": [
+          {
+            "fixtureId": "r5g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.47,
+            "result": "win"
+          }
+        ],
+        "payout": 809
+      },
+      {
+        "id": "t1779756558145-7cwm",
+        "user": "celin",
+        "amount": 26328,
+        "status": "won",
+        "createdAt": 1779756558145,
+        "combinedOdds": 3.65,
+        "legs": [
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.38,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.17,
+            "result": "win"
+          }
+        ],
+        "payout": 96097
+      },
+      {
+        "id": "t1779756495396-zvgs",
+        "user": "jucamelero",
+        "amount": 5000,
+        "status": "won",
+        "createdAt": 1779756495396,
+        "combinedOdds": 3.65,
+        "legs": [
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.38,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.17,
+            "result": "win"
+          }
+        ],
+        "payout": 18250
+      },
+      {
+        "id": "t1779756479668-lfzi",
+        "user": "mohamed",
+        "amount": 355,
+        "status": "lost",
+        "createdAt": 1779756479668,
+        "combinedOdds": 5.21,
+        "legs": [
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 5.21,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779670668566-lgxz",
+        "user": "duckz3ra",
+        "amount": 20,
+        "status": "lost",
+        "createdAt": 1779670668566,
+        "combinedOdds": 1.87,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.87,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779670279955-06yx",
+        "user": "pitera",
+        "amount": 3175,
+        "status": "won",
+        "createdAt": 1779670279955,
+        "combinedOdds": 4.5,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.67,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 14288
+      },
+      {
+        "id": "t1779667005453-hftp",
+        "user": "mohamed",
+        "amount": 22,
+        "status": "lost",
+        "createdAt": 1779667005453,
+        "combinedOdds": 5.74,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.74,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779666976158-ix1l",
+        "user": "mohamed",
+        "amount": 118,
+        "status": "won",
+        "createdAt": 1779666976158,
+        "combinedOdds": 1.73,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73,
+            "result": "win"
+          }
+        ],
+        "payout": 204
+      },
+      {
+        "id": "t1779666921574-yp2n",
+        "user": "mohamed",
+        "amount": 222,
+        "status": "won",
+        "createdAt": 1779666921574,
+        "combinedOdds": 1.67,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.67,
+            "result": "win"
+          }
+        ],
+        "payout": 371
+      },
+      {
+        "id": "t1779666918494-rttb",
+        "user": "vitinho",
+        "amount": 405,
+        "status": "won",
+        "createdAt": 1779666918494,
+        "combinedOdds": 2.83,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73,
+            "result": "win"
+          }
+        ],
+        "payout": 1146
+      },
+      {
+        "id": "t1779666917353-do0p",
+        "user": "potato",
+        "amount": 20,
+        "status": "lost",
+        "createdAt": 1779666917353,
+        "combinedOdds": 4.88,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.67,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.48,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779666911472-0y3a",
+        "user": "caco",
+        "amount": 1000,
+        "status": "won",
+        "createdAt": 1779666911472,
+        "combinedOdds": 3.4,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.67,
+            "result": "win"
+          }
+        ],
+        "payout": 3400
+      },
+      {
+        "id": "t1779666845535-2kgs",
+        "user": "celin",
+        "amount": 5000,
+        "status": "won",
+        "createdAt": 1779666845535,
+        "combinedOdds": 4.5,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.67,
+            "result": "win"
+          }
+        ],
+        "payout": 22500
+      },
+      {
+        "id": "t1779665921164-cr89",
+        "user": "vitinho",
+        "amount": 350,
+        "status": "lost",
+        "createdAt": 1779665921164,
+        "combinedOdds": 2.23,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.23,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779665553545-fyu3",
+        "user": "potato",
+        "amount": 60,
+        "status": "lost",
+        "createdAt": 1779665553545,
+        "combinedOdds": 4.62,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.59,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 3.03,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779665048641-aent",
+        "user": "pitera",
+        "amount": 3666,
+        "status": "won",
+        "createdAt": 1779665048641,
+        "combinedOdds": 2.23,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 8175
+      },
+      {
+        "id": "t1779498739513-iloj",
+        "user": "celin",
+        "amount": 165,
+        "status": "won",
+        "createdAt": 1779498739513,
+        "combinedOdds": 5.26,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 3.03,
+            "result": "win"
+          }
+        ],
+        "payout": 868
+      },
+      {
+        "id": "t1779452015383-c2h9",
+        "user": "celin",
+        "amount": 2000,
+        "status": "won",
+        "createdAt": 1779452015383,
+        "combinedOdds": 2.23,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 4460
+      },
+      {
+        "id": "t1779420771041-7yt8",
+        "user": "pitera",
+        "amount": 1000,
+        "status": "won",
+        "createdAt": 1779420771041,
+        "combinedOdds": 4.05,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.34,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 4050
+      },
+      {
+        "id": "t1779420027523-t3tm",
+        "user": "pitera",
+        "amount": 485,
+        "status": "lost",
+        "createdAt": 1779420027523,
+        "combinedOdds": 7.95,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.24,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779418600769-exo1",
+        "user": "magreza",
+        "amount": 250,
+        "status": "won",
+        "createdAt": 1779418600769,
+        "combinedOdds": 4.2,
+        "legs": [
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.65,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.26,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.29,
+            "result": "win"
+          }
+        ],
+        "payout": 1050
+      },
+      {
+        "id": "t1779418574121-eswg",
+        "user": "magreza",
+        "amount": 250,
+        "status": "lost",
+        "createdAt": 1779418574121,
+        "combinedOdds": 3.96,
+        "legs": [
+          {
+            "fixtureId": "r5g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.45,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.16,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779418555432-ktr0",
+        "user": "vitinho",
+        "amount": 200,
+        "status": "lost",
+        "createdAt": 1779418555432,
+        "combinedOdds": 6.3,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.23,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 1.84,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779418550483-7xj0",
+        "user": "ricle",
+        "amount": 9,
+        "status": "lost",
+        "createdAt": 1779418550483,
+        "combinedOdds": 8.24,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.23,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 2.19,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.59,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779418545992-cdu7",
+        "user": "magreza",
+        "amount": 250,
+        "status": "lost",
+        "createdAt": 1779418545992,
+        "combinedOdds": 3.46,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.87,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.59,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779418503137-0o1i",
+        "user": "pitera",
+        "amount": 831,
+        "status": "lost",
+        "createdAt": 1779418503137,
+        "combinedOdds": 5.27,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.95,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.22,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779418502500-l8o7",
+        "user": "ricle",
+        "amount": 90,
+        "status": "lost",
+        "createdAt": 1779418502500,
+        "combinedOdds": 7.89,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.23,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 1.84,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.59,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779418456036-6jz8",
+        "user": "magreza",
+        "amount": 250,
+        "status": "lost",
+        "createdAt": 1779418456036,
+        "combinedOdds": 4.95,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.23,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.59,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779418325802-c5v2",
+        "user": "duckz3ra",
+        "amount": 170,
+        "status": "pending",
+        "createdAt": 1779418325802,
+        "combinedOdds": 1.59,
+        "legs": [
+          {
+            "fixtureId": "r6g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.59
+          }
+        ]
+      },
+      {
+        "id": "t1779418300758-42do",
+        "user": "duckz3ra",
+        "amount": 50,
+        "status": "pending",
+        "createdAt": 1779418300758,
+        "combinedOdds": 5.93,
+        "legs": [
+          {
+            "fixtureId": "r6g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.32
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 2.05
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.56
+          }
+        ]
+      },
+      {
+        "id": "t1779418254240-5v9i",
+        "user": "duckz3ra",
+        "amount": 50,
+        "status": "pending",
+        "createdAt": 1779418254240,
+        "combinedOdds": 5.01,
+        "legs": [
+          {
+            "fixtureId": "r6g1",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.84
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.64
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.53
+          }
+        ]
+      },
+      {
+        "id": "t1779418246168-z83i",
+        "user": "jucamelero",
+        "amount": 1200,
+        "status": "won",
+        "createdAt": 1779418246168,
+        "combinedOdds": 3.71,
+        "legs": [
+          {
+            "fixtureId": "r5g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.16,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.45,
+            "result": "win"
+          }
+        ],
+        "payout": 4452
+      },
+      {
+        "id": "t1779418166959-7h20",
+        "user": "duckz3ra",
+        "amount": 50,
+        "status": "pending",
+        "createdAt": 1779418166959,
+        "combinedOdds": 2.59,
+        "legs": [
+          {
+            "fixtureId": "r6g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.42
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.17
+          }
+        ]
+      },
+      {
+        "id": "t1779418142512-iz5k",
+        "user": "duckz3ra",
+        "amount": 25,
+        "status": "lost",
+        "createdAt": 1779418142512,
+        "combinedOdds": 7.08,
+        "legs": [
+          {
+            "fixtureId": "r5g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.74,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.93,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.23,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.18,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779418070214-ydmn",
+        "user": "duckz3ra",
+        "amount": 35,
+        "status": "lost",
+        "createdAt": 1779418070214,
+        "combinedOdds": 9.11,
+        "legs": [
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.65,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.26,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 4.91,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.29,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779418009247-czaj",
+        "user": "duckz3ra",
+        "amount": 100,
+        "status": "won",
+        "createdAt": 1779418009248,
+        "combinedOdds": 2.61,
+        "legs": [
+          {
+            "fixtureId": "r5g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.45,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.16,
+            "result": "win"
+          }
+        ],
+        "payout": 261
+      },
+      {
+        "id": "t1779417533653-7ms7",
+        "user": "pitera",
+        "amount": 300,
+        "status": "won",
+        "createdAt": 1779417533653,
+        "combinedOdds": 7.72,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.33,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 3.05,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.12,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.12,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 2316
+      },
+      {
+        "id": "t1779417519974-sh1j",
+        "user": "vitinho",
+        "amount": 100,
+        "status": "won",
+        "createdAt": 1779417519974,
+        "combinedOdds": 1.61,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 161
+      },
+      {
+        "id": "t1779417458250-yc07",
+        "user": "magreza",
+        "amount": 698,
+        "status": "won",
+        "createdAt": 1779417458250,
+        "combinedOdds": 1.61,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 1124
+      },
+      {
+        "id": "t1779417426902-6akh",
+        "user": "duckz3ra",
+        "amount": 35,
+        "status": "lost",
+        "createdAt": 1779417426902,
+        "combinedOdds": 3.46,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.87,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.59,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779417345863-k7z8",
+        "user": "duckz3ra",
+        "amount": 35,
+        "status": "lost",
+        "createdAt": 1779417345863,
+        "combinedOdds": 5.19,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.23,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779417345655-p6fh",
+        "user": "jucamelero",
+        "amount": 100,
+        "status": "lost",
+        "createdAt": 1779417345655,
+        "combinedOdds": 6.01,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.13,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 2.19,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.59,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779416876578-6oit",
+        "user": "bamgu",
+        "amount": 100,
+        "status": "lost",
+        "createdAt": 1779416876578,
+        "combinedOdds": 28.47,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "D",
+            "odds": 8,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 3.89,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.34,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.24,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "NM",
+            "pick": "Y",
+            "odds": 10,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779416812285-su9s",
+        "user": "ricle",
+        "amount": 1,
+        "status": "lost",
+        "createdAt": 1779416812285,
+        "combinedOdds": 11.51,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 3.94,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.24,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 3.89,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.34,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779416778360-5xrq",
+        "user": "ricle",
+        "amount": 9,
+        "status": "lost",
+        "createdAt": 1779416778360,
+        "combinedOdds": 10.64,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.24,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.34,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779416746881-xqae",
+        "user": "jucamelero",
+        "amount": 350,
+        "status": "won",
+        "createdAt": 1779416746881,
+        "combinedOdds": 2.96,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          }
+        ],
+        "payout": 1036
+      },
+      {
+        "id": "t1779416661649-7gui",
+        "user": "celin",
+        "amount": 1000,
+        "status": "won",
+        "createdAt": 1779416661649,
+        "combinedOdds": 1.61,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 1610
+      },
+      {
+        "id": "t1779416537518-8bxp",
+        "user": "vitinho",
+        "amount": 200,
+        "status": "lost",
+        "createdAt": 1779416537518,
+        "combinedOdds": 8.2,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.24,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779416427578-wrfp",
+        "user": "marbello",
+        "amount": 1000,
+        "status": "won",
+        "createdAt": 1779416427578,
+        "combinedOdds": 2.96,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          }
+        ],
+        "payout": 2960
+      },
+      {
+        "id": "t1779416389499-1ero",
+        "user": "bane",
+        "amount": 174,
+        "status": "lost",
+        "createdAt": 1779416389499,
+        "combinedOdds": 10.64,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.24,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.34,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779416366009-gj1x",
+        "user": "bane",
+        "amount": 174,
+        "status": "lost",
+        "createdAt": 1779416366009,
+        "combinedOdds": 5.24,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.24,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779416356562-n53z",
+        "user": "bane",
+        "amount": 174,
+        "status": "won",
+        "createdAt": 1779416356562,
+        "combinedOdds": 1.61,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 280
+      },
+      {
+        "id": "t1779416317371-xdsj",
+        "user": "jucamelero",
+        "amount": 37,
+        "status": "won",
+        "createdAt": 1779416317371,
+        "combinedOdds": 6.64,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.34,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.24,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          }
+        ],
+        "payout": 246
+      },
+      {
+        "id": "t1779416274998-23bf",
+        "user": "mohamed",
+        "amount": 90,
+        "status": "won",
+        "createdAt": 1779416274998,
+        "combinedOdds": 1.24,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.24,
+            "result": "win"
+          }
+        ],
+        "payout": 112
+      },
+      {
+        "id": "t1779416272702-2chj",
+        "user": "caco",
+        "amount": 1000,
+        "status": "won",
+        "createdAt": 1779416272702,
+        "combinedOdds": 2.96,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          }
+        ],
+        "payout": 2960
+      },
+      {
+        "id": "t1779416122341-cnf9",
+        "user": "pitera",
+        "amount": 100,
+        "status": "lost",
+        "createdAt": 1779416122341,
+        "combinedOdds": 11.17,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 3.16,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.4,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779415958627-402w",
+        "user": "pitera",
+        "amount": 100,
+        "status": "won",
+        "createdAt": 1779415958627,
+        "combinedOdds": 6.16,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.56,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.99,
+            "result": "win"
+          }
+        ],
+        "payout": 616
+      },
+      {
+        "id": "t1779415907713-20ot",
+        "user": "pitera",
+        "amount": 50,
+        "status": "lost",
+        "createdAt": 1779415907713,
+        "combinedOdds": 9.53,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.56,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.99,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 3.37,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779415231924-t8yw",
+        "user": "vitinho",
+        "amount": 100,
+        "status": "won",
+        "createdAt": 1779415231924,
+        "combinedOdds": 2.41,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.41,
+            "result": "win"
+          }
+        ],
+        "payout": 241
+      },
+      {
+        "id": "t1779415170232-oj3m",
+        "user": "celin",
+        "amount": 1000,
+        "status": "won",
+        "createdAt": 1779415170232,
+        "combinedOdds": 2.41,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.41,
+            "result": "win"
+          }
+        ],
+        "payout": 2410
+      },
+      {
+        "id": "t1779415087049-tptf",
+        "user": "caco",
+        "amount": 100,
+        "status": "won",
+        "createdAt": 1779415087049,
+        "combinedOdds": 1.73,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.73,
+            "result": "win"
+          }
+        ],
+        "payout": 173
+      },
+      {
+        "id": "t1779415071058-swtj",
+        "user": "ricle",
+        "amount": 3706,
+        "status": "lost",
+        "createdAt": 1779415071058,
+        "combinedOdds": 12.33,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.41,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.61,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.73,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.48,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779415069727-7g3z",
+        "user": "jucamelero",
+        "amount": 100,
+        "status": "won",
+        "createdAt": 1779415069727,
+        "combinedOdds": 5.24,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.41,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.73,
+            "result": "win"
+          }
+        ],
+        "payout": 524
+      },
+      {
+        "id": "t1779415041234-o9jl",
+        "user": "ricle",
+        "amount": 3000,
+        "status": "lost",
+        "createdAt": 1779415041234,
+        "combinedOdds": 11.23,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 5.61,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.73,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.48,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.41,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779414965714-fsi3",
+        "user": "mohamed",
+        "amount": 51,
+        "status": "lost",
+        "createdAt": 1779414965714,
+        "combinedOdds": 2.36,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "O3H",
+            "pick": "N",
+            "odds": 2.36,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779414930654-16xb",
+        "user": "caco",
+        "amount": 400,
+        "status": "won",
+        "createdAt": 1779414930654,
+        "combinedOdds": 2.41,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.41,
+            "result": "win"
+          }
+        ],
+        "payout": 964
+      },
+      {
+        "id": "t1779414299621-mmmm",
+        "user": "ricle",
+        "amount": 1436,
+        "status": "won",
+        "createdAt": 1779414299621,
+        "combinedOdds": 4.67,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.33,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.12,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.12,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "NM",
+            "pick": "N",
+            "odds": 1.1,
+            "result": "win"
+          }
+        ],
+        "payout": 6706
+      },
+      {
+        "id": "t1779414283116-yk84",
+        "user": "vitinho",
+        "amount": 634,
+        "status": "won",
+        "createdAt": 1779414283116,
+        "combinedOdds": 1.33,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.33,
+            "result": "win"
+          }
+        ],
+        "payout": 843
+      },
+      {
+        "id": "t1779414199254-cc0r",
+        "user": "bane",
+        "amount": 889,
+        "status": "won",
+        "createdAt": 1779414199254,
+        "combinedOdds": 3.57,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.12,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "O3A",
+            "pick": "N",
+            "odds": 1.12,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.33,
+            "result": "win"
+          }
+        ],
+        "payout": 3174
+      },
+      {
+        "id": "t1779414155184-hxc3",
+        "user": "celin",
+        "amount": 718,
+        "status": "won",
+        "createdAt": 1779414155184,
+        "combinedOdds": 3.05,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 3.05,
+            "result": "win"
+          }
+        ],
+        "payout": 2190
+      },
+      {
+        "id": "t1779414150251-6oo8",
+        "user": "celin",
+        "amount": 718,
+        "status": "won",
+        "createdAt": 1779414150251,
+        "combinedOdds": 1.33,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.33,
+            "result": "win"
+          }
+        ],
+        "payout": 955
+      },
+      {
+        "id": "t1779414025767-rnix",
+        "user": "magreza",
+        "amount": 525,
+        "status": "won",
+        "createdAt": 1779414025767,
+        "combinedOdds": 1.33,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.33,
+            "result": "win"
+          }
+        ],
+        "payout": 698
+      },
+      {
+        "id": "t1779413926470-946q",
+        "user": "mohamed",
+        "amount": 294,
+        "status": "won",
+        "createdAt": 1779413926470,
+        "combinedOdds": 1.33,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.33,
+            "result": "win"
+          }
+        ],
+        "payout": 391
+      },
+      {
+        "id": "t1779413708042-0qy4",
+        "user": "bane",
+        "amount": 245,
+        "status": "won",
+        "createdAt": 1779413708042,
+        "combinedOdds": 2.61,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          }
+        ],
+        "payout": 639
+      },
+      {
+        "id": "t1779413497001-e7aw",
+        "user": "vitinho",
+        "amount": 490,
+        "status": "won",
+        "createdAt": 1779413497001,
+        "combinedOdds": 1.23,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.23,
+            "result": "win"
+          }
+        ],
+        "payout": 603
+      },
+      {
+        "id": "t1779413010609-xe0b",
+        "user": "vitinho",
+        "amount": 25,
+        "status": "won",
+        "createdAt": 1779413010609,
+        "combinedOdds": 1.23,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.23,
+            "result": "win"
+          }
+        ],
+        "payout": 31
+      },
+      {
+        "id": "t1779412865912-6opg",
+        "user": "jucamelero",
+        "amount": 50,
+        "status": "lost",
+        "createdAt": 1779412865912,
+        "combinedOdds": 8.82,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 8.82,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412779211-sbxn",
+        "user": "jucamelero",
+        "amount": 50,
+        "status": "lost",
+        "createdAt": 1779412779211,
+        "combinedOdds": 22.38,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.14,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 2.01,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.85,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.99,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.77,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 1.16,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 3.09,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.35,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 1.27
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.22
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.38
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.54
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412613146-zhhw",
+        "user": "mohamed",
+        "amount": 50,
+        "status": "lost",
+        "createdAt": 1779412613146,
+        "combinedOdds": 23.96,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.56,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.21,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.87,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.99,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.77,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.53,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.02,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.71
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.23
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.19
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.54
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412596456-wl2b",
+        "user": "bane",
+        "amount": 10,
+        "status": "lost",
+        "createdAt": 1779412596456,
+        "combinedOdds": 6.91,
+        "legs": [
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 3.54,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 3.37,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412582623-afvp",
+        "user": "bane",
+        "amount": 45,
+        "status": "lost",
+        "createdAt": 1779412582623,
+        "combinedOdds": 6.47,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.56,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.92,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.99,
+            "result": "win"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412497999-b5bt",
+        "user": "marbello",
+        "amount": 550,
+        "status": "won",
+        "createdAt": 1779412497999,
+        "combinedOdds": 4.17,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.56,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          }
+        ],
+        "payout": 2294
+      },
+      {
+        "id": "t1779412468421-yfwu",
+        "user": "magreza",
+        "amount": 25,
+        "status": "lost",
+        "createdAt": 1779412468421,
+        "combinedOdds": 2.89,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.89,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412421871-5ii3",
+        "user": "vitinho",
+        "amount": 25,
+        "status": "won",
+        "createdAt": 1779412421871,
+        "combinedOdds": 4.39,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.23,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "BTTS",
+            "pick": "N",
+            "odds": 3.16,
+            "result": "win"
+          }
+        ],
+        "payout": 110
+      },
+      {
+        "id": "t1779412254181-m05g",
+        "user": "vitinho",
+        "amount": 10,
+        "status": "lost",
+        "createdAt": 1779412254181,
+        "combinedOdds": 25.67,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.56,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 2.92,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.87,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.99,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g0",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.77,
+            "result": "lose"
+          },
+          {
+            "fixtureId": "r5g1",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.53,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.73,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r5g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.02,
+            "result": "win"
+          },
+          {
+            "fixtureId": "r6g0",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.71
+          },
+          {
+            "fixtureId": "r6g1",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.23
+          },
+          {
+            "fixtureId": "r6g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.19
+          },
+          {
+            "fixtureId": "r6g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 1.54
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412238893-amlb",
+        "user": "celin",
+        "amount": 550,
+        "status": "won",
+        "createdAt": 1779412238893,
+        "combinedOdds": 2.61,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          }
+        ],
+        "payout": 1436
+      },
+      {
+        "id": "t1779412233675-44l2",
+        "user": "mohamed",
+        "amount": 20,
+        "status": "lost",
+        "createdAt": 1779412233675,
+        "combinedOdds": 3.23,
+        "legs": [
+          {
+            "fixtureId": "r4g3",
+            "market": "1X2",
+            "pick": "A",
+            "odds": 3.23,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412221380-utgq",
+        "user": "mohamed",
+        "amount": 80,
+        "status": "won",
+        "createdAt": 1779412221380,
+        "combinedOdds": 1.87,
+        "legs": [
+          {
+            "fixtureId": "r4g2",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 1.87,
+            "result": "win"
+          }
+        ],
+        "payout": 150
+      },
+      {
+        "id": "t1779412188252-v8y2",
+        "user": "mohamed",
+        "amount": 20,
+        "status": "lost",
+        "createdAt": 1779412188252,
+        "combinedOdds": 2.71,
+        "legs": [
+          {
+            "fixtureId": "r4g1",
+            "market": "O3A",
+            "pick": "Y",
+            "odds": 2.71,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      },
+      {
+        "id": "t1779412129196-surd",
+        "user": "mohamed",
+        "amount": 26,
+        "status": "won",
+        "createdAt": 1779412129196,
+        "combinedOdds": 2.71,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "O3H",
+            "pick": "Y",
+            "odds": 2.71,
+            "result": "win"
+          }
+        ],
+        "payout": 70
+      },
+      {
+        "id": "t1779412088139-mlkw",
+        "user": "ricle",
+        "amount": 550,
+        "status": "won",
+        "createdAt": 1779412088139,
+        "combinedOdds": 2.61,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          }
+        ],
+        "payout": 1436
+      },
+      {
+        "id": "t1779412077404-sgbo",
+        "user": "caco",
+        "amount": 38,
+        "status": "won",
+        "createdAt": 1779412077404,
+        "combinedOdds": 2.61,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "1X2",
+            "pick": "H",
+            "odds": 2.61,
+            "result": "win"
+          }
+        ],
+        "payout": 99
+      },
+      {
+        "id": "t1779412053881-j674",
+        "user": "jucamelero",
+        "amount": 100,
+        "status": "won",
+        "createdAt": 1779412053881,
+        "combinedOdds": 1.23,
+        "legs": [
+          {
+            "fixtureId": "r3g3",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.23,
+            "result": "win"
+          }
+        ],
+        "payout": 123
+      },
+      {
+        "id": "t1779411907567-to14",
+        "user": "jucamelero",
+        "amount": 300,
+        "status": "lost",
+        "createdAt": 1779411907567,
+        "combinedOdds": 1.46,
+        "legs": [
+          {
+            "fixtureId": "r4g0",
+            "market": "BTTS",
+            "pick": "Y",
+            "odds": 1.46,
+            "result": "lose"
+          }
+        ],
+        "payout": 0
+      }
+    ],
+    "mk": {
+      "draw": [
+        {
+          "phase": "IDA",
+          "n": 1,
+          "games": [
+            {
+              "home": "oldspriggan",
+              "away": "spider"
+            },
+            {
+              "home": "bamgu",
+              "away": "bane"
+            },
+            {
+              "home": "magreza",
+              "away": "ricle"
+            },
+            {
+              "home": "vitinho",
+              "away": "ivansf"
+            },
+            {
+              "home": "mohamed",
+              "away": "celin"
+            },
+            {
+              "home": "utirrabianc",
+              "away": "caco"
+            },
+            {
+              "home": "jucamelero",
+              "away": "xaolin"
+            }
+          ]
+        },
+        {
+          "phase": "IDA",
+          "n": 2,
+          "games": [
+            {
+              "home": "bane",
+              "away": "oldspriggan"
+            },
+            {
+              "home": "ricle",
+              "away": "spider"
+            },
+            {
+              "home": "ivansf",
+              "away": "bamgu"
+            },
+            {
+              "home": "celin",
+              "away": "magreza"
+            },
+            {
+              "home": "caco",
+              "away": "vitinho"
+            },
+            {
+              "home": "xaolin",
+              "away": "mohamed"
+            },
+            {
+              "home": "jucamelero",
+              "away": "utirrabianc"
+            }
+          ]
+        },
+        {
+          "phase": "IDA",
+          "n": 3,
+          "games": [
+            {
+              "home": "oldspriggan",
+              "away": "ricle"
+            },
+            {
+              "home": "bane",
+              "away": "ivansf"
+            },
+            {
+              "home": "spider",
+              "away": "celin"
+            },
+            {
+              "home": "bamgu",
+              "away": "caco"
+            },
+            {
+              "home": "magreza",
+              "away": "xaolin"
+            },
+            {
+              "home": "vitinho",
+              "away": "jucamelero"
+            },
+            {
+              "home": "mohamed",
+              "away": "utirrabianc"
+            }
+          ]
+        },
+        {
+          "phase": "IDA",
+          "n": 4,
+          "games": [
+            {
+              "home": "ivansf",
+              "away": "oldspriggan"
+            },
+            {
+              "home": "celin",
+              "away": "ricle"
+            },
+            {
+              "home": "caco",
+              "away": "bane"
+            },
+            {
+              "home": "xaolin",
+              "away": "spider"
+            },
+            {
+              "home": "jucamelero",
+              "away": "bamgu"
+            },
+            {
+              "home": "utirrabianc",
+              "away": "magreza"
+            },
+            {
+              "home": "mohamed",
+              "away": "vitinho"
+            }
+          ]
+        },
+        {
+          "phase": "IDA",
+          "n": 5,
+          "games": [
+            {
+              "home": "oldspriggan",
+              "away": "celin"
+            },
+            {
+              "home": "ivansf",
+              "away": "caco"
+            },
+            {
+              "home": "ricle",
+              "away": "xaolin"
+            },
+            {
+              "home": "bane",
+              "away": "jucamelero"
+            },
+            {
+              "home": "spider",
+              "away": "utirrabianc"
+            },
+            {
+              "home": "bamgu",
+              "away": "mohamed"
+            },
+            {
+              "home": "magreza",
+              "away": "vitinho"
+            }
+          ]
+        },
+        {
+          "phase": "IDA",
+          "n": 6,
+          "games": [
+            {
+              "home": "caco",
+              "away": "oldspriggan"
+            },
+            {
+              "home": "xaolin",
+              "away": "celin"
+            },
+            {
+              "home": "jucamelero",
+              "away": "ivansf"
+            },
+            {
+              "home": "utirrabianc",
+              "away": "ricle"
+            },
+            {
+              "home": "mohamed",
+              "away": "bane"
+            },
+            {
+              "home": "vitinho",
+              "away": "spider"
+            },
+            {
+              "home": "magreza",
+              "away": "bamgu"
+            }
+          ]
+        },
+        {
+          "phase": "IDA",
+          "n": 7,
+          "games": [
+            {
+              "home": "oldspriggan",
+              "away": "xaolin"
+            },
+            {
+              "home": "caco",
+              "away": "jucamelero"
+            },
+            {
+              "home": "celin",
+              "away": "utirrabianc"
+            },
+            {
+              "home": "ivansf",
+              "away": "mohamed"
+            },
+            {
+              "home": "ricle",
+              "away": "vitinho"
+            },
+            {
+              "home": "bane",
+              "away": "magreza"
+            },
+            {
+              "home": "spider",
+              "away": "bamgu"
+            }
+          ]
+        },
+        {
+          "phase": "IDA",
+          "n": 8,
+          "games": [
+            {
+              "home": "jucamelero",
+              "away": "oldspriggan"
+            },
+            {
+              "home": "utirrabianc",
+              "away": "xaolin"
+            },
+            {
+              "home": "mohamed",
+              "away": "caco"
+            },
+            {
+              "home": "vitinho",
+              "away": "celin"
+            },
+            {
+              "home": "magreza",
+              "away": "ivansf"
+            },
+            {
+              "home": "bamgu",
+              "away": "ricle"
+            },
+            {
+              "home": "spider",
+              "away": "bane"
+            }
+          ]
+        },
+        {
+          "phase": "IDA",
+          "n": 9,
+          "games": [
+            {
+              "home": "oldspriggan",
+              "away": "utirrabianc"
+            },
+            {
+              "home": "jucamelero",
+              "away": "mohamed"
+            },
+            {
+              "home": "xaolin",
+              "away": "vitinho"
+            },
+            {
+              "home": "caco",
+              "away": "magreza"
+            },
+            {
+              "home": "celin",
+              "away": "bamgu"
+            },
+            {
+              "home": "ivansf",
+              "away": "spider"
+            },
+            {
+              "home": "ricle",
+              "away": "bane"
+            }
+          ]
+        },
+        {
+          "phase": "IDA",
+          "n": 10,
+          "games": [
+            {
+              "home": "mohamed",
+              "away": "oldspriggan"
+            },
+            {
+              "home": "vitinho",
+              "away": "utirrabianc"
+            },
+            {
+              "home": "magreza",
+              "away": "jucamelero"
+            },
+            {
+              "home": "bamgu",
+              "away": "xaolin"
+            },
+            {
+              "home": "spider",
+              "away": "caco"
+            },
+            {
+              "home": "bane",
+              "away": "celin"
+            },
+            {
+              "home": "ricle",
+              "away": "ivansf"
+            }
+          ]
+        },
+        {
+          "phase": "IDA",
+          "n": 11,
+          "games": [
+            {
+              "home": "oldspriggan",
+              "away": "vitinho"
+            },
+            {
+              "home": "mohamed",
+              "away": "magreza"
+            },
+            {
+              "home": "utirrabianc",
+              "away": "bamgu"
+            },
+            {
+              "home": "jucamelero",
+              "away": "spider"
+            },
+            {
+              "home": "xaolin",
+              "away": "bane"
+            },
+            {
+              "home": "caco",
+              "away": "ricle"
+            },
+            {
+              "home": "celin",
+              "away": "ivansf"
+            }
+          ]
+        },
+        {
+          "phase": "IDA",
+          "n": 12,
+          "games": [
+            {
+              "home": "magreza",
+              "away": "oldspriggan"
+            },
+            {
+              "home": "bamgu",
+              "away": "vitinho"
+            },
+            {
+              "home": "spider",
+              "away": "mohamed"
+            },
+            {
+              "home": "bane",
+              "away": "utirrabianc"
+            },
+            {
+              "home": "ricle",
+              "away": "jucamelero"
+            },
+            {
+              "home": "ivansf",
+              "away": "xaolin"
+            },
+            {
+              "home": "celin",
+              "away": "caco"
+            }
+          ]
+        },
+        {
+          "phase": "IDA",
+          "n": 13,
+          "games": [
+            {
+              "home": "oldspriggan",
+              "away": "bamgu"
+            },
+            {
+              "home": "magreza",
+              "away": "spider"
+            },
+            {
+              "home": "vitinho",
+              "away": "bane"
+            },
+            {
+              "home": "mohamed",
+              "away": "ricle"
+            },
+            {
+              "home": "utirrabianc",
+              "away": "ivansf"
+            },
+            {
+              "home": "jucamelero",
+              "away": "celin"
+            },
+            {
+              "home": "xaolin",
+              "away": "caco"
+            }
+          ]
+        },
+        {
+          "phase": "VOLTA",
+          "n": 1,
+          "games": [
+            {
+              "home": "spider",
+              "away": "oldspriggan"
+            },
+            {
+              "home": "bane",
+              "away": "bamgu"
+            },
+            {
+              "home": "ricle",
+              "away": "magreza"
+            },
+            {
+              "home": "ivansf",
+              "away": "vitinho"
+            },
+            {
+              "home": "celin",
+              "away": "mohamed"
+            },
+            {
+              "home": "caco",
+              "away": "utirrabianc"
+            },
+            {
+              "home": "xaolin",
+              "away": "jucamelero"
+            }
+          ]
+        },
+        {
+          "phase": "VOLTA",
+          "n": 2,
+          "games": [
+            {
+              "home": "oldspriggan",
+              "away": "bane"
+            },
+            {
+              "home": "spider",
+              "away": "ricle"
+            },
+            {
+              "home": "bamgu",
+              "away": "ivansf"
+            },
+            {
+              "home": "magreza",
+              "away": "celin"
+            },
+            {
+              "home": "vitinho",
+              "away": "caco"
+            },
+            {
+              "home": "mohamed",
+              "away": "xaolin"
+            },
+            {
+              "home": "utirrabianc",
+              "away": "jucamelero"
+            }
+          ]
+        },
+        {
+          "phase": "VOLTA",
+          "n": 3,
+          "games": [
+            {
+              "home": "ricle",
+              "away": "oldspriggan"
+            },
+            {
+              "home": "ivansf",
+              "away": "bane"
+            },
+            {
+              "home": "celin",
+              "away": "spider"
+            },
+            {
+              "home": "caco",
+              "away": "bamgu"
+            },
+            {
+              "home": "xaolin",
+              "away": "magreza"
+            },
+            {
+              "home": "jucamelero",
+              "away": "vitinho"
+            },
+            {
+              "home": "utirrabianc",
+              "away": "mohamed"
+            }
+          ]
+        },
+        {
+          "phase": "VOLTA",
+          "n": 4,
+          "games": [
+            {
+              "home": "oldspriggan",
+              "away": "ivansf"
+            },
+            {
+              "home": "ricle",
+              "away": "celin"
+            },
+            {
+              "home": "bane",
+              "away": "caco"
+            },
+            {
+              "home": "spider",
+              "away": "xaolin"
+            },
+            {
+              "home": "bamgu",
+              "away": "jucamelero"
+            },
+            {
+              "home": "magreza",
+              "away": "utirrabianc"
+            },
+            {
+              "home": "vitinho",
+              "away": "mohamed"
+            }
+          ]
+        },
+        {
+          "phase": "VOLTA",
+          "n": 5,
+          "games": [
+            {
+              "home": "celin",
+              "away": "oldspriggan"
+            },
+            {
+              "home": "caco",
+              "away": "ivansf"
+            },
+            {
+              "home": "xaolin",
+              "away": "ricle"
+            },
+            {
+              "home": "jucamelero",
+              "away": "bane"
+            },
+            {
+              "home": "utirrabianc",
+              "away": "spider"
+            },
+            {
+              "home": "mohamed",
+              "away": "bamgu"
+            },
+            {
+              "home": "vitinho",
+              "away": "magreza"
+            }
+          ]
+        },
+        {
+          "phase": "VOLTA",
+          "n": 6,
+          "games": [
+            {
+              "home": "oldspriggan",
+              "away": "caco"
+            },
+            {
+              "home": "celin",
+              "away": "xaolin"
+            },
+            {
+              "home": "ivansf",
+              "away": "jucamelero"
+            },
+            {
+              "home": "ricle",
+              "away": "utirrabianc"
+            },
+            {
+              "home": "bane",
+              "away": "mohamed"
+            },
+            {
+              "home": "spider",
+              "away": "vitinho"
+            },
+            {
+              "home": "bamgu",
+              "away": "magreza"
+            }
+          ]
+        },
+        {
+          "phase": "VOLTA",
+          "n": 7,
+          "games": [
+            {
+              "home": "xaolin",
+              "away": "oldspriggan"
+            },
+            {
+              "home": "jucamelero",
+              "away": "caco"
+            },
+            {
+              "home": "utirrabianc",
+              "away": "celin"
+            },
+            {
+              "home": "mohamed",
+              "away": "ivansf"
+            },
+            {
+              "home": "vitinho",
+              "away": "ricle"
+            },
+            {
+              "home": "magreza",
+              "away": "bane"
+            },
+            {
+              "home": "bamgu",
+              "away": "spider"
+            }
+          ]
+        },
+        {
+          "phase": "VOLTA",
+          "n": 8,
+          "games": [
+            {
+              "home": "oldspriggan",
+              "away": "jucamelero"
+            },
+            {
+              "home": "xaolin",
+              "away": "utirrabianc"
+            },
+            {
+              "home": "caco",
+              "away": "mohamed"
+            },
+            {
+              "home": "celin",
+              "away": "vitinho"
+            },
+            {
+              "home": "ivansf",
+              "away": "magreza"
+            },
+            {
+              "home": "ricle",
+              "away": "bamgu"
+            },
+            {
+              "home": "bane",
+              "away": "spider"
+            }
+          ]
+        },
+        {
+          "phase": "VOLTA",
+          "n": 9,
+          "games": [
+            {
+              "home": "utirrabianc",
+              "away": "oldspriggan"
+            },
+            {
+              "home": "mohamed",
+              "away": "jucamelero"
+            },
+            {
+              "home": "vitinho",
+              "away": "xaolin"
+            },
+            {
+              "home": "magreza",
+              "away": "caco"
+            },
+            {
+              "home": "bamgu",
+              "away": "celin"
+            },
+            {
+              "home": "spider",
+              "away": "ivansf"
+            },
+            {
+              "home": "bane",
+              "away": "ricle"
+            }
+          ]
+        },
+        {
+          "phase": "VOLTA",
+          "n": 10,
+          "games": [
+            {
+              "home": "oldspriggan",
+              "away": "mohamed"
+            },
+            {
+              "home": "utirrabianc",
+              "away": "vitinho"
+            },
+            {
+              "home": "jucamelero",
+              "away": "magreza"
+            },
+            {
+              "home": "xaolin",
+              "away": "bamgu"
+            },
+            {
+              "home": "caco",
+              "away": "spider"
+            },
+            {
+              "home": "celin",
+              "away": "bane"
+            },
+            {
+              "home": "ivansf",
+              "away": "ricle"
+            }
+          ]
+        },
+        {
+          "phase": "VOLTA",
+          "n": 11,
+          "games": [
+            {
+              "home": "vitinho",
+              "away": "oldspriggan"
+            },
+            {
+              "home": "magreza",
+              "away": "mohamed"
+            },
+            {
+              "home": "bamgu",
+              "away": "utirrabianc"
+            },
+            {
+              "home": "spider",
+              "away": "jucamelero"
+            },
+            {
+              "home": "bane",
+              "away": "xaolin"
+            },
+            {
+              "home": "ricle",
+              "away": "caco"
+            },
+            {
+              "home": "ivansf",
+              "away": "celin"
+            }
+          ]
+        },
+        {
+          "phase": "VOLTA",
+          "n": 12,
+          "games": [
+            {
+              "home": "oldspriggan",
+              "away": "magreza"
+            },
+            {
+              "home": "vitinho",
+              "away": "bamgu"
+            },
+            {
+              "home": "mohamed",
+              "away": "spider"
+            },
+            {
+              "home": "utirrabianc",
+              "away": "bane"
+            },
+            {
+              "home": "jucamelero",
+              "away": "ricle"
+            },
+            {
+              "home": "xaolin",
+              "away": "ivansf"
+            },
+            {
+              "home": "caco",
+              "away": "celin"
+            }
+          ]
+        },
+        {
+          "phase": "VOLTA",
+          "n": 13,
+          "games": [
+            {
+              "home": "bamgu",
+              "away": "oldspriggan"
+            },
+            {
+              "home": "spider",
+              "away": "magreza"
+            },
+            {
+              "home": "bane",
+              "away": "vitinho"
+            },
+            {
+              "home": "ricle",
+              "away": "mohamed"
+            },
+            {
+              "home": "ivansf",
+              "away": "utirrabianc"
+            },
+            {
+              "home": "celin",
+              "away": "jucamelero"
+            },
+            {
+              "home": "caco",
+              "away": "xaolin"
+            }
+          ]
+        }
+      ],
+      "scores": {
+        "IDA-1-1": {
+          "locked": false
+        },
+        "IDA-1-0": {
+          "locked": false
+        }
+      },
+      "lineups": {},
+      "locked": true
+    },
+    "interests": {
+      "rl": {
+        "celin": {
+          "at": 1779385088176
+        },
+        "mohamed": {
+          "at": 1779418750958
+        },
+        "jucamelero": {
+          "at": 1779402889497
+        },
+        "oldspriggan": {
+          "at": 1779388510998
+        },
+        "spider": {
+          "at": 1779895508428
+        },
+        "utirrabianc": {
+          "at": 1779424250575
+        },
+        "vitinho": {
+          "at": 1779418715848
+        },
+        "bane": {
+          "at": 1779385115116
+        }
+      },
+      "gwyf": {
+        "duckz3ra": {
+          "at": 1779419108683
+        },
+        "jucamelero": {
+          "at": 1779402885462
+        },
+        "utirrabianc": {
+          "at": 1779424257928
+        },
+        "mohamed": {
+          "at": 1779418755340
+        },
+        "celin": {
+          "at": 1779386203343
+        },
+        "bamgu": {
+          "at": 1779415361755
+        },
+        "ricle": {
+          "at": 1779418896797
+        },
+        "bane": {
+          "at": 1779385599141
+        },
+        "vitinho": {
+          "at": 1779418719550
+        },
+        "admin": {
+          "at": 1779473745360
+        },
+        "spider": {
+          "at": 1779389211046
+        }
+      },
+      "lol": {
+        "vitinho": {
+          "at": 1779418717200
+        },
+        "bane": {
+          "at": 1779385590141
+        },
+        "utirrabianc": {
+          "at": 1779424254965
+        },
+        "spider": {
+          "at": 1779389202984
+        },
+        "ricle": {
+          "at": 1779418889061
+        },
+        "mohamed": {
+          "at": 1779418752684
+        },
+        "jucamelero": {
+          "at": 1779402887993
+        }
+      },
+      "mk": {
+        "caco": {
+          "at": 1779506115663
+        },
+        "jucamelero": {
+          "at": 1779402890594
+        },
+        "celin": {
+          "at": 1779386189632
+        },
+        "bamgu": {
+          "at": 1779415349568
+        },
+        "ricle": {
+          "at": 1779418885018
+        },
+        "xaolin": {
+          "at": 1779386478249
+        },
+        "bane": {
+          "at": 1779385593702
+        },
+        "vitinho": {
+          "at": 1779412264026
+        },
+        "utirrabianc": {
+          "at": 1779424432151
+        },
+        "magreza": {
+          "at": 1779418843233
+        },
+        "mohamed": {
+          "at": 1779418746484
+        },
+        "oldspriggan": {
+          "at": 1779995250223
+        },
+        "spider": {
+          "at": 1779389785693
+        },
+        "ivansf": {
+          "at": 1779993688696
+        }
+      },
+      "cs": {
+        "utirrabianc": {
+          "at": 1779424261996
+        },
+        "jucamelero": {
+          "at": 1779402886817
+        },
+        "duckz3ra": {
+          "at": 1779419079458
+        },
+        "vitinho": {
+          "at": 1779418718321
+        },
+        "bane": {
+          "at": 1779385597431
+        },
+        "oldspriggan": {
+          "at": 1779388514122
+        },
+        "celin": {
+          "at": 1779386196417
+        },
+        "ricle": {
+          "at": 1779418890351
+        },
+        "mohamed": {
+          "at": 1779418753764
+        }
+      },
+      "copa": {
+        "vitinho": {
+          "at": 1779850077105
+        },
+        "celin": {
+          "at": 1779805648330
+        },
+        "jucamelero": {
+          "at": 1779849862807
+        },
+        "pitera": {
+          "at": 1779929491614
+        }
+      },
+      "valorant": {
+        "bane": {
+          "at": 1780292750062
+        }
+      }
+    },
+    "comments": {
+      "edicao-08-escandalo": [
+        {
+          "nick": "celin",
+          "at": 1779818951098,
+          "text": "Por meio desta venho negar qualquer envolvimento com esquema de apostas, o jogo foi jogado só quem jogou contra a equipe de Juca sabe o quão grande é a pressão, por mais q o resultado não tenha sido dos melhores estou feliz com o desempenho dos meus jogadores por desempenhar em o melhor resultado contra a equipe mais vencedora!!!",
+          "id": "c1779818951098h4fs"
+        },
+        {
+          "at": 1779820117610,
+          "nick": "magreza",
+          "text": "Segurando 1x0 jogo apertado até os 88 depois disso os cara virou a zaga do santos? Brutal!",
+          "id": "c1779820117610lu21"
+        },
+        {
+          "text": "ctz q o celin entregou, pra farmar os pontinho",
+          "id": "c1779887389578kys6",
+          "at": 1779887389578,
+          "nick": "bane"
+        }
+      ],
+      "avatares-lancamento": [
+        {
+          "text": "Muito foda parabéns aos envolvidos ficou incrível",
+          "id": "c1779921268049a7z8",
+          "at": 1779921268049,
+          "nick": "celin"
+        }
+      ],
+      "mk-edicao-01-inscricoes": [
+        {
+          "id": "c1779942679069g0c4",
+          "text": "ivan viadinho",
+          "at": 1779942679069,
+          "nick": "bane"
+        }
+      ]
+    },
+    "worldcup": {
+      "results": {},
+      "picks": {
+        "utirrabianc": {
+          "wc-i45": {
+            "at": 1779926446941,
+            "gh": 4,
+            "ga": 0
+          },
+          "wc-i3": {
+            "ga": 0,
+            "at": 1779926343522,
+            "gh": 1
+          },
+          "wc-i16": {
+            "ga": 3,
+            "gh": 0,
+            "at": 1779926558808
+          },
+          "wc-i54": {
+            "ga": 0,
+            "gh": 4,
+            "at": 1779926295805
+          },
+          "wc-i31": {
+            "at": 1779926254408,
+            "gh": 2,
+            "ga": 0
+          },
+          "wc-i23": {
+            "gh": 1,
+            "at": 1779926582947,
+            "ga": 0
+          },
+          "wc-i65": {
+            "gh": 1,
+            "at": 1779926704212,
+            "ga": 1
+          },
+          "wc-i55": {
+            "ga": 0,
+            "gh": 1,
+            "at": 1779926301335
+          },
+          "wc-i33": {
+            "ga": 3,
+            "gh": 0,
+            "at": 1779926423332
+          },
+          "wc-i64": {
+            "gh": 1,
+            "at": 1779926682287,
+            "ga": 3
+          },
+          "wc-i58": {
+            "ga": 1,
+            "at": 1779926675128,
+            "gh": 0
+          },
+          "wc-i38": {
+            "at": 1779926428433,
+            "gh": 3,
+            "ga": 0
+          },
+          "wc-i19": {
+            "at": 1779926227211,
+            "gh": 2,
+            "ga": 1
+          },
+          "wc-i2": {
+            "ga": 0,
+            "gh": 1,
+            "at": 1779926337594
+          },
+          "wc-i57": {
+            "gh": 1,
+            "at": 1779926486982,
+            "ga": 1
+          },
+          "wc-i14": {
+            "at": 1779926383021,
+            "gh": 2,
+            "ga": 0
+          },
+          "wc-i66": {
+            "ga": 2,
+            "gh": 1,
+            "at": 1779926324197
+          },
+          "wc-i9": {
+            "ga": 0,
+            "gh": 2,
+            "at": 1779926389971
+          },
+          "wc-i37": {
+            "at": 1779926266522,
+            "gh": 0,
+            "ga": 1
+          },
+          "wc-i34": {
+            "ga": 1,
+            "at": 1779926597511,
+            "gh": 3
+          },
+          "wc-i26": {
+            "ga": 0,
+            "gh": 3,
+            "at": 1779926402616
+          },
+          "wc-i60": {
+            "ga": 0,
+            "at": 1779926305991,
+            "gh": 5
+          },
+          "wc-i35": {
+            "gh": 0,
+            "at": 1779926601177,
+            "ga": 3
+          },
+          "wc-i40": {
+            "ga": 0,
+            "gh": 2,
+            "at": 1779926606244
+          },
+          "wc-i17": {
+            "at": 1779926564803,
+            "gh": 1,
+            "ga": 1
+          },
+          "wc-i70": {
+            "gh": 0,
+            "at": 1779926714922,
+            "ga": 2
+          },
+          "wc-i20": {
+            "ga": 1,
+            "gh": 1,
+            "at": 1779926384611
+          },
+          "wc-i10": {
+            "ga": 1,
+            "gh": 1,
+            "at": 1779926546828
+          },
+          "wc-i24": {
+            "at": 1779926232661,
+            "gh": 5,
+            "ga": 0
+          },
+          "wc-i51": {
+            "ga": 0,
+            "at": 1779926475122,
+            "gh": 2
+          },
+          "wc-i59": {
+            "at": 1779926678168,
+            "gh": 0,
+            "ga": 3
+          },
+          "wc-i13": {
+            "at": 1779926221420,
+            "gh": 0,
+            "ga": 3
+          },
+          "wc-i50": {
+            "ga": 0,
+            "gh": 4,
+            "at": 1779926453361
+          },
+          "wc-i71": {
+            "ga": 1,
+            "gh": 3,
+            "at": 1779926719615
+          },
+          "wc-i18": {
+            "at": 1779926206049,
+            "gh": 0,
+            "ga": 2
+          },
+          "wc-i12": {
+            "at": 1779926214350,
+            "gh": 3,
+            "ga": 0
+          },
+          "wc-i41": {
+            "at": 1779926610595,
+            "gh": 0,
+            "ga": 2
+          },
+          "wc-i27": {
+            "ga": 0,
+            "at": 1779926412894,
+            "gh": 2
+          },
+          "wc-i7": {
+            "gh": 0,
+            "at": 1779926211095,
+            "ga": 3
+          },
+          "wc-i21": {
+            "ga": 2,
+            "at": 1779926385625,
+            "gh": 0
+          },
+          "wc-i39": {
+            "at": 1779926434759,
+            "gh": 0,
+            "ga": 2
+          },
+          "wc-i8": {
+            "gh": 1,
+            "at": 1779926392640,
+            "ga": 0
+          },
+          "wc-i67": {
+            "gh": 3,
+            "at": 1779926328928,
+            "ga": 0
+          },
+          "wc-i69": {
+            "ga": 3,
+            "gh": 0,
+            "at": 1779926517715
+          },
+          "wc-i5": {
+            "gh": 0,
+            "at": 1779926535743,
+            "ga": 1
+          },
+          "wc-i0": {
+            "ga": 0,
+            "at": 1779926203395,
+            "gh": 2
+          },
+          "wc-i47": {
+            "ga": 2,
+            "gh": 1,
+            "at": 1779926630433
+          },
+          "wc-i52": {
+            "gh": 1,
+            "at": 1779926635493,
+            "ga": 3
+          },
+          "wc-i30": {
+            "ga": 2,
+            "gh": 2,
+            "at": 1779926247441
+          },
+          "wc-i36": {
+            "ga": 2,
+            "at": 1779926261410,
+            "gh": 1
+          },
+          "wc-i48": {
+            "ga": 1,
+            "gh": 3,
+            "at": 1779926283264
+          },
+          "wc-i63": {
+            "gh": 3,
+            "at": 1779926502961,
+            "ga": 0
+          },
+          "wc-i68": {
+            "at": 1779926513728,
+            "gh": 2,
+            "ga": 1
+          },
+          "wc-i25": {
+            "at": 1779926240092,
+            "gh": 0,
+            "ga": 1
+          },
+          "wc-i43": {
+            "at": 1779926275506,
+            "gh": 0,
+            "ga": 4
+          },
+          "wc-i53": {
+            "ga": 0,
+            "gh": 1,
+            "at": 1779926639549
+          },
+          "wc-i11": {
+            "ga": 1,
+            "gh": 1,
+            "at": 1779926550292
+          },
+          "wc-i44": {
+            "gh": 5,
+            "at": 1779926439916,
+            "ga": 0
+          },
+          "wc-i61": {
+            "ga": 2,
+            "gh": 0,
+            "at": 1779926314019
+          },
+          "wc-i42": {
+            "ga": 0,
+            "gh": 3,
+            "at": 1779926270633
+          },
+          "wc-i46": {
+            "ga": 1,
+            "gh": 1,
+            "at": 1779926618502
+          },
+          "wc-i15": {
+            "gh": 3,
+            "at": 1779926384048,
+            "ga": 0
+          },
+          "wc-i32": {
+            "gh": 3,
+            "at": 1779926417290,
+            "ga": 1
+          },
+          "wc-i56": {
+            "at": 1779926481522,
+            "gh": 2,
+            "ga": 0
+          },
+          "wc-i49": {
+            "at": 1779926291669,
+            "gh": 0,
+            "ga": 3
+          },
+          "wc-i4": {
+            "ga": 1,
+            "gh": 0,
+            "at": 1779926532064
+          },
+          "wc-i29": {
+            "ga": 2,
+            "at": 1779926592189,
+            "gh": 0
+          },
+          "wc-i6": {
+            "gh": 1,
+            "at": 1779926205317,
+            "ga": 1
+          },
+          "wc-i28": {
+            "ga": 1,
+            "at": 1779926586313,
+            "gh": 0
+          },
+          "wc-i1": {
+            "gh": 2,
+            "at": 1779926204347,
+            "ga": 1
+          }
+        },
+        "oldspriggan": {
+          "wc-i13": {
+            "ga": 1,
+            "at": 1779927272822,
+            "gh": 0
+          },
+          "wc-i18": {
+            "gh": 2,
+            "at": 1779927257634,
+            "ga": 0
+          },
+          "wc-i0": {
+            "at": 1779927242816,
+            "gh": 2,
+            "ga": 0
+          },
+          "wc-i25": {
+            "at": 1779927282887,
+            "gh": 1,
+            "ga": 2
+          },
+          "wc-i12": {
+            "at": 1779927269423,
+            "gh": 4,
+            "ga": 0
+          },
+          "wc-i6": {
+            "at": 1779927254299,
+            "gh": 1,
+            "ga": 0
+          },
+          "wc-i1": {
+            "at": 1779927248299,
+            "gh": 1,
+            "ga": 0
+          },
+          "wc-i30": {
+            "gh": 2,
+            "at": 1779927287166,
+            "ga": 2
+          },
+          "wc-i7": {
+            "gh": 0,
+            "at": 1779927263391,
+            "ga": 0
+          },
+          "wc-i24": {
+            "ga": 0,
+            "at": 1779927279130,
+            "gh": 2
+          },
+          "wc-i31": {
+            "ga": 1,
+            "gh": 1,
+            "at": 1779927293840
+          },
+          "wc-i19": {
+            "gh": 0,
+            "at": 1779927276201,
+            "ga": 0
+          }
+        },
+        "vitinho": {
+          "wc-i65": {
+            "ga": 0,
+            "at": 1779897319103,
+            "gh": 0
+          }
+        },
+        "jucamelero": {
+          "wc-i0": {
+            "gh": 2,
+            "at": 1780078614517,
+            "ga": 1
+          },
+          "wc-i1": {
+            "gh": 2,
+            "at": 1780078615126,
+            "ga": 0
+          },
+          "wc-i6": {
+            "gh": 1,
+            "at": 1780078615727,
+            "ga": 0
+          },
+          "wc-i18": {
+            "gh": 2,
+            "at": 1780078621414,
+            "ga": 1
+          },
+          "wc-i7": {
+            "gh": 0,
+            "at": 1780078630468,
+            "ga": 2
+          },
+          "wc-i12": {
+            "gh": 3,
+            "at": 1780078636235,
+            "ga": 1
+          },
+          "wc-i13": {
+            "gh": 0,
+            "at": 1780090675380,
+            "ga": 3
+          },
+          "wc-i19": {
+            "gh": 1,
+            "at": 1780090682061,
+            "ga": 2
+          }
+        },
+        "spider": {
+          "wc-i0": {
+            "gh": 1,
+            "at": 1780091010851,
+            "ga": 1
+          },
+          "wc-i1": {
+            "gh": 2,
+            "at": 1780091012813,
+            "ga": 1
+          },
+          "wc-i6": {
+            "gh": 2,
+            "at": 1780091014314,
+            "ga": 0
+          },
+          "wc-i18": {
+            "gh": 1,
+            "at": 1780091015617,
+            "ga": 2
+          },
+          "wc-i7": {
+            "gh": 0,
+            "at": 1780091027583,
+            "ga": 2
+          },
+          "wc-i12": {
+            "gh": 1,
+            "at": 1780091032406,
+            "ga": 1
+          },
+          "wc-i13": {
+            "gh": 0,
+            "at": 1780091046712,
+            "ga": 0
+          },
+          "wc-i19": {
+            "gh": 1,
+            "at": 1780091061594,
+            "ga": 3
+          },
+          "wc-i24": {
+            "gh": 4,
+            "at": 1780091070533,
+            "ga": 0
+          },
+          "wc-i25": {
+            "gh": 3,
+            "at": 1780091077397,
+            "ga": 1
+          },
+          "wc-i30": {
+            "gh": 2,
+            "at": 1780091081568,
+            "ga": 2
+          },
+          "wc-i31": {
+            "gh": 1,
+            "at": 1780091097673,
+            "ga": 0
+          },
+          "wc-i36": {
+            "gh": 1,
+            "at": 1780091102527,
+            "ga": 2
+          },
+          "wc-i37": {
+            "gh": 1,
+            "at": 1780091113425,
+            "ga": 0
+          },
+          "wc-i42": {
+            "gh": 3,
+            "at": 1780091117191,
+            "ga": 0
+          },
+          "wc-i43": {
+            "gh": 1,
+            "at": 1780091123514,
+            "ga": 1
+          },
+          "wc-i48": {
+            "gh": 3,
+            "at": 1780091129647,
+            "ga": 1
+          },
+          "wc-i49": {
+            "gh": 1,
+            "at": 1780091152377,
+            "ga": 3
+          },
+          "wc-i54": {
+            "gh": 2,
+            "at": 1780091163587,
+            "ga": 1
+          },
+          "wc-i55": {
+            "gh": 2,
+            "at": 1780091168334,
+            "ga": 0
+          },
+          "wc-i60": {
+            "gh": 3,
+            "at": 1780091179231,
+            "ga": 0
+          },
+          "wc-i61": {
+            "gh": 0,
+            "at": 1780091184040,
+            "ga": 2
+          },
+          "wc-i66": {
+            "gh": 2,
+            "at": 1780091187911,
+            "ga": 1
+          },
+          "wc-i67": {
+            "gh": 2,
+            "at": 1780091192725,
+            "ga": 0
+          }
+        },
+        "bane": {
+          "wc-i1": {
+            "ga": 1,
+            "at": 1779897119935,
+            "gh": 1
+          },
+          "wc-i0": {
+            "ga": 1,
+            "gh": 2,
+            "at": 1779897111854
+          },
+          "wc-i6": {
+            "gh": 2,
+            "at": 1780164885212,
+            "ga": 0
+          }
+        }
+      }
+    },
+    "news": [
+      {
+        "id": "auto-rodada-6",
+        "title": "MASSACRE: MAGREZA 8x0 NO MOHAMED",
+        "subtitle": "Os placares, a classificação após a 6ª rodada e a zoeira de sempre. Juca lidera com 18 pts; Mohamed amarga a lanterna.",
+        "tag": "RODADA 06",
+        "date": "27/05",
+        "image": "",
+        "body": "**A RODADA 06 FECHOU E DEU PANO PRA MANGA!**\n\n**RESULTADOS**\n\n- **Bane 4 x 3 Caco** — Bane levou.\n- **Celin 0 x 4 Juca** — Juca levou.\n- **Magreza 8 x 0 Mohamed** — Magreza levou.\n- **Potato 7 x 3 Vitinho** — Potato levou.\n\n**O QUE A TABELA DIZ**\n\n- **NA PONTA:** Juca lidera com **18 pts** (6V 0E 0D, saldo +36). O resto que corra atrás.\n- **NA LANTERNA:** Mohamed no fundo do poço com 0 pts (saldo -33). Vexame moldurado.\n- **MASSACRE DA RODADA:** Magreza 8x0 Mohamed. Foi covardia, chama o SAMU.\n\n**CLASSIFICAÇÃO (após a rodada 06)**\n\n1. **Juca** — 18 pts (6-0-0, saldo +36)\n2. **Potato** — 13 pts (4-1-1, saldo +4)\n3. **Magreza** — 10 pts (3-1-2, saldo +14)\n4. **Celin** — 9 pts (3-0-3, saldo +2)\n5. **Caco** — 9 pts (3-0-3, saldo -1)\n6. **Bane** — 7 pts (2-1-3, saldo -7)\n7. **Vitinho** — 4 pts (1-1-4, saldo -15)\n8. **Mohamed** — 0 pts (0-0-6, saldo -33)\n\nPróxima rodada já vem aí. Monta teu cupom: https://baneplayss.github.io/primitivao/apostas/",
+        "at": 1780176733709
+      },
+      {
+        "id": "auto-rodada-5",
+        "title": "CELIN FEZ 9 E NINGUÉM SEGUROU",
+        "subtitle": "Os placares, a classificação após a 5ª rodada e a zoeira de sempre. Juca lidera com 15 pts; Mohamed amarga a lanterna.",
+        "tag": "RODADA 05",
+        "date": "25/06",
+        "image": "",
+        "body": "**A RODADA 05 FECHOU E DEU PANO PRA MANGA!**\n\n**RESULTADOS**\n\n- **Juca 5 x 0 Vitinho** — Juca levou.\n- **Potato 4 x 1 Caco** — Potato levou.\n- **Magreza 5 x 2 Bane** — Magreza levou.\n- **Celin 9 x 2 Mohamed** — Celin levou.\n\n**O QUE A TABELA DIZ**\n\n- **NA PONTA:** Juca lidera com **15 pts** (5V 0E 0D, saldo +32). O resto que corra atrás.\n- **NA LANTERNA:** Mohamed no fundo do poço com 0 pts (saldo -25). Vexame moldurado.\n- **MASSACRE DA RODADA:** Celin 9x2 Mohamed. Foi covardia, chama o SAMU.\n\n**CLASSIFICAÇÃO (após a rodada 05)**\n\n1. **Juca** — 15 pts (5-0-0, saldo +32)\n2. **Potato** — 10 pts (3-1-1, saldo +0)\n3. **Celin** — 9 pts (3-0-2, saldo +6)\n4. **Caco** — 9 pts (3-0-2, saldo +0)\n5. **Magreza** — 7 pts (2-1-2, saldo +6)\n6. **Bane** — 4 pts (1-1-3, saldo -8)\n7. **Vitinho** — 4 pts (1-1-3, saldo -11)\n8. **Mohamed** — 0 pts (0-0-5, saldo -25)\n\nPróxima rodada já vem aí. Monta teu cupom: https://baneplayss.github.io/primitivao/apostas/",
+        "at": 1780176673709
+      },
+      {
+        "id": "auto-rodada-4",
+        "title": "CHUVA DE GOLS: 30 NA RODADA 04",
+        "subtitle": "Os placares, a classificação após a 4ª rodada e a zoeira de sempre. Juca lidera com 12 pts; Mohamed amarga a lanterna.",
+        "tag": "RODADA 04",
+        "date": "25/06",
+        "image": "",
+        "body": "**A RODADA 04 FECHOU E DEU PANO PRA MANGA!**\n\n**RESULTADOS**\n\n- **Mohamed 1 x 6 Bane** — Bane levou.\n- **Celin 4 x 2 Vitinho** — Celin levou.\n- **Juca 8 x 0 Potato** — Juca levou.\n- **Caco 5 x 4 Magreza** — Caco levou.\n\n**O QUE A TABELA DIZ**\n\n- **NA PONTA:** Juca lidera com **12 pts** (4V 0E 0D, saldo +27). O resto que corra atrás.\n- **NA LANTERNA:** Mohamed no fundo do poço com 0 pts (saldo -18). Vexame moldurado.\n- **MASSACRE DA RODADA:** Juca 8x0 Potato. Foi covardia, chama o SAMU.\n\n**CLASSIFICAÇÃO (após a rodada 04)**\n\n1. **Juca** — 12 pts (4-0-0, saldo +27)\n2. **Caco** — 9 pts (3-0-1, saldo +3)\n3. **Potato** — 7 pts (2-1-1, saldo -3)\n4. **Celin** — 6 pts (2-0-2, saldo -1)\n5. **Magreza** — 4 pts (1-1-2, saldo +3)\n6. **Bane** — 4 pts (1-1-2, saldo -5)\n7. **Vitinho** — 4 pts (1-1-2, saldo -6)\n8. **Mohamed** — 0 pts (0-0-4, saldo -18)\n\nPróxima rodada já vem aí. Monta teu cupom: https://baneplayss.github.io/primitivao/apostas/",
+        "at": 1780176613709
+      },
+      {
+        "id": "auto-rodada-3",
+        "title": "VEXAME: MOHAMED AFUNDA COM 0 PTS",
+        "subtitle": "Os placares, a classificação após a 3ª rodada e a zoeira de sempre. Juca lidera com 9 pts; Mohamed amarga a lanterna.",
+        "tag": "RODADA 03",
+        "date": "18/05",
+        "image": "",
+        "body": "**A RODADA 03 FECHOU E DEU PANO PRA MANGA!**\n\n**RESULTADOS**\n\n- **Vitinho 0 x 5 Magreza** — Magreza levou.\n- **Bane 0 x 7 Juca** — Juca levou.\n- **Potato 4 x 2 Celin** — Potato levou.\n- **Caco 4 x 0 Mohamed** — Caco levou.\n\n**O QUE A TABELA DIZ**\n\n- **NA PONTA:** Juca lidera com **9 pts** (3V 0E 0D, saldo +19). O resto que corra atrás.\n- **NA LANTERNA:** Mohamed no fundo do poço com 0 pts (saldo -13). Vexame moldurado.\n- **MASSACRE DA RODADA:** Juca 7x0 Bane. Foi covardia, chama o SAMU.\n\n**CLASSIFICAÇÃO (após a rodada 03)**\n\n1. **Juca** — 9 pts (3-0-0, saldo +19)\n2. **Potato** — 7 pts (2-1-0, saldo +5)\n3. **Caco** — 6 pts (2-0-1, saldo +2)\n4. **Magreza** — 4 pts (1-1-1, saldo +4)\n5. **Vitinho** — 4 pts (1-1-1, saldo -4)\n6. **Celin** — 3 pts (1-0-2, saldo -3)\n7. **Bane** — 1 pts (0-1-2, saldo -10)\n8. **Mohamed** — 0 pts (0-0-3, saldo -13)\n\nPróxima rodada já vem aí. Monta teu cupom: https://baneplayss.github.io/primitivao/apostas/",
+        "at": 1780176553709
+      },
+      {
+        "id": "auto-rodada-2",
+        "title": "JUCA SEGUE VOANDO NA LIDERANÇA",
+        "subtitle": "Os placares, a classificação após a 2ª rodada e a zoeira de sempre. Juca lidera com 6 pts; Mohamed amarga a lanterna.",
+        "tag": "RODADA 02",
+        "date": "11/05",
+        "image": "",
+        "body": "**A RODADA 02 FECHOU E DEU PANO PRA MANGA!**\n\n**RESULTADOS**\n\n- **Mohamed 0 x 8 Juca** — Juca levou.\n- **Potato 2 x 2 Magreza** — ficou no empate, ninguém quis ganhar.\n- **Vitinho 1 x 1 Bane** — ficou no empate, ninguém quis ganhar.\n- **Celin 1 x 3 Caco** — Caco levou.\n\n**O QUE A TABELA DIZ**\n\n- **NA PONTA:** Juca lidera com **6 pts** (2V 0E 0D, saldo +12). O resto que corra atrás.\n- **NA LANTERNA:** Mohamed no fundo do poço com 0 pts (saldo -9). Vexame moldurado.\n- **MASSACRE DA RODADA:** Juca 8x0 Mohamed. Foi covardia, chama o SAMU.\n\n**CLASSIFICAÇÃO (após a rodada 02)**\n\n1. **Juca** — 6 pts (2-0-0, saldo +12)\n2. **Potato** — 4 pts (1-1-0, saldo +3)\n3. **Vitinho** — 4 pts (1-1-0, saldo +1)\n4. **Celin** — 3 pts (1-0-1, saldo -1)\n5. **Caco** — 3 pts (1-0-1, saldo -2)\n6. **Magreza** — 1 pts (0-1-1, saldo -1)\n7. **Bane** — 1 pts (0-1-1, saldo -3)\n8. **Mohamed** — 0 pts (0-0-2, saldo -9)\n\nPróxima rodada já vem aí. Monta teu cupom: https://baneplayss.github.io/primitivao/apostas/",
+        "at": 1780176493709
+      },
+      {
+        "id": "auto-rodada-1",
+        "title": "MASSACRE: JUCA 6x2 NO CACO",
+        "subtitle": "Os placares, a classificação após a 1ª rodada e a zoeira de sempre. Juca lidera com 3 pts; Caco amarga a lanterna.",
+        "tag": "RODADA 01",
+        "date": "11/05",
+        "image": "",
+        "body": "**A RODADA 01 FECHOU E DEU PANO PRA MANGA!**\n\n**RESULTADOS**\n\n- **Vitinho 4 x 3 Mohamed** — Vitinho levou.\n- **Potato 3 x 0 Bane** — Potato levou.\n- **Caco 2 x 6 Juca** — Juca levou.\n- **Magreza 1 x 2 Celin** — Celin levou.\n\n**O QUE A TABELA DIZ**\n\n- **NA PONTA:** Juca lidera com **3 pts** (1V 0E 0D, saldo +4). O resto que corra atrás.\n- **NA LANTERNA:** Caco no fundo do poço com 0 pts (saldo -4). Vexame moldurado.\n- **MASSACRE DA RODADA:** Juca 6x2 Caco. Foi covardia, chama o SAMU.\n\n**CLASSIFICAÇÃO (após a rodada 01)**\n\n1. **Juca** — 3 pts (1-0-0, saldo +4)\n2. **Potato** — 3 pts (1-0-0, saldo +3)\n3. **Vitinho** — 3 pts (1-0-0, saldo +1)\n4. **Celin** — 3 pts (1-0-0, saldo +1)\n5. **Mohamed** — 0 pts (0-0-1, saldo -1)\n6. **Magreza** — 0 pts (0-0-1, saldo -1)\n7. **Bane** — 0 pts (0-0-1, saldo -3)\n8. **Caco** — 0 pts (0-0-1, saldo -4)\n\nPróxima rodada já vem aí. Monta teu cupom: https://baneplayss.github.io/primitivao/apostas/",
+        "at": 1780176433709
+      },
+      {
+        "body": "A engrenagem do primeiro **MK do Primitivão** tá montada. Inscrição até **DOMINGO 23H59**. Mas pra você não cair de paraquedas no torneio, segura aí as regras.\n\n**FORMATO GERAL**\n\n3 fases:\n\n- **FASE DE GRUPOS IDA** — todos contra todos\n- **FASE DE GRUPOS VOLTA** — todos contra todos (de novo)\n- **MATA-MATA** — top 8 ganham CHAVE PRIVILEGIADA\n\nA quantidade de jogos por jogador depende da galera:\n\n- 15 inscritos → 28 jogos só na fase de grupos\n- 20 inscritos → 38 jogos só na fase de grupos\n\n**ESCOLHA DOS 3 PERSONAGENS**\n\nCada jogador escolhe **3 personagens pro turno**. Dentro do turno os 3 são fixos — não dá pra trocar porque tá perdendo.\n\n**PODE TROCAR EM 2 MOMENTOS:**\n\n- Quando termina a IDA, antes da VOLTA começar\n- Quando termina a VOLTA, antes do MATA-MATA começar\n\nEstratégia é livre entre as fases — você ajusta seu pool baseado no que viu rolar.\n\n**FASE DE GRUPOS — UM CONFRONTO**\n\nExemplo:\n\n- **Bane Quebra Bundas**: Sub-Zero, Tanya, Rain\n- **Mohamed Quebra Pintos**: Smoke, Scorpion, Raiden\n\n**REGRA DO MANDANTE:** quem está EM CASA escolhe os 2 jogos do confronto. É **MD2** (melhor de 2 jogos). Cada jogo, 3 rounds.\n\nExemplo — Bane recebe Mohamed em casa. Bane escolhe:\n\n- Sub-Zero × Raiden\n- Tanya × Scorpion\n\n\"Ah Bane, mas assim eu nunca jogo com Smoke!\" **NEGATIVO.** Quando VOCÊ estiver em casa, escolhe o que quiser. Aqui na minha casa não é bagunça.\n\nQuando Mohamed receber Bane (a volta), **ELE** escolhe os 2 jogos. Assim ao longo do turno você joga com todos os 3 personagens — só não vai jogar sempre com o que quiser.\n\n**MATA-MATA — CHAVE PRIVILEGIADA**\n\nTermina a fase de grupos, entra o mata-mata. Os **TOP 8** entram em CHAVE PRIVILEGIADA — todos jogam, mas os 8 melhores têm vantagem na escolha. *(Lembrete: pode redefinir seus 3 personagens aqui antes do primeiro confronto.)*\n\n**FORMATO:** MD5 (melhor de 5 jogos)\n\n**QUEM ESCOLHE O QUÊ:**\n\n- Os **3 primeiros confrontos**: quem terminou em POSIÇÃO MELHOR na fase de grupos escolhe\n- Os **2 últimos confrontos**: LIVRES — pode repetir personagem à vontade (essa é a virada de mesa)\n\n**EXEMPLO PRÁTICO — Bane 6º × Mohamed 10º:**\n\nBane escolhe os 3 primeiros:\n\n- Sub-Zero × Raiden → Bane ganha\n- Tanya × Scorpion → Bane ganha\n- Rain × Smoke → Mohamed ganha\n\nParcial: **Bane 2 × 1 Mohamed.**\n\nAgora os 2 últimos são LIVRES. Mohamed pode escolher Smoke 2x seguidas. Bane pode escolher Sub-Zero 2x seguidas:\n\n- Sub-Zero × Smoke\n- Sub-Zero × Smoke\n\nQuem vencer 3 jogos primeiro leva. **Por que isso é fundamental?** Quem terminou em primeiro NÃO pode dormir só porque pegou placar inicial. Os 2 últimos jogos viram VALE-TUDO com main pick contra main pick. Final pode virar a qualquer momento.\n\n**RESUMO**\n\n- 3 personagens POR TURNO (pode trocar entre fases)\n- Mandante escolhe os 2 jogos (MD2) na fase de grupos\n- Top 8 ganha chave privilegiada\n- Mata-mata é MD5\n- 3 primeiros confrontos: melhor classificado escolhe\n- 2 últimos: LIVRES (vale tudo)\n- Pode TROCAR personagens antes da VOLTA e antes do MATA-MATA\n- Inscrições até **DOMINGO 23H59**\n\n**ONDE SE INSCREVER:** https://baneplayss.github.io/primitivao/apostas/ → aba CAMPEONATOS → MORTAL KOMBAT → QUERO PARTICIPAR",
+        "at": 1779990300000,
+        "image": "news/mk-s1-r01.jpg",
+        "subtitle": "Ida e volta, MD2 na fase de grupos, chave privilegiada pros top 8, MD5 no mata-mata e os 2 últimos confrontos VALE-TUDO. Segura aí.",
+        "date": "28/05/2026",
+        "tag": "REGRAS · MK EDIÇÃO 01",
+        "id": "mk-edicao-01-regras",
+        "title": "REGRAS DO MORTAL KOMBAT — EDIÇÃO 01"
+      },
+      {
+        "image": "news/mk-s1-r01.jpg",
+        "at": 1779942600000,
+        "body": "**MORTAL KOMBAT TÁ NA HORA, MEU FILHO.**\n\nA **EDIÇÃO 01** do Mortal Kombat do Primitivão tá saindo do papel — e as **INSCRIÇÕES se encerram DOMINGO ÀS 23H59**. Atenção: domingo NÃO é o dia que começa o torneio. Domingo é o ÚLTIMO DIA pra se inscrever. Quem não entrar até lá vai ficar de fora vendo os outros se matarem em modo Fatality.\n\n**COMO FUNCIONA:**\n\n- **Fase de grupos: TODOS CONTRA TODOS, IDA E VOLTA** — ninguém escapa, todo mundo enfrenta todo mundo duas vezes\n- **Mata-mata depois** — os classificados da fase de pontos seguem pra eliminatória direta\n- **Personagens livres** — escolhe quem quiser, ninguém marca presença\n- **Chaves sorteadas** após o fechamento das inscrições\n- **Fatality obrigatória ao vencer** — quem não terminar o oponente perde o respeito\n\n**PRÊMIO:** o campeão leva o **badge FATALITY MASTER** — primeiro e único da Edição 01. Vai aparecer estampado no avatar pra eternidade (ou até a Edição 02). Quem perder a final ainda leva um **badge VICE-FIGHTER** de consolação.\n\n**JÁ TÁ DENTRO?** A lista tá crescendo. Mas só sai do papel domingo às 23h59 — depois disso, sem choro, sem retorno, sem segundo round. Fica esperto.\n\n**COMO ENTRAR:** vai no site **https://baneplayss.github.io/primitivao/apostas/**, aba **CAMPEONATOS**, seleciona **MORTAL KOMBAT** e clica em **QUERO PARTICIPAR**. Em 5 segundos você tá inscrito — sem grupo no zap, sem pedido pro admin, é só clicar.\n\nDepois de domingo, as chaves são sorteadas e o First Blood vem aí. **Quem vai aparecer?**\n\nLINK DIRETO: https://baneplayss.github.io/primitivao/apostas/",
+        "date": "28/05/2026",
+        "subtitle": "Domingo às 23h59 baixa o pano. Quem não entrou ainda corre, porque o primeiro torneio de MK do Primitivão tá saindo do papel.",
+        "tag": "EDIÇÃO 01 · MORTAL KOMBAT",
+        "title": "MORTAL KOMBAT · EDIÇÃO 01 — INSCRIÇÕES NO ÚLTIMO ROUND!",
+        "id": "mk-edicao-01-inscricoes"
+      },
+      {
+        "id": "ultima-rodada-vol-09",
+        "title": "ÚLTIMA RODADA — VOL. 09 DO PRIMITIVÃO TIMES",
+        "tag": "PRIMITIVÃO TIMES · VOL. 09",
+        "subtitle": "Bane ripou todo mundo nas apostas, Juca já é campeão e Mohamed FC afunda em −33. Segunda tem FIFA pra fechar a temporada.",
+        "date": "28/05/2026",
+        "image": "news/last_edition.jpg",
+        "body": "**ÚLTIMA RODADA E O JOGO DE HOJE PEGOU FOGO!**\n\n**BANE 4 × 3 CACO** — SETE gols, coração na boca e decisão no detalhe. O Caco veio com sangue no olho, brigou no placar do início ao fim, mas o Bane foi mais frio na hora de carimbar e levou o jogo mais quente da rodada.\n\nE não parou no campo, não: o **Bane RIPOU TODO MUNDO NAS APOSTAS** também. Levou o jogo e levou a banca junto. Dia perfeito.\n\nE pra fechar em grande estilo... **SAIU A EDIÇÃO FINAL DO PRIMITIVÃO TIMES — VOL. 09!** Olha o que tá bombando na tabela:\n\n- **JUCA JÁ É CAMPEÃO MATEMÁTICO!** 18 pts, 100% de aproveitamento, +36 de saldo. Título no bolso, não tem mais jeito.\n- **POTATO** segura o vice quase certo com 13 pts — só um milagre tira.\n- A **DISPUTA PELO 3º** incendiou: Magreza (10) na frente, Celin (9) colado. Decidido no detalhe.\n- E lá no fundo do poço... **MOHAMED FC AFUNDA EM −33** de saldo. Lanterna matemático, 0 ponto, 6 derrota. Vexame carimbado e moldurado.\n\nE o aviso que importa: **SEGUNDA TEM FIFA!** TODOS NO DISCORD pra fechar essa temporada com a resenha que ela merece.",
+        "at": 1779939900000
+      },
+      {
+        "body": "A redação do **PRIMITIVÃO TIMES** não acreditou: depois de meses de campeonato sem rosto, finalmente cada jogador tem o que merece — um AVATAR oficial em estilo Cartoon Network anos 2000, daqueles bem Dexter, Powerpuff, Samurai Jack.\n\nCada uma das oito feras agora aparece personalizada no topo da página, no Ranking Geral e no Hall da Fama (ou da Vergonha, conforme o caso).\n\n**Bane** apareceu de braços cruzados, olhar firme — postura de quem já viu tudo. **Mohamed** surgiu com a mão na cabeça e expressão de derrota — coincidência ou efeito colateral direto dos −33 SG? **Juca** veio no modo triunfante, peito estufado, como se cada gol da goleada ainda tivesse sido marcado por ele agora. **Celin** estampa aquele smirk cínico que deixa todo mundo na dúvida se é zoeira de amigo ou tramoia em andamento.\n\n**Magreza** tá lá em modo carreira, expressão séria, sem tempo pra brincadeira. **Potato** encostado tipo parede, mão no bolso, vibe descolada. **Caco** relaxado também, postura de quem leva tudo na esportiva. E **Vitinho**? Cabeça inclinada, olhar de moleque que sabe das coisas e não vai contar pra ninguém.\n\nCada um saiu vestindo a cor oficial do seu time. Detalhe importante: em breve vai abrir uma **LOJA** pra usar os PCs (que tanto custaram pra acumular) na compra de itens cosméticos — chapéus, molduras, distintivos. E o melhor: alguns itens lendários NÃO vão estar à venda. Coroa do rei só pinga pra quem for campeão da temporada. Lanterna estampada só sobra pro último colocado do Hall da Vergonha. Mereceu — usou.\n\nBora ver como cada um ficou? Olha no topo da página agora.",
+        "at": 1779915600000,
+        "image": "news/avatares_noticia.jpg",
+        "subtitle": "Cada jogador agora tem versão oficial em estilo Cartoon Network — saíram direto do Dexter's Laboratory pro topo da sua tela.",
+        "date": "27/05/2026",
+        "tag": "EDIÇÃO",
+        "id": "avatares-lancamento",
+        "title": "NASCEM OS 8 CARTOONS DO PRIMITIVÃO"
+      },
+      {
+        "title": "ESCÂNDALO EM CAMPO! CELIN MANIPULOU O RESULTADO??",
+        "id": "edicao-08-escandalo",
+        "tag": "PRIMITIVÃO TIMES · VOL. 08",
+        "date": "25/05/2026",
+        "subtitle": "Juca 4 × 0 Celin · aos 88 min Celin \"desaba\" e leva 3 gols num lance só. Coincidência ou entregada?",
+        "image": "news/edicao-08-escandalo.jpg",
+        "at": 1779721200000,
+        "body": "Edição especial do **Primitivão Times** com tudo o que tá rolando na temporada:\n\n- **Celin manipulou?** Segurou o jogo a tarde inteira pra não tomar gol — aos 88 min levou 3 e fechou Juca 4 × 0 Celin. \"Coincidência ou entregada?\"\n- **Mohamed alcança −33 SG** após derrota amarga contra o Magreza. 0 vitórias, 6 derrotas. Vai encerrar com −50?\n- **Juca on fire!** 4 jogos, 4 goleadas, 100% de zoeira.\n- **Magreza em modo carreira:** nem piedade, nem desculpa.\n- **Comissão do VARIMITIVÃO** de plantão: \"errou de novo? não foi erro, foi intenção!\"\n- **Futmercado bombando** — rumores, trocas e negociações de padaria.\n- **Próximo jogo:** BANE × CACO. Dois títulos, um destino.\n\nAcompanha tudo na aba **CAMPEONATOS → FIFA** — classificação, jogos abertos e o Hall da Vergonha em tempo real."
+      },
+      {
+        "date": "22/05/2026",
+        "subtitle": "O xamã liberou o cofre — não esquece de checar antes da rodada.",
+        "at": 1779454800000,
+        "image": "news/bonus-semanal.jpg",
+        "body": "Todo dia **segunda-feira às 10h da manhã (BRT)** o cofre do xamã se abre e libera **500 PC de graça** pra cada jogador. É só clicar no chip **+500 PC RECLAMAR** que aparece lá no topo da página, ao lado do seu saldo.\n\nNão perdeu? Confere também o site toda segunda — quem não reclama fica de fora até a próxima.",
+        "title": "+500 PC NA CONTA, MEU FILHO!",
+        "id": "bonus-semanal",
+        "tag": "PROMO"
+      },
+      {
+        "image": "news/primitivao-resiste.jpg",
+        "at": 1779404400000,
+        "body": "Na calada da noite, um invasor mal-intencionado conseguiu apagar todos os usuários e inscrições do Primitivão. Mas o cofre PC resistiu! Em horas, o sistema voltou no ar com defesas reforçadas.\n\n**O que mudou:**\n\n- Odds **automáticas** baseadas na classificação\n- 5 mercados: 1X2, Ambos Marcam, Ninguém Marca, +3 Gols (mandante/visitante)\n- Bônus semanal de **500 PC** (era 20!) — toda segunda 10h BRT\n- Hall da Fama e Hall da Vergonha por temporada\n- Aba \"Meu Perfil\" com seu time, troféus e títulos\n- Mortal Kombat, Rocket League, LoL, CS, Golf With Your Friends, Copa do Mundo — chegando em breve\n- Otimizado pra celular (com menu hamburger)\n- Defesas contra race conditions e backup automático diário",
+        "subtitle": "Vândalo digital apaga base de apostadores — sistema renasce maior e melhor.",
+        "date": "21/05/2026",
+        "tag": "ATUALIZAÇÃO",
+        "id": "primitivao-resiste",
+        "title": "PRIMITIVÃO RESISTE!"
+      },
+      {
+        "tag": "CAMPEONATO",
+        "id": "fifa-s1",
+        "title": "TEMPORADA EM ANDAMENTO: FIFA 2026 SEASON 1",
+        "image": "",
+        "body": "A primeira temporada oficial do Primitivão tá no ar. 8 jogadores, 7 rodadas, 28 jogos. Apostas abertas em cada partida até o admin travar (geralmente quando a bola vai rolar).\n\nAs **odds são calculadas em tempo real** a partir da classificação: quanto mais forte um time (pontos + saldo de gol), menor a odd dele vencer. Quando uma rodada inteira termina, as odds da próxima rodada são recalculadas automaticamente pra todo mundo no app.\n\nVá em **CAMPEONATOS → FIFA → JOGOS** pra apostar.",
+        "at": 1779141600000,
+        "subtitle": "A primeira temporada já está rolando — confira os jogos da rodada atual.",
+        "date": "18/05/2026"
+      }
+    ],
+    "discord_webhook": "https://discord.com/api/webhooks/1509249464609804449/xFZ5TFrBD3OOn9f1-CXGOVi6QT8U3Lsqc9uTahUqjMcyK04xDoMefebhs3Fon5CbS5bF"
+  },
+  "classificacao": {
+    "currentRound": 5,
+    "rounds": [
+      [
+        {
+          "home": "vitinho",
+          "away": "mohamed",
+          "day": "SEG",
+          "date": "11/05",
+          "time": "21:00",
+          "gh": "4",
+          "ga": "3"
+        },
+        {
+          "home": "potato",
+          "away": "bane",
+          "day": "SEG",
+          "date": "11/05",
+          "time": "21:30",
+          "gh": "3",
+          "ga": "0"
+        },
+        {
+          "home": "caco",
+          "away": "juca",
+          "day": "SEG",
+          "date": "11/05",
+          "time": "22:00",
+          "gh": "2",
+          "ga": "6"
+        },
+        {
+          "home": "magreza",
+          "away": "celin",
+          "day": "SEG",
+          "date": "11/05",
+          "time": "22:30",
+          "gh": "1",
+          "ga": "2"
+        }
+      ],
+      [
+        {
+          "home": "mohamed",
+          "away": "juca",
+          "day": "SEG",
+          "date": "11/05",
+          "time": "23:00",
+          "gh": "0",
+          "ga": "8"
+        },
+        {
+          "home": "potato",
+          "away": "magreza",
+          "day": "TER",
+          "date": "12/05",
+          "time": "21:30",
+          "gh": "2",
+          "ga": "2"
+        },
+        {
+          "home": "vitinho",
+          "away": "bane",
+          "day": "TER",
+          "date": "12/05",
+          "time": "22:00",
+          "gh": "1",
+          "ga": "1"
+        },
+        {
+          "home": "celin",
+          "away": "caco",
+          "day": "TER",
+          "date": "12/05",
+          "time": "22:30",
+          "gh": "1",
+          "ga": "3"
+        }
+      ],
+      [
+        {
+          "home": "vitinho",
+          "away": "magreza",
+          "day": "SEG",
+          "date": "18/05",
+          "time": "21:00",
+          "gh": "0",
+          "ga": "5"
+        },
+        {
+          "home": "bane",
+          "away": "juca",
+          "day": "TER",
+          "date": "18/05",
+          "time": "21:30",
+          "gh": "0",
+          "ga": "7"
+        },
+        {
+          "home": "potato",
+          "away": "celin",
+          "day": "QUA",
+          "date": "18/05",
+          "time": "22:00",
+          "gh": "4",
+          "ga": "2"
+        },
+        {
+          "home": "caco",
+          "away": "mohamed",
+          "day": "QUI",
+          "date": "18/05",
+          "time": "22:30",
+          "gh": "4",
+          "ga": "0"
+        }
+      ],
+      [
+        {
+          "home": "mohamed",
+          "away": "bane",
+          "day": "SEG",
+          "date": "25/06",
+          "time": "21:00",
+          "gh": "1",
+          "ga": "6"
+        },
+        {
+          "home": "celin",
+          "away": "vitinho",
+          "day": "TER",
+          "date": "25/06",
+          "time": "21:30",
+          "gh": "4",
+          "ga": "2"
+        },
+        {
+          "home": "juca",
+          "away": "potato",
+          "day": "QUA",
+          "date": "25/06",
+          "time": "22:00",
+          "gh": "8",
+          "ga": "0"
+        },
+        {
+          "home": "caco",
+          "away": "magreza",
+          "day": "QUI",
+          "date": "25/06",
+          "time": "22:30",
+          "gh": "5",
+          "ga": "4",
+          "locked": true
+        }
+      ],
+      [
+        {
+          "home": "juca",
+          "away": "vitinho",
+          "day": "SEG",
+          "date": "25/06",
+          "time": "21:00",
+          "gh": "5",
+          "ga": "0",
+          "locked": true
+        },
+        {
+          "home": "potato",
+          "away": "caco",
+          "day": "TER",
+          "date": "25/06",
+          "time": "21:30",
+          "gh": "4",
+          "ga": "1",
+          "locked": true
+        },
+        {
+          "home": "magreza",
+          "away": "bane",
+          "day": "QUA",
+          "date": "25/06",
+          "time": "21:00",
+          "gh": "5",
+          "ga": "2",
+          "locked": true
+        },
+        {
+          "home": "celin",
+          "away": "mohamed",
+          "day": "QUI",
+          "date": "25/06",
+          "time": "21:30",
+          "gh": "9",
+          "ga": "2",
+          "locked": true
+        }
+      ],
+      [
+        {
+          "home": "bane",
+          "away": "caco",
+          "day": "QUA",
+          "date": "27/05",
+          "time": "20:30",
+          "gh": "4",
+          "ga": "3",
+          "locked": true
+        },
+        {
+          "home": "celin",
+          "away": "juca",
+          "day": "TER",
+          "date": "09/06",
+          "time": "21:30",
+          "gh": "0",
+          "ga": "4"
+        },
+        {
+          "home": "magreza",
+          "away": "mohamed",
+          "day": "QUA",
+          "date": "10/06",
+          "time": "21:00",
+          "gh": "8",
+          "ga": "0",
+          "locked": true
+        },
+        {
+          "home": "potato",
+          "away": "vitinho",
+          "day": "QUI",
+          "date": "11/06",
+          "time": "21:30",
+          "gh": "7",
+          "ga": "3",
+          "locked": true
+        }
+      ],
+      [
+        {
+          "home": "juca",
+          "away": "magreza",
+          "day": "SEG",
+          "date": "15/06",
+          "time": "21:00",
+          "gh": "",
+          "ga": "",
+          "locked": false
+        },
+        {
+          "home": "caco",
+          "away": "vitinho",
+          "day": "TER",
+          "date": "16/06",
+          "time": "21:30",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "celin",
+          "away": "bane",
+          "day": "QUA",
+          "date": "17/06",
+          "time": "21:00",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "mohamed",
+          "away": "potato",
+          "day": "QUI",
+          "date": "18/06",
+          "time": "21:30",
+          "gh": "",
+          "ga": ""
+        }
+      ]
+    ]
+  }
+}
