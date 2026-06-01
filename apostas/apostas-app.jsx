@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260531-vitrine-icons ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260531-vitrine-preview ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6451,6 +6451,11 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
   const totalReturn = wonBets.reduce((s, b) => s + (b.payout || 0), 0);
 
   const myTrophies = trophiesForNick(nick, cs, teamPlayers);
+  // Admin não tem time -> vitrine vazia. Mostra uma PRÉVIA dos 5 troféus pra conferir o visual.
+  const previewTrophies = (isAdmin && myTrophies.length === 0)
+    ? ['champion', 'vice', 'participou', 'penultimo', 'lanterna'].map(kind => ({ champId: (CHAMPIONSHIPS[0] || {}).id, kind }))
+    : [];
+  const showTrophies = myTrophies.length ? myTrophies : previewTrophies;
 
   return (
     <div>
@@ -6558,17 +6563,20 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-head">
           <div className="title"><Icon name="trophy" size={16} /> MEUS TROFÉUS</div>
-          <div className="sub">{myTrophies.length}</div>
+          <div className="sub">{myTrophies.length ? myTrophies.length : (previewTrophies.length ? 'PRÉVIA' : 0)}</div>
         </div>
         <div className="card-body">
-          {myTrophies.length === 0 ? (
+          {previewTrophies.length > 0 && (
+            <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="lock" size={11} /> Prévia (admin): todos os troféus pra você conferir o visual. Cada jogador vê só os que conquistou.</div>
+          )}
+          {showTrophies.length === 0 ? (
             <div className="empty">
               <div className="e1">VITRINE VAZIA</div>
               <div className="e2">Você ainda não conquistou nenhum campeonato encerrado.</div>
             </div>
           ) : (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              {myTrophies.map(t => <TrophyItem key={t.champId + t.kind} trophy={t} />)}
+              {showTrophies.map(t => <TrophyItem key={t.champId + t.kind} trophy={t} />)}
             </div>
           )}
         </div>
