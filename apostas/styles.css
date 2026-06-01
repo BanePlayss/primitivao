@@ -3287,6 +3287,8 @@
     .mk-cupom-stake { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 700; color: rgba(28,22,18,0.6); }
     .mk-cupom-stake .cscore-in { width: 72px; height: 34px; font-size: 15px; }
     .mk-cupom-warn { font-size: 10px; font-weight: 700; color: #c0392b; text-align: center; }
+    .mk-bets-hint { margin-top: 14px; padding-top: 12px; border-top: 1.5px dashed rgba(28,22,18,0.2); display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em; color: rgba(28,22,18,0.6); }
+    .mk-bets-hint svg { color: var(--pv-orange); }
     .mk-bets-list { margin-top: 18px; border-top: 2px solid var(--pv-charcoal); padding-top: 14px; }
     .mk-bets-h { display: flex; align-items: center; gap: 6px; font-family: 'Bungee Inline', Impact, sans-serif; font-size: 14px; color: var(--pv-charcoal); margin-bottom: 10px; }
     .mk-bets-empty { font-size: 11.5px; color: rgba(28,22,18,0.5); }

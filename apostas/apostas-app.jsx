@@ -117,7 +117,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260601-mk-oficial ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260601-mk-oficial2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1730,7 +1730,6 @@ function App() {
   //   mk = { draw, scores, lineups, locked }
   const [mkDraw, setMkDraw] = useState(null);
   const [mkScores, setMkScores] = useState({});
-  const [mkPreviewChars, setMkPreviewChars] = useState(null); // prévia admin (não grava)
   // MEU JOGO: escalação por confronto montada pelo MANDANTE (os dois lados das 2
   // partidas). Keyed por gKey: mkLineups[gKey] = { p1:{home,away}, p2:{home,away} }.
   const [mkLineups, setMkLineups] = useState({});
@@ -2893,7 +2892,6 @@ function App() {
                   teamPlayers={teamPlayers || {}}
                   draw={mkDraw} onPublishDraw={publishMkDraw}
                   scores={mkScores} onScore={setMkScoreField}
-                  previewChars={mkPreviewChars} setPreviewChars={setMkPreviewChars}
                   isAdmin={isAdmin} locked={mkLocked}
                 />
               ) : showPlaceholder ? (
@@ -2939,7 +2937,7 @@ function App() {
               <MeuJogoView
                 nick={session.nick} isAdmin={isAdmin} users={users} interests={interests || {}} onSave={setMkChars}
                 draw={mkDraw} scores={mkScores} lineups={mkLineups} onSlot={setMkLineupSlot}
-                previewChars={mkPreviewChars} teamPlayers={teamPlayers || {}}
+                teamPlayers={teamPlayers || {}}
               />
             )}
             {view === 'loja' && (
@@ -6118,7 +6116,7 @@ function MkFighterShow({ nick, char, teamPlayers }) {
 // ─── MEU JOGO (MK) — elenco do turno + escalação dos confrontos ────────────
 // O MANDANTE escala as 2 partidas dos jogos onde é mando (boneco dos DOIS lados,
 // vindo do elenco de 3 de cada um). O VISITANTE só vê como o mandante dispôs.
-function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, lineups, onSlot, previewChars, teamPlayers }) {
+function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, lineups, onSlot, teamPlayers }) {
   const inscritos = Object.keys((interests && interests.mk) || {}).sort();
   const [target, setTarget] = useState(isAdmin ? (inscritos[0] || '') : nick);
   const [sel, setSel] = useState(((users || {})[isAdmin ? (inscritos[0] || '') : nick] || {}).mkChars || []);
@@ -6126,7 +6124,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
   useEffect(() => { setSel(((users || {})[target] || {}).mkChars || []); }, [target, users]);
 
   const isInscrito = !!(((interests && interests.mk) || {})[target]);
-  const charsFor = (n) => (previewChars && previewChars[n]) || ((users || {})[n] || {}).mkChars || [];
+  const charsFor = (n) => ((users || {})[n] || {}).mkChars || [];
   const toggle = (c) => setSel(prev => prev.includes(c) ? prev.filter(x => x !== c) : (prev.length >= MK_MAX_CHARS ? prev : [...prev, c]));
   const save = async () => {
     if (busy || !target) return;
@@ -6335,7 +6333,7 @@ function MkCurtainOpening({ onDone }) {
 
 const MK_CURTAIN_KEY = 'mk_curtain_seen';
 
-function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, scores, onScore, previewChars, setPreviewChars, isAdmin, locked }) {
+function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, scores, onScore, isAdmin, locked }) {
   // draw/scores vêm do App (persistidos no doc de apostas, campo `mk`).
   const [viewRound, setViewRound] = useState(0);
   const [curtain, setCurtain] = useState(() => {
@@ -6351,14 +6349,6 @@ function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, 
     onPublishDraw(generateMkDraw(shuffleArr(insc)));
     setViewRound(0);
   };
-  // Prévia (admin): sorteia 3 personagens aleatórios pra cada inscrito só pra ver
-  // como fica nos confrontos. Ephemeral — não escreve no banco.
-  const drawPreviewChars = () => {
-    const map = {};
-    insc.forEach(nick => { map[nick] = shuffleArr(MK_CHARACTERS).slice(0, MK_MAX_CHARS); });
-    setPreviewChars(map);
-  };
-  const clearPreviewChars = () => setPreviewChars(null);
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const setScore = (key, side, val) => {
     const v = val.replace(/[^0-2]/g, '').slice(0, 1); // 1 dígito, 0..2 (primeiro a 2)
@@ -6371,7 +6361,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, 
   const matches = draw ? draw.flatMap(r => r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: scores[gKey(r, gi)] || {} }))) : [];
   const playedCount = matches.filter(m => mkMatchOutcome(m.sc)).length;
   const standings = computeMkStandings(insc, matches);
-  const charsFor = (nick) => (previewChars && previewChars[nick]) || ((users || {})[nick] || {}).mkChars || [];
+  const charsFor = (nick) => ((users || {})[nick] || {}).mkChars || [];
   const curRound = draw ? draw[viewRound] : null;
 
   return (
@@ -6384,17 +6374,14 @@ function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, 
           <div className="sub">{insc.length} INSCRITOS · TOP 8 VAI PRO MATA-MATA</div>
         </div>
         <div className="card-body">
-          {isAdmin ? (<>
+          {isAdmin ? (
             <div className="mk-admin-row">
               <div className="mk-admin-note"><Icon name="shield" size={12} /> ADMIN — sorteie o chaveamento e lance os placares. {locked ? 'Inscrições fechadas.' : 'Sortear FECHA as inscrições.'}</div>
               <div className="mk-admin-actions">
-                <button type="button" className="mk-replay" onClick={drawPreviewChars}><Icon name="fist" size={12} /> {previewChars ? 'RESORTEAR PERSONAGENS' : 'SORTEAR PERSONAGENS'}</button>
-                {previewChars && <button type="button" className="mk-replay" onClick={clearPreviewChars}><Icon name="x" size={12} /> LIMPAR</button>}
                 <button type="button" className="mk-replay" onClick={replayCurtain}><Icon name="refresh" size={12} /> REVER ABERTURA</button>
               </div>
             </div>
-            {previewChars && <div className="mk-preview-note"><Icon name="fist" size={11} /> Personagens sorteados só pra <strong>prévia</strong> — não fica salvo (some ao recarregar).</div>}
-          </>) : (
+          ) : (
             <div className="mk-admin-note" style={{ width: '100%', marginBottom: 12 }}><Icon name="skull" size={12} /> Classificação oficial — atualiza sozinha conforme os placares saem.</div>
           )}
           {insc.length === 0 ? (
@@ -6762,32 +6749,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
                 </div>
               </aside>
             </div>
-
-            <div className="mk-bets-list">
-              <div className="mk-bets-h"><Icon name="newspaper" size={13} /> APOSTAS FEITAS · {(bets || []).length}</div>
-              {(bets || []).length === 0 ? (
-                <div className="mk-bets-empty">Nenhuma aposta ainda. Monte um cupom e clique FAZER APOSTA.</div>
-              ) : (
-                <div className="mk-bets-rows">
-                  {(bets || []).map(b => {
-                    const st = betStatus(b);
-                    return (
-                      <div key={b.id} className={'mk-bet-row st-' + st}>
-                        <div className="mk-br-head">
-                          <span className="mk-br-r">R{b.roundN} {b.phase}</span>
-                          <span className="mk-br-who">@{b.nick}</span>
-                          {b.casada && <span className="mk-br-casada">CASADA ×{b.legs.length}</span>}
-                          <span className={'mk-br-st ' + st}>{st === 'won' ? 'GANHOU' : st === 'lost' ? 'PERDEU' : 'EM ABERTO'}</span>
-                          {onRemoveBet && st === 'pending' && (isAdmin || b.nick === myNick) && <button className="mk-br-x" onClick={() => onRemoveBet(b.id)} aria-label="Apagar"><Icon name="trash" size={11} /></button>}
-                        </div>
-                        <div className="mk-br-legs">{b.legs.map((l, i) => <span key={i} className="mk-br-leg">@{l.home}×@{l.away}: <strong>{MK_MARKET_TITLE[l.market]} {mkLegLabel(l)}</strong> ({l.odd.toFixed(2)})</span>)}</div>
-                        <div className="mk-br-foot"><span>{b.stake} PC @ {b.combined.toFixed(2)}×</span><strong>→ {Math.round(b.stake * b.combined)} PC</strong></div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <div className="mk-bets-hint"><Icon name="ticket" size={12} /> Suas apostas ficam em <strong>MEUS TICKETS</strong>.</div>
           </>
         )}
       </div>
