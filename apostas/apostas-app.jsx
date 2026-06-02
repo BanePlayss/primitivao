@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-roster-lock ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-titulos-apostas ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5839,6 +5839,21 @@ function seasonBettingRanking(champId, bets) {
     .sort((a, b) => b.lucro - a.lucro || b.vit - a.vit || a.apostas - b.apostas);
 }
 
+// Posição do nick no ranking de apostas de cada SEASON ENCERRADA. Base dos
+// títulos de apostas (rei/vice/mico). Retorna [{ champId, pos, total, lucro,
+// apostas }] — uma entrada por season fechada em que o nick apostou.
+function bettingSeasonRanks(nick, cs, bets) {
+  const out = [];
+  for (const c of CHAMPIONSHIPS) {
+    if (computeChampStandings(c.id, cs).status !== 'closed') continue;
+    const rank = seasonBettingRanking(c.id, bets);
+    const idx = rank.findIndex(r => r.nick === nick);
+    if (idx < 0) continue;
+    out.push({ champId: c.id, pos: idx + 1, total: rank.length, lucro: rank[idx].lucro, apostas: rank[idx].apostas });
+  }
+  return out;
+}
+
 // ─── HELPERS DE CONQUISTA (compartilhados por títulos e distintivos) ────────
 
 // Posição do nick na classificação FECHADA da FIFA. null se não fechou ou
@@ -5927,6 +5942,10 @@ const ACH = {
   collector:   (ctx) => effectiveInventory(ctx.nick, (ctx.users || {})[ctx.nick], ctx).length >= 5,
   ironStreak:  ({ nick, bets }) => maxBetStreak(bets, nick, 'won') >= 10,
   cursed:      ({ nick, bets }) => maxBetStreak(bets, nick, 'lost') >= 10,
+  // Apostas por SEASON encerrada: rei (1º), vice (2º), mico (último no vermelho).
+  betKing:     ({ nick, cs, bets }) => bettingSeasonRanks(nick, cs, bets).some(r => r.pos === 1),
+  betVice:     ({ nick, cs, bets }) => bettingSeasonRanks(nick, cs, bets).some(r => r.pos === 2 && r.total >= 3),
+  betMico:     ({ nick, cs, bets }) => bettingSeasonRanks(nick, cs, bets).some(r => r.pos === r.total && r.total >= 3 && r.lucro < 0 && r.apostas >= 5),
 };
 
 // ─── TÍTULOS DO USUÁRIO ─────────────────────────────────────────────────────
@@ -5982,6 +6001,13 @@ const TITLE_DEFS = [
     desc: 'Montou uma casada com 8 palpites ou mais. Coragem (ou teimosia) de sobra.', check: ACH.allIn },
   { id: 'colecionador', name: 'COLECIONADOR', icon: 'gift', color: '#7a4dc9',
     desc: 'Desbloqueou 5 itens cosméticos ou mais. Vaidoso assumido.', check: ACH.collector },
+  // ── Apostas: campeonato encerrado (uma season) ──
+  { id: 'rei_apostas', name: 'REI DAS APOSTAS', icon: 'crown', color: '#d4af37',
+    desc: 'Terminou uma season no TOPO do ranking de apostas — o maior lucro da temporada. A coroa é sua.', check: ACH.betKing },
+  { id: 'vice_apostas', name: 'VICE DAS APOSTAS', icon: 'coin-stack', color: '#9a9a9a',
+    desc: 'Terminou em SEGUNDO no ranking de apostas de uma season. Faltou pouco pra coroa.', check: ACH.betVice },
+  { id: 'mico_apostas', name: 'MICO DAS APOSTAS', icon: 'coin-fire', color: '#7a2222',
+    desc: 'Terminou em ÚLTIMO no ranking de apostas de uma season, no vermelho. A casa agradece a preferência.', check: ACH.betMico },
   // ── Copa do Mundo ──
   { id: 'vidente_copa', name: 'VIDENTE DA COPA', icon: 'globe', color: '#1c7a6e',
     desc: 'Acertou um placar EXATO no bolão da Copa do Mundo (3 pts).', check: ACH.copaSeer },
