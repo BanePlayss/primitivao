@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-hide-done ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-roster-lock ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2748,16 +2748,26 @@ function App() {
   };
 
   // MEU JOGO (MK): salva o elenco de 3 personagens escolhidos por um jogador.
+  // Trava: quem JÁ JOGOU uma rodada (confronto concluído) não pode mais trocar.
   const setMkChars = async (targetNick, chars) => {
-    if (!targetNick) return;
+    if (!targetNick) return { err: 'sem jogador' };
     const clean = (Array.isArray(chars) ? chars : []).filter(c => MK_CHARACTERS.includes(c)).slice(0, MK_MAX_CHARS);
     try {
-      await commitBetDocUpdate(remote => {
+      const res = await commitBetDocUpdate(remote => {
         const u = (remote.users || {})[targetNick];
         if (!u) return null;
+        // Confere no doc (fonte da verdade) se o jogador já tem confronto concluído.
+        const mk = remote.mk || {};
+        const draw = Array.isArray(mk.draw) ? mk.draw : [];
+        const scores = mk.scores || {};
+        const played = draw.some(r => (r.games || []).some((g, gi) =>
+          (g.home === targetNick || g.away === targetNick) &&
+          !!mkMatchOutcome(scores[r.phase + '-' + r.n + '-' + gi] || {})));
+        if (played) return { __abort: true, result: { err: 'Elenco travado: esse jogador já jogou uma rodada.' } };
         return { ...remote, users: { ...remote.users, [targetNick]: { ...u, mkChars: clean } } };
       });
-    } catch (e) { console.warn('setMkChars failed', e); }
+      return res || { ok: true };
+    } catch (e) { console.warn('setMkChars failed', e); return { err: 'falha ao salvar' }; }
   };
 
   // LOJA: compra de item (debita CAMPEÃO COINS — cc — e adiciona ao inventory).
@@ -6361,7 +6371,11 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
   const save = async () => {
     if (busy || !target) return;
     setBusy(true);
-    try { await onSave(target, sel); showToast('Elenco salvo pra @' + target + '!', 'success'); }
+    try {
+      const res = await onSave(target, sel);
+      if (res && res.err) { showToast(res.err, 'error'); return; }
+      showToast('Elenco salvo pra @' + target + '!', 'success');
+    }
     catch (e) { showToast('Falha ao salvar.', 'error'); }
     finally { setBusy(false); }
   };
@@ -6384,6 +6398,11 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
       }
     });
   }
+  // ELENCO TRAVADO: quem JÁ JOGOU uma rodada (tem confronto concluído em
+  // qualquer rodada) não pode mais trocar os 3 personagens — vale pra todo mundo.
+  const rosterLocked = !!(draw && draw.some((r) =>
+    (r.games || []).some((g, gi) => (g.home === target || g.away === target) && !!mkMatchOutcome((scores || {})[gKey(r, gi)] || {}))
+  ));
   // Atualiza um slot da escalação (mandante). lineups[key] = { p1:{home,away}, p2:{home,away} }
   const setSlot = (key, part, side, val) => onSlot(key, part, side, val);
 
@@ -6413,12 +6432,16 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
             {/* ELENCO DO TURNO (3 fixos) */}
             <div className="mk-jogo-sec">
               <div className="mk-jogo-sec-h"><Icon name="user" size={13} /> MEU ELENCO DO TURNO <span className="mk-jogo-sec-c">{sel.length}/{MK_MAX_CHARS}</span></div>
-              <p className="mk-jogo-hint">Seus <strong>{MK_MAX_CHARS} personagens fixos</strong> do turno. Dá pra trocar antes da VOLTA e do MATA-MATA. O mandante escala esses bonecos nas partidas.</p>
+              {rosterLocked ? (
+                <div className="mk-roster-lock"><Icon name="lock" size={12} /> <span><strong>Elenco travado.</strong> {isAdmin ? 'Esse jogador já' : 'Você já'} jogou uma rodada — não dá mais pra trocar os personagens.</span></div>
+              ) : (
+                <p className="mk-jogo-hint">Seus <strong>{MK_MAX_CHARS} personagens fixos</strong>. Escolhe com calma: <strong>depois que você joga sua primeira rodada, o elenco trava</strong>. O mandante escala esses bonecos nas partidas.</p>
+              )}
               <div className="mk-roster">
                 {MK_CHARACTERS.map(c => {
                   const on = sel.includes(c);
                   return (
-                    <button key={c} type="button" className={'mk-char' + (on ? ' on' : '')} onClick={() => toggle(c)} title={c}>
+                    <button key={c} type="button" className={'mk-char' + (on ? ' on' : '') + (rosterLocked ? ' locked' : '')} onClick={() => toggle(c)} title={rosterLocked ? 'Elenco travado' : c} disabled={rosterLocked}>
                       {on && <span className="mk-char-slot">{sel.indexOf(c) + 1}</span>}
                       <span className="mk-char-ic"><Icon name={on ? 'fist' : 'user'} size={18} /></span>
                       <span className="mk-char-name">{c}</span>
@@ -6428,7 +6451,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
               </div>
               <div className="mk-foot">
                 <div className="mk-selected">{sel.length}/{MK_MAX_CHARS} escolhidos{sel.length ? ': ' + sel.join(' · ') : ''}</div>
-                <button className="tp-btn-go" onClick={save} disabled={busy || sel.length === 0}>{busy ? 'SALVANDO…' : 'SALVAR ELENCO'}</button>
+                {!rosterLocked && <button className="tp-btn-go" onClick={save} disabled={busy || sel.length === 0}>{busy ? 'SALVANDO…' : 'SALVAR ELENCO'}</button>}
               </div>
             </div>
 
