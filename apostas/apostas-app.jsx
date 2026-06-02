@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-mk-cardluta ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-mk-mercados ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -476,7 +476,13 @@ function computeMkStandings(players, matches) {
 // dá a partida, e as 2 partidas independentes dão o confronto.
 // Finalização e Flawless são mercados; o ADMIN marca o resultado no lançamento
 // (cartão admin-only), com DUAS finalizações por confronto (uma por partida).
-const MK_MARKETS = ['VENC', 'RESULT', 'P1', 'P2', 'TOTAL', 'FINISH', 'FLAW'];
+// Mercados OFERECIDOS na aba de apostas. 'RESULT' (RESULTADO PARTIDAS) foi
+// aposentado (#2): era redundante com 'VENC' (H=2×0, EMPATE=1×1, A=0×2, mesmas
+// odds) e confundia o apostador simples. Mantemos VENC (quem vence, label claro)
+// e os placares por partida (P1/P2), que NÃO são redundantes. A lógica de
+// RESULT (título/label/liquidação) continua existindo logo abaixo só pra
+// apostas antigas já feitas continuarem liquidando e aparecendo certo.
+const MK_MARKETS = ['VENC', 'P1', 'P2', 'TOTAL', 'FINISH', 'FLAW'];
 const MK_MARKET_TITLE = { VENC: 'VENCEDOR', RESULT: 'RESULTADO (PARTIDAS)', P1: 'PLACAR PARTIDA 1', P2: 'PLACAR PARTIDA 2', TOTAL: 'TOTAL DE ROUNDS', FINISH: 'FINALIZAÇÃO', FLAW: 'FLAWLESS VICTORY' };
 const MK_RESULT_PICKS = ['20', '11', '02'];          // 2×0 / 1×1 / 0×2
 const MK_PARTIDA_PICKS = ['20', '21', '12', '02']; // mandante x visitante (primeiro a 2)
