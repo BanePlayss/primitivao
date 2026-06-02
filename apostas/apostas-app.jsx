@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-apostas-rank ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-apostas-side ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3004,6 +3004,8 @@ function App() {
               <div className="champ-layout champ-layout--apostas">
                 <ChampSidebar value={apostasChampId} onChange={setChampionship} cs={cs} interests={interests || {}} mode="apostas" />
                 <div className="champ-main">
+                  <div className="apostas-cols">
+                  <div className="apostas-main">
                   {(apostasChampId === 'mk') ? (
                     // APOSTAS do MK (valendo PC). MK é ativo — todo mundo aposta aqui.
                     <>
@@ -3036,13 +3038,7 @@ function App() {
                   interests={interests || {}}
                 />
                   )}
-                  {/* RANKING DE APOSTAS do campeonato atual (o antigo "RANKING", por LUCRO) —
-                      dentro de apostas. A CLASSIFICAÇÃO do campeonato em si mora em CAMPEONATOS. */}
-                  <div style={{ marginTop: 16 }}>
-                    <RankingView users={users} bets={bets} me={session.nick}
-                      teamPlayers={teamPlayers || {}} cs={cs} lockChamp={apostasChampId} />
-                  </div>
-                  {/* MEUS ÚLTIMOS TICKETS — embaixo do apostar, só os 5 mais recentes do campeonato. */}
+                  {/* MEUS ÚLTIMOS TICKETS — embaixo do apostar, na coluna principal. */}
                   {!isAdmin && (
                     <div style={{ marginTop: 16 }}>
                       <TicketsView
@@ -3051,6 +3047,14 @@ function App() {
                         limit={5} title="MEUS ÚLTIMOS TICKETS" />
                     </div>
                   )}
+                  </div>{/* /.apostas-main */}
+                  {/* RANKING DE APOSTAS do campeonato atual (por LUCRO), AO LADO do apostar.
+                      A CLASSIFICAÇÃO do campeonato em si mora em CAMPEONATOS. */}
+                  <aside className="apostas-side">
+                    <RankingView users={users} bets={bets} me={session.nick}
+                      teamPlayers={teamPlayers || {}} cs={cs} lockChamp={apostasChampId} />
+                  </aside>
+                  </div>{/* /.apostas-cols */}
                 </div>
               </div>
             )}
@@ -3602,10 +3606,10 @@ function ProfileSidebar({ nick, me, cs, bets, users, teamPlayers, worldcup, inte
   const won = myBets.filter(b => b.status === 'won').length, lost = myBets.filter(b => b.status === 'lost').length;
   const aprov = (won + lost) ? Math.round(won / (won + lost) * 100) : 0;
   return (
-    <aside className="app-profile">
+    <aside className="app-profile" style={{ '--ap-accent': (titleDef && titleDef.color) || '#d76414' }}>
       <button type="button" className="ap-card" onClick={() => setView('perfil')} title="Abrir perfil completo">
         <div className="ap-avatar">
-          {myTeamId ? <Avatar teamId={myTeamId} cosmetics={me?.cosmetics} size={104} /> : <div className="ap-avatar-fb">{String(nick).slice(0, 2).toUpperCase()}</div>}
+          {myTeamId ? <Avatar teamId={myTeamId} cosmetics={me?.cosmetics} size={94} /> : <div className="ap-avatar-fb">{String(nick).slice(0, 2).toUpperCase()}</div>}
         </div>
         <div className="ap-nick">@{nick}</div>
         <div className="ap-title">{titleDef ? <><Icon name={titleDef.icon} size={11} /> {titleDef.name}</> : (isAdmin ? 'ADMIN' : 'sem título')}</div>
