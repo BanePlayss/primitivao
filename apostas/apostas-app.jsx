@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-champ-sidebar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-apostas-rail ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2887,12 +2887,15 @@ function App() {
 
   const active = CHAMP_BY_ID[championship] || CHAMPIONSHIPS[0];
   const isActiveChamp = active.status === 'active';
-  // APOSTAS é SÓ pra apostar — sempre num campeonato ATIVO. O `championship` é
-  // compartilhado com CAMPEONATOS (que pode mostrar um "em breve"); se o
-  // selecionado não estiver ativo, a aba APOSTAS cai pro primeiro ativo SEM
-  // mexer na seleção do CAMPEONATOS. (Fix: voltar pra APOSTAS ficava "em breve".)
-  const firstActiveChampId = (CHAMPIONSHIPS.find(c => c.status === 'active') || CHAMPIONSHIPS[0]).id;
-  const apostasChampId = isActiveChamp ? championship : firstActiveChampId;
+  // APOSTAS é SÓ pra apostar — sempre num campeonato APOSTÁVEL (ativo E não
+  // encerrado). O `championship` é compartilhado com CAMPEONATOS (que pode mostrar
+  // "em breve" OU um encerrado pra ver a classificação final); se o selecionado
+  // não for apostável, a aba APOSTAS cai pro primeiro apostável SEM mexer na
+  // seleção do CAMPEONATOS. (Antes caía só por status; agora ignora encerrados
+  // também — ex: FIFA terminou, APOSTAS vai pro MK em vez de mostrar página morta.)
+  const isBettableChamp = champStatusFor(active, cs) === 'active';
+  const firstBettableChampId = (CHAMPIONSHIPS.find(c => champStatusFor(c, cs) === 'active') || CHAMPIONSHIPS[0]).id;
+  const apostasChampId = isBettableChamp ? championship : firstBettableChampId;
   const mkInscrito = !!(interests && interests.mk && session && interests.mk[session.nick]);
   // CAMPEONATOS mostra a página "EM BREVE" quando o campeonato selecionado não
   // está ativo. APOSTAS nunca mostra (sempre usa apostasChampId, que é ativo).
@@ -2951,10 +2954,13 @@ function App() {
                 seleção do CAMPEONATOS. Inscrição em "em breve" é na aba
                 CAMPEONATOS (e o cancelamento no MEU PERFIL). */}
             {view === 'apostas' && (
-              (apostasChampId === 'mk') ? (
-                // APOSTAS do MK (valendo PC). MK é ativo — todo mundo aposta aqui.
-                <>
-                  <ChampHeader value={championship} onChange={setChampionship} interests={interests || {}} bare />
+              <div className="champ-layout champ-layout--apostas">
+                <ChampSidebar value={apostasChampId} onChange={setChampionship} cs={cs} interests={interests || {}} mode="apostas" />
+                <div className="champ-main">
+                  {(apostasChampId === 'mk') ? (
+                    // APOSTAS do MK (valendo PC). MK é ativo — todo mundo aposta aqui.
+                    <>
+                      <ChampHeader value={apostasChampId} onChange={setChampionship} interests={interests || {}} bare activeOnly />
                   <MkBettingView
                     players={Object.keys(interests?.mk || {})}
                     users={users}
@@ -2982,7 +2988,9 @@ function App() {
                   championship={apostasChampId} setChampionship={setChampionship}
                   interests={interests || {}}
                 />
-              )
+                  )}
+                </div>
+              </div>
             )}
 
             {/* CAMPEONATOS — classificação do campeonato selecionado. */}

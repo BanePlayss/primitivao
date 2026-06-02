@@ -924,6 +924,9 @@
     /* SIDEBAR de campeonatos (#5/#6) — trilho à esquerda no desktop. No mobile
        o sidebar some e o ChampHeader (dropdown) volta a ser o switcher. */
     .champ-layout { display: grid; grid-template-columns: 218px minmax(0,1fr); gap: 18px; align-items: start; }
+    /* APOSTAS divide espaço com o cupom (300px) + a nav principal — então o trilho
+       é mais estreito (poucos itens, labels curtas) pra não espremer os jogos. */
+    .champ-layout--apostas { grid-template-columns: 168px minmax(0,1fr); gap: 14px; }
     .champ-main { min-width: 0; }
     .champ-main > .champ-header { display: none; } /* desktop: o sidebar substitui o switcher */
     .champ-sidebar { position: sticky; top: 12px; align-self: start; background: var(--pv-charcoal); color: var(--pv-bone); padding: 12px 10px; }
@@ -944,10 +947,19 @@
     .champ-grp-soon .champ-item-name { color: rgba(244,234,215,0.7); }
     .champ-grp-closed .champ-item-name { color: #e7d49b; }
     .champ-grp-closed .champ-item-ic { filter: saturate(0.65); }
+    /* CAMPEONATOS colapsa cedo (só tem 1 coluna de conteúdo). */
     @media (max-width: 899px) {
-      .champ-layout { display: block; }
-      .champ-sidebar { display: none; }
-      .champ-main > .champ-header { display: block; }
+      .champ-layout:not(.champ-layout--apostas) { display: block; }
+      .champ-layout:not(.champ-layout--apostas) .champ-sidebar { display: none; }
+      .champ-layout:not(.champ-layout--apostas) .champ-main > .champ-header { display: block; }
+    }
+    /* APOSTAS tem o cupom (mais 300px), então o sidebar só aparece com bastante
+       largura — senão a área de jogos fica espremida. Abaixo disso, volta o
+       ChampHeader (dropdown) como switcher. */
+    @media (max-width: 1179px) {
+      .champ-layout--apostas { display: block; }
+      .champ-layout--apostas .champ-sidebar { display: none; }
+      .champ-layout--apostas .champ-main > .champ-header { display: block; }
     }
 
     .round-card { margin-bottom: 16px; }
