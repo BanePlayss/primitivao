@@ -2701,6 +2701,17 @@
     .perfil-mk-badge { flex-shrink: 0; width: 72px; height: 72px; border-radius: 14px; display: flex; align-items: center; justify-content: center; color: #f0b450; background: linear-gradient(155deg, #2a1812, #1a0f08); border: 2px solid rgba(240,180,80,0.4); }
     .perfil-mk-roster { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 4px; }
     .perfil-mk-char { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px 4px 4px; border-radius: 999px; background: rgba(28,22,18,0.05); border: 1.5px solid rgba(28,22,18,0.12); font-size: 11px; font-weight: 700; color: var(--pv-charcoal); }
+    /* INSCRIÇÕES compactas no resumo (só "em breve"; x = cancelar) */
+    .perfil-insc-card { margin-bottom: 14px; padding: 10px 14px; }
+    .perfil-insc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .perfil-insc-title { font-size: 10px; font-weight: 800; letter-spacing: 0.14em; color: rgba(28,22,18,0.55); }
+    .perfil-insc-count { font-size: 9px; font-weight: 800; color: #fff; background: var(--pv-orange); border-radius: 999px; padding: 1px 7px; }
+    .insc-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    .insc-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 3px 3px 10px; border-radius: 999px; background: rgba(28,22,18,0.05); border: 1.5px solid rgba(28,22,18,0.14); }
+    .insc-chip-tag { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; color: var(--pv-charcoal); }
+    .insc-chip-x { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; border: none; background: rgba(28,22,18,0.1); color: rgba(28,22,18,0.6); cursor: pointer; line-height: 1; padding: 0; }
+    .insc-chip-x:hover:not(:disabled) { background: #c33; color: #fff; }
+    .insc-chip-x:disabled { opacity: 0.5; cursor: default; }
     @media (max-width: 560px) {
       .perfil-stats { grid-template-columns: repeat(2, 1fr); }
       .perfil-coins { margin-left: 0; }
