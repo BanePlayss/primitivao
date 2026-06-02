@@ -980,9 +980,6 @@
     @media (max-width: 899px) {
       .champ-layout:not(.champ-layout--apostas) { display: flex; flex-direction: column; gap: 16px; }
       .champ-layout:not(.champ-layout--apostas) .champ-sidebar { display: none; }
-      /* no mobile o MEU JOGO mini (trilho esquerdo) vai pra baixo do conteudo. */
-      .champ-layout:not(.champ-layout--apostas) .camp-leftcol { position: static; order: 2; }
-      .champ-layout:not(.champ-layout--apostas) .champ-main { order: 1; }
       .champ-layout:not(.champ-layout--apostas) .champ-main > .champ-header { display: block; }
     }
     /* APOSTAS tem o cupom (mais 300px), então o sidebar só aparece com bastante
@@ -3437,12 +3434,14 @@
     .apo-stand-rec { font-size: 11px; color: rgba(28,22,18,0.6); text-align: right; font-variant-numeric: tabular-nums; }
     .apo-stand-sg { font-size: 11px; color: rgba(28,22,18,0.5); text-align: right; font-variant-numeric: tabular-nums; }
     .apo-stand-pts { font-weight: 800; text-align: right; color: var(--pv-charcoal); }
-    /* CAMPEONATOS em 3 colunas (igual apostas): [lista CAMPEONATOS + MEU JOGO mini]
-       | CLASSIFICAÇÃO | RODADAS. A classificação|rodadas é o .mk-grid (2 colunas)
-       do MkChampionshipView; o trilho esquerdo agrega a sidebar + o mini. */
-    .camp-leftcol { display: flex; flex-direction: column; gap: 12px; min-width: 0; position: sticky; top: 12px; align-self: start; }
-    .camp-leftcol .champ-sidebar { position: static; top: auto; }
-    /* MEU JOGO mini (embaixo do trilho CAMPEONATOS): elenco + confronto com icones. */
+    /* CAMPEONATOS: a lista (sidebar) gruda na CLASSIFICAÇÃO (sem gap), como um bloco
+       só. As RODADAS ficam à direita (2ª coluna do .mk-grid). O MEU JOGO mini vai
+       embaixo do MEU PERFIL (ProfileSidebar) no desktop. */
+    .champ-layout--camp { gap: 0; }
+    /* MEU JOGO mini — embaixo do MEU PERFIL (desktop) / no fim dos campeonatos
+       (mobile): elenco (3 retratos) + confronto da rodada com icones. */
+    .mj-mini-m { display: none; }
+    @media (max-width: 720px) { .mj-mini-m { display: block; margin-top: 16px; } }
     .mj-mini { background: var(--pv-charcoal); color: var(--pv-bone); padding: 10px; }
     .mj-mini-h { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 6px; background: transparent; border: none; cursor: pointer; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 10px; letter-spacing: 0.16em; color: var(--pv-orange); padding: 0 2px 8px; }
     .mj-mini-h:hover { color: var(--pv-bone); }

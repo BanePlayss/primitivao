@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-camp-3col ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-camp-glue ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2963,7 +2963,8 @@ function App() {
         <ProfileSidebar
           nick={session.nick} me={me} cs={cs} bets={bets} users={users}
           teamPlayers={teamPlayers || {}} worldcup={worldcup} interests={interests || {}}
-          mkDraw={mkDraw} mkScores={mkScores} isAdmin={isAdmin} isMod={isMod} setView={setView}
+          mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} isAdmin={isAdmin} isMod={isMod} setView={setView}
+          showMkMini={view === 'campeonatos' && (isAdmin || mkInscrito)}
         />
         <div className="content-area">
           <div className="page">
@@ -3055,18 +3056,10 @@ function App() {
 
             {/* CAMPEONATOS — classificação do campeonato selecionado. */}
             {view === 'campeonatos' && (
-              <div className="champ-layout">
-                {/* ESQUERDA: lista de campeonatos + MEU JOGO mini (elenco + confronto). */}
-                <div className="camp-leftcol">
-                  <ChampSidebar value={championship} onChange={setChampionship} cs={cs} interests={interests || {}} mode="campeonatos" />
-                  {active.id === 'mk' && (isAdmin || mkInscrito) && (
-                    <MeuJogoMini
-                      nick={session.nick} users={users} interests={interests || {}}
-                      draw={mkDraw} scores={mkScores} lineups={mkLineups} teamPlayers={teamPlayers || {}}
-                      onOpen={() => setView('meujogo')}
-                    />
-                  )}
-                </div>
+              <div className="champ-layout champ-layout--camp">
+                {/* lista de CAMPEONATOS grudada na CLASSIFICAÇÃO (sem gap). O MEU JOGO
+                    mini vai embaixo do MEU PERFIL (ProfileSidebar) no desktop. */}
+                <ChampSidebar value={championship} onChange={setChampionship} cs={cs} interests={interests || {}} mode="campeonatos" />
                 <div className="champ-main">
                   <ChampHeader value={championship} onChange={setChampionship} interests={interests || {}} bare />
                   {active.id === 'mk' ? (
@@ -3092,6 +3085,16 @@ function App() {
                   ) : (
                     <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isMod}
                                        users={users} teamPlayers={teamPlayers || {}} />
+                  )}
+                  {/* Mobile-only: MEU JOGO mini (no desktop ele vai embaixo do MEU PERFIL). */}
+                  {active.id === 'mk' && (isAdmin || mkInscrito) && (
+                    <div className="mj-mini-m">
+                      <MeuJogoMini
+                        nick={session.nick} users={users} interests={interests || {}}
+                        draw={mkDraw} scores={mkScores} lineups={mkLineups} teamPlayers={teamPlayers || {}}
+                        onOpen={() => setView('meujogo')}
+                      />
+                    </div>
                   )}
                 </div>
               </div>
@@ -3582,7 +3585,7 @@ function MobileNav({ view, setView, isAdmin, mkInscrito, isMod }) {
 // Avatar grande (clica = abre o perfil completo) + troféus, título, posição no
 // campeonato e aproveitamento. Botão ADMIN pra mod. Escondida no mobile (vira
 // um cartão no topo via CSS / o menu hamburger cobre a navegação).
-function ProfileSidebar({ nick, me, cs, bets, users, teamPlayers, worldcup, interests, mkDraw, mkScores, isAdmin, isMod, setView }) {
+function ProfileSidebar({ nick, me, cs, bets, users, teamPlayers, worldcup, interests, mkDraw, mkScores, mkLineups, isAdmin, isMod, setView, showMkMini }) {
   const myTeamId = reverseTeamMap(teamPlayers)[nick];
   const trophyCount = trophiesForNick(nick, cs, teamPlayers).length + betKingChamps(nick, cs, bets).length;
   const titleDef = me && me.title ? getTitleDef(me.title) : null;
@@ -3611,6 +3614,13 @@ function ProfileSidebar({ nick, me, cs, bets, users, teamPlayers, worldcup, inte
       </div>
       <button type="button" className="ap-link" onClick={() => setView('perfil')}><Icon name="user" size={13} /> PERFIL COMPLETO</button>
       {isMod && <button type="button" className="ap-admin" onClick={() => setView('admin')}><Icon name="shield" size={13} /> ADMIN</button>}
+      {showMkMini && (
+        <MeuJogoMini
+          nick={nick} users={users} interests={interests || {}}
+          draw={mkDraw} scores={mkScores} lineups={mkLineups} teamPlayers={teamPlayers || {}}
+          onOpen={() => setView('meujogo')}
+        />
+      )}
     </aside>
   );
 }
