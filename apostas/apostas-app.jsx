@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-modtoggle ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-cacadores ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2989,7 +2989,7 @@ function App() {
               />
             )}
             {view === 'hall' && (
-              <HallView cs={cs} users={users} teamPlayers={teamPlayers || {}} worldcup={worldcup} wcFixtures={wcData.matches} myNick={session.nick} />
+              <HallView cs={cs} users={users} teamPlayers={teamPlayers || {}} worldcup={worldcup} wcFixtures={wcData.matches} myNick={session.nick} bets={bets} />
             )}
             {/* APOSTAS — só apostar. SEMPRE num campeonato ATIVO (apostasChampId);
                 se o selecionado for "em breve", cai pro ativo sem perder a
@@ -8179,14 +8179,14 @@ function TrophyShowcase({ champ, items, theme, status, sideRanking, myNick, side
         </div>
         {hasSide && (
           <div className="showcase-side">
-            <div className="showcase-side-head"><Icon name={sideIcon || 'coin'} size={13} /> {sideTitle || 'RANKING DOS APOSTADORES'}</div>
+            <div className="showcase-side-head"><Icon name={sideIcon || 'coin'} size={13} /> {sideTitle || 'OS GRANDES CAÇADORES'}</div>
             <div className="showcase-side-list">
               {sideRanking.map((r, i) => (
                 <div key={r.nick} className={'showcase-side-row' + (r.nick === myNick ? ' me' : '')}>
                   <span className="showcase-side-pos">{i + 1}</span>
                   <Avatar nick={r.nick} teamPlayers={r._tp} cosmetics={r.cosmetics} size={26} noBadge />
                   <span className="showcase-side-nick">@{r.nick}</span>
-                  <span className="showcase-side-pc">{r.pc.toLocaleString('pt-BR')}<small>PC</small></span>
+                  <span className="showcase-side-pc">{r.signed && r.pc >= 0 ? '+' : ''}{r.pc.toLocaleString('pt-BR')}<small>PC</small></span>
                 </div>
               ))}
             </div>
@@ -8200,21 +8200,34 @@ function TrophyShowcase({ champ, items, theme, status, sideRanking, myNick, side
 // Champ "virtual" da Copa pra reusar o TrophyShowcase.
 const COPA_CHAMP = { id: 'copa', name: 'Copa do Mundo · Bolão', season: '2026' };
 
-function HallDaFamaView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick }) {
-  const copa = computeCopaStandings(worldcup, wcFixtures);
-  // Ranking dos apostadores (por saldo PC) — exibido ao lado do pódio da FIFA.
-  const apostadores = Object.entries(users || {})
-    .filter(([nick]) => nick !== ADMIN_NICK)
-    .map(([nick, u]) => ({ nick, pc: u.pc || 0, cosmetics: u.cosmetics || null, _tp: teamPlayers }))
-    .sort((a, b) => b.pc - a.pc)
+// Ranking de apostadores por LUCRO nas apostas (retorno das ganhas − o valor
+// apostado nas resolvidas), de todos os tempos. NÃO usa o saldo PC, que muda
+// com reset/bônus e não reflete quem aposta bem. order: 'top' (maiores) ou
+// 'bottom' (piores). pc carrega o lucro (com sinal) só pro display reaproveitar.
+function bettorProfitRanking(bets, users, teamPlayers, order) {
+  const profit = {};
+  (bets || []).forEach(b => {
+    if (b.user === ADMIN_NICK) return;
+    if (b.status === 'won') profit[b.user] = (profit[b.user] || 0) + (b.payout || 0) - (b.amount || 0);
+    else if (b.status === 'lost') profit[b.user] = (profit[b.user] || 0) - (b.amount || 0);
+  });
+  return Object.entries(profit)
+    .map(([nick, lucro]) => ({ nick, pc: lucro, signed: true, cosmetics: ((users || {})[nick] || {}).cosmetics || null, _tp: teamPlayers }))
+    .sort((a, b) => order === 'bottom' ? a.pc - b.pc : b.pc - a.pc)
     .slice(0, 8);
+}
+
+function HallDaFamaView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick, bets }) {
+  const copa = computeCopaStandings(worldcup, wcFixtures);
+  // Os maiores caçadores: ranking por LUCRO nas apostas (não por saldo PC).
+  const apostadores = bettorProfitRanking(bets, users, teamPlayers, 'top');
   return (
     <div>
       {CHAMPIONSHIPS.map(c => {
         const { status, standings } = computeChampStandings(c.id, cs);
         const items = status !== 'soon' ? buildShowcase('fame', standings, users, teamPlayers) : [];
         return <TrophyShowcase key={c.id} champ={c} items={items} theme="fame" status={status}
-          sideRanking={c.id === 'fifa' ? apostadores : null} myNick={myNick} />;
+          sideRanking={c.id === 'fifa' ? apostadores : null} sideTitle="OS GRANDES CAÇADORES" sideIcon="coin-stack" myNick={myNick} />;
       })}
       <TrophyShowcase
         champ={COPA_CHAMP}
@@ -8225,14 +8238,11 @@ function HallDaFamaView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick }
   );
 }
 
-function HallDaVergonhaView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick }) {
+function HallDaVergonhaView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick, bets }) {
   const copa = computeCopaStandings(worldcup, wcFixtures);
-  // Os mais quebrados (menor saldo PC) — exibido ao lado do pódio da FIFA.
-  const quebrados = Object.entries(users || {})
-    .filter(([nick]) => nick !== ADMIN_NICK)
-    .map(([nick, u]) => ({ nick, pc: u.pc || 0, cosmetics: u.cosmetics || null, _tp: teamPlayers }))
-    .sort((a, b) => a.pc - b.pc)
-    .slice(0, 8);
+  // Os mais quebrados: ranking pelos MAIORES PREJUÍZOS nas apostas (lucro mais
+  // negativo), não pelo saldo PC (que muda com reset/bônus).
+  const quebrados = bettorProfitRanking(bets, users, teamPlayers, 'bottom');
   return (
     <div>
       {CHAMPIONSHIPS.map(c => {
@@ -8251,7 +8261,7 @@ function HallDaVergonhaView({ cs, users, teamPlayers, worldcup, wcFixtures, myNi
 }
 
 // HallView — vitrine de troféus (Fama + Vergonha) com subTabs.
-function HallView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick }) {
+function HallView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick, bets }) {
   const [subTab, setSubTab] = useState('fama'); // 'fama' | 'vergonha'
   const season = (CHAMPIONSHIPS.find(c => c.id === 'fifa') || {}).season || '';
   return (
@@ -8280,8 +8290,8 @@ function HallView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick }) {
           <Icon name="toilet" size={14} /> TÁRTARO
         </button>
       </div>
-      {subTab === 'fama'     && <HallDaFamaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} myNick={myNick} />}
-      {subTab === 'vergonha' && <HallDaVergonhaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} myNick={myNick} />}
+      {subTab === 'fama'     && <HallDaFamaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} myNick={myNick} bets={bets} />}
+      {subTab === 'vergonha' && <HallDaVergonhaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} myNick={myNick} bets={bets} />}
     </div>
   );
 }
