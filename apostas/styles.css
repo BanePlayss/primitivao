@@ -3380,6 +3380,16 @@
     .mk-bm-role { font-size: 7px; font-weight: 800; letter-spacing: 0.06em; color: rgba(28,22,18,0.4); }
     .mk-bm-role.mand { color: var(--pv-orange); opacity: 0.9; }
     .mk-bm-vs { color: var(--pv-orange); font-weight: 800; padding-top: 2px; flex-shrink: 0; }
+    /* CARD DE LUTA compacto na aba de apostas (#1) — tema claro (bone/charcoal) */
+    .mk-bet-fc { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+    .mk-bet-fc.empty { flex-direction: row; align-items: center; gap: 6px; font-size: 9px; font-weight: 700; color: rgba(28,22,18,0.45); font-style: italic; padding: 6px 8px; background: rgba(28,22,18,0.04); border-radius: 5px; }
+    .mk-bet-fc-part { display: flex; align-items: center; gap: 6px; padding: 4px 7px; border-radius: 6px; background: rgba(28,22,18,0.045); border: 1px solid rgba(28,22,18,0.08); }
+    .mk-bet-fc-num { flex-shrink: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 8px; letter-spacing: 0.03em; color: #fff; background: var(--pv-charcoal); border-radius: 4px; padding: 2px 5px; }
+    .mk-bet-fc-fig { display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0; }
+    .mk-bet-fc-fig.right { flex-direction: row-reverse; }
+    .mk-bet-fc-cn { font-size: 9.5px; font-weight: 700; color: var(--pv-charcoal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mk-bet-fc-vs { flex-shrink: 0; color: var(--pv-orange); display: flex; align-items: center; }
+    .mk-fc-mono.sm { width: 22px; height: 22px; font-size: 9px; border-radius: 6px; flex-shrink: 0; }
     .mk-bet-mkt-hint { font-weight: 600; letter-spacing: 0; color: rgba(28,22,18,0.4); font-size: 8px; }
     .mk-odd-pl { display: inline-flex; align-items: center; font-weight: 800; font-size: 10px; }
     .mk-sc-h { color: var(--pv-orange); }

@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-titulos-perma ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-mk-cardluta ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2937,6 +2937,7 @@ function App() {
                     teamPlayers={teamPlayers || {}}
                     draw={mkDraw}
                     scores={mkScores}
+                    lineups={mkLineups}
                     bets={(bets || []).filter(b => b.champId === 'mk')}
                     onPlaceBet={placeMkBet}
                     onRemoveBet={removeMkBet}
@@ -6688,7 +6689,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, 
 // compartilhados (App). Cupom = palpites da MESMA rodada (2+ = casada). Só dá
 // pra apostar na rodada ABERTA (a anterior tem que ter fechado).
 function mkLegLabel(l) { return mkPickLabel(l.market, l.pick); }
-function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlaceBet, onRemoveBet, onToggleGameLock, myNick, isAdmin, isMod, balance }) {
+function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onToggleGameLock, myNick, isAdmin, isMod, balance }) {
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
@@ -6790,6 +6791,36 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, bets, onPlac
                           <span className="mk-bm-vs">×</span>
                           <span className="mk-bm-side right"><span className="mk-bm-nick">@{g.away}</span><span className="mk-bm-role">VISITANTE</span></span>
                         </div>
+                        {(() => {
+                          // CARD DE LUTA (#1): mostra pra TODO MUNDO os 2 jogos e os
+                          // bonecos escolhidos, pra dar contexto antes de apostar.
+                          const lu = (lineups || {})[gKey(rd, gi)] || null;
+                          const arranged = !!lu && ['p1', 'p2'].every(p => (lu[p] || {}).home && (lu[p] || {}).away);
+                          if (!arranged) {
+                            return <div className="mk-bet-fc empty"><Icon name="refresh" size={10} /> @{g.home} ainda não montou o card de luta</div>;
+                          }
+                          return (
+                            <div className="mk-bet-fc">
+                              {['p1', 'p2'].map((p, pi) => {
+                                const h = (lu[p] || {}).home, a = (lu[p] || {}).away;
+                                return (
+                                  <div key={p} className="mk-bet-fc-part">
+                                    <span className="mk-bet-fc-num">J{pi + 1}</span>
+                                    <span className="mk-bet-fc-fig">
+                                      <span className="mk-fc-mono sm" style={{ '--hue': mkHue(h) }}>{mkMono(h)}</span>
+                                      <span className="mk-bet-fc-cn">{h}</span>
+                                    </span>
+                                    <span className="mk-bet-fc-vs"><Icon name="skull" size={10} /></span>
+                                    <span className="mk-bet-fc-fig right">
+                                      <span className="mk-fc-mono sm" style={{ '--hue': mkHue(a) }}>{mkMono(a)}</span>
+                                      <span className="mk-bet-fc-cn">{a}</span>
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                         {ownGame && <div className="mk-bet-own"><Icon name="lock" size={10} /> VOCÊ JOGA ESSE — não pode apostar</div>}
                         {gameLocked && !ownGame && <div className="mk-bet-own lock"><Icon name="lock" size={10} /> APOSTAS TRAVADAS</div>}
                         {isMod && onToggleGameLock && (
