@@ -3312,6 +3312,14 @@
     .apo-stand-rec { font-size: 11px; color: rgba(28,22,18,0.6); text-align: right; font-variant-numeric: tabular-nums; }
     .apo-stand-sg { font-size: 11px; color: rgba(28,22,18,0.5); text-align: right; font-variant-numeric: tabular-nums; }
     .apo-stand-pts { font-weight: 800; text-align: right; color: var(--pv-charcoal); }
+    /* CAMPEONATOS (MK): MEU JOGO no topo, classificação/rodadas embaixo. */
+    .mk-camp-wrap { display: flex; flex-direction: column; gap: 16px; }
+    .mk-camp-jogo, .mk-camp-champ { min-width: 0; }
+    /* Reordena as seções do MEU JOGO: "meu jogo da rodada" em cima, elenco embaixo. */
+    .mk-jogo-secs { display: flex; flex-direction: column; gap: 16px; }
+    .mk-jogo-secs > .mk-jogo-sec { margin-top: 0; padding-top: 0; border-top: none; }
+    .mk-jogo-secs > .mk-jogo-sec:first-child { order: 2; }
+    .mk-jogo-secs > .mk-jogo-sec:nth-child(2) { order: 1; }
     .mk-fc-cname { font-size: 8.5px; font-weight: 700; letter-spacing: 0.01em; color: rgba(255,255,255,0.72); text-align: center; line-height: 1.1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .mk-fc-chip.on .mk-fc-cname { color: #ffd9a8; }
     .mk-fc-badge { position: absolute; top: -5px; right: -4px; width: 15px; height: 15px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #1a0f08; }

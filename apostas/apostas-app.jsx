@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-apostas-class ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-meujogo-camp ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3056,16 +3056,29 @@ function App() {
                 <div className="champ-main">
                   <ChampHeader value={championship} onChange={setChampionship} interests={interests || {}} bare />
                   {active.id === 'mk' ? (
-                // MK OFICIAL: classificação visível a todos. Sorteio = só admin.
-                // Lançar placar = mod (admin + bane/vitinho/mohamed).
-                <MkChampionshipView
-                  players={Object.keys(interests?.mk || {})}
-                  users={users}
-                  teamPlayers={teamPlayers || {}}
-                  draw={mkDraw} onPublishDraw={publishMkDraw}
-                  scores={mkScores} onScore={setMkScoreField}
-                  isAdmin={isAdmin} isMod={isMod} locked={mkLocked}
-                />
+                // MK OFICIAL: classificação + rodadas à esquerda, MEU JOGO (escalação
+                // do confronto + elenco) ao lado direito pra inscritos/admin.
+                <div className="mk-camp-wrap">
+                  {(isAdmin || mkInscrito) && (
+                    <aside className="mk-camp-jogo">
+                      <MeuJogoView
+                        nick={session.nick} isAdmin={isAdmin} users={users} interests={interests || {}} onSave={setMkChars}
+                        draw={mkDraw} scores={mkScores} lineups={mkLineups} onSlot={setMkLineupSlot}
+                        teamPlayers={teamPlayers || {}}
+                      />
+                    </aside>
+                  )}
+                  <div className="mk-camp-champ">
+                    <MkChampionshipView
+                      players={Object.keys(interests?.mk || {})}
+                      users={users}
+                      teamPlayers={teamPlayers || {}}
+                      draw={mkDraw} onPublishDraw={publishMkDraw}
+                      scores={mkScores} onScore={setMkScoreField}
+                      isAdmin={isAdmin} isMod={isMod} locked={mkLocked}
+                    />
+                  </div>
+                </div>
               ) : showPlaceholder ? (
                 <ChampionshipPlaceholder
                   champ={active}
@@ -6562,8 +6575,8 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
             <div className="e2">{isAdmin ? 'Esse jogador não está inscrito no MK.' : 'Você não está inscrito no Mortal Kombat. Inscreva-se na aba CAMPEONATOS.'}</div>
           </div>
         ) : (
-          <>
-            {/* ELENCO DO TURNO (3 fixos) */}
+          <div className="mk-jogo-secs">
+            {/* ELENCO DO TURNO (3 fixos) — via CSS aparece DEPOIS do "meu jogo da rodada". */}
             <div className="mk-jogo-sec">
               <div className="mk-jogo-sec-h"><Icon name="user" size={13} /> MEU ELENCO DO TURNO <span className="mk-jogo-sec-c">{sel.length}/{MK_MAX_CHARS}</span></div>
               {rosterLocked ? (
@@ -6676,7 +6689,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
                 </div>
               )}
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>
