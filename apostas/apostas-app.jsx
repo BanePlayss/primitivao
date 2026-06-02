@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260601-rank-season ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-titulos-perma ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2809,6 +2809,38 @@ function App() {
       }
     });
   }, [me, bets, cs, teamPlayers, worldcup, session]);
+
+  // LATCH DE CONQUISTAS (#3): títulos e badges de drop são PERMANENTES. Quando
+  // uma conquista passa a valer ao vivo pro user logado, gravamos o id em
+  // users[nick].earnedTitles / .earnedDrops (cresce só, nunca remove). Isso
+  // conserta o bug do FALIDO/MILIONÁRIO piscando com o PC (e o CC derivado
+  // caindo junto), e impede badges de campeão/lanterna sumirem num reset.
+  // Só lateia o PRÓPRIO user (cada um lateia o seu ao ficar online). Converge:
+  // depois de gravar, `me` muda, recomputa, nada novo -> não reescreve.
+  useEffect(() => {
+    if (!session?.nick || !me) return;
+    const nick = session.nick;
+    const ctx = { bets, users, teamPlayers: teamPlayers || {}, cs, worldcup, interests };
+    const liveTitleIds = TITLE_DEFS
+      .filter(t => { try { return !!t.check({ nick, ...ctx }); } catch (_) { return false; } })
+      .map(t => t.id);
+    const liveDropIds = itemsDroppedFor(nick, ctx).map(i => i.id);
+    const prevTitles = Array.isArray(me.earnedTitles) ? me.earnedTitles : [];
+    const prevDrops  = Array.isArray(me.earnedDrops)  ? me.earnedDrops  : [];
+    const grewTitles = liveTitleIds.some(id => prevTitles.indexOf(id) < 0);
+    const grewDrops  = liveDropIds.some(id => prevDrops.indexOf(id) < 0);
+    if (!grewTitles && !grewDrops) return;
+    commitBetDocUpdate(remote => {
+      const u = (remote.users || {})[nick];
+      if (!u) return null;
+      const pt = Array.isArray(u.earnedTitles) ? u.earnedTitles : [];
+      const pd = Array.isArray(u.earnedDrops)  ? u.earnedDrops  : [];
+      const nt = Array.from(new Set([...pt, ...liveTitleIds]));
+      const nd = Array.from(new Set([...pd, ...liveDropIds]));
+      if (nt.length === pt.length && nd.length === pd.length) return null;
+      return { ...remote, users: { ...remote.users, [nick]: { ...u, earnedTitles: nt, earnedDrops: nd } } };
+    }).catch(e => console.warn('latchAchievements failed', e));
+  }, [me, bets, users, cs, teamPlayers, worldcup, interests, session]);
 
   if (!synced || cs === null) {
     return (
@@ -6011,16 +6043,27 @@ function itemsDroppedFor(nick, ctx) {
   })());
 }
 
-// Inventário efetivo = itens comprados (no inventory) ∪ itens dropados.
-// Útil pra UI da loja decidir o que está "tem/equipado/locked".
+// Inventário efetivo = comprados (inventory) ∪ drops LATCHED (earnedDrops) ∪
+// drops ao vivo. CONQUISTAS SÃO PERMANENTES: uma vez que um drop foi
+// conquistado e gravado em earnedDrops, ele nunca some — mesmo que a condição
+// ao vivo deixe de valer (ex: temporada resetada). Assim badges de campeão/
+// vice/lanterna não piscam. O latch (efeito no App) é quem grava earnedDrops.
 function effectiveInventory(nick, userRecord, ctx) {
   const bought = Array.isArray(userRecord?.inventory) ? userRecord.inventory : [];
+  const earned = Array.isArray(userRecord?.earnedDrops) ? userRecord.earnedDrops : [];
   const drops  = itemsDroppedFor(nick, ctx).map(i => i.id);
-  return Array.from(new Set([...bought, ...drops]));
+  return Array.from(new Set([...bought, ...earned, ...drops]));
 }
 
+// Títulos do nick = LATCHED (earnedTitles, permanentes) ∪ os que valem ao vivo.
+// Uma vez conquistado, o título nunca some (FALIDO/MILIONÁRIO não piscam mais
+// com o PC) — e como o CC é derivado da CONTAGEM de títulos, o CC para de cair
+// por flicker. O latch (efeito no App) grava earnedTitles quando um novo passa.
 function titlesForNick(nick, ctx) {
+  const u = (((ctx && ctx.users) || {})[nick]) || {};
+  const persisted = new Set(Array.isArray(u.earnedTitles) ? u.earnedTitles : []);
   return TITLE_DEFS.filter(t => {
+    if (persisted.has(t.id)) return true;
     try { return !!t.check({ nick, ...ctx }); }
     catch (_) { return false; }
   });
