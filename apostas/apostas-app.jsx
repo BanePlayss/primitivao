@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-perfil-tabs ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-perfil-mk ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3078,6 +3078,7 @@ function App() {
                 onEquip={equipItem}
                 interests={interests || {}}
                 onCancelInterest={toggleInterest}
+                mkDraw={mkDraw} mkScores={mkScores}
               />
             )}
             {view === 'tickets' && (
@@ -7190,7 +7191,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   );
 }
 
-function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest }) {
+function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest, mkDraw, mkScores }) {
   const [inscBusy, setInscBusy] = useState(null);
   const [ptab, setPtab] = useState('resumo'); // sub-aba: resumo / time / trofeus / titulos / colecao
   const champLabel = (cid) => cid === 'copa'
@@ -7288,6 +7289,31 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
   const collectionCount = isAdmin ? 0 : effectiveInventory(nick, me, { bets, teamPlayers, cs, worldcup }).length;
   const trophyCount = myTrophies.length + (showBetKing ? betKingSeasons.length : 0);
 
+  // MORTAL KOMBAT (rolando agora): é por JOGADOR, não por time. Calcula a
+  // colocação na classificação do MK + os confrontos do jogador.
+  const mkPlayers = Object.keys((interests && interests.mk) || {});
+  const mkInscrito = mkPlayers.includes(nick);
+  const mkGKeyP = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const mkConcluded = [];
+  (mkDraw || []).forEach(r => (r.games || []).forEach((g, gi) => {
+    const sc = (mkScores || {})[mkGKeyP(r, gi)];
+    if (sc && mkMatchOutcome(sc)) mkConcluded.push({ home: g.home, away: g.away, sc });
+  }));
+  const mkStand = mkInscrito ? computeMkStandings(mkPlayers, mkConcluded) : [];
+  const myMkIdx = mkStand.findIndex(s => s.nick === nick);
+  const myMkPos = myMkIdx >= 0 ? myMkIdx + 1 : 0;
+  const myMkRec = myMkIdx >= 0 ? mkStand[myMkIdx] : null;
+  const myMkChars = Array.isArray(me?.mkChars) ? me.mkChars : [];
+  const myMkGames = [];
+  (mkDraw || []).forEach((r, ri) => (r.games || []).forEach((g, gi) => {
+    if (g.home === nick || g.away === nick) {
+      const key = mkGKeyP(r, gi);
+      myMkGames.push({ ri, gi, round: r.n, phase: r.phase, opp: g.home === nick ? g.away : g.home, mandante: g.home === nick, sc: (mkScores || {})[key] });
+    }
+  }));
+  const mkAllConcluded = (mkDraw || []).length > 0 && mkDraw.every(r => (r.games || []).every((g, gi) => !!mkMatchOutcome((mkScores || {})[mkGKeyP(r, gi)])));
+  const mkResult = mkAllConcluded ? posResult(myMkPos, mkStand.length) : null;
+
   return (
     <div className="perfil">
       {/* HEADER — sempre visível: avatar, nick, moedas e time/posição num cartão só */}
@@ -7321,8 +7347,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
       {/* SUB-ABAS — o essencial fica no RESUMO, sem precisar scrollar */}
       <div className="tabs perfil-tabs">
         <button className={'tab ' + (ptab === 'resumo' ? 'active' : '')} onClick={() => setPtab('resumo')}>RESUMO</button>
-        {myTeam && <button className={'tab ' + (ptab === 'time' ? 'active' : '')} onClick={() => setPtab('time')}>MEU TIME</button>}
-        <button className={'tab ' + (ptab === 'trofeus' ? 'active' : '')} onClick={() => setPtab('trofeus')}>TROFÉUS</button>
+        {(myTeam || mkInscrito) && <button className={'tab ' + (ptab === 'time' ? 'active' : '')} onClick={() => setPtab('time')}>MEU TIME</button>}
         <button className={'tab ' + (ptab === 'titulos' ? 'active' : '')} onClick={() => setPtab('titulos')}>TÍTULOS</button>
         {!isAdmin && <button className={'tab ' + (ptab === 'colecao' ? 'active' : '')} onClick={() => setPtab('colecao')}>COLEÇÃO</button>}
       </div>
@@ -7346,16 +7371,47 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
             </div>
           )}
 
-          {/* DESTAQUES — contagem + atalho pras outras abas */}
+          {/* MEUS TROFÉUS — vitrine direto no resumo */}
           <div className="card" style={{ marginBottom: 14 }}>
-            <div className="card-head"><div className="title">DESTAQUES</div></div>
+            <div className="card-head">
+              <div className="title"><Icon name="trophy" size={16} /> MEUS TROFÉUS</div>
+              <div className="sub">{myTrophies.length ? myTrophies.length : (previewTrophies.length ? 'PRÉVIA' : (showBetKing ? betKingSeasons.length : 0))}</div>
+            </div>
             <div className="card-body">
-              <div className="perfil-hls">
-                <button type="button" className="perfil-hl" onClick={() => setPtab('trofeus')}><Icon name="trophy" size={20} /><span className="perfil-hl-v">{trophyCount}</span><span className="perfil-hl-l">TROFÉUS</span></button>
-                <button type="button" className="perfil-hl" onClick={() => setPtab('titulos')}><Icon name="star" size={20} /><span className="perfil-hl-v">{earnedTitleCount}</span><span className="perfil-hl-l">TÍTULOS</span></button>
-                {!isAdmin && <button type="button" className="perfil-hl" onClick={() => setPtab('colecao')}><Icon name="gift" size={20} /><span className="perfil-hl-v">{collectionCount}</span><span className="perfil-hl-l">COLEÇÃO</span></button>}
-                {myTeam && <button type="button" className="perfil-hl" onClick={() => setPtab('time')}><Icon name={myResult ? myResult.icon : 'shield'} size={20} /><span className="perfil-hl-v">{myPos ? myPos + 'º' : '—'}</span><span className="perfil-hl-l">FIFA</span></button>}
-              </div>
+              {previewTrophies.length > 0 && (
+                <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="lock" size={11} /> Prévia (admin): todos os troféus pra você conferir o visual. Cada jogador vê só os que conquistou.</div>
+              )}
+              {showBetKing && (
+                <div className="tr-betking">
+                  <div className="tr-betking-art"><Icon name="tr-betking" size={42} /></div>
+                  <div className="tr-betking-txt">
+                    <div className="tr-betking-label">REI DAS APOSTAS{betKingSeasons.length > 1 ? ` · ${betKingSeasons.length}` : ''}</div>
+                    <div className="tr-betking-eds">
+                      {betKingSeasons.map((s, i) => <span key={i} className="tr-betking-ed">{s.tag} · {s.season}</span>)}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {showTrophies.length === 0 ? (
+                !showBetKing && (
+                  <div className="empty">
+                    <div className="e1">VITRINE VAZIA</div>
+                    <div className="e2">Você ainda não conquistou nenhum campeonato encerrado.</div>
+                  </div>
+                )
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                  {['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'].map(kind => {
+                    const group = showTrophies.filter(t => t.kind === kind);
+                    if (!group.length) return null;
+                    const editions = group.map(t => {
+                      const cc = CHAMP_BY_ID[t.champId];
+                      return { tag: t._tag || cc?.tag, season: t._season || cc?.season };
+                    });
+                    return <TrophyGroup key={kind} kind={kind} editions={editions} />;
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -7386,87 +7442,107 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
         </>
       )}
 
-      {/* ===== MEU TIME ===== */}
-      {ptab === 'time' && myTeam && (
-        <div className="card">
-          <div className="card-head">
-            <div className="title">MEU TIME</div>
-            <div className="sub">{myTeam.name.toUpperCase()} · {myTeam.short}</div>
-          </div>
-          <div className="card-body">
-            <div className="perfil-team-hero">
-              <TeamMini team={myTeam} size={72} />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 28, lineHeight: 1 }}>{myTeam.name}</div>
-                {myResult && (
-                  <div className="perfil-team-result" style={{ color: myResult.color }}>
-                    <Icon name={myResult.icon} size={15} /> {myPos}º de {totalTeams} · {myResult.label}
+      {/* ===== MEU TIME (FIFA) + MORTAL KOMBAT ===== */}
+      {ptab === 'time' && (
+        <>
+          {myTeam && (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head">
+                <div className="title">MEU TIME · FIFA</div>
+                <div className="sub">{myTeam.name.toUpperCase()} · {myTeam.short}</div>
+              </div>
+              <div className="card-body">
+                <div className="perfil-team-hero">
+                  <TeamMini team={myTeam} size={72} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 28, lineHeight: 1 }}>{myTeam.name}</div>
+                    {myResult && (
+                      <div className="perfil-team-result" style={{ color: myResult.color }}>
+                        <Icon name={myResult.icon} size={15} /> {myPos}º de {totalTeams} · {myResult.label}
+                      </div>
+                    )}
+                    <div className="perfil-team-status">{fifaClosed ? <><Icon name="check" size={11} /> FIFA SEASON 1 · ENCERRADO</> : <>FIFA SEASON 1 · EM ANDAMENTO</>}</div>
+                    {stand && (
+                      <div style={{ marginTop: 6, fontSize: 12, letterSpacing: '0.14em', fontWeight: 700, color: 'rgba(28,22,18,0.7)' }}>
+                        {stand.p} PTS · {stand.v}V {stand.e}E {stand.d}D · SG {(stand.gp - stand.gc) >= 0 ? '+' : ''}{stand.gp - stand.gc}
+                      </div>
+                    )}
                   </div>
-                )}
-                <div className="perfil-team-status">{fifaClosed ? <><Icon name="check" size={11} /> FIFA SEASON 1 · ENCERRADO</> : <>FIFA SEASON 1 · EM ANDAMENTO</>}</div>
-                {stand && (
-                  <div style={{ marginTop: 6, fontSize: 12, letterSpacing: '0.14em', fontWeight: 700, color: 'rgba(28,22,18,0.7)' }}>
-                    {stand.p} PTS · {stand.v}V {stand.e}E {stand.d}D · SG {(stand.gp - stand.gc) >= 0 ? '+' : ''}{stand.gp - stand.gc}
-                  </div>
-                )}
+                </div>
+
+                <div className="mkt-label" style={{ marginTop: 14 }}>JOGOS DISPUTADOS ({played.length})</div>
+                {played.length === 0 && <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.5)', padding: '6px 2px' }}>Nenhum jogo ainda.</div>}
+                {played.map(g => <MatchRow key={`p-${g.ri}-${g.gi}`} g={g} myTeamId={myTeamId} />)}
+
+                <div className="mkt-label" style={{ marginTop: 16 }}>PRÓXIMOS JOGOS ({upcoming.length})</div>
+                {upcoming.length === 0 && <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.5)', padding: '6px 2px' }}>Nenhum jogo agendado.</div>}
+                {upcoming.map(g => <MatchRow key={`u-${g.ri}-${g.gi}`} g={g} myTeamId={myTeamId} />)}
               </div>
             </div>
+          )}
 
-            <div className="mkt-label" style={{ marginTop: 14 }}>JOGOS DISPUTADOS ({played.length})</div>
-            {played.length === 0 && <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.5)', padding: '6px 2px' }}>Nenhum jogo ainda.</div>}
-            {played.map(g => <MatchRow key={`p-${g.ri}-${g.gi}`} g={g} myTeamId={myTeamId} />)}
-
-            <div className="mkt-label" style={{ marginTop: 16 }}>PRÓXIMOS JOGOS ({upcoming.length})</div>
-            {upcoming.length === 0 && <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.5)', padding: '6px 2px' }}>Nenhum jogo agendado.</div>}
-            {upcoming.map(g => <MatchRow key={`u-${g.ri}-${g.gi}`} g={g} myTeamId={myTeamId} />)}
-          </div>
-        </div>
-      )}
-
-      {/* ===== TROFÉUS ===== */}
-      {ptab === 'trofeus' && (
-        <div className="card">
-          <div className="card-head">
-            <div className="title"><Icon name="trophy" size={16} /> MEUS TROFÉUS</div>
-            <div className="sub">{myTrophies.length ? myTrophies.length : (previewTrophies.length ? 'PRÉVIA' : 0)}</div>
-          </div>
-          <div className="card-body">
-            {previewTrophies.length > 0 && (
-              <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="lock" size={11} /> Prévia (admin): todos os troféus pra você conferir o visual. Cada jogador vê só os que conquistou.</div>
-            )}
-            {showBetKing && (
-              <div className="tr-betking">
-                <div className="tr-betking-art"><Icon name="tr-betking" size={42} /></div>
-                <div className="tr-betking-txt">
-                  <div className="tr-betking-label">REI DAS APOSTAS{betKingSeasons.length > 1 ? ` · ${betKingSeasons.length}` : ''}</div>
-                  <div className="tr-betking-eds">
-                    {betKingSeasons.map((s, i) => <span key={i} className="tr-betking-ed">{s.tag} · {s.season}</span>)}
+          {mkInscrito && (
+            <div className="card">
+              <div className="card-head">
+                <div className="title"><Icon name="fist" size={15} /> MORTAL KOMBAT</div>
+                <div className="sub">SEASON 1 · {mkAllConcluded ? 'ENCERRADO' : 'AO VIVO'}</div>
+              </div>
+              <div className="card-body">
+                <div className="perfil-team-hero">
+                  <div className="perfil-mk-badge"><Icon name="fist" size={34} /></div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 24, lineHeight: 1 }}>@{nick}</div>
+                    <div className="perfil-team-result" style={{ color: mkResult ? mkResult.color : 'var(--pv-orange)' }}>
+                      <Icon name={mkResult ? mkResult.icon : 'fist'} size={15} /> {myMkPos ? `${myMkPos}º de ${mkStand.length}` : '—'}{mkResult ? ` · ${mkResult.label}` : ''}
+                    </div>
+                    <div className="perfil-team-status">{mkAllConcluded ? <><Icon name="check" size={11} /> MK SEASON 1 · ENCERRADO</> : <>MK SEASON 1 · AO VIVO</>}</div>
+                    {myMkRec && (
+                      <div style={{ marginTop: 6, fontSize: 12, letterSpacing: '0.14em', fontWeight: 700, color: 'rgba(28,22,18,0.7)' }}>
+                        {myMkRec.p} PTS · {myMkRec.v}V {myMkRec.e}E {myMkRec.d}D · ROUNDS {myMkRec.rp}–{myMkRec.rc}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            )}
-            {showTrophies.length === 0 ? (
-              !showBetKing && (
-                <div className="empty">
-                  <div className="e1">VITRINE VAZIA</div>
-                  <div className="e2">Você ainda não conquistou nenhum campeonato encerrado.</div>
-                </div>
-              )
-            ) : (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                {['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'].map(kind => {
-                  const group = showTrophies.filter(t => t.kind === kind);
-                  if (!group.length) return null;
-                  const editions = group.map(t => {
-                    const cc = CHAMP_BY_ID[t.champId];
-                    return { tag: t._tag || cc?.tag, season: t._season || cc?.season };
-                  });
-                  return <TrophyGroup key={kind} kind={kind} editions={editions} />;
+
+                {myMkChars.length > 0 && (
+                  <>
+                    <div className="mkt-label" style={{ marginTop: 14 }}>MEU ELENCO</div>
+                    <div className="perfil-mk-roster">
+                      {myMkChars.map(c => (
+                        <span key={c} className="perfil-mk-char"><span className="mk-fc-mono sm" style={{ '--hue': mkHue(c) }}>{mkMono(c)}</span> {c}</span>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                <div className="mkt-label" style={{ marginTop: 14 }}>MEUS CONFRONTOS ({myMkGames.length})</div>
+                {myMkGames.length === 0 && <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.5)', padding: '6px 2px' }}>Aguardando o sorteio.</div>}
+                {myMkGames.map((m, i) => {
+                  const o = mkMatchOutcome(m.sc);
+                  let scoreLabel = 'a jogar', res = null;
+                  if (o) {
+                    const myConf = m.mandante ? o.confH : o.confA, oppConf = m.mandante ? o.confA : o.confH;
+                    scoreLabel = myConf + '×' + oppConf;
+                    res = myConf > oppConf ? 'V' : myConf < oppConf ? 'D' : 'E';
+                  }
+                  const resColor = res === 'V' ? '#2a8f3f' : res === 'D' ? '#c33' : 'rgba(28,22,18,0.5)';
+                  return (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '40px 1fr auto auto', gap: 10, alignItems: 'center', padding: '8px 4px', borderBottom: '1px solid rgba(28,22,18,0.08)' }}>
+                      <div style={{ fontSize: 10, letterSpacing: '0.16em', fontWeight: 800, color: 'rgba(28,22,18,0.55)' }}>R{String(m.round).padStart(2, '0')}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                        <span style={{ fontSize: 8.5, fontWeight: 800, color: 'var(--pv-orange)', letterSpacing: '0.04em' }}>{m.mandante ? 'MANDANTE' : 'VISITANTE'}</span>
+                        <span style={{ color: 'rgba(28,22,18,0.4)' }}>vs</span>
+                        <span style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{m.opp}</span>
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: o ? 'var(--pv-orange)' : 'rgba(28,22,18,0.4)' }}>{scoreLabel}</div>
+                      <div style={{ width: 22, textAlign: 'center', fontWeight: 800, color: resColor }}>{res || '·'}</div>
+                    </div>
+                  );
                 })}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* ===== TÍTULOS ===== */}
