@@ -921,6 +921,35 @@
       color: var(--pv-orange); border-color: var(--pv-orange);
     }
 
+    /* SIDEBAR de campeonatos (#5/#6) — trilho à esquerda no desktop. No mobile
+       o sidebar some e o ChampHeader (dropdown) volta a ser o switcher. */
+    .champ-layout { display: grid; grid-template-columns: 218px minmax(0,1fr); gap: 18px; align-items: start; }
+    .champ-main { min-width: 0; }
+    .champ-main > .champ-header { display: none; } /* desktop: o sidebar substitui o switcher */
+    .champ-sidebar { position: sticky; top: 12px; align-self: start; background: var(--pv-charcoal); color: var(--pv-bone); padding: 12px 10px; }
+    .champ-sidebar-h { display: flex; align-items: center; gap: 7px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 10px; letter-spacing: 0.18em; color: var(--pv-orange); padding: 2px 6px 12px; }
+    .champ-grp { margin-bottom: 14px; }
+    .champ-grp:last-child { margin-bottom: 0; }
+    .champ-grp-h { font-size: 8.5px; font-weight: 800; letter-spacing: 0.2em; color: rgba(244,234,215,0.4); padding: 0 6px 6px; }
+    .champ-grp-closed .champ-grp-h { color: #d4af37; } /* dourado pros encerrados */
+    .champ-item { width: 100%; display: flex; align-items: center; gap: 9px; padding: 8px; background: transparent; border: none; border-left: 3px solid transparent; cursor: pointer; text-align: left; font: inherit; color: var(--pv-bone); transition: background var(--dur) var(--ease); }
+    .champ-item:hover:not(.dis) { background: rgba(244,234,215,0.07); }
+    .champ-item.sel { background: rgba(215,100,20,0.18); border-left-color: var(--champ-color, var(--pv-orange)); }
+    .champ-item.dis { opacity: 0.42; cursor: default; }
+    .champ-item-ic { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 7px; color: #fff; flex-shrink: 0; }
+    .champ-item-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+    .champ-item-name { font-weight: 800; font-size: 12px; letter-spacing: 0.05em; }
+    .champ-item-sub { font-size: 8.5px; font-weight: 700; letter-spacing: 0.04em; color: rgba(244,234,215,0.5); text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .champ-item-mark { color: var(--pv-orange); display: inline-flex; flex-shrink: 0; }
+    .champ-grp-soon .champ-item-name { color: rgba(244,234,215,0.7); }
+    .champ-grp-closed .champ-item-name { color: #e7d49b; }
+    .champ-grp-closed .champ-item-ic { filter: saturate(0.65); }
+    @media (max-width: 899px) {
+      .champ-layout { display: block; }
+      .champ-sidebar { display: none; }
+      .champ-main > .champ-header { display: block; }
+    }
+
     .round-card { margin-bottom: 16px; }
     .round-card-head {
       width: 100%;

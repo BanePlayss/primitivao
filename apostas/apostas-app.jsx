@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-mk-cronometro ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-champ-sidebar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2986,9 +2986,12 @@ function App() {
             )}
 
             {/* CAMPEONATOS — classificação do campeonato selecionado. */}
-            {view === 'campeonatos' && (<>
-              <ChampHeader value={championship} onChange={setChampionship} interests={interests || {}} bare />
-              {active.id === 'mk' ? (
+            {view === 'campeonatos' && (
+              <div className="champ-layout">
+                <ChampSidebar value={championship} onChange={setChampionship} cs={cs} interests={interests || {}} mode="campeonatos" />
+                <div className="champ-main">
+                  <ChampHeader value={championship} onChange={setChampionship} interests={interests || {}} bare />
+                  {active.id === 'mk' ? (
                 // MK OFICIAL: classificação visível a todos. Sorteio = só admin.
                 // Lançar placar = mod (admin + bane/vitinho/mohamed).
                 <MkChampionshipView
@@ -3009,11 +3012,13 @@ function App() {
                   isAdmin={isAdmin}
                   onToggleInterest={() => toggleInterest(active.id)}
                 />
-              ) : (
-                <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isMod}
-                                   users={users} teamPlayers={teamPlayers || {}} />
-              )}
-            </>)}
+                  ) : (
+                    <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isMod}
+                                       users={users} teamPlayers={teamPlayers || {}} />
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Globais — independem de campeonato. Cada um é uma view inteira. */}
             {view === 'perfil' && (
@@ -3260,6 +3265,66 @@ function ChampHeader({ value, onChange, interests, title, tag, stats, bare, acti
         </div>
       </div>
     </div>
+  );
+}
+
+// Grupo do campeonato pro sidebar: 'active' (rolando), 'closed' (temporada
+// terminada, tem campeão) ou 'soon' (em breve). FIFA vira 'closed' quando todas
+// as rodadas terminam (computeChampStandings); os demais ativos ficam 'active'.
+function champStatusFor(c, cs) {
+  if (c.status === 'active') {
+    return computeChampStandings(c.id, cs).status === 'closed' ? 'closed' : 'active';
+  }
+  return 'soon';
+}
+
+// SIDEBAR de campeonatos (#5/#6): trilho à esquerda com os campeonatos agrupados
+// — ATIVOS no topo (destaque), EM BREVE no meio, ENCERRADOS embaixo (cor própria,
+// dourada). Cada item usa a cor/ícone do tabloide. `mode='apostas'` esconde os
+// "em breve" (não dá pra apostar) e deixa os encerrados só pra referência (sem
+// clique). No mobile o sidebar some (CSS) e o ChampHeader vira o switcher.
+function ChampSidebar({ value, onChange, cs, interests, mode }) {
+  const withStatus = CHAMPIONSHIPS.map(c => ({ c, g: champStatusFor(c, cs) }));
+  const apostas = mode === 'apostas';
+  const groups = [
+    { key: 'active', label: 'ATIVOS' },
+    { key: 'soon',   label: 'EM BREVE' },
+    { key: 'closed', label: 'ENCERRADOS' },
+  ].filter(grp => !(apostas && grp.key === 'soon') && withStatus.some(x => x.g === grp.key));
+  return (
+    <aside className="champ-sidebar" aria-label="Campeonatos">
+      <div className="champ-sidebar-h"><Icon name="trophy" size={13} /> {apostas ? 'ONDE APOSTAR' : 'CAMPEONATOS'}</div>
+      {groups.map(grp => (
+        <div key={grp.key} className={'champ-grp champ-grp-' + grp.key}>
+          <div className="champ-grp-h">{grp.label}</div>
+          {withStatus.filter(x => x.g === grp.key).map(({ c, g }) => {
+            const th = tabloidTheme(c.id);
+            const sel = c.id === value;
+            const count = Object.keys((interests && interests[c.id]) || {}).length;
+            const disabled = apostas && g !== 'active';
+            const sub = g === 'closed' ? 'encerrado' : g === 'soon' ? (count > 0 ? count + ' inscritos' : 'em breve') : c.season;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                className={'champ-item champ-item-' + g + (sel ? ' sel' : '') + (disabled ? ' dis' : '')}
+                style={{ '--champ-color': th.color }}
+                onClick={() => { if (!disabled) onChange(c.id); }}
+                disabled={disabled}
+                aria-current={sel ? 'true' : undefined}
+              >
+                <span className="champ-item-ic" style={{ background: th.color }}><Icon name={th.icon} size={14} /></span>
+                <span className="champ-item-body">
+                  <span className="champ-item-name">{c.tag}</span>
+                  <span className="champ-item-sub">{sub}</span>
+                </span>
+                {sel && <span className="champ-item-mark"><Icon name="chevron-right" size={14} /></span>}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </aside>
   );
 }
 
