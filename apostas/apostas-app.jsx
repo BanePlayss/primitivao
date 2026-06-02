@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260601-hotfix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260601-mk-cancel-lock ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2351,15 +2351,20 @@ function App() {
         if (t.legs.some(l => !!l.result)) {
           return { __abort: true, result: { err: 'Esse cupom já tem jogos finalizados.' } };
         }
-        // Rejeita se algum jogo do cupom está travado pelo admin.
+        // Rejeita se algum jogo do cupom está travado pelo admin (FIFA: cs.rounds;
+        // MK: mk.scores[gKey].locked — leg 'mk:<gKey>'). Jogo rolando = travado.
         const someLocked = t.legs.some(l => {
+          if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) {
+            const gk = l.fixtureId.slice(3);
+            return !!(((remote.mk && remote.mk.scores) || {})[gk] || {}).locked;
+          }
           const p = parseGameId(l.fixtureId);
           if (!p) return false;
           const g = cs?.rounds?.[p.ri]?.[p.gi];
           return !!(g && g.locked);
         });
         if (someLocked) {
-          return { __abort: true, result: { err: 'Não dá pra cancelar: algum jogo do cupom foi travado pelo admin.' } };
+          return { __abort: true, result: { err: 'Não dá pra cancelar: algum jogo do cupom está travado (em jogo).' } };
         }
         const bets = (remote.bets || []).filter(b => b.id !== ticketId);
         const users = { ...remote.users };
@@ -2414,6 +2419,12 @@ function App() {
         if (!t) return null;
         if (t.user !== session.nick && session.nick !== ADMIN_NICK) return { __abort: true, result: { err: 'Só o dono ou o admin.' } };
         if (t.status !== 'pending' || (t.legs || []).some(l => !!l.result)) return { __abort: true, result: { err: 'Aposta já em resolução.' } };
+        // Jogo travado (em jogo) -> não pode cancelar.
+        const locked = (t.legs || []).some(l => {
+          const gk = (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) ? l.fixtureId.slice(3) : null;
+          return gk && !!(((remote.mk && remote.mk.scores) || {})[gk] || {}).locked;
+        });
+        if (locked) return { __abort: true, result: { err: 'Não dá pra cancelar: jogo travado (em jogo).' } };
         const u = (remote.users || {})[t.user];
         const users = u ? { ...remote.users, [t.user]: { ...u, pc: (u.pc || 0) + (t.amount || 0) } } : remote.users;
         return { ...remote, users, bets: (remote.bets || []).filter(b => b.id !== ticketId) };
@@ -2965,7 +2976,7 @@ function App() {
               />
             )}
             {view === 'tickets' && (
-              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} onCancel={cancelBet} />
+              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} onCancel={cancelBet} />
             )}
             {view === 'ranking' && (
               <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} />
@@ -5528,7 +5539,7 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
 }
 
 // ─── MEUS TICKETS ───────────────────────────────────────────────────────────
-function TicketsView({ bets, gamesById, cs, onCancel }) {
+function TicketsView({ bets, gamesById, cs, mkScores, onCancel }) {
   if (bets.length === 0) {
     return <div className="card"><div className="card-body"><div className="empty">
       <div className="e1">SEM TICKETS</div><div className="e2">Você ainda não apostou em nada.</div></div></div></div>;
@@ -5555,6 +5566,9 @@ function TicketsView({ bets, gamesById, cs, onCancel }) {
           // bola rolar).
           const hasSettled = t.legs.some(l => !!l.result);
           const hasLocked  = t.legs.some(l => {
+            if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) {
+              return !!((mkScores || {})[l.fixtureId.slice(3)] || {}).locked;
+            }
             const g = resolveGame(l.fixtureId);
             return !!(g && g.locked);
           });
