@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-betbar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-modtoggle ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2212,7 +2212,14 @@ function App() {
   const isAdmin = session && session.nick === ADMIN_NICK;
   // Moderador: lança placar + trava apostas + vê a aba ADMIN (sem destrutivos).
   // O admin de verdade é mod também (superconjunto de poderes).
-  const isMod = isAdmin || !!(session && MOD_NICKS.includes(session.nick));
+  // O mod pode DESLIGAR o modo mod (ver o app como jogador comum). Fica salvo
+  // por dispositivo em localStorage; reativa quando quiser no MEU PERFIL.
+  const isNaturalMod = !!(session && MOD_NICKS.includes(session.nick));
+  const [modDisabled, setModDisabled] = useState(() => { try { return localStorage.getItem('pv-mod-off') === '1'; } catch (_) { return false; } });
+  const toggleModView = () => setModDisabled(d => { const next = !d; try { localStorage.setItem('pv-mod-off', next ? '1' : '0'); } catch (_) {} return next; });
+  const isMod = isAdmin || (isNaturalMod && !modDisabled);
+  // Se desligar o mod estando na aba ADMIN, volta pra apostas (não fica em tela vazia).
+  useEffect(() => { if (view === 'admin' && !isMod) setView('apostas'); }, [view, isMod]);
 
   // Login/signup via transação: cadastro atomico contra remote — evita perder
   // user novo se outro write concorrer.
@@ -3079,6 +3086,7 @@ function App() {
                 interests={interests || {}}
                 onCancelInterest={toggleInterest}
                 mkDraw={mkDraw} mkScores={mkScores}
+                isNaturalMod={isNaturalMod} modDisabled={modDisabled} onToggleMod={toggleModView}
               />
             )}
             {view === 'tickets' && (
@@ -7233,7 +7241,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   );
 }
 
-function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest, mkDraw, mkScores }) {
+function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest, mkDraw, mkScores, isNaturalMod, modDisabled, onToggleMod }) {
   const [inscBusy, setInscBusy] = useState(null);
   const [ptab, setPtab] = useState('resumo'); // sub-aba: resumo / time / trofeus / titulos / colecao
   const champLabel = (cid) => cid === 'copa'
@@ -7401,6 +7409,19 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
       {/* ===== RESUMO ===== */}
       {ptab === 'resumo' && (
         <>
+          {isNaturalMod && (
+            <div className="card" style={{ marginBottom: 14, borderColor: modDisabled ? 'rgba(28,22,18,0.2)' : 'var(--pv-orange)' }}>
+              <div className="card-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="shield" size={13} /> MODO MODERADOR · {modDisabled ? 'DESATIVADO' : 'ATIVO'}</div>
+                  <div style={{ fontSize: 11, color: 'rgba(28,22,18,0.6)', marginTop: 3, lineHeight: 1.4 }}>{modDisabled ? 'Você está vendo o app como jogador comum. Reative quando quiser.' : 'Você lança placar, trava apostas e vê a aba ADMIN. Pode desativar pra usar como jogador.'}</div>
+                </div>
+                <button type="button" onClick={onToggleMod} className="tp-btn-go" style={{ flexShrink: 0, background: modDisabled ? 'var(--pv-orange)' : 'var(--pv-charcoal)' }}>
+                  {modDisabled ? 'ATIVAR MOD' : 'DESATIVAR MOD'}
+                </button>
+              </div>
+            </div>
+          )}
           {!isAdmin && (
             <div className="card" style={{ marginBottom: 14 }}>
               <div className="card-head"><div className="title">MINHAS APOSTAS</div><div className="sub">{myBets.length} TICKETS</div></div>
