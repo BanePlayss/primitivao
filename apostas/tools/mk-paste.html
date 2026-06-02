@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Primitivão — Colar retratos de MK</title>
+<style>
+  :root { --orange:#d76414; --ink:#1c1612; --bone:#f4ead7; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Space Grotesk',system-ui,sans-serif; background:#14100c; color:var(--bone); }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 20px; letter-spacing:.04em; margin:0 0 4px; }
+  .sub { font-size: 12px; color: #b9ad97; margin-bottom: 16px; line-height:1.5; }
+  .bar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+  button { font-family:inherit; font-weight:800; cursor:pointer; border:none; }
+  .btn { background:var(--orange); color:#fff; padding:10px 16px; letter-spacing:.06em; font-size:12px; border:2px solid var(--ink); }
+  .btn.ghost { background:transparent; color:var(--bone); border-color:#4a4034; }
+  .btn:disabled { opacity:.4; cursor:default; }
+  .prog { font-size:12px; font-weight:800; color:#b9ad97; }
+  .layout { display:grid; grid-template-columns: 300px 1fr; gap:16px; align-items:start; }
+  @media (max-width:760px){ .layout{ grid-template-columns:1fr; } }
+  .list { border:1px solid #322a20; max-height:70vh; overflow:auto; background:#1b150f; }
+  .row { display:flex; align-items:center; gap:8px; padding:7px 10px; border-bottom:1px solid #2a2218; cursor:pointer; font-size:13px; }
+  .row:hover { background:#241c12; }
+  .row.cur { background:rgba(215,100,20,.18); outline:2px solid var(--orange); outline-offset:-2px; }
+  .row .dot { width:8px;height:8px;border-radius:50%; background:#5a4d3c; flex-shrink:0; }
+  .row.done .dot { background:#2a8f3f; }
+  .row .nm { flex:1; }
+  .row .sl { font-size:10px; color:#7c7060; }
+  .stage { border:1px solid #322a20; background:#1b150f; padding:16px; }
+  .cur-name { font-size:22px; font-weight:800; letter-spacing:.03em; }
+  .cur-file { font-size:12px; color:#b9ad97; margin:2px 0 12px; }
+  .paste { border:2px dashed #4a4034; border-radius:10px; min-height:240px; display:flex; align-items:center; justify-content:center; text-align:center; padding:14px; color:#9b8f7c; font-size:13px; outline:none; }
+  .paste:focus { border-color: var(--orange); color:var(--bone); }
+  .paste img { max-width:100%; max-height:320px; border-radius:8px; }
+  .stage .acts { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+  .hint { font-size:11px; color:#8a7e6c; margin-top:10px; line-height:1.5; }
+  .ok { color:#5fcf6f; } .warn{ color:#e0a33a; }
+  .preview-square { width:64px;height:64px;border-radius:12px;overflow:hidden;flex-shrink:0;border:2px solid #4a4034; }
+  .preview-square img { width:100%;height:100%;object-fit:cover;object-position:center top; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Primitivão — colar retratos de MK</h1>
+  <div class="sub">
+    1) Clica em <b>Conectar pasta</b> e escolhe <code>apostas/mk-chars</code> (uma vez).<br>
+    2) Escolhe um personagem na lista, dá <b>Ctrl+V</b> no print, e clica <b>Salvar</b>. Ele vira <code>&lt;nome&gt;.png</code> na pasta e pula pro próximo.<br>
+    <span class="warn">Abra esta página por <b>http://localhost</b> (pelo servidor do projeto) — a gravação direta na pasta só funciona em localhost/Chrome. Sem isso, cai no modo <b>baixar</b>.</span>
+  </div>
+
+  <div class="bar">
+    <button class="btn" id="connect">Conectar pasta mk-chars</button>
+    <button class="btn ghost" id="rescan" disabled>Recarregar status</button>
+    <span class="prog" id="prog">0 / 0</span>
+    <span class="prog" id="mode"></span>
+  </div>
+
+  <div class="layout">
+    <div class="list" id="list"></div>
+    <div class="stage">
+      <div class="cur-name" id="curName">— escolhe um personagem —</div>
+      <div class="cur-file" id="curFile"></div>
+      <div class="paste" id="paste" tabindex="0">Clica aqui e dá <b style="margin:0 4px">Ctrl+V</b> pra colar o print</div>
+      <div class="acts">
+        <div class="preview-square" id="prevSq" style="display:none"><img id="prevSqImg" alt=""></div>
+        <button class="btn" id="save" disabled>Salvar PNG</button>
+        <button class="btn ghost" id="skip">Pular →</button>
+      </div>
+      <div class="hint" id="hint">Dica: tira o print já recortado no rosto/busto do personagem. Eu salvo em PNG ~256px e a tela do app enquadra no rosto.</div>
+    </div>
+  </div>
+</div>
+<script>
+const NAMES = ['Ashrah','Baraka','Conan','Cyrax','Ermac','General Shao','Geras','Ghostface','Havik','Homelander','Johnny Cage','Kenshi','Kitana','Kung Lao','Li Mei','Liu Kang','Mileena','Nitara','Noob Saibot','Omni-Man','Peacemaker','Quan Chi','Raiden','Rain','Reptile','Scorpion','Sektor','Shang Tsung','Sindel','Smoke','Sub-Zero','T-1000','Takeda','Tanya'];
+const slug = n => n.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const CHARS = NAMES.map(n => ({ name:n, slug:slug(n), done:false }));
+let dirHandle = null, curIdx = -1, pendingBlob = null;
+const $ = id => document.getElementById(id);
+
+function renderList(){
+  const el = $('list'); el.innerHTML='';
+  CHARS.forEach((c,i)=>{
+    const r = document.createElement('div');
+    r.className = 'row' + (c.done?' done':'') + (i===curIdx?' cur':'');
+    r.innerHTML = `<span class="dot"></span><span class="nm">${c.name}</span><span class="sl">${c.slug}.png</span>`;
+    r.onclick = ()=> selectChar(i);
+    el.appendChild(r);
+  });
+  const done = CHARS.filter(c=>c.done).length;
+  $('prog').textContent = done + ' / ' + CHARS.length + ' prontos';
+}
+function selectChar(i){
+  curIdx=i; pendingBlob=null;
+  $('curName').textContent = CHARS[i].name;
+  $('curFile').textContent = CHARS[i].slug + '.png' + (CHARS[i].done?'  (já tem — colar substitui)':'');
+  $('paste').innerHTML = 'Clica aqui e dá <b style="margin:0 4px">Ctrl+V</b> pra colar o print';
+  $('prevSq').style.display='none'; $('save').disabled=true;
+  $('paste').focus();
+  renderList();
+}
+function nextPending(){ const i = CHARS.findIndex((c,idx)=> idx>curIdx && !c.done); const j = i>=0 ? i : CHARS.findIndex(c=>!c.done); if(j>=0) selectChar(j); }
+
+// Normaliza a imagem colada pra PNG ~256 (mantém proporção).
+function toPng(srcImg){
+  return new Promise(res=>{
+    const max=256; let {width:w,height:h}=srcImg;
+    const s = Math.min(1, max/Math.max(w,h)); w=Math.round(w*s); h=Math.round(h*s);
+    const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+    cv.getContext('2d').drawImage(srcImg,0,0,w,h);
+    cv.toBlob(b=>res(b),'image/png');
+  });
+}
+async function handlePaste(items){
+  for(const it of items){ if(it.type && it.type.startsWith('image/')){
+    const blob = it.getAsFile ? it.getAsFile() : it;
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = async ()=>{
+      pendingBlob = await toPng(img);
+      const purl = URL.createObjectURL(pendingBlob);
+      $('paste').innerHTML=''; const big=new Image(); big.src=purl; $('paste').appendChild(big);
+      $('prevSqImg').src=purl; $('prevSq').style.display='block';
+      $('save').disabled = curIdx<0;
+      URL.revokeObjectURL(url);
+    };
+    img.src=url; return true;
+  }}
+  return false;
+}
+$('paste').addEventListener('paste', e=>{ if(curIdx<0){ alert('Escolhe um personagem na lista primeiro.'); return; } handlePaste(e.clipboardData.items); e.preventDefault(); });
+document.addEventListener('paste', e=>{ if(document.activeElement!==$('paste') && curIdx>=0){ handlePaste(e.clipboardData.items); } });
+
+async function ensurePerm(){ if(!dirHandle) return false; const opt={mode:'readwrite'};
+  if((await dirHandle.queryPermission(opt))==='granted') return true;
+  return (await dirHandle.requestPermission(opt))==='granted'; }
+
+async function rescan(){ if(!dirHandle) return; const have=new Set();
+  for await (const [nm] of dirHandle.entries()){ const m=/^(.+)\.png$/i.exec(nm); if(m) have.add(m[1].toLowerCase()); }
+  CHARS.forEach(c=> c.done = have.has(c.slug)); renderList(); }
+
+$('connect').onclick = async ()=>{
+  if(!window.showDirectoryPicker){ $('mode').textContent='(modo BAIXAR — sem gravação direta)'; alert('Seu navegador não suporta gravar direto na pasta. Vou usar o modo BAIXAR: o PNG vai pra sua pasta de Downloads e você move pra mk-chars/.'); $('rescan').disabled=false; return; }
+  try{ dirHandle = await window.showDirectoryPicker({ id:'mkchars', mode:'readwrite' });
+    if(!(await ensurePerm())){ alert('Permissão negada.'); dirHandle=null; return; }
+    $('mode').textContent='(gravando direto na pasta ✓)'.replace('✓','OK'); $('rescan').disabled=false; await rescan(); nextPending();
+  }catch(e){ /* cancelou */ }
+};
+$('rescan').onclick = rescan;
+$('skip').onclick = ()=> nextPending();
+$('save').onclick = async ()=>{
+  if(!pendingBlob || curIdx<0) return;
+  const c=CHARS[curIdx], file=c.slug+'.png';
+  if(dirHandle){
+    try{ if(!(await ensurePerm())) throw new Error('perm');
+      const fh=await dirHandle.getFileHandle(file,{create:true}); const w=await fh.createWritable(); await w.write(pendingBlob); await w.close();
+    }catch(e){ alert('Falha ao gravar '+file+': '+e.message); return; }
+  } else {
+    const a=document.createElement('a'); a.href=URL.createObjectURL(pendingBlob); a.download=file; a.click();
+  }
+  c.done=true; renderList(); nextPending();
+};
+renderList();
+</script>
+</body>
+</html>
