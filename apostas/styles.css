@@ -3437,7 +3437,9 @@
     /* CAMPEONATOS: a lista (sidebar) gruda na CLASSIFICAÇÃO (sem gap), como um bloco
        só. As RODADAS ficam à direita (2ª coluna do .mk-grid). O MEU JOGO mini vai
        embaixo do MEU PERFIL (ProfileSidebar) no desktop. */
-    .champ-layout--camp { gap: 0; }
+    .champ-layout--camp { gap: 0; align-items: stretch; }
+    /* a lista estica pra acompanhar a altura da classificação (mesmo bloco). */
+    .champ-layout--camp .champ-sidebar { align-self: stretch; position: static; top: auto; }
     /* MEU JOGO mini — embaixo do MEU PERFIL (desktop) / no fim dos campeonatos
        (mobile): elenco (3 retratos) + confronto da rodada com icones. */
     .mj-mini-m { display: none; }
@@ -3449,9 +3451,9 @@
     .mj-mini-empty, .mj-mini-warn { font-size: 10.5px; color: rgba(244,234,215,0.55); padding: 2px 2px 6px; line-height: 1.4; }
     .mj-mini-lbl { display: flex; justify-content: space-between; font-size: 8px; font-weight: 800; letter-spacing: 0.14em; color: rgba(244,234,215,0.45); padding: 7px 2px 5px; }
     .mj-mini-lbl span { color: var(--pv-orange); }
-    .mj-mini-chars { display: flex; gap: 6px; }
+    .mj-mini-chars { display: flex; gap: 5px; }
     .mj-mini-char { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; }
-    .mj-mini-char .mk-fc-mono { width: 100%; max-width: 52px; height: auto; aspect-ratio: 1 / 1; border-radius: 7px; font-size: 14px; }
+    .mj-mini-char .mk-fc-mono { width: 100%; max-width: 72px; height: auto; aspect-ratio: 1 / 1; border-radius: 9px; font-size: 17px; }
     .mj-mini-cn { font-size: 7.5px; font-weight: 700; color: rgba(244,234,215,0.72); text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .mj-mini-vs { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; padding: 2px 0 7px; }
     .mj-mini-x { color: var(--pv-orange); }
@@ -3459,9 +3461,9 @@
     .mj-mini-parts { display: flex; flex-direction: column; gap: 5px; }
     .mj-mini-part { display: flex; align-items: center; gap: 6px; background: rgba(244,234,215,0.05); padding: 4px 7px; }
     .mj-mini-pn { width: 15px; height: 15px; border-radius: 50%; background: var(--pv-orange); color: #1a0f08; font-size: 8px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .mj-mini-part .mk-fc-mono { width: 30px; height: 30px; border-radius: 5px; font-size: 11px; }
+    .mj-mini-part .mk-fc-mono { width: 44px; height: 44px; border-radius: 7px; font-size: 15px; }
     .mj-mini-px { font-size: 8px; font-weight: 800; color: rgba(244,234,215,0.5); }
-    .mj-mini-tbd { width: 30px; height: 30px; border-radius: 5px; background: rgba(244,234,215,0.08); display: inline-flex; align-items: center; justify-content: center; color: rgba(244,234,215,0.4); font-weight: 800; flex-shrink: 0; }
+    .mj-mini-tbd { width: 44px; height: 44px; border-radius: 7px; background: rgba(244,234,215,0.08); display: inline-flex; align-items: center; justify-content: center; color: rgba(244,234,215,0.4); font-weight: 800; flex-shrink: 0; }
     .mj-mini-cta { width: 100%; margin-top: 9px; padding: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: var(--pv-orange); color: var(--pv-bone); border: none; font-family: inherit; font-weight: 800; font-size: 9px; letter-spacing: 0.12em; cursor: pointer; transition: background 0.12s, color 0.12s; }
     .mj-mini-cta:hover { background: var(--pv-bone); color: var(--pv-charcoal); }
     /* CAMPEONATOS tem 2 trilhos (perfil + lista), então CLASSIFICAÇÃO | RODADAS só
