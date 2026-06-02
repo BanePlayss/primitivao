@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-meujogo-camp ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-profile-sb ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2960,6 +2960,11 @@ function App() {
         myCosmetics={me?.cosmetics || {}}
       />
       <div className="below-topbar">
+        <ProfileSidebar
+          nick={session.nick} me={me} cs={cs} bets={bets} users={users}
+          teamPlayers={teamPlayers || {}} worldcup={worldcup} interests={interests || {}}
+          mkDraw={mkDraw} mkScores={mkScores} isAdmin={isAdmin} isMod={isMod} setView={setView}
+        />
         <div className="content-area">
           <div className="page">
             {/* Navegação mobile (some no desktop). Sempre montada pra que as
@@ -3152,13 +3157,6 @@ function App() {
             </ViewBoundary>
           </div>
         </div>
-        <Sidebar
-          view={view}
-          setView={setView}
-          isAdmin={isAdmin}
-          mkInscrito={mkInscrito}
-          isMod={isMod}
-        />
       </div>
       {sharedSlip && (
         <SharedSlipModal
@@ -3498,13 +3496,12 @@ function getTabItems(isAdmin, mkInscrito, isMod) {
     { id: 'inicio',      label: 'NEWS',          icon: 'newspaper' },
     { id: 'loja',        label: 'MERCADINHO',    icon: 'coin' },
   ];
+  // MEUS TICKETS, RANKING e MEU JOGO foram pra dentro de APOSTAS/CAMPEONATOS;
+  // o perfil agora é a sidebar esquerda (clica e abre o completo). Sobra só o
+  // PERFIL e o ADMIN no "meu espaço" (usado no menu mobile).
   const globalItems = [
     { id: 'perfil',   label: 'MEU PERFIL',   icon: 'user' },
-    { id: 'tickets',  label: 'MEUS TICKETS', icon: 'ticket' },
-    { id: 'ranking',  label: 'RANKING',      icon: 'trophy' },
   ];
-  // MEU JOGO (MK) — admin e inscritos no MK (campeonato oficial).
-  if (isAdmin || mkInscrito) globalItems.push({ id: 'meujogo', label: 'MEU JOGO', icon: 'fist' });
   if (isMod) globalItems.push({ id: 'admin', label: 'ADMIN', icon: 'shield' });
   return { sectionItems, globalItems };
 }
@@ -3583,6 +3580,43 @@ function MobileNav({ view, setView, isAdmin, mkInscrito, isMod }) {
         </div>
       )}
     </div>
+  );
+}
+
+// SIDEBAR ESQUERDA DE PERFIL — resumo do jogador, fixa em todas as abas.
+// Avatar grande (clica = abre o perfil completo) + troféus, título, posição no
+// campeonato e aproveitamento. Botão ADMIN pra mod. Escondida no mobile (vira
+// um cartão no topo via CSS / o menu hamburger cobre a navegação).
+function ProfileSidebar({ nick, me, cs, bets, users, teamPlayers, worldcup, interests, mkDraw, mkScores, isAdmin, isMod, setView }) {
+  const myTeamId = reverseTeamMap(teamPlayers)[nick];
+  const trophyCount = trophiesForNick(nick, cs, teamPlayers).length + betKingChamps(nick, cs, bets).length;
+  const titleDef = me && me.title ? getTitleDef(me.title) : null;
+  const mkPlayers = Object.keys((interests && interests.mk) || {});
+  const gK = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const concl = [];
+  (mkDraw || []).forEach(r => (r.games || []).forEach((g, gi) => { const sc = (mkScores || {})[gK(r, gi)]; if (sc && mkMatchOutcome(sc)) concl.push({ home: g.home, away: g.away, sc }); }));
+  const mkStand = mkPlayers.includes(nick) ? computeMkStandings(mkPlayers, concl) : [];
+  const mkPos = mkStand.findIndex(s => s.nick === nick) + 1;
+  const myBets = (bets || []).filter(b => b.user === nick);
+  const won = myBets.filter(b => b.status === 'won').length, lost = myBets.filter(b => b.status === 'lost').length;
+  const aprov = (won + lost) ? Math.round(won / (won + lost) * 100) : 0;
+  return (
+    <aside className="app-profile">
+      <button type="button" className="ap-card" onClick={() => setView('perfil')} title="Abrir perfil completo">
+        <div className="ap-avatar">
+          {myTeamId ? <Avatar teamId={myTeamId} cosmetics={me?.cosmetics} size={104} /> : <div className="ap-avatar-fb">{String(nick).slice(0, 2).toUpperCase()}</div>}
+        </div>
+        <div className="ap-nick">@{nick}</div>
+        <div className="ap-title">{titleDef ? <><Icon name={titleDef.icon} size={11} /> {titleDef.name}</> : (isAdmin ? 'ADMIN' : 'sem título')}</div>
+      </button>
+      <div className="ap-stats">
+        <div className="ap-stat"><Icon name="trophy" size={15} /><span className="ap-stat-v">{trophyCount}</span><span className="ap-stat-l">TROFÉUS</span></div>
+        <div className="ap-stat"><Icon name="fist" size={15} /><span className="ap-stat-v">{mkPos ? mkPos + 'º' : '—'}</span><span className="ap-stat-l">MK</span></div>
+        <div className="ap-stat"><Icon name="target" size={15} /><span className="ap-stat-v">{aprov}%</span><span className="ap-stat-l">APROVEIT.</span></div>
+      </div>
+      <button type="button" className="ap-link" onClick={() => setView('perfil')}><Icon name="user" size={13} /> PERFIL COMPLETO</button>
+      {isMod && <button type="button" className="ap-admin" onClick={() => setView('admin')}><Icon name="shield" size={13} /> ADMIN</button>}
+    </aside>
   );
 }
 

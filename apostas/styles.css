@@ -747,6 +747,24 @@
       min-height: calc(100vh - 76px); /* abaixo do topbar */
     }
     .content-area { flex: 1; min-width: 0; }
+    /* SIDEBAR ESQUERDA DE PERFIL (fixa em todas as abas no desktop) */
+    .app-profile { width: 224px; flex-shrink: 0; position: sticky; top: 84px; align-self: flex-start; max-height: calc(100vh - 96px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+    .ap-card { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 18px 14px 14px; background: var(--pv-charcoal); color: var(--pv-bone); border: 3px solid var(--pv-charcoal); cursor: pointer; font-family: inherit; width: 100%; }
+    .ap-card:hover { border-color: var(--pv-orange); }
+    .ap-avatar, .ap-avatar-fb { width: 100px; height: 100px; flex-shrink: 0; }
+    .ap-avatar-fb { border-radius: 16px; background: var(--pv-orange); color: var(--pv-bone); display: flex; align-items: center; justify-content: center; font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 36px; }
+    .ap-nick { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 20px; line-height: 1.05; margin-top: 3px; word-break: break-word; text-align: center; }
+    .ap-title { display: inline-flex; align-items: center; gap: 5px; font-size: 9px; font-weight: 800; letter-spacing: 0.06em; color: var(--pv-orange); text-align: center; }
+    .ap-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .ap-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 9px 3px; background: rgba(28,22,18,0.05); border: 1.5px solid rgba(28,22,18,0.12); }
+    .ap-stat > svg { color: var(--pv-orange); }
+    .ap-stat-v { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 16px; line-height: 1; color: var(--pv-charcoal); }
+    .ap-stat-l { font-size: 7px; font-weight: 800; letter-spacing: 0.06em; color: rgba(28,22,18,0.55); }
+    .ap-link, .ap-admin { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 9px; font-family: inherit; font-weight: 800; font-size: 10px; letter-spacing: 0.1em; cursor: pointer; border: 2px solid var(--pv-charcoal); }
+    .ap-link { background: var(--pv-orange); color: var(--pv-bone); }
+    .ap-link:hover { background: var(--pv-charcoal); color: var(--pv-orange); }
+    .ap-admin { background: transparent; color: var(--pv-charcoal); }
+    .ap-admin:hover { background: var(--pv-charcoal); color: var(--pv-bone); }
     .app-sidebar {
       width: 240px; flex-shrink: 0;
       background: var(--pv-charcoal);
@@ -1746,6 +1764,7 @@
     @media (max-width: 720px) {
       /* No mobile, sidebar some — hamburger drawer cobre. */
       .app-sidebar { display: none; }
+      .app-profile { display: none; }
       .below-topbar { display: block; min-height: 0; }
 
       /* TOPBAR encolhe e envolve se precisar (respeitando o notch) */
