@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-mk-sidebyside ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-apostas-rank ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3036,10 +3036,11 @@ function App() {
                   interests={interests || {}}
                 />
                   )}
-                  {/* CLASSIFICAÇÃO do campeonato (o antigo "RANKING") — dentro de apostas. */}
+                  {/* RANKING DE APOSTAS do campeonato atual (o antigo "RANKING", por LUCRO) —
+                      dentro de apostas. A CLASSIFICAÇÃO do campeonato em si mora em CAMPEONATOS. */}
                   <div style={{ marginTop: 16 }}>
-                    <ChampStandingsCard champId={apostasChampId} cs={cs} users={users} teamPlayers={teamPlayers || {}}
-                      mkDraw={mkDraw} mkScores={mkScores} interests={interests || {}} myNick={session.nick} />
+                    <RankingView users={users} bets={bets} me={session.nick}
+                      teamPlayers={teamPlayers || {}} cs={cs} lockChamp={apostasChampId} />
                   </div>
                   {/* MEUS ÚLTIMOS TICKETS — embaixo do apostar, só os 5 mais recentes do campeonato. */}
                   {!isAdmin && (
@@ -8051,15 +8052,17 @@ function Stat({ label, value, accent }) {
 // ─── RANKING (apostadores por PC) ───────────────────────────────────────────
 // RANKING DE APOSTAS — POR SEASON. Cada campeonato (FIFA S1, MK S1...) tem o seu
 // ranking, por LUCRO nas apostas daquela season. Seasons encerradas viram histórico.
-function RankingView({ users, bets, me, teamPlayers, cs }) {
+function RankingView({ users, bets, me, teamPlayers, cs, lockChamp }) {
   const withBets = new Set((bets || []).map(b => b.champId || 'fifa'));
   const champList = CHAMPIONSHIPS
     .filter(c => c.status === 'active' || withBets.has(c.id))
     .sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1));
   const [sel, setSel] = useState(champList[0] ? champList[0].id : 'fifa');
-  const champ = CHAMP_BY_ID[sel] || CHAMPIONSHIPS[0];
-  const encerrada = computeChampStandings(sel, cs).status === 'closed';
-  const ranking = seasonBettingRanking(sel, bets);
+  // Embutido nas APOSTAS: trava num campeonato (lockChamp) e esconde o seletor.
+  const effSel = lockChamp || sel;
+  const champ = CHAMP_BY_ID[effSel] || CHAMPIONSHIPS[0];
+  const encerrada = computeChampStandings(effSel, cs).status === 'closed';
+  const ranking = seasonBettingRanking(effSel, bets);
 
   return (
     <div className="card">
@@ -8068,7 +8071,7 @@ function RankingView({ users, bets, me, teamPlayers, cs }) {
         <div className="sub">{champ.tag} · {champ.season} · {encerrada ? 'ENCERRADA' : 'AO VIVO'}</div>
       </div>
       <div className="card-body">
-        {champList.length > 1 && (
+        {!lockChamp && champList.length > 1 && (
           <div className="rank-seasons">
             {champList.map(c => {
               const fim = computeChampStandings(c.id, cs).status === 'closed';
