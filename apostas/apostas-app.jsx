@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-perfil-insc ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-mk-cupombar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6899,6 +6899,16 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   }, [anyCountdown]);
   const fmtSecs = (s) => Math.floor(Math.max(0, s) / 60) + ':' + String(Math.max(0, s) % 60).padStart(2, '0');
 
+  // Cupom como GAVETA no mobile (igual já é na FIFA): em vez de cair lá embaixo
+  // depois de todos os jogos, vira um bottom-sheet que sobe pelo FAB "VER CUPOM".
+  const [cupomOpen, setCupomOpen] = useState(false);
+  useEffect(() => {
+    if (!cupomOpen) return;
+    const onEsc = (e) => { if (e.key === 'Escape') setCupomOpen(false); };
+    document.addEventListener('keydown', onEsc);
+    return () => document.removeEventListener('keydown', onEsc);
+  }, [cupomOpen]);
+
   const oddsMatches = draw ? draw.flatMap((r, ri) => roundConcluded(ri)
     ? r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: (scores || {})[gKey(r, gi)] || {} }))
     : []) : [];
@@ -6941,6 +6951,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     });
     if (res && res.err) return; // erro já avisado por toast
     setCupom([]);
+    setCupomOpen(false);
     showToast((isCasada ? 'Casada' : 'Aposta') + ' feita! ' + stake + ' PC', 'success');
   };
   const betStatus = (bet) => {
@@ -7116,7 +7127,16 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                 </div>
               </div>
 
-              <aside className="mk-cupom-wrap">
+              <aside className={'mk-cupom-wrap' + (cupomOpen ? ' cupom-open' : '')}
+                     style={cupomOpen ? { transform: 'translateY(0)' } : undefined}>
+                {/* Handle aparece só no bottom-sheet (mobile) — fecha o cupom.
+                    O transform de abrir vai INLINE (vence cascade) e é no-op na
+                    sidebar do desktop, onde cupomOpen nunca fica true. */}
+                <button type="button" className="cupom-sheet-handle" onClick={() => setCupomOpen(false)}>
+                  <span className="cupom-sheet-grip" aria-hidden="true" />
+                  <span className="cupom-sheet-handle-label">FECHAR CUPOM</span>
+                  <Icon name="caret-down" size={14} />
+                </button>
                 <div className="card cupom">
                   <div className="card-head">
                     <div className="title">CUPOM {isCasada ? '· CASADA' : ''}</div>
@@ -7184,6 +7204,18 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
               </aside>
             </div>
             <div className="mk-bets-hint"><Icon name="ticket" size={12} /> Suas apostas ficam em <strong>MEUS TICKETS</strong>.</div>
+
+            {/* Backdrop do bottom-sheet (mobile): toca fora pra fechar. */}
+            {cupomOpen && (
+              <button className="cupom-sheet-backdrop" type="button" aria-label="Fechar cupom" onClick={() => setCupomOpen(false)} />
+            )}
+            {/* FAB mobile: aparece quando há palpites no cupom; abre a gaveta. */}
+            {cupom.length > 0 && !cupomOpen && (
+              <button className="cupom-fab" onClick={() => setCupomOpen(true)} type="button">
+                <Icon name="ticket" size={18} /> <span className="cupom-fab-num">{cupom.length}</span>
+                <span className="cupom-fab-label">VER CUPOM{isCasada ? ' · CASADA' : ''}</span>
+              </button>
+            )}
           </>
         )}
       </div>

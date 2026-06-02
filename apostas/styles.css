@@ -3570,7 +3570,22 @@
     .mk-br-legs { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
     .mk-br-leg { font-size: 9.5px; color: rgba(28,22,18,0.7); }
     .mk-br-foot { display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; font-weight: 700; color: rgba(28,22,18,0.6); border-top: 1px dashed rgba(28,22,18,0.16); padding-top: 5px; }
-    @media (max-width: 720px) { .mk-bet-layout { grid-template-columns: 1fr; } .mk-cupom { position: static; } }
+    /* Mobile: jogos em 1 coluna e o CUPOM vira bottom-sheet (igual à FIFA) —
+       sobe pelo FAB "VER CUPOM" em vez de cair lá embaixo depois dos jogos. */
+    @media (max-width: 880px) {
+      .mk-bet-layout { grid-template-columns: 1fr; }
+      .mk-cupom-wrap {
+        position: fixed; left: 0; right: 0; bottom: 0; top: auto;
+        z-index: 95; max-height: 85vh; overflow-y: auto;
+        -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+        background: var(--pv-bone); border-top: 4px solid var(--pv-orange);
+        box-shadow: 0 -10px 30px rgba(0,0,0,0.35);
+        transform: translateY(110%);
+        transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+        padding: 0 12px max(14px, env(safe-area-inset-bottom));
+      }
+      .mk-cupom-wrap.cupom-open { transform: translateY(0); }
+    }
 
     .mk-sorteio-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1.5px dashed rgba(28,22,18,0.2); font-size: 10.5px; font-weight: 700; color: rgba(28,22,18,0.55); }
     .mk-resort { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-family: inherit; font-weight: 800; font-size: 10px; letter-spacing: 0.04em; color: var(--pv-orange); background: transparent; border: 1.5px solid rgba(215,100,20,0.4); padding: 5px 9px; transition: background .1s ease; }
