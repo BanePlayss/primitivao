@@ -978,8 +978,11 @@
     .champ-grp-closed .champ-item-ic { filter: saturate(0.65); }
     /* CAMPEONATOS colapsa cedo (só tem 1 coluna de conteúdo). */
     @media (max-width: 899px) {
-      .champ-layout:not(.champ-layout--apostas) { display: block; }
+      .champ-layout:not(.champ-layout--apostas) { display: flex; flex-direction: column; gap: 16px; }
       .champ-layout:not(.champ-layout--apostas) .champ-sidebar { display: none; }
+      /* no mobile o MEU JOGO mini (trilho esquerdo) vai pra baixo do conteudo. */
+      .champ-layout:not(.champ-layout--apostas) .camp-leftcol { position: static; order: 2; }
+      .champ-layout:not(.champ-layout--apostas) .champ-main { order: 1; }
       .champ-layout:not(.champ-layout--apostas) .champ-main > .champ-header { display: block; }
     }
     /* APOSTAS tem o cupom (mais 300px), então o sidebar só aparece com bastante
@@ -3434,23 +3437,37 @@
     .apo-stand-rec { font-size: 11px; color: rgba(28,22,18,0.6); text-align: right; font-variant-numeric: tabular-nums; }
     .apo-stand-sg { font-size: 11px; color: rgba(28,22,18,0.5); text-align: right; font-variant-numeric: tabular-nums; }
     .apo-stand-pts { font-weight: 800; text-align: right; color: var(--pv-charcoal); }
-    /* CAMPEONATOS (MK): mobile-first empilhado — MEU JOGO em cima (vem antes no
-       DOM), campeonato embaixo. No desktop (>=721px) vira lado a lado:
-       campeonato à ESQUERDA, MEU JOGO (jogo da rodada em cima + elenco embaixo)
-       à DIREITA, encostado na Rodada. O bloco desktop fica DEPOIS (e usa
-       min-width) pra ganhar do empilhado por ordem de fonte. */
-    .mk-camp-wrap { display: flex; flex-direction: column; gap: 16px; }
-    .mk-camp-champ, .mk-camp-jogo { min-width: 0; }
-    @media (min-width: 721px) {
-      .mk-camp-wrap { flex-direction: row; align-items: flex-start; }
-      .mk-camp-champ { flex: 1 1 auto; order: 1; }
-      .mk-camp-jogo { flex: 0 0 330px; max-width: 330px; order: 2; }
-      /* Na coluna estreita do lado a lado, a grade do MK (classificação | rodadas)
-         empilha em 1 coluna pra caber — a regra .grid base só colapsa por largura
-         de viewport (<=880px), não de container, então forçamos aqui. */
-      .mk-camp-champ .mk-grid { grid-template-columns: 1fr; }
-      .mk-camp-champ .mk-grid > * { min-width: 0; }
-    }
+    /* CAMPEONATOS em 3 colunas (igual apostas): [lista CAMPEONATOS + MEU JOGO mini]
+       | CLASSIFICAÇÃO | RODADAS. A classificação|rodadas é o .mk-grid (2 colunas)
+       do MkChampionshipView; o trilho esquerdo agrega a sidebar + o mini. */
+    .camp-leftcol { display: flex; flex-direction: column; gap: 12px; min-width: 0; position: sticky; top: 12px; align-self: start; }
+    .camp-leftcol .champ-sidebar { position: static; top: auto; }
+    /* MEU JOGO mini (embaixo do trilho CAMPEONATOS): elenco + confronto com icones. */
+    .mj-mini { background: var(--pv-charcoal); color: var(--pv-bone); padding: 10px; }
+    .mj-mini-h { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 6px; background: transparent; border: none; cursor: pointer; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 10px; letter-spacing: 0.16em; color: var(--pv-orange); padding: 0 2px 8px; }
+    .mj-mini-h:hover { color: var(--pv-bone); }
+    .mj-mini-h > span { display: inline-flex; align-items: center; gap: 6px; }
+    .mj-mini-empty, .mj-mini-warn { font-size: 10.5px; color: rgba(244,234,215,0.55); padding: 2px 2px 6px; line-height: 1.4; }
+    .mj-mini-lbl { display: flex; justify-content: space-between; font-size: 8px; font-weight: 800; letter-spacing: 0.14em; color: rgba(244,234,215,0.45); padding: 7px 2px 5px; }
+    .mj-mini-lbl span { color: var(--pv-orange); }
+    .mj-mini-chars { display: flex; gap: 6px; }
+    .mj-mini-char { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .mj-mini-char .mk-fc-mono { width: 100%; max-width: 52px; height: auto; aspect-ratio: 1 / 1; border-radius: 7px; font-size: 14px; }
+    .mj-mini-cn { font-size: 7.5px; font-weight: 700; color: rgba(244,234,215,0.72); text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mj-mini-vs { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; padding: 2px 0 7px; }
+    .mj-mini-x { color: var(--pv-orange); }
+    .mj-mini-opp { min-width: 0; color: rgba(244,234,215,0.85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mj-mini-parts { display: flex; flex-direction: column; gap: 5px; }
+    .mj-mini-part { display: flex; align-items: center; gap: 6px; background: rgba(244,234,215,0.05); padding: 4px 7px; }
+    .mj-mini-pn { width: 15px; height: 15px; border-radius: 50%; background: var(--pv-orange); color: #1a0f08; font-size: 8px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .mj-mini-part .mk-fc-mono { width: 30px; height: 30px; border-radius: 5px; font-size: 11px; }
+    .mj-mini-px { font-size: 8px; font-weight: 800; color: rgba(244,234,215,0.5); }
+    .mj-mini-tbd { width: 30px; height: 30px; border-radius: 5px; background: rgba(244,234,215,0.08); display: inline-flex; align-items: center; justify-content: center; color: rgba(244,234,215,0.4); font-weight: 800; flex-shrink: 0; }
+    .mj-mini-cta { width: 100%; margin-top: 9px; padding: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: var(--pv-orange); color: var(--pv-bone); border: none; font-family: inherit; font-weight: 800; font-size: 9px; letter-spacing: 0.12em; cursor: pointer; transition: background 0.12s, color 0.12s; }
+    .mj-mini-cta:hover { background: var(--pv-bone); color: var(--pv-charcoal); }
+    /* CAMPEONATOS tem 2 trilhos (perfil + lista), então CLASSIFICAÇÃO | RODADAS só
+       cabem lado a lado em tela larga. Abaixo de 1180px, a grade empilha. */
+    @media (max-width: 1180px) { .champ-main .mk-grid { grid-template-columns: 1fr; } }
     /* Reordena as seções do MEU JOGO: "meu jogo da rodada" em cima, elenco embaixo. */
     .mk-jogo-secs { display: flex; flex-direction: column; gap: 16px; }
     .mk-jogo-secs > .mk-jogo-sec { margin-top: 0; padding-top: 0; border-top: none; }

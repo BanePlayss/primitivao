@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-apostas-rk2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-camp-3col ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3056,23 +3056,21 @@ function App() {
             {/* CAMPEONATOS — classificação do campeonato selecionado. */}
             {view === 'campeonatos' && (
               <div className="champ-layout">
-                <ChampSidebar value={championship} onChange={setChampionship} cs={cs} interests={interests || {}} mode="campeonatos" />
+                {/* ESQUERDA: lista de campeonatos + MEU JOGO mini (elenco + confronto). */}
+                <div className="camp-leftcol">
+                  <ChampSidebar value={championship} onChange={setChampionship} cs={cs} interests={interests || {}} mode="campeonatos" />
+                  {active.id === 'mk' && (isAdmin || mkInscrito) && (
+                    <MeuJogoMini
+                      nick={session.nick} users={users} interests={interests || {}}
+                      draw={mkDraw} scores={mkScores} lineups={mkLineups} teamPlayers={teamPlayers || {}}
+                      onOpen={() => setView('meujogo')}
+                    />
+                  )}
+                </div>
                 <div className="champ-main">
                   <ChampHeader value={championship} onChange={setChampionship} interests={interests || {}} bare />
                   {active.id === 'mk' ? (
-                // MK OFICIAL: classificação + rodadas à esquerda, MEU JOGO (escalação
-                // do confronto + elenco) ao lado direito pra inscritos/admin.
-                <div className="mk-camp-wrap">
-                  {(isAdmin || mkInscrito) && (
-                    <aside className="mk-camp-jogo">
-                      <MeuJogoView
-                        nick={session.nick} isAdmin={isAdmin} users={users} interests={interests || {}} onSave={setMkChars}
-                        draw={mkDraw} scores={mkScores} lineups={mkLineups} onSlot={setMkLineupSlot}
-                        teamPlayers={teamPlayers || {}}
-                      />
-                    </aside>
-                  )}
-                  <div className="mk-camp-champ">
+                    // MK: CLASSIFICACAO (centro) + RODADAS (direita), grid de 2 colunas.
                     <MkChampionshipView
                       players={Object.keys(interests?.mk || {})}
                       users={users}
@@ -3081,9 +3079,7 @@ function App() {
                       scores={mkScores} onScore={setMkScoreField}
                       isAdmin={isAdmin} isMod={isMod} locked={mkLocked}
                     />
-                  </div>
-                </div>
-              ) : showPlaceholder ? (
+                  ) : showPlaceholder ? (
                 <ChampionshipPlaceholder
                   champ={active}
                   session={session}
@@ -6576,6 +6572,81 @@ function MkFighterShow({ nick, char, teamPlayers }) {
 // ─── MEU JOGO (MK) — elenco do turno + escalação dos confrontos ────────────
 // O MANDANTE escala as 2 partidas dos jogos onde é mando (boneco dos DOIS lados,
 // vindo do elenco de 3 de cada um). O VISITANTE só vê como o mandante dispôs.
+// Versao MINI do MEU JOGO pro trilho esquerdo de CAMPEONATOS (embaixo da sidebar):
+// mostra o ELENCO (3 personagens) e o CONFRONTO da rodada com os icones dos
+// personagens. Clica e abre o MEU JOGO completo (escalacao/edicao).
+function MeuJogoMini({ nick, users, interests, draw, scores, lineups, teamPlayers, onOpen }) {
+  const isInscrito = !!(((interests && interests.mk) || {})[nick]);
+  const myChars = ((users || {})[nick] || {}).mkChars || [];
+  const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const roundConcluded = (ri) => !!(draw && draw[ri]) && draw[ri].games.every((g, gi) => !!mkMatchOutcome((scores || {})[gKey(draw[ri], gi)] || {}));
+  let curIdx = -1;
+  if (draw && draw.length) {
+    curIdx = draw.findIndex((r, ri) => !roundConcluded(ri) && (ri === 0 || roundConcluded(ri - 1)));
+    if (curIdx < 0) curIdx = draw.length - 1;
+  }
+  const curRound = curIdx >= 0 ? draw[curIdx] : null;
+  let myGame = null;
+  if (curRound) {
+    curRound.games.forEach((g, gi) => {
+      if (g.home === nick || g.away === nick) myGame = { key: gKey(curRound, gi), g, mandante: g.home === nick, opp: g.home === nick ? g.away : g.home };
+    });
+  }
+  const lu = myGame ? ((lineups || {})[myGame.key] || {}) : {};
+  return (
+    <div className="mj-mini">
+      <button type="button" className="mj-mini-h" onClick={onOpen}>
+        <span><Icon name="fist" size={12} /> MEU JOGO</span><Icon name="chevron-right" size={12} />
+      </button>
+      {!isInscrito ? (
+        <div className="mj-mini-empty">Você não está no MK.</div>
+      ) : (
+        <>
+          <div className="mj-mini-lbl">MEU ELENCO <span>{myChars.length}/{MK_MAX_CHARS}</span></div>
+          {myChars.length ? (
+            <div className="mj-mini-chars">
+              {myChars.map(c => (
+                <span key={c} className="mj-mini-char" title={c}><MkCharIcon name={c} /><span className="mj-mini-cn">{c}</span></span>
+              ))}
+            </div>
+          ) : (
+            <div className="mj-mini-warn">Monte seu elenco — toque pra abrir.</div>
+          )}
+          {curRound && <div className="mj-mini-lbl">RODADA {String(curRound.n).padStart(2, '0')} · {curRound.phase}</div>}
+          {curRound && (myGame ? (
+            <div className="mj-mini-game">
+              <div className="mj-mini-vs">
+                <Avatar nick={nick} teamPlayers={teamPlayers} size={18} noBadge />
+                <span className="mj-mini-x">×</span>
+                <Avatar nick={myGame.opp} teamPlayers={teamPlayers} size={18} noBadge />
+                <span className="mj-mini-opp">@{myGame.opp}</span>
+              </div>
+              <div className="mj-mini-parts">
+                {['p1', 'p2'].map((p, pi) => {
+                  const pr = lu[p] || {};
+                  return (
+                    <div key={p} className="mj-mini-part">
+                      <span className="mj-mini-pn">{pi + 1}</span>
+                      {pr.home ? <MkCharIcon name={pr.home} /> : <span className="mj-mini-tbd">?</span>}
+                      <span className="mj-mini-px">vs</span>
+                      {pr.away ? <MkCharIcon name={pr.away} /> : <span className="mj-mini-tbd">?</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="mj-mini-warn">Folga nessa rodada.</div>
+          ))}
+          <button type="button" className="mj-mini-cta" onClick={onOpen}>
+            {myGame && myGame.mandante ? 'ESCALAR' : 'VER'} / EDITAR <Icon name="chevron-right" size={11} />
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, lineups, onSlot, teamPlayers }) {
   const inscritos = Object.keys((interests && interests.mk) || {}).sort();
   const [target, setTarget] = useState(isAdmin ? (inscritos[0] || '') : nick);
