@@ -3475,9 +3475,22 @@
     .mk-cd-hint { margin-left: auto; font-size: 8.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.92; }
     @keyframes mkCdPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(215,100,20,0.5); } 50% { box-shadow: 0 0 0 4px rgba(215,100,20,0); } }
     @media (prefers-reduced-motion: reduce) { .mk-bet-countdown { animation: none; } }
-    /* cupom do MK = mesmo .card.cupom da FIFA, num wrapper sticky que cabe na tela */
-    .mk-cupom-wrap { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; display: block; }
-    .mk-cupom-wrap .cupom { margin: 0; }
+    /* CUPOM DO MK = gaveta flutuante "na frente" (desktop: canto inferior direito;
+       mobile: bottom-sheet — ver @media abaixo). Abre pelo FAB "VER CUPOM". Os
+       jogos ficam com a largura toda; o cupom não rouba mais uma coluna. */
+    .mk-cupom-wrap {
+      position: fixed; right: 18px; bottom: 18px; top: auto; left: auto;
+      width: 360px; max-width: calc(100vw - 36px); max-height: calc(100vh - 110px);
+      overflow-y: auto; z-index: 95;
+      background: var(--pv-bone); border: 3px solid var(--pv-orange);
+      box-shadow: 0 16px 46px rgba(0,0,0,0.4);
+      transform: translateY(135%); transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .mk-cupom-wrap.cupom-open { transform: translateY(0); }
+    .mk-cupom-wrap .cupom { margin: 0; border: none; }
+    /* FAB + puxador valem pro MK em qualquer tela (não só mobile). */
+    .mk-betting .cupom-fab { display: inline-flex; }
+    .mk-betting .cupom-sheet-handle { display: flex; }
     .mk-bet-match { display: flex; align-items: flex-start; justify-content: center; gap: 10px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1.5px dashed rgba(28,22,18,0.2); }
     .mk-bm-side { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; flex: 1; }
     .mk-bm-side.right { align-items: flex-end; }
@@ -3512,7 +3525,7 @@
     @media (max-width: 560px) { .mk-bet-games { grid-template-columns: 1fr; } }
 
     /* Fase 2: cupom (montar aposta) + lista de apostas */
-    .mk-bet-layout { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
+    .mk-bet-layout { display: block; }
     .mk-bet-main { min-width: 0; }
     .mk-bet-closed { font-size: 11px; font-weight: 700; color: #9a4d14; background: rgba(215,100,20,0.07); border: 1px dashed rgba(215,100,20,0.35); padding: 7px 10px; border-radius: 4px; margin-bottom: 12px; }
     /* #8: alternador SIMPLES x AVANÇADO */
@@ -3573,18 +3586,29 @@
     /* Mobile: jogos em 1 coluna e o CUPOM vira bottom-sheet (igual à FIFA) —
        sobe pelo FAB "VER CUPOM" em vez de cair lá embaixo depois dos jogos. */
     @media (max-width: 880px) {
-      .mk-bet-layout { grid-template-columns: 1fr; }
       .mk-cupom-wrap {
-        position: fixed; left: 0; right: 0; bottom: 0; top: auto;
-        z-index: 95; max-height: 85vh; overflow-y: auto;
+        left: 0; right: 0; bottom: 0; top: auto;
+        width: auto; max-width: none; max-height: 85vh;
         -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
-        background: var(--pv-bone); border-top: 4px solid var(--pv-orange);
+        border: none; border-top: 4px solid var(--pv-orange);
         box-shadow: 0 -10px 30px rgba(0,0,0,0.35);
         transform: translateY(110%);
-        transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
         padding: 0 12px max(14px, env(safe-area-inset-bottom));
       }
       .mk-cupom-wrap.cupom-open { transform: translateY(0); }
+    }
+    /* Desktop (>880px): estiliza o puxador "FECHAR CUPOM" do drawer flutuante. */
+    @media (min-width: 881px) {
+      .mk-betting .cupom-sheet-handle {
+        align-items: center; justify-content: center; gap: 8px;
+        position: sticky; top: 0; z-index: 2;
+        margin: 0 0 10px; padding: 11px 14px;
+        background: var(--pv-charcoal); color: var(--pv-bone);
+        border: none; cursor: pointer; font-family: inherit; font-weight: 800;
+        font-size: 10px; letter-spacing: 0.2em;
+      }
+      .mk-betting .cupom-sheet-handle .cupom-sheet-grip { display: none; }
+      .mk-betting .cupom-sheet-handle-label { color: var(--pv-orange); }
     }
 
     .mk-sorteio-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1.5px dashed rgba(28,22,18,0.2); font-size: 10.5px; font-weight: 700; color: rgba(28,22,18,0.55); }
