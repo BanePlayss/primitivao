@@ -3301,6 +3301,17 @@
     /* retrato/ícone do personagem por cima do monograma (fallback se não carregar).
        object-fit cover + top = enquadra no rosto quando for PNG retrato. */
     .mk-char-ico { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; object-position: center top; }
+    /* Classificação compacta dentro da aba APOSTAS */
+    .apo-stand { display: flex; flex-direction: column; }
+    .apo-stand-row { display: grid; grid-template-columns: 24px 22px 1fr auto 34px 30px; gap: 8px; align-items: center; padding: 5px 4px; border-bottom: 1px solid rgba(28,22,18,0.07); font-size: 12px; }
+    .apo-stand-row.apo-stand-h { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; color: rgba(28,22,18,0.45); border-bottom: 1.5px solid rgba(28,22,18,0.18); }
+    .apo-stand-row.me { background: rgba(215,100,20,0.10); }
+    .apo-stand-pos { font-weight: 800; text-align: center; color: rgba(28,22,18,0.55); }
+    .apo-stand-row.top .apo-stand-pos { color: var(--pv-orange); }
+    .apo-stand-nick { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .apo-stand-rec { font-size: 11px; color: rgba(28,22,18,0.6); text-align: right; font-variant-numeric: tabular-nums; }
+    .apo-stand-sg { font-size: 11px; color: rgba(28,22,18,0.5); text-align: right; font-variant-numeric: tabular-nums; }
+    .apo-stand-pts { font-weight: 800; text-align: right; color: var(--pv-charcoal); }
     .mk-fc-cname { font-size: 8.5px; font-weight: 700; letter-spacing: 0.01em; color: rgba(255,255,255,0.72); text-align: center; line-height: 1.1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .mk-fc-chip.on .mk-fc-cname { color: #ffd9a8; }
     .mk-fc-badge { position: absolute; top: -5px; right: -4px; width: 15px; height: 15px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #1a0f08; }

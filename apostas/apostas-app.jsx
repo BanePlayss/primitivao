@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-apostas-tk ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-apostas-class ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3031,6 +3031,11 @@ function App() {
                   interests={interests || {}}
                 />
                   )}
+                  {/* CLASSIFICAÇÃO do campeonato (o antigo "RANKING") — dentro de apostas. */}
+                  <div style={{ marginTop: 16 }}>
+                    <ChampStandingsCard champId={apostasChampId} cs={cs} users={users} teamPlayers={teamPlayers || {}}
+                      mkDraw={mkDraw} mkScores={mkScores} interests={interests || {}} myNick={session.nick} />
+                  </div>
                   {/* MEUS ÚLTIMOS TICKETS — embaixo do apostar, só os 5 mais recentes do campeonato. */}
                   {!isAdmin && (
                     <div style={{ marginTop: 16 }}>
@@ -5722,6 +5727,46 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
 }
 
 // ─── MEUS TICKETS ───────────────────────────────────────────────────────────
+// Classificação compacta do campeonato pra mostrar dentro da aba APOSTAS.
+// MK: classificação ao vivo (por confrontos concluídos). FIFA: tabela final.
+function ChampStandingsCard({ champId, cs, users, teamPlayers, mkDraw, mkScores, interests, myNick }) {
+  let rows = [], label = '', closed = false;
+  if (champId === 'mk') {
+    label = 'MK · SEASON 1';
+    const players = Object.keys((interests && interests.mk) || {});
+    const gK = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+    const concl = [];
+    (mkDraw || []).forEach(r => (r.games || []).forEach((g, gi) => { const sc = (mkScores || {})[gK(r, gi)]; if (sc && mkMatchOutcome(sc)) concl.push({ home: g.home, away: g.away, sc }); }));
+    closed = (mkDraw || []).length > 0 && mkDraw.every(r => (r.games || []).every((g, gi) => !!mkMatchOutcome((mkScores || {})[gK(r, gi)])));
+    rows = computeMkStandings(players, concl).map((s, i) => ({ pos: i + 1, nick: s.nick, p: s.p, v: s.v, e: s.e, d: s.d, sg: (s.rp - s.rc) }));
+  } else {
+    label = (CHAMP_BY_ID[champId]?.tag || champId.toUpperCase()) + ' · SEASON 1';
+    closed = computeChampStandings(champId, cs).status === 'closed';
+    rows = computeStandings(cs?.rounds || []).map((t, i) => ({ pos: i + 1, nick: (teamPlayers || {})[t.id] || t.id, p: t.p, v: t.v, e: t.e, d: t.d, sg: (t.gp - t.gc) }));
+  }
+  if (!rows.length) return null;
+  return (
+    <div className="card">
+      <div className="card-head"><div className="title"><Icon name="chart" size={15} /> CLASSIFICAÇÃO</div><div className="sub">{label} · {closed ? 'FINAL' : 'AO VIVO'}</div></div>
+      <div className="card-body">
+        <div className="apo-stand">
+          <div className="apo-stand-row apo-stand-h"><span className="apo-stand-pos">#</span><span /><span className="apo-stand-nick"></span><span className="apo-stand-rec">V-E-D</span><span className="apo-stand-sg">SG</span><span className="apo-stand-pts">PTS</span></div>
+          {rows.map(r => (
+            <div key={r.nick} className={'apo-stand-row' + (r.nick === myNick ? ' me' : '') + (r.pos <= 3 ? ' top' : '')}>
+              <span className="apo-stand-pos">{r.pos}</span>
+              <Avatar nick={r.nick} teamPlayers={teamPlayers} size={22} noBadge />
+              <span className="apo-stand-nick">@{r.nick}</span>
+              <span className="apo-stand-rec">{r.v}-{r.e}-{r.d}</span>
+              <span className="apo-stand-sg">{r.sg >= 0 ? '+' : ''}{r.sg}</span>
+              <span className="apo-stand-pts">{r.p}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TicketsView({ bets, gamesById, cs, mkScores, onCancel, limit, title }) {
   if (bets.length === 0) {
     return <div className="card"><div className="card-head"><div className="title">{title || 'MEUS TICKETS'}</div></div><div className="card-body"><div className="empty">
