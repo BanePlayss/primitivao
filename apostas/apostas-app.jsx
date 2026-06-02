@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260601-mk-cancel-lock ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260601-rank-season ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2979,7 +2979,7 @@ function App() {
               <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} onCancel={cancelBet} />
             )}
             {view === 'ranking' && (
-              <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} />
+              <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} cs={cs} />
             )}
             {view === 'meujogo' && (
               <MeuJogoView
@@ -5680,6 +5680,25 @@ function betKingChamps(nick, cs, bets) {
   return out;
 }
 
+// Ranking de apostas de UMA season (champId): por LUCRO (retorno das ganhas menos
+// a aposta das resolvidas). Pendentes contam só no nº de apostas. Apostas sem
+// champId contam como FIFA. Cada season é independente — o "reset" é automático.
+function seasonBettingRanking(champId, bets) {
+  const stat = {};
+  (bets || []).forEach(b => {
+    if ((b.champId || 'fifa') !== champId) return;
+    if (b.user === 'admin') return;
+    const s = stat[b.user] || (stat[b.user] = { nick: b.user, apostas: 0, vit: 0, der: 0, pend: 0, stakeResolvido: 0, retorno: 0 });
+    s.apostas++;
+    if (b.status === 'won') { s.vit++; s.retorno += (b.payout || 0); s.stakeResolvido += (b.amount || 0); }
+    else if (b.status === 'lost') { s.der++; s.stakeResolvido += (b.amount || 0); }
+    else { s.pend++; }
+  });
+  return Object.values(stat)
+    .map(s => ({ ...s, lucro: s.retorno - s.stakeResolvido }))
+    .sort((a, b) => b.lucro - a.lucro || b.vit - a.vit || a.apostas - b.apostas);
+}
+
 // ─── HELPERS DE CONQUISTA (compartilhados por títulos e distintivos) ────────
 
 // Posição do nick na classificação FECHADA da FIFA. null se não fechou ou
@@ -7375,38 +7394,62 @@ function Stat({ label, value, accent }) {
 }
 
 // ─── RANKING (apostadores por PC) ───────────────────────────────────────────
-function RankingView({ users, bets, me, teamPlayers }) {
-  const rows = Object.entries(users).map(([nick, u]) => {
-    const my = bets.filter(b => b.user === nick);
-    return {
-      nick, pc: u.pc, apostas: my.length,
-      title: u.title || null,
-      cosmetics: u.cosmetics || {},
-      vit: my.filter(b => b.status === 'won').length,
-      der: my.filter(b => b.status === 'lost').length,
-    };
-  }).sort((a, b) => b.pc - a.pc);
+// RANKING DE APOSTAS — POR SEASON. Cada campeonato (FIFA S1, MK S1...) tem o seu
+// ranking, por LUCRO nas apostas daquela season. Seasons encerradas viram histórico.
+function RankingView({ users, bets, me, teamPlayers, cs }) {
+  const withBets = new Set((bets || []).map(b => b.champId || 'fifa'));
+  const champList = CHAMPIONSHIPS
+    .filter(c => c.status === 'active' || withBets.has(c.id))
+    .sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1));
+  const [sel, setSel] = useState(champList[0] ? champList[0].id : 'fifa');
+  const champ = CHAMP_BY_ID[sel] || CHAMPIONSHIPS[0];
+  const encerrada = computeChampStandings(sel, cs).status === 'closed';
+  const ranking = seasonBettingRanking(sel, bets);
+
   return (
     <div className="card">
-      <div className="card-head"><div className="title">RANKING GERAL</div><div className="sub">{rows.length} JOGADORES · POR PC</div></div>
+      <div className="card-head">
+        <div className="title"><Icon name="tr-betking" size={16} /> RANKING DE APOSTAS</div>
+        <div className="sub">{champ.tag} · {champ.season} · {encerrada ? 'ENCERRADA' : 'AO VIVO'}</div>
+      </div>
       <div className="card-body">
-        {rows.length === 0 && <div className="empty"><div className="e2">Ninguém cadastrado ainda.</div></div>}
-        {rows.map((r, i) => (
-          <div key={r.nick} className={'lb-row ' + (r.nick === me ? 'me' : '')} style={{ gridTemplateColumns: '36px 44px 1fr auto auto auto', gap: 12 }}>
-            <div className="lb-pos">{i + 1}</div>
-            <Avatar nick={r.nick} teamPlayers={teamPlayers} cosmetics={r.cosmetics} size={44} />
-            <div>
-              <div className="lb-nick">
-                @{r.nick}
-                {r.title && <TitleBadge titleId={r.title} />}
-              </div>
-              <div style={{ fontSize: 10, letterSpacing: '0.22em', color: 'rgba(28,22,18,0.5)', fontWeight: 800, marginTop: 2 }}>{r.apostas} APOSTAS</div>
-            </div>
-            <div title="vitórias" style={{ color: 'var(--pv-green)', fontWeight: 800, fontFamily: 'Bagel Fat One', fontSize: 16 }}>{r.vit}<small style={{ fontFamily: 'Space Grotesk', fontSize: 9, letterSpacing: '0.2em', marginLeft: 3 }}>V</small></div>
-            <div title="derrotas" style={{ color: 'var(--pv-red)', fontWeight: 800, fontFamily: 'Bagel Fat One', fontSize: 16 }}>{r.der}<small style={{ fontFamily: 'Space Grotesk', fontSize: 9, letterSpacing: '0.2em', marginLeft: 3 }}>D</small></div>
-            <div className="lb-pc mono">{r.pc}</div>
+        {champList.length > 1 && (
+          <div className="rank-seasons">
+            {champList.map(c => {
+              const fim = computeChampStandings(c.id, cs).status === 'closed';
+              return (
+                <button key={c.id} type="button" className={'rank-season' + (c.id === sel ? ' on' : '') + (fim ? ' fechada' : '')} onClick={() => setSel(c.id)}>
+                  <span className="rank-season-tag">{c.tag}</span>
+                  <span className="rank-season-sub">{c.season.replace('Season ', 'S')}{fim ? ' · fim' : ''}</span>
+                </button>
+              );
+            })}
           </div>
-        ))}
+        )}
+        {ranking.length === 0 ? (
+          <div className="empty"><div className="e1">SEM APOSTAS</div><div className="e2">Ninguém apostou em {champ.tag} · {champ.season} ainda.</div></div>
+        ) : (
+          <div className="rank-list">
+            {ranking.map((r, i) => {
+              const u = users[r.nick] || {};
+              const rei = i === 0 && (r.lucro > 0 || r.vit > 0);
+              return (
+                <div key={r.nick} className={'lb-row rank-row' + (r.nick === me ? ' me' : '') + (rei ? ' rei' : '')} style={{ gridTemplateColumns: '34px 42px 1fr auto', gap: 10 }}>
+                  <div className="lb-pos">{rei ? <Icon name="tr-betking" size={20} /> : i + 1}</div>
+                  <Avatar nick={r.nick} teamPlayers={teamPlayers} cosmetics={u.cosmetics || {}} size={42} />
+                  <div style={{ minWidth: 0 }}>
+                    <div className="lb-nick">@{r.nick}{u.title && <TitleBadge titleId={u.title} />}{rei && <span className="rank-rei-tag">REI</span>}</div>
+                    <div className="rank-row-stats">{r.apostas} apostas · <span style={{ color: 'var(--pv-green)' }}>{r.vit}V</span> · <span style={{ color: 'var(--pv-red)' }}>{r.der}D</span>{r.pend ? ' · ' + r.pend + ' aberta' + (r.pend > 1 ? 's' : '') : ''}</div>
+                  </div>
+                  <div className="rank-lucro" style={{ color: r.lucro > 0 ? 'var(--pv-green)' : r.lucro < 0 ? 'var(--pv-red)' : 'rgba(28,22,18,0.45)' }}>
+                    {r.lucro > 0 ? '+' : ''}{r.lucro}<small>PC</small>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="rank-foot"><Icon name="tr-betking" size={11} /> Ranking por <strong>lucro</strong> nas apostas desta season (retorno − aposta das resolvidas). Cada temporada tem o seu — o 1º é o <strong>REI DAS APOSTAS</strong>.</div>
       </div>
     </div>
   );

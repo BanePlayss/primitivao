@@ -1194,6 +1194,24 @@
     }
     .lb-row.top1 .lb-pos { color: var(--pv-orange); }
     .lb-nick { font-weight: 800; letter-spacing: 0.05em; }
+
+    /* RANKING DE APOSTAS por season (seletor + leaderboard por lucro) */
+    .rank-seasons { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .rank-season { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 6px 11px; border-radius: 8px; border: 1.5px solid rgba(28,22,18,0.18); background: var(--pv-bone); cursor: pointer; line-height: 1.1; }
+    .rank-season:hover { border-color: rgba(28,22,18,0.4); }
+    .rank-season.on { border-color: var(--pv-orange); background: rgba(215,100,20,0.1); box-shadow: inset 0 0 0 1px var(--pv-orange); }
+    .rank-season.fechada { opacity: 0.85; }
+    .rank-season-tag { font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 12px; letter-spacing: 0.04em; color: var(--pv-charcoal); }
+    .rank-season.on .rank-season-tag { color: var(--pv-orange); }
+    .rank-season-sub { font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; color: rgba(28,22,18,0.5); text-transform: uppercase; }
+    .rank-row.rei { background: linear-gradient(90deg, rgba(212,175,55,0.18), rgba(212,175,55,0.04)); border-radius: 8px; padding-left: 6px; padding-right: 6px; }
+    .rank-row.rei .lb-pos { color: #b8901f; }
+    .rank-row-stats { font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em; color: rgba(28,22,18,0.55); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rank-lucro { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 17px; text-align: right; white-space: nowrap; }
+    .rank-lucro small { font-family: 'Space Grotesk', sans-serif; font-size: 9px; letter-spacing: 0.2em; margin-left: 3px; opacity: 0.7; }
+    .rank-rei-tag { margin-left: 6px; font-family: 'Space Grotesk', sans-serif; font-size: 8px; font-weight: 800; letter-spacing: 0.12em; color: #fff; background: #d4af37; padding: 1px 5px; border-radius: 3px; vertical-align: middle; }
+    .rank-foot { margin-top: 12px; padding-top: 10px; border-top: 1.5px dashed rgba(28,22,18,0.18); font-size: 10.5px; font-weight: 600; color: rgba(28,22,18,0.6); line-height: 1.4; display: flex; align-items: flex-start; gap: 6px; }
+    .rank-foot svg { color: #d4af37; flex-shrink: 0; margin-top: 1px; }
     .lb-pc {
       font-family: "Bagel Fat One", Impact, sans-serif;
       font-size: 16px; color: var(--pv-charcoal);
