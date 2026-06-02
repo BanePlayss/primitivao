@@ -3331,9 +3331,23 @@
     .apo-stand-rec { font-size: 11px; color: rgba(28,22,18,0.6); text-align: right; font-variant-numeric: tabular-nums; }
     .apo-stand-sg { font-size: 11px; color: rgba(28,22,18,0.5); text-align: right; font-variant-numeric: tabular-nums; }
     .apo-stand-pts { font-weight: 800; text-align: right; color: var(--pv-charcoal); }
-    /* CAMPEONATOS (MK): MEU JOGO no topo, classificação/rodadas embaixo. */
+    /* CAMPEONATOS (MK): mobile-first empilhado — MEU JOGO em cima (vem antes no
+       DOM), campeonato embaixo. No desktop (>=721px) vira lado a lado:
+       campeonato à ESQUERDA, MEU JOGO (jogo da rodada em cima + elenco embaixo)
+       à DIREITA, encostado na Rodada. O bloco desktop fica DEPOIS (e usa
+       min-width) pra ganhar do empilhado por ordem de fonte. */
     .mk-camp-wrap { display: flex; flex-direction: column; gap: 16px; }
-    .mk-camp-jogo, .mk-camp-champ { min-width: 0; }
+    .mk-camp-champ, .mk-camp-jogo { min-width: 0; }
+    @media (min-width: 721px) {
+      .mk-camp-wrap { flex-direction: row; align-items: flex-start; }
+      .mk-camp-champ { flex: 1 1 auto; order: 1; }
+      .mk-camp-jogo { flex: 0 0 330px; max-width: 330px; order: 2; }
+      /* Na coluna estreita do lado a lado, a grade do MK (classificação | rodadas)
+         empilha em 1 coluna pra caber — a regra .grid base só colapsa por largura
+         de viewport (<=880px), não de container, então forçamos aqui. */
+      .mk-camp-champ .mk-grid { grid-template-columns: 1fr; }
+      .mk-camp-champ .mk-grid > * { min-width: 0; }
+    }
     /* Reordena as seções do MEU JOGO: "meu jogo da rodada" em cima, elenco embaixo. */
     .mk-jogo-secs { display: flex; flex-direction: column; gap: 16px; }
     .mk-jogo-secs > .mk-jogo-sec { margin-top: 0; padding-top: 0; border-top: none; }
