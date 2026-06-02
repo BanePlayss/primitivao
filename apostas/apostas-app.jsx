@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-mk-icons ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-apostas-tk ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3031,6 +3031,15 @@ function App() {
                   interests={interests || {}}
                 />
                   )}
+                  {/* MEUS ÚLTIMOS TICKETS — embaixo do apostar, só os 5 mais recentes do campeonato. */}
+                  {!isAdmin && (
+                    <div style={{ marginTop: 16 }}>
+                      <TicketsView
+                        bets={(bets || []).filter(b => b.user === session.nick && (b.champId || 'fifa') === apostasChampId)}
+                        gamesById={gamesById} cs={cs} mkScores={mkScores} onCancel={cancelBet}
+                        limit={5} title="MEUS ÚLTIMOS TICKETS" />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -5713,10 +5722,10 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
 }
 
 // ─── MEUS TICKETS ───────────────────────────────────────────────────────────
-function TicketsView({ bets, gamesById, cs, mkScores, onCancel }) {
+function TicketsView({ bets, gamesById, cs, mkScores, onCancel, limit, title }) {
   if (bets.length === 0) {
-    return <div className="card"><div className="card-body"><div className="empty">
-      <div className="e1">SEM TICKETS</div><div className="e2">Você ainda não apostou em nada.</div></div></div></div>;
+    return <div className="card"><div className="card-head"><div className="title">{title || 'MEUS TICKETS'}</div></div><div className="card-body"><div className="empty">
+      <div className="e1">SEM TICKETS</div><div className="e2">Você ainda não apostou aqui.</div></div></div></div>;
   }
   const rounds = cs?.rounds || [];
   // Resolve o jogo de uma perna: pode estar em gamesById (ainda pendente)
@@ -5728,10 +5737,11 @@ function TicketsView({ bets, gamesById, cs, mkScores, onCancel }) {
     const g = rounds[p.ri]?.[p.gi];
     return g ? { ...g, id: fixtureId } : null;
   };
-  const sorted = [...bets].sort((a, b) => b.createdAt - a.createdAt);
+  const sortedAll = [...bets].sort((a, b) => b.createdAt - a.createdAt);
+  const sorted = limit ? sortedAll.slice(0, limit) : sortedAll;
   return (
     <div className="card">
-      <div className="card-head"><div className="title">MEUS TICKETS</div><div className="sub">{bets.length} TOTAL</div></div>
+      <div className="card-head"><div className="title">{title || 'MEUS TICKETS'}</div><div className="sub">{limit ? `${sorted.length} DE ${bets.length}` : `${bets.length} TOTAL`}</div></div>
       <div className="card-body">
         {sorted.map(t => {
           const cls = t.status === 'won' ? 'ticket won' : t.status === 'lost' ? 'ticket lost' : 'ticket';
