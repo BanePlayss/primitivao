@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-cupom-frente ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-betbar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -7209,11 +7209,21 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
             {cupomOpen && (
               <button className="cupom-sheet-backdrop" type="button" aria-label="Fechar cupom" onClick={() => setCupomOpen(false)} />
             )}
-            {/* FAB mobile: aparece quando há palpites no cupom; abre a gaveta. */}
+            {/* BARRA DO CUPOM: aparece embaixo quando há palpites — bem visível
+                (resumo + retorno), abre a gaveta com o cupom completo ao clicar. */}
             {cupom.length > 0 && !cupomOpen && (
-              <button className="cupom-fab" onClick={() => setCupomOpen(true)} type="button">
-                <Icon name="ticket" size={18} /> <span className="cupom-fab-num">{cupom.length}</span>
-                <span className="cupom-fab-label">VER CUPOM{isCasada ? ' · CASADA' : ''}</span>
+              <button className="mk-betbar" onClick={() => setCupomOpen(true)} type="button">
+                <span className="mk-betbar-main">
+                  <span className="mk-betbar-badge"><Icon name="ticket" size={16} /> {cupom.length}</span>
+                  <span className="mk-betbar-info">
+                    <span className="mk-betbar-title">{cupom.length === 1 ? '1 PALPITE' : cupom.length + ' PALPITES'}{isCasada ? ' · CASADA' : ''}</span>
+                    <span className="mk-betbar-sub">retorno ~{Math.round(stake * combined)} PC</span>
+                  </span>
+                </span>
+                <span className="mk-betbar-cta">
+                  <span className="mk-betbar-odd">{combined.toFixed(2)}x</span>
+                  <span className="mk-betbar-go">VER CUPOM <Icon name="caret-up" size={14} /></span>
+                </span>
               </button>
             )}
           </>

@@ -3488,9 +3488,29 @@
     }
     .mk-cupom-wrap.cupom-open { transform: translateY(0); }
     .mk-cupom-wrap .cupom { margin: 0; border: none; }
-    /* FAB + puxador valem pro MK em qualquer tela (não só mobile). */
-    .mk-betting .cupom-fab { display: inline-flex; }
     .mk-betting .cupom-sheet-handle { display: flex; }
+    /* BARRA DO CUPOM — resumo bem visível embaixo (abre a gaveta ao clicar). */
+    .mk-betbar {
+      position: fixed; left: 50%; transform: translateX(-50%);
+      bottom: 16px; width: min(640px, calc(100vw - 24px)); z-index: 90;
+      display: flex; align-items: center; justify-content: space-between; gap: 14px;
+      padding: 11px 16px; cursor: pointer; font-family: inherit; text-align: left;
+      background: var(--pv-orange); color: var(--pv-bone);
+      border: 3px solid var(--pv-charcoal); box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      animation: mkBetbarPop 0.22s ease;
+    }
+    @keyframes mkBetbarPop { from { transform: translate(-50%, 12px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+    .mk-betbar:hover { background: var(--pv-charcoal); color: var(--pv-orange); }
+    .mk-betbar-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .mk-betbar-badge { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 18px; background: var(--pv-charcoal); color: var(--pv-bone); padding: 4px 11px; }
+    .mk-betbar:hover .mk-betbar-badge { background: var(--pv-orange); color: var(--pv-charcoal); }
+    .mk-betbar-info { display: flex; flex-direction: column; min-width: 0; }
+    .mk-betbar-title { font-weight: 800; font-size: 12px; letter-spacing: 0.06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mk-betbar-sub { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; opacity: 0.85; }
+    .mk-betbar-cta { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .mk-betbar-odd { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 20px; line-height: 1; }
+    .mk-betbar-go { display: inline-flex; align-items: center; gap: 5px; font-weight: 800; font-size: 11px; letter-spacing: 0.12em; }
+    @media (max-width: 460px) { .mk-betbar-sub { display: none; } .mk-betbar-go span, .mk-betbar { gap: 10px; } }
     .mk-bet-match { display: flex; align-items: flex-start; justify-content: center; gap: 10px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1.5px dashed rgba(28,22,18,0.2); }
     .mk-bm-side { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; flex: 1; }
     .mk-bm-side.right { align-items: flex-end; }
