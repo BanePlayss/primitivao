@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-polish ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-hide-done ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6830,6 +6830,12 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   const metrics = computeMkPlayerMetrics(insc, oddsMatches);
   const rd = draw ? draw[Math.min(betRound, draw.length - 1)] : null;
   const isOpen = !!rd && betRound === bettableIdx;
+  // Jogos que AINDA aparecem pra apostar: o confronto some da lista assim que
+  // o placar é lançado (acabou) — porque nem todo jogo da rodada rola no mesmo
+  // dia. Preserva o índice original (gi) pra não bagunçar gKey/legs.
+  const visibleGames = rd
+    ? rd.games.map((g, gi) => ({ g, gi })).filter(({ gi }) => !mkMatchOutcome((scores || {})[gKey(rd, gi)] || {}))
+    : [];
 
   const legKey = (gi, market) => (rd ? rd.phase + '-' + rd.n + '-' + gi + '-' + market : '');
   const pickInCupom = (gi, market, pick) => cupom.some(l => l.key === legKey(gi, market) && l.pick === pick);
@@ -6921,7 +6927,9 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                   </div>
                 )}
                 <div className="mk-bet-games">
-                  {rd.games.map((g, gi) => {
+                  {visibleGames.length === 0 ? (
+                    <div className="empty"><div className="e1">RODADA ENCERRADA</div><div className="e2">Todos os confrontos dessa rodada já terminaram.</div></div>
+                  ) : visibleGames.map(({ g, gi }) => {
                     const odds = computeMkGameOdds(g.home, g.away, metrics);
                     const ownGame = !!myNick && (g.home === myNick || g.away === myNick);
                     const scEntry = (scores || {})[gKey(rd, gi)] || null;
