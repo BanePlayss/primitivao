@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-mk-mercados ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-mk-cronometro ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -444,6 +444,24 @@ function mkMatchOutcome(sc) {
   return { p1h, p1a, p2h, p2a, confH, confA, roundsH, roundsA, total: roundsH + roundsA,
     winner: confH > confA ? 'H' : confH < confA ? 'A' : 'D' }; // D = empate (1×1)
 }
+
+// Apostas de UM confronto MK estão FECHADAS? Fecha por (a) trava manual `locked`
+// OU (b) cronômetro de fechamento `lockAt` (timestamp ms) já vencido. #4: o mod
+// pode iniciar uma contagem regressiva visível em vez de travar de uma vez.
+function mkGameClosed(scEntry, nowMs) {
+  if (!scEntry) return false;
+  if (scEntry.locked) return true;
+  const at = scEntry.lockAt;
+  return !!(at && (nowMs || Date.now()) >= at);
+}
+// Segundos restantes até o fechamento agendado (>0 só durante a contagem). 0 se
+// não há cronômetro ativo ou já fechou.
+function mkLockSecondsLeft(scEntry, nowMs) {
+  if (!scEntry || scEntry.locked || !scEntry.lockAt) return 0;
+  const left = Math.ceil((scEntry.lockAt - (nowMs || Date.now())) / 1000);
+  return left > 0 ? left : 0;
+}
+const MK_LOCK_COUNTDOWN_S = 30; // duração padrão do cronômetro de fechamento
 
 // Classificação — vitória 3, empate (1×1) 1, derrota 0. Desempate: pontos ->
 // saldo de rounds -> vitórias -> rounds pró -> nome. matches: [{home, away, sc}].
@@ -2362,7 +2380,7 @@ function App() {
         const someLocked = t.legs.some(l => {
           if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) {
             const gk = l.fixtureId.slice(3);
-            return !!(((remote.mk && remote.mk.scores) || {})[gk] || {}).locked;
+            return mkGameClosed(((remote.mk && remote.mk.scores) || {})[gk]);
           }
           const p = parseGameId(l.fixtureId);
           if (!p) return false;
@@ -2428,7 +2446,7 @@ function App() {
         // Jogo travado (em jogo) -> não pode cancelar.
         const locked = (t.legs || []).some(l => {
           const gk = (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) ? l.fixtureId.slice(3) : null;
-          return gk && !!(((remote.mk && remote.mk.scores) || {})[gk] || {}).locked;
+          return gk && mkGameClosed(((remote.mk && remote.mk.scores) || {})[gk]);
         });
         if (locked) return { __abort: true, result: { err: 'Não dá pra cancelar: jogo travado (em jogo).' } };
         const u = (remote.users || {})[t.user];
@@ -2947,7 +2965,7 @@ function App() {
                     bets={(bets || []).filter(b => b.champId === 'mk')}
                     onPlaceBet={placeMkBet}
                     onRemoveBet={removeMkBet}
-                    onToggleGameLock={toggleMkGameLock}
+                    onSetGameLock={setMkScoreField}
                     myNick={session.nick}
                     isAdmin={isAdmin} isMod={isMod}
                     balance={me?.pc ?? 0}
@@ -5606,7 +5624,7 @@ function TicketsView({ bets, gamesById, cs, mkScores, onCancel }) {
           const hasSettled = t.legs.some(l => !!l.result);
           const hasLocked  = t.legs.some(l => {
             if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) {
-              return !!((mkScores || {})[l.fixtureId.slice(3)] || {}).locked;
+              return mkGameClosed((mkScores || {})[l.fixtureId.slice(3)]);
             }
             const g = resolveGame(l.fixtureId);
             return !!(g && g.locked);
@@ -6695,7 +6713,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, 
 // compartilhados (App). Cupom = palpites da MESMA rodada (2+ = casada). Só dá
 // pra apostar na rodada ABERTA (a anterior tem que ter fechado).
 function mkLegLabel(l) { return mkPickLabel(l.market, l.pick); }
-function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onToggleGameLock, myNick, isAdmin, isMod, balance }) {
+function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, myNick, isAdmin, isMod, balance }) {
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
@@ -6706,6 +6724,17 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   const [cupom, setCupom] = useState([]);
   const [stake, setStake] = useState(10);
   useEffect(() => { if (bettableIdx >= 0) { setBetRound(bettableIdx); setCupom([]); } }, [bettableIdx]);
+  // Relógio que tica de 1 em 1s pro cronômetro de fechamento (#4): faz a contagem
+  // regressiva andar e fecha o jogo sozinho quando lockAt vence. Só tica se há
+  // algum cronômetro ativo — senão fica parado pra não re-renderizar à toa.
+  const [now, setNow] = useState(() => Date.now());
+  const anyCountdown = Object.values(scores || {}).some(s => s && s.lockAt && !s.locked && s.lockAt > now);
+  useEffect(() => {
+    if (!anyCountdown) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [anyCountdown]);
+  const fmtSecs = (s) => Math.floor(Math.max(0, s) / 60) + ':' + String(Math.max(0, s) % 60).padStart(2, '0');
 
   const oddsMatches = draw ? draw.flatMap((r, ri) => roundConcluded(ri)
     ? r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: (scores || {})[gKey(r, gi)] || {} }))
@@ -6719,7 +6748,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   const toggleLeg = (gi, g, market, pick, odd) => {
     if (!isOpen) return;
     if (myNick && (g.home === myNick || g.away === myNick)) { showToast('Você não pode apostar no próprio jogo.', 'error'); return; }
-    if (((scores || {})[gKey(rd, gi)] || {}).locked) { showToast('As apostas desse jogo estão travadas.', 'error'); return; }
+    if (mkGameClosed((scores || {})[gKey(rd, gi)], now)) { showToast('As apostas desse jogo estão travadas.', 'error'); return; }
     const key = legKey(gi, market);
     const ex = cupom.find(l => l.key === key);
     if (ex && ex.pick === pick) { setCupom(prev => prev.filter(l => l.key !== key)); return; } // desmarca
@@ -6787,11 +6816,14 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                   {rd.games.map((g, gi) => {
                     const odds = computeMkGameOdds(g.home, g.away, metrics);
                     const ownGame = !!myNick && (g.home === myNick || g.away === myNick);
-                    const gameLocked = !!((scores || {})[gKey(rd, gi)] || {}).locked;
+                    const scEntry = (scores || {})[gKey(rd, gi)] || null;
+                    const gameLocked = mkGameClosed(scEntry, now);
+                    const secsLeft = mkLockSecondsLeft(scEntry, now);
+                    const counting = secsLeft > 0;
                     const locked = !isOpen || ownGame || gameLocked;
                     const scoreMkt = (m) => m === 'RESULT' || m === 'P1' || m === 'P2';
                     return (
-                      <div key={gi} className={'mk-bet-game' + (ownGame ? ' own' : '') + (gameLocked ? ' locked' : '')}>
+                      <div key={gi} className={'mk-bet-game' + (ownGame ? ' own' : '') + (gameLocked ? ' locked' : '') + (counting && !gameLocked ? ' closing' : '')}>
                         <div className="mk-bet-match">
                           <span className="mk-bm-side"><span className="mk-bm-nick mand">@{g.home}</span><span className="mk-bm-role mand">MANDANTE</span></span>
                           <span className="mk-bm-vs">×</span>
@@ -6829,11 +6861,41 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                         })()}
                         {ownGame && <div className="mk-bet-own"><Icon name="lock" size={10} /> VOCÊ JOGA ESSE — não pode apostar</div>}
                         {gameLocked && !ownGame && <div className="mk-bet-own lock"><Icon name="lock" size={10} /> APOSTAS TRAVADAS</div>}
-                        {isMod && onToggleGameLock && (
+                        {/* #4: aviso de cronômetro pro APOSTADOR — última chamada antes de fechar */}
+                        {counting && !gameLocked && !ownGame && (
+                          <div className="mk-bet-countdown" role="timer" aria-live="polite">
+                            <Icon name="warning" size={12} />
+                            <span className="mk-cd-label">FECHA EM</span>
+                            <span className="mk-cd-time">{fmtSecs(secsLeft)}</span>
+                            <span className="mk-cd-hint">última chamada!</span>
+                          </div>
+                        )}
+                        {/* #4: controles do MOD — fechar com contagem, travar já, ou destravar */}
+                        {isMod && onSetGameLock && (
                           <div className="mk-bet-locktoggle">
-                            <button type="button" className={'mk-bet-lockbtn' + (gameLocked ? ' on' : '')} onClick={() => onToggleGameLock(gKey(rd, gi))}>
-                              <Icon name={gameLocked ? 'unlock' : 'lock'} size={11} /> {gameLocked ? 'DESTRAVAR APOSTAS' : 'TRAVAR APOSTAS'}
-                            </button>
+                            {gameLocked ? (
+                              <button type="button" className="mk-bet-lockbtn on" onClick={() => onSetGameLock(gKey(rd, gi), { locked: false, lockAt: null })}>
+                                <Icon name="unlock" size={11} /> DESTRAVAR APOSTAS
+                              </button>
+                            ) : counting ? (
+                              <>
+                                <button type="button" className="mk-bet-lockbtn ghost" onClick={() => onSetGameLock(gKey(rd, gi), { lockAt: null })}>
+                                  <Icon name="x" size={11} /> CANCELAR ({fmtSecs(secsLeft)})
+                                </button>
+                                <button type="button" className="mk-bet-lockbtn danger" onClick={() => onSetGameLock(gKey(rd, gi), { locked: true, lockAt: null })}>
+                                  <Icon name="lock" size={11} /> TRAVAR JÁ
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button type="button" className="mk-bet-lockbtn" onClick={() => onSetGameLock(gKey(rd, gi), { lockAt: Date.now() + MK_LOCK_COUNTDOWN_S * 1000, locked: false })}>
+                                  <Icon name="warning" size={11} /> FECHAR EM {MK_LOCK_COUNTDOWN_S}s
+                                </button>
+                                <button type="button" className="mk-bet-lockbtn danger" onClick={() => onSetGameLock(gKey(rd, gi), { locked: true, lockAt: null })}>
+                                  <Icon name="lock" size={11} /> TRAVAR JÁ
+                                </button>
+                              </>
+                            )}
                           </div>
                         )}
                         {MK_MARKETS.map(mkt => (

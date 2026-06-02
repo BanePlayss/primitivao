@@ -3363,12 +3363,23 @@
     .mk-bet-game { border: 2px solid var(--pv-charcoal); background: var(--pv-bone); padding: 10px 12px; }
     .mk-bet-game.own { opacity: 0.72; }
     .mk-bet-game.locked { border-color: #7a2222; }
+    .mk-bet-game.closing { border-color: var(--pv-orange); box-shadow: 0 0 0 2px rgba(215,100,20,0.18); }
     .mk-bet-own { display: flex; align-items: center; gap: 5px; margin-bottom: 9px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; color: #fff; background: var(--pv-charcoal); padding: 4px 8px; }
     .mk-bet-own.lock { background: #7a2222; }
-    .mk-bet-locktoggle { display: flex; justify-content: flex-end; margin-bottom: 9px; }
+    .mk-bet-locktoggle { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-bottom: 9px; }
     .mk-bet-lockbtn { display: inline-flex; align-items: center; gap: 6px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 9.5px; letter-spacing: 0.1em; padding: 5px 10px; border-radius: 4px; cursor: pointer; background: transparent; color: var(--pv-charcoal); border: 1.5px solid var(--pv-charcoal); }
     .mk-bet-lockbtn:hover { background: rgba(28,22,18,0.06); }
     .mk-bet-lockbtn.on { background: #7a2222; color: #fff; border-color: #7a2222; }
+    .mk-bet-lockbtn.danger { color: #7a2222; border-color: #7a2222; }
+    .mk-bet-lockbtn.danger:hover { background: #7a2222; color: #fff; }
+    .mk-bet-lockbtn.ghost { color: rgba(28,22,18,0.55); border-color: rgba(28,22,18,0.3); }
+    /* #4: aviso de fechamento (cronômetro) pro apostador — barra laranja pulsante */
+    .mk-bet-countdown { display: flex; align-items: center; gap: 6px; margin-bottom: 9px; padding: 5px 9px; border-radius: 5px; color: #fff; background: var(--pv-orange); font-weight: 800; animation: mkCdPulse 1s ease-in-out infinite; }
+    .mk-cd-label { font-size: 8.5px; letter-spacing: 0.08em; opacity: 0.9; }
+    .mk-cd-time { font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+    .mk-cd-hint { margin-left: auto; font-size: 8.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.92; }
+    @keyframes mkCdPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(215,100,20,0.5); } 50% { box-shadow: 0 0 0 4px rgba(215,100,20,0); } }
+    @media (prefers-reduced-motion: reduce) { .mk-bet-countdown { animation: none; } }
     /* cupom do MK = mesmo .card.cupom da FIFA, num wrapper sticky que cabe na tela */
     .mk-cupom-wrap { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; display: block; }
     .mk-cupom-wrap .cupom { margin: 0; }
