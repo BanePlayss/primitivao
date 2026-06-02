@@ -85,7 +85,7 @@
 //   - Bump ?v= no styles.css e apostas-app.compiled.js a cada mudança visível
 // =============================================================================
 
-const { useState, useEffect, useMemo, useRef } = React;
+const { useState, useEffect, useLayoutEffect, useMemo, useRef } = React;
 
 // ─── DADOS BASE ─────────────────────────────────────────────────────────────
 const TEAMS = [
@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-camp-glue2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-enter-mk ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1855,6 +1855,17 @@ function App() {
       setChampionship(firstActive);
     }
   }, [view, championship, session]);
+
+  // SEMPRE entrar em APOSTAS/CAMPEONATOS mostrando o campeonato ATIVO (MK). Ao
+  // NAVEGAR pra essas abas, a seleção volta pro ativo; já DENTRO de campeonatos
+  // ainda dá pra clicar num "em breve" pra ver/inscrever (a seleção fica até sair).
+  useLayoutEffect(() => {
+    if (view === 'apostas' || view === 'campeonatos') {
+      // ATIVO de verdade = champStatusFor (FIFA já encerrou, então é o MK).
+      const firstActive = (CHAMPIONSHIPS.find(c => champStatusFor(c, cs) === 'active') || CHAMPIONSHIPS[0]).id;
+      setChampionship(firstActive);
+    }
+  }, [view]);
 
   // Dados estáticos da Copa do Mundo 2026 (carregados de JSON).
   const [wcData, setWcData] = useState({ matches: [], teamsByName: {} });
