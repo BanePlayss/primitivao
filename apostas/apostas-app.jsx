@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-admin-bets ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-perfil-tabs ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -7192,6 +7192,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
 
 function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest }) {
   const [inscBusy, setInscBusy] = useState(null);
+  const [ptab, setPtab] = useState('resumo'); // sub-aba: resumo / time / trofeus / titulos / colecao
   const champLabel = (cid) => cid === 'copa'
     ? 'COPA DO MUNDO'
     : (CHAMP_BY_ID[cid] ? `${CHAMP_BY_ID[cid].tag} · ${CHAMP_BY_ID[cid].season}` : cid.toUpperCase());
@@ -7263,59 +7264,223 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
     : betKingChamps(nick, cs, bets).map(b => { const c = CHAMP_BY_ID[b.champId]; return { tag: c?.tag, season: c?.season }; });
   const showBetKing = betKingSeasons.length > 0;
 
+  // POSIÇÃO/RESULTADO no FIFA (campeonato do time). Mostra a colocação — final
+  // se encerrado, parcial se em andamento — pra refletir o fim da temporada.
+  const fifaTable = computeStandings(rounds);
+  const myPosIdx = myTeamId ? fifaTable.findIndex(s => s.id === myTeamId) : -1;
+  const myPos = myPosIdx >= 0 ? myPosIdx + 1 : 0;
+  const totalTeams = fifaTable.length || TEAMS.length;
+  const fifaClosed = computeChampStandings('fifa', cs).status === 'closed';
+  const posResult = (pos, total) => {
+    if (!pos) return null;
+    if (pos === 1) return { label: 'CAMPEÃO', color: '#c79a1e', icon: 'trophy' };
+    if (pos === 2) return { label: 'VICE-CAMPEÃO', color: '#7e8794', icon: 'medal' };
+    if (pos === 3) return { label: '3º LUGAR', color: '#b06a2c', icon: 'medal' };
+    if (pos === total) return { label: 'LANTERNA', color: '#9a3434', icon: 'toilet' };
+    if (pos === total - 1) return { label: 'PENÚLTIMO', color: '#6b4423', icon: 'toothbrush' };
+    return { label: pos + 'º LUGAR', color: 'rgba(28,22,18,0.6)', icon: 'shield' };
+  };
+  const myResult = myTeam ? posResult(myPos, totalTeams) : null;
+  const lucro = totalReturn - totalStake;
+  const resolved = wonBets.length + lostBets.length;
+  const aproveit = resolved ? Math.round((wonBets.length / resolved) * 100) : 0;
+  const earnedTitleCount = titlesForNick(nick, { bets, users, teamPlayers, cs, worldcup }).length;
+  const collectionCount = isAdmin ? 0 : effectiveInventory(nick, me, { bets, teamPlayers, cs, worldcup }).length;
+  const trophyCount = myTrophies.length + (showBetKing ? betKingSeasons.length : 0);
+
   return (
-    <div>
-      {/* HEADER COM AVATAR GRANDE */}
-      <div className="card" style={{ marginBottom: 14 }}>
-        <div className="card-head" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {myTeamId && <Avatar teamId={myTeamId} cosmetics={me?.cosmetics} size={120} className="profile-avatar" />}
-          <div>
-            <div className="title" style={{ fontSize: 24 }}>@{nick}</div>
-            <div className="sub">{isAdmin ? 'ADMIN' : `${me?.pc ?? 0} PC · ${ccBalanceFor(nick, me, { bets, users, teamPlayers, cs, worldcup, interests })} CC`}{myTeam ? ` · ${myTeam.name}` : ''}</div>
+    <div className="perfil">
+      {/* HEADER — sempre visível: avatar, nick, moedas e time/posição num cartão só */}
+      <div className="card perfil-head-card">
+        <div className="perfil-head">
+          {myTeamId
+            ? <Avatar teamId={myTeamId} cosmetics={me?.cosmetics} size={84} className="profile-avatar" />
+            : <div className="perfil-avatar-fallback">{String(nick).slice(0, 2).toUpperCase()}</div>}
+          <div className="perfil-id">
+            <div className="perfil-nick">@{nick}{me?.title && <TitleBadge titleId={me.title} />}</div>
+            <div className="perfil-meta">
+              {myTeam
+                ? <span className="perfil-team">{myTeam.name}</span>
+                : <span className="perfil-team none">{isAdmin ? 'ADMIN' : 'sem time'}</span>}
+              {myResult && (
+                <span className="perfil-pos" style={{ color: myResult.color, borderColor: myResult.color }}>
+                  <Icon name={myResult.icon} size={11} /> {myPos}º · {myResult.label}
+                </span>
+              )}
+            </div>
           </div>
+          {!isAdmin && (
+            <div className="perfil-coins">
+              <div className="perfil-coin"><span className="perfil-coin-v">{me?.pc ?? 0}</span><span className="perfil-coin-l">PC</span></div>
+              <div className="perfil-coin cc"><span className="perfil-coin-v">{ccBalanceFor(nick, me, { bets, users, teamPlayers, cs, worldcup, interests })}</span><span className="perfil-coin-l">CC</span></div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* MINHAS INSCRIÇÕES — cancela inscrição em campeonatos "em breve" daqui */}
-      {myInscriptions.length > 0 && (
-        <div className="card" style={{ marginBottom: 14 }}>
+      {/* SUB-ABAS — o essencial fica no RESUMO, sem precisar scrollar */}
+      <div className="tabs perfil-tabs">
+        <button className={'tab ' + (ptab === 'resumo' ? 'active' : '')} onClick={() => setPtab('resumo')}>RESUMO</button>
+        {myTeam && <button className={'tab ' + (ptab === 'time' ? 'active' : '')} onClick={() => setPtab('time')}>MEU TIME</button>}
+        <button className={'tab ' + (ptab === 'trofeus' ? 'active' : '')} onClick={() => setPtab('trofeus')}>TROFÉUS</button>
+        <button className={'tab ' + (ptab === 'titulos' ? 'active' : '')} onClick={() => setPtab('titulos')}>TÍTULOS</button>
+        {!isAdmin && <button className={'tab ' + (ptab === 'colecao' ? 'active' : '')} onClick={() => setPtab('colecao')}>COLEÇÃO</button>}
+      </div>
+
+      {/* ===== RESUMO ===== */}
+      {ptab === 'resumo' && (
+        <>
+          {!isAdmin && (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head"><div className="title">MINHAS APOSTAS</div><div className="sub">{myBets.length} TICKETS</div></div>
+              <div className="card-body">
+                <div className="perfil-stats">
+                  <Stat label="APOSTADO" value={`${totalStake} PC`} />
+                  <Stat label="RETORNO" value={`${totalReturn} PC`} accent />
+                  <Stat label="LUCRO" value={`${lucro >= 0 ? '+' : ''}${lucro} PC`} accent={lucro >= 0} />
+                  <Stat label="VITÓRIAS" value={wonBets.length} />
+                  <Stat label="DERROTAS" value={lostBets.length} />
+                  <Stat label="APROVEIT." value={`${aproveit}%`} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* DESTAQUES — contagem + atalho pras outras abas */}
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div className="card-head"><div className="title">DESTAQUES</div></div>
+            <div className="card-body">
+              <div className="perfil-hls">
+                <button type="button" className="perfil-hl" onClick={() => setPtab('trofeus')}><Icon name="trophy" size={20} /><span className="perfil-hl-v">{trophyCount}</span><span className="perfil-hl-l">TROFÉUS</span></button>
+                <button type="button" className="perfil-hl" onClick={() => setPtab('titulos')}><Icon name="star" size={20} /><span className="perfil-hl-v">{earnedTitleCount}</span><span className="perfil-hl-l">TÍTULOS</span></button>
+                {!isAdmin && <button type="button" className="perfil-hl" onClick={() => setPtab('colecao')}><Icon name="gift" size={20} /><span className="perfil-hl-v">{collectionCount}</span><span className="perfil-hl-l">COLEÇÃO</span></button>}
+                {myTeam && <button type="button" className="perfil-hl" onClick={() => setPtab('time')}><Icon name={myResult ? myResult.icon : 'shield'} size={20} /><span className="perfil-hl-v">{myPos ? myPos + 'º' : '—'}</span><span className="perfil-hl-l">FIFA</span></button>}
+              </div>
+            </div>
+          </div>
+
+          {/* MINHAS INSCRIÇÕES */}
+          {myInscriptions.length > 0 && (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div className="card-head">
+                <div className="title">MINHAS INSCRIÇÕES</div>
+                <div className="sub">{myInscriptions.length} {myInscriptions.length === 1 ? 'CAMPEONATO' : 'CAMPEONATOS'}</div>
+              </div>
+              <div className="card-body">
+                <div className="insc-list">
+                  {myInscriptions.map(cid => (
+                    <div key={cid} className="insc-row">
+                      <div className="insc-info">
+                        <span className="insc-tag">{champTag(cid)}</span>
+                        <span className="insc-name">{champLabel(cid)}</span>
+                      </div>
+                      <button type="button" className="insc-cancel" onClick={() => cancelInscription(cid)} disabled={inscBusy === cid}>
+                        {inscBusy === cid ? 'CANCELANDO…' : (<><Icon name="x" size={13} /> CANCELAR</>)}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ===== MEU TIME ===== */}
+      {ptab === 'time' && myTeam && (
+        <div className="card">
           <div className="card-head">
-            <div className="title">MINHAS INSCRIÇÕES</div>
-            <div className="sub">{myInscriptions.length} {myInscriptions.length === 1 ? 'CAMPEONATO' : 'CAMPEONATOS'}</div>
+            <div className="title">MEU TIME</div>
+            <div className="sub">{myTeam.name.toUpperCase()} · {myTeam.short}</div>
           </div>
           <div className="card-body">
-            <div className="insc-list">
-              {myInscriptions.map(cid => (
-                <div key={cid} className="insc-row">
-                  <div className="insc-info">
-                    <span className="insc-tag">{champTag(cid)}</span>
-                    <span className="insc-name">{champLabel(cid)}</span>
+            <div className="perfil-team-hero">
+              <TeamMini team={myTeam} size={72} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 28, lineHeight: 1 }}>{myTeam.name}</div>
+                {myResult && (
+                  <div className="perfil-team-result" style={{ color: myResult.color }}>
+                    <Icon name={myResult.icon} size={15} /> {myPos}º de {totalTeams} · {myResult.label}
                   </div>
-                  <button
-                    type="button"
-                    className="insc-cancel"
-                    onClick={() => cancelInscription(cid)}
-                    disabled={inscBusy === cid}
-                  >
-                    {inscBusy === cid ? 'CANCELANDO…' : (<><Icon name="x" size={13} /> CANCELAR</>)}
-                  </button>
-                </div>
-              ))}
+                )}
+                <div className="perfil-team-status">{fifaClosed ? <><Icon name="check" size={11} /> FIFA SEASON 1 · ENCERRADO</> : <>FIFA SEASON 1 · EM ANDAMENTO</>}</div>
+                {stand && (
+                  <div style={{ marginTop: 6, fontSize: 12, letterSpacing: '0.14em', fontWeight: 700, color: 'rgba(28,22,18,0.7)' }}>
+                    {stand.p} PTS · {stand.v}V {stand.e}E {stand.d}D · SG {(stand.gp - stand.gc) >= 0 ? '+' : ''}{stand.gp - stand.gc}
+                  </div>
+                )}
+              </div>
             </div>
+
+            <div className="mkt-label" style={{ marginTop: 14 }}>JOGOS DISPUTADOS ({played.length})</div>
+            {played.length === 0 && <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.5)', padding: '6px 2px' }}>Nenhum jogo ainda.</div>}
+            {played.map(g => <MatchRow key={`p-${g.ri}-${g.gi}`} g={g} myTeamId={myTeamId} />)}
+
+            <div className="mkt-label" style={{ marginTop: 16 }}>PRÓXIMOS JOGOS ({upcoming.length})</div>
+            {upcoming.length === 0 && <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.5)', padding: '6px 2px' }}>Nenhum jogo agendado.</div>}
+            {upcoming.map(g => <MatchRow key={`u-${g.ri}-${g.gi}`} g={g} myTeamId={myTeamId} />)}
           </div>
         </div>
       )}
 
-      {/* TÍTULOS */}
-      <TitulosCard
-        nick={nick}
-        ctx={{ bets, users, teamPlayers, cs, worldcup }}
-        selectedTitle={me?.title || null}
-        onSelectTitle={onSelectTitle}
-      />
+      {/* ===== TROFÉUS ===== */}
+      {ptab === 'trofeus' && (
+        <div className="card">
+          <div className="card-head">
+            <div className="title"><Icon name="trophy" size={16} /> MEUS TROFÉUS</div>
+            <div className="sub">{myTrophies.length ? myTrophies.length : (previewTrophies.length ? 'PRÉVIA' : 0)}</div>
+          </div>
+          <div className="card-body">
+            {previewTrophies.length > 0 && (
+              <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="lock" size={11} /> Prévia (admin): todos os troféus pra você conferir o visual. Cada jogador vê só os que conquistou.</div>
+            )}
+            {showBetKing && (
+              <div className="tr-betking">
+                <div className="tr-betking-art"><Icon name="tr-betking" size={42} /></div>
+                <div className="tr-betking-txt">
+                  <div className="tr-betking-label">REI DAS APOSTAS{betKingSeasons.length > 1 ? ` · ${betKingSeasons.length}` : ''}</div>
+                  <div className="tr-betking-eds">
+                    {betKingSeasons.map((s, i) => <span key={i} className="tr-betking-ed">{s.tag} · {s.season}</span>)}
+                  </div>
+                </div>
+              </div>
+            )}
+            {showTrophies.length === 0 ? (
+              !showBetKing && (
+                <div className="empty">
+                  <div className="e1">VITRINE VAZIA</div>
+                  <div className="e2">Você ainda não conquistou nenhum campeonato encerrado.</div>
+                </div>
+              )
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                {['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'].map(kind => {
+                  const group = showTrophies.filter(t => t.kind === kind);
+                  if (!group.length) return null;
+                  const editions = group.map(t => {
+                    const cc = CHAMP_BY_ID[t.champId];
+                    return { tag: t._tag || cc?.tag, season: t._season || cc?.season };
+                  });
+                  return <TrophyGroup key={kind} kind={kind} editions={editions} />;
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
-      {/* MINHA COLEÇÃO — molduras e distintivos desbloqueados, equipar daqui */}
-      {!isAdmin && (
+      {/* ===== TÍTULOS ===== */}
+      {ptab === 'titulos' && (
+        <TitulosCard
+          nick={nick}
+          ctx={{ bets, users, teamPlayers, cs, worldcup }}
+          selectedTitle={me?.title || null}
+          onSelectTitle={onSelectTitle}
+        />
+      )}
+
+      {/* ===== COLEÇÃO ===== */}
+      {ptab === 'colecao' && !isAdmin && (
         <ColecaoCard
           nick={nick}
           me={me}
@@ -7324,107 +7489,6 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
           onEquip={onEquip}
         />
       )}
-
-      {/* TIME */}
-      <div className="card" style={{ marginBottom: 14 }}>
-        <div className="card-head">
-          <div className="title">MEU TIME</div>
-          <div className="sub">{myTeam ? `${myTeam.name.toUpperCase()} · ${myTeam.short}` : 'NÃO VINCULADO'}</div>
-        </div>
-        <div className="card-body">
-          {!myTeam ? (
-            <div className="empty">
-              <div className="e1">SEM TIME VINCULADO</div>
-              <div className="e2">Peça pro admin te vincular a um time em ADMIN <Icon name="arrow-right" size={11} className="inl-arrow" /> TIMES.</div>
-            </div>
-          ) : (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14 }}>
-                <TeamMini team={myTeam} size={72} />
-                <div>
-                  <div style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 32, lineHeight: 1 }}>
-                    {myTeam.name}
-                  </div>
-                  {stand && (
-                    <div style={{ marginTop: 6, fontSize: 12, letterSpacing: '0.14em', fontWeight: 700, color: 'rgba(28,22,18,0.7)' }}>
-                      {stand.p} PTS · {stand.v}V {stand.e}E {stand.d}D · SG {(stand.gp - stand.gc) >= 0 ? '+' : ''}{stand.gp - stand.gc}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="mkt-label" style={{ marginTop: 12 }}>JOGOS DISPUTADOS ({played.length})</div>
-              {played.length === 0 && <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.5)', padding: '6px 2px' }}>Nenhum jogo ainda.</div>}
-              {played.map(g => <MatchRow key={`p-${g.ri}-${g.gi}`} g={g} myTeamId={myTeamId} />)}
-
-              <div className="mkt-label" style={{ marginTop: 16 }}>PRÓXIMOS JOGOS ({upcoming.length})</div>
-              {upcoming.length === 0 && <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.5)', padding: '6px 2px' }}>Nenhum jogo agendado.</div>}
-              {upcoming.map(g => <MatchRow key={`u-${g.ri}-${g.gi}`} g={g} myTeamId={myTeamId} />)}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* TROFÉUS */}
-      <div className="card" style={{ marginBottom: 14 }}>
-        <div className="card-head">
-          <div className="title"><Icon name="trophy" size={16} /> MEUS TROFÉUS</div>
-          <div className="sub">{myTrophies.length ? myTrophies.length : (previewTrophies.length ? 'PRÉVIA' : 0)}</div>
-        </div>
-        <div className="card-body">
-          {previewTrophies.length > 0 && (
-            <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="lock" size={11} /> Prévia (admin): todos os troféus pra você conferir o visual. Cada jogador vê só os que conquistou.</div>
-          )}
-          {/* REI DAS APOSTAS — um por SEASON, sempre separado dos de edição */}
-          {showBetKing && (
-            <div className="tr-betking">
-              <div className="tr-betking-art"><Icon name="tr-betking" size={42} /></div>
-              <div className="tr-betking-txt">
-                <div className="tr-betking-label">REI DAS APOSTAS{betKingSeasons.length > 1 ? ` · ${betKingSeasons.length}` : ''}</div>
-                <div className="tr-betking-eds">
-                  {betKingSeasons.map((s, i) => <span key={i} className="tr-betking-ed">{s.tag} · {s.season}</span>)}
-                </div>
-              </div>
-            </div>
-          )}
-          {showTrophies.length === 0 ? (
-            !showBetKing && (
-              <div className="empty">
-                <div className="e1">VITRINE VAZIA</div>
-                <div className="e2">Você ainda não conquistou nenhum campeonato encerrado.</div>
-              </div>
-            )
-          ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              {['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'].map(kind => {
-                const group = showTrophies.filter(t => t.kind === kind);
-                if (!group.length) return null;
-                const editions = group.map(t => {
-                  const cc = CHAMP_BY_ID[t.champId];
-                  return { tag: t._tag || cc?.tag, season: t._season || cc?.season };
-                });
-                return <TrophyGroup key={kind} kind={kind} editions={editions} />;
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* APOSTAS RESUMO */}
-      <div className="card">
-        <div className="card-head">
-          <div className="title">MINHAS APOSTAS</div>
-          <div className="sub">{myBets.length} TICKETS</div>
-        </div>
-        <div className="card-body">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-            <Stat label="APOSTADO" value={`${totalStake} PC`} />
-            <Stat label="RETORNO" value={`${totalReturn} PC`} accent />
-            <Stat label="VITÓRIAS" value={wonBets.length} />
-            <Stat label="DERROTAS" value={lostBets.length} />
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
