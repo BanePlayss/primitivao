@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-apostas-side ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-apostas-3col ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3002,10 +3002,15 @@ function App() {
                 CAMPEONATOS (e o cancelamento no MEU PERFIL). */}
             {view === 'apostas' && (
               <div className="champ-layout champ-layout--apostas">
-                <ChampSidebar value={apostasChampId} onChange={setChampionship} cs={cs} interests={interests || {}} mode="apostas" />
+                {/* ESQUERDA: onde apostar + MEUS TICKETS resuminho. */}
+                <div className="apostas-leftcol">
+                  <ChampSidebar value={apostasChampId} onChange={setChampionship} cs={cs} interests={interests || {}} mode="apostas" />
+                  {!isAdmin && (
+                    <TicketsMini bets={(bets || []).filter(b => b.user === session.nick && (b.champId || 'fifa') === apostasChampId)} limit={6} />
+                  )}
+                </div>
+                {/* CENTRO: a box de apostar grande (grid com todos os confrontos). */}
                 <div className="champ-main">
-                  <div className="apostas-cols">
-                  <div className="apostas-main">
                   {(apostasChampId === 'mk') ? (
                     // APOSTAS do MK (valendo PC). MK é ativo — todo mundo aposta aqui.
                     <>
@@ -3038,24 +3043,13 @@ function App() {
                   interests={interests || {}}
                 />
                   )}
-                  {/* MEUS ÚLTIMOS TICKETS — embaixo do apostar, na coluna principal. */}
-                  {!isAdmin && (
-                    <div style={{ marginTop: 16 }}>
-                      <TicketsView
-                        bets={(bets || []).filter(b => b.user === session.nick && (b.champId || 'fifa') === apostasChampId)}
-                        gamesById={gamesById} cs={cs} mkScores={mkScores} onCancel={cancelBet}
-                        limit={5} title="MEUS ÚLTIMOS TICKETS" />
-                    </div>
-                  )}
-                  </div>{/* /.apostas-main */}
-                  {/* RANKING DE APOSTAS do campeonato atual (por LUCRO), AO LADO do apostar.
-                      A CLASSIFICAÇÃO do campeonato em si mora em CAMPEONATOS. */}
-                  <aside className="apostas-side">
-                    <RankingView users={users} bets={bets} me={session.nick}
-                      teamPlayers={teamPlayers || {}} cs={cs} lockChamp={apostasChampId} />
-                  </aside>
-                  </div>{/* /.apostas-cols */}
                 </div>
+                {/* DIREITA: RANKING DE APOSTAS (compacto) do campeonato atual, por LUCRO.
+                    A CLASSIFICAÇÃO do campeonato em si mora em CAMPEONATOS. */}
+                <aside className="apostas-rankcol">
+                  <RankingView users={users} bets={bets} me={session.nick}
+                    teamPlayers={teamPlayers || {}} cs={cs} lockChamp={apostasChampId} compact />
+                </aside>
               </div>
             )}
 
@@ -5819,6 +5813,36 @@ function ChampStandingsCard({ champId, cs, users, teamPlayers, mkDraw, mkScores,
   );
 }
 
+// Versao MINI dos tickets pro trilho esquerdo (embaixo do ONDE APOSTAR): uma
+// linha por ticket — bolinha de status + tipo/odd + valor. Bem resumido.
+function TicketsMini({ bets, limit = 6 }) {
+  const sorted = [...(bets || [])].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, limit);
+  return (
+    <div className="tk-mini">
+      <div className="tk-mini-h">MEUS TICKETS</div>
+      {sorted.length === 0 ? (
+        <div className="tk-mini-empty">Você ainda não apostou aqui.</div>
+      ) : (
+        <div className="tk-mini-list">
+          {sorted.map(t => {
+            const st = t.status === 'won' ? 'won' : t.status === 'lost' ? 'lost' : 'open';
+            const multi = (t.legs || []).length > 1;
+            const lab = multi ? 'CASADA ' + t.legs.length + 'x' : 'SIMPLES';
+            const val = t.status === 'won' ? '+' + t.payout : t.status === 'lost' ? '-' + t.amount : '' + t.amount;
+            return (
+              <div key={t.id} className={'tk-mini-row ' + st} title={lab + ' @' + Number(t.combinedOdds || 0).toFixed(2)}>
+                <span className="tk-mini-dot" />
+                <span className="tk-mini-lab">{lab} <small>@{Number(t.combinedOdds || 0).toFixed(2)}</small></span>
+                <span className="tk-mini-val">{val}<small>PC</small></span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TicketsView({ bets, gamesById, cs, mkScores, onCancel, limit, title }) {
   if (bets.length === 0) {
     return <div className="card"><div className="card-head"><div className="title">{title || 'MEUS TICKETS'}</div></div><div className="card-body"><div className="empty">
@@ -8056,7 +8080,7 @@ function Stat({ label, value, accent }) {
 // ─── RANKING (apostadores por PC) ───────────────────────────────────────────
 // RANKING DE APOSTAS — POR SEASON. Cada campeonato (FIFA S1, MK S1...) tem o seu
 // ranking, por LUCRO nas apostas daquela season. Seasons encerradas viram histórico.
-function RankingView({ users, bets, me, teamPlayers, cs, lockChamp }) {
+function RankingView({ users, bets, me, teamPlayers, cs, lockChamp, compact }) {
   const withBets = new Set((bets || []).map(b => b.champId || 'fifa'));
   const champList = CHAMPIONSHIPS
     .filter(c => c.status === 'active' || withBets.has(c.id))
@@ -8091,14 +8115,14 @@ function RankingView({ users, bets, me, teamPlayers, cs, lockChamp }) {
         {ranking.length === 0 ? (
           <div className="empty"><div className="e1">SEM APOSTAS</div><div className="e2">Ninguém apostou em {champ.tag} · {champ.season} ainda.</div></div>
         ) : (
-          <div className="rank-list">
+          <div className={'rank-list' + (compact ? ' rank-list--mini' : '')}>
             {ranking.map((r, i) => {
               const u = users[r.nick] || {};
               const rei = i === 0 && (r.lucro > 0 || r.vit > 0);
               return (
                 <div key={r.nick} className={'lb-row rank-row' + (r.nick === me ? ' me' : '') + (rei ? ' rei' : '')} style={{ gridTemplateColumns: '34px 42px 1fr auto', gap: 10 }}>
                   <div className="lb-pos">{rei ? <Icon name="tr-betking" size={20} /> : i + 1}</div>
-                  <Avatar nick={r.nick} teamPlayers={teamPlayers} cosmetics={u.cosmetics || {}} size={42} />
+                  <Avatar nick={r.nick} teamPlayers={teamPlayers} cosmetics={u.cosmetics || {}} size={compact ? 32 : 42} />
                   <div style={{ minWidth: 0 }}>
                     <div className="lb-nick">@{r.nick}{u.title && <TitleBadge titleId={u.title} />}{rei && <span className="rank-rei-tag">REI</span>}</div>
                     <div className="rank-row-stats">{r.apostas} apostas · <span style={{ color: 'var(--pv-green)' }}>{r.vit}V</span> · <span style={{ color: 'var(--pv-red)' }}>{r.der}D</span>{r.pend ? ' · ' + r.pend + ' aberta' + (r.pend > 1 ? 's' : '') : ''}</div>

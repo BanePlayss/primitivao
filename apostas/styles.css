@@ -762,15 +762,6 @@
     .ap-nick { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 19px; line-height: 1.05; margin-top: 6px; word-break: break-word; text-align: center; }
     .ap-title { display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.07em; color: var(--ap-accent); background: rgba(14,10,6,0.5); border: 1.5px solid var(--ap-accent); padding: 4px 10px; border-radius: 999px; text-align: center; text-transform: uppercase; }
     .ap-title > svg { color: var(--ap-accent); flex-shrink: 0; }
-    /* APOSTAS: apostar (+ tickets) na coluna principal, RANKING DE APOSTAS ao lado
-       direito. Mobile-first empilha; desktop largo (>=1200px) fica lado a lado. */
-    .apostas-cols { display: flex; flex-direction: column; gap: 16px; }
-    .apostas-main, .apostas-side { min-width: 0; }
-    @media (min-width: 1200px) {
-      .apostas-cols { flex-direction: row; align-items: flex-start; }
-      .apostas-main { flex: 1 1 auto; }
-      .apostas-side { flex: 0 0 318px; max-width: 318px; }
-    }
     .ap-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
     .ap-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 9px 3px; background: rgba(28,22,18,0.05); border: 1.5px solid rgba(28,22,18,0.12); }
     .ap-stat > svg { color: var(--pv-orange); }
@@ -960,9 +951,13 @@
     .champ-layout { display: grid; grid-template-columns: 218px minmax(0,1fr); gap: 18px; align-items: start; }
     /* APOSTAS divide espaço com o cupom (300px) + a nav principal — então o trilho
        é mais estreito (poucos itens, labels curtas) pra não espremer os jogos. */
-    .champ-layout--apostas { grid-template-columns: 168px minmax(0,1fr); gap: 14px; }
+    .champ-layout--apostas { grid-template-columns: 188px minmax(0,1fr) 248px; gap: 14px; }
     .champ-main { min-width: 0; }
     .champ-main > .champ-header { display: none; } /* desktop: o sidebar substitui o switcher */
+    /* APOSTAS em 3 colunas: [ONDE APOSTAR + tickets] [apostar grande] [ranking]. */
+    .apostas-leftcol { display: flex; flex-direction: column; gap: 12px; min-width: 0; position: sticky; top: 12px; align-self: start; }
+    .apostas-leftcol .champ-sidebar { position: static; top: auto; }
+    .apostas-rankcol { min-width: 0; position: sticky; top: 12px; align-self: start; }
     .champ-sidebar { position: sticky; top: 12px; align-self: start; background: var(--pv-charcoal); color: var(--pv-bone); padding: 12px 10px; }
     .champ-sidebar-h { display: flex; align-items: center; gap: 7px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 10px; letter-spacing: 0.18em; color: var(--pv-orange); padding: 2px 6px 12px; }
     .champ-grp { margin-bottom: 14px; }
@@ -991,8 +986,11 @@
        largura — senão a área de jogos fica espremida. Abaixo disso, volta o
        ChampHeader (dropdown) como switcher. */
     @media (max-width: 1179px) {
-      .champ-layout--apostas { display: block; }
+      .champ-layout--apostas { display: flex; flex-direction: column; gap: 16px; }
       .champ-layout--apostas .champ-sidebar { display: none; }
+      .champ-layout--apostas .apostas-leftcol { position: static; order: 2; }
+      .champ-layout--apostas .apostas-rankcol { position: static; order: 3; }
+      .champ-layout--apostas .champ-main { order: 1; }
       .champ-layout--apostas .champ-main > .champ-header { display: block; }
     }
 
@@ -1285,6 +1283,33 @@
     .rank-lucro { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 17px; text-align: right; white-space: nowrap; }
     .rank-lucro small { font-family: 'Space Grotesk', sans-serif; font-size: 9px; letter-spacing: 0.2em; margin-left: 3px; opacity: 0.7; }
     .rank-rei-tag { margin-left: 6px; font-family: 'Space Grotesk', sans-serif; font-size: 8px; font-weight: 800; letter-spacing: 0.12em; color: #fff; background: #d4af37; padding: 1px 5px; border-radius: 3px; vertical-align: middle; }
+    /* RANKING compacto (coluna direita estreita das apostas). */
+    .rank-list--mini .rank-row { grid-template-columns: 22px 32px 1fr auto !important; gap: 8px !important; padding-top: 6px; padding-bottom: 6px; }
+    .rank-list--mini .lb-nick { font-size: 11.5px; display: flex; align-items: center; }
+    .rank-list--mini .lb-nick > span { display: none; } /* esconde badge de titulo + tag REI no estreito */
+    .rank-list--mini .rank-row-stats { font-size: 9px; }
+    .rank-list--mini .rank-lucro { font-size: 13px; }
+    .rank-list--mini .rank-lucro small { font-size: 7px; margin-left: 2px; }
+    /* coluna estreita: cabecalho do card empilha (titulo em cima, sub embaixo) e
+       o corpo perde um pouco de padding pra caber sem estourar os 248px. */
+    .apostas-rankcol .card-head { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+    .apostas-rankcol .card-body { padding-left: 10px; padding-right: 10px; }
+    /* MEUS TICKETS resumido (embaixo do ONDE APOSTAR, trilho esquerdo). */
+    .tk-mini { background: var(--pv-charcoal); color: var(--pv-bone); padding: 10px 10px 9px; }
+    .tk-mini-h { font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 10px; letter-spacing: 0.18em; color: var(--pv-orange); padding: 0 2px 9px; }
+    .tk-mini-empty { font-size: 10.5px; color: rgba(244,234,215,0.5); padding: 2px 2px 4px; line-height: 1.4; }
+    .tk-mini-list { display: flex; flex-direction: column; gap: 4px; }
+    .tk-mini-row { display: grid; grid-template-columns: 8px 1fr auto; gap: 7px; align-items: center; padding: 5px 7px; background: rgba(244,234,215,0.05); border-left: 2px solid rgba(244,234,215,0.22); }
+    .tk-mini-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(244,234,215,0.4); }
+    .tk-mini-row.won { border-left-color: var(--pv-green); } .tk-mini-row.won .tk-mini-dot { background: var(--pv-green); }
+    .tk-mini-row.lost { border-left-color: var(--pv-red); } .tk-mini-row.lost .tk-mini-dot { background: var(--pv-red); }
+    .tk-mini-row.open { border-left-color: var(--pv-orange); } .tk-mini-row.open .tk-mini-dot { background: var(--pv-orange); }
+    .tk-mini-lab { font-size: 10px; font-weight: 800; letter-spacing: 0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tk-mini-lab small { font-weight: 700; color: rgba(244,234,215,0.55); margin-left: 2px; }
+    .tk-mini-val { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 12px; white-space: nowrap; }
+    .tk-mini-row.won .tk-mini-val { color: var(--pv-green); }
+    .tk-mini-row.lost .tk-mini-val { color: var(--pv-red); }
+    .tk-mini-val small { font-family: 'Space Grotesk', sans-serif; font-size: 7.5px; letter-spacing: 0.12em; margin-left: 2px; opacity: 0.6; }
     .rank-foot { margin-top: 12px; padding-top: 10px; border-top: 1.5px dashed rgba(28,22,18,0.18); font-size: 10.5px; font-weight: 600; color: rgba(28,22,18,0.6); line-height: 1.4; display: flex; align-items: flex-start; gap: 6px; }
     .rank-foot svg { color: #d4af37; flex-shrink: 0; margin-top: 1px; }
     .lb-pc {
