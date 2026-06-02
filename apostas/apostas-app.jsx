@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-apostas-3col ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-apostas-rk2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3006,7 +3006,7 @@ function App() {
                 <div className="apostas-leftcol">
                   <ChampSidebar value={apostasChampId} onChange={setChampionship} cs={cs} interests={interests || {}} mode="apostas" />
                   {!isAdmin && (
-                    <TicketsMini bets={(bets || []).filter(b => b.user === session.nick && (b.champId || 'fifa') === apostasChampId)} limit={6} />
+                    <TicketsMini bets={(bets || []).filter(b => b.user === session.nick && (b.champId || 'fifa') === apostasChampId)} limit={6} onOpen={() => setView('tickets')} />
                   )}
                 </div>
                 {/* CENTRO: a box de apostar grande (grid com todos os confrontos). */}
@@ -5815,29 +5815,37 @@ function ChampStandingsCard({ champId, cs, users, teamPlayers, mkDraw, mkScores,
 
 // Versao MINI dos tickets pro trilho esquerdo (embaixo do ONDE APOSTAR): uma
 // linha por ticket — bolinha de status + tipo/odd + valor. Bem resumido.
-function TicketsMini({ bets, limit = 6 }) {
+function TicketsMini({ bets, limit = 6, onOpen }) {
   const sorted = [...(bets || [])].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, limit);
+  const total = (bets || []).length;
   return (
     <div className="tk-mini">
-      <div className="tk-mini-h">MEUS TICKETS</div>
+      <button type="button" className="tk-mini-h" onClick={onOpen}>
+        <span>MEUS TICKETS</span><Icon name="chevron-right" size={12} />
+      </button>
       {sorted.length === 0 ? (
         <div className="tk-mini-empty">Você ainda não apostou aqui.</div>
       ) : (
-        <div className="tk-mini-list">
-          {sorted.map(t => {
-            const st = t.status === 'won' ? 'won' : t.status === 'lost' ? 'lost' : 'open';
-            const multi = (t.legs || []).length > 1;
-            const lab = multi ? 'CASADA ' + t.legs.length + 'x' : 'SIMPLES';
-            const val = t.status === 'won' ? '+' + t.payout : t.status === 'lost' ? '-' + t.amount : '' + t.amount;
-            return (
-              <div key={t.id} className={'tk-mini-row ' + st} title={lab + ' @' + Number(t.combinedOdds || 0).toFixed(2)}>
-                <span className="tk-mini-dot" />
-                <span className="tk-mini-lab">{lab} <small>@{Number(t.combinedOdds || 0).toFixed(2)}</small></span>
-                <span className="tk-mini-val">{val}<small>PC</small></span>
-              </div>
-            );
-          })}
-        </div>
+        <>
+          <div className="tk-mini-list">
+            {sorted.map(t => {
+              const st = t.status === 'won' ? 'won' : t.status === 'lost' ? 'lost' : 'open';
+              const multi = (t.legs || []).length > 1;
+              const lab = multi ? 'CASADA ' + t.legs.length + 'x' : 'SIMPLES';
+              const val = t.status === 'won' ? '+' + t.payout : t.status === 'lost' ? '-' + t.amount : '' + t.amount;
+              return (
+                <button type="button" key={t.id} className={'tk-mini-row ' + st} onClick={onOpen} title="ver detalhes / cancelar no MEUS TICKETS">
+                  <span className="tk-mini-dot" />
+                  <span className="tk-mini-lab">{lab} <small>@{Number(t.combinedOdds || 0).toFixed(2)}</small></span>
+                  <span className="tk-mini-val">{val}<small>PC</small></span>
+                </button>
+              );
+            })}
+          </div>
+          <button type="button" className="tk-mini-all" onClick={onOpen}>
+            VER TODOS{total > limit ? ' (' + total + ')' : ''} · CANCELAR <Icon name="chevron-right" size={11} />
+          </button>
+        </>
       )}
     </div>
   );
@@ -8122,7 +8130,7 @@ function RankingView({ users, bets, me, teamPlayers, cs, lockChamp, compact }) {
               return (
                 <div key={r.nick} className={'lb-row rank-row' + (r.nick === me ? ' me' : '') + (rei ? ' rei' : '')} style={{ gridTemplateColumns: '34px 42px 1fr auto', gap: 10 }}>
                   <div className="lb-pos">{rei ? <Icon name="tr-betking" size={20} /> : i + 1}</div>
-                  <Avatar nick={r.nick} teamPlayers={teamPlayers} cosmetics={u.cosmetics || {}} size={compact ? 32 : 42} />
+                  <Avatar nick={r.nick} teamPlayers={teamPlayers} cosmetics={u.cosmetics || {}} size={compact ? 36 : 42} />
                   <div style={{ minWidth: 0 }}>
                     <div className="lb-nick">@{r.nick}{u.title && <TitleBadge titleId={u.title} />}{rei && <span className="rank-rei-tag">REI</span>}</div>
                     <div className="rank-row-stats">{r.apostas} apostas · <span style={{ color: 'var(--pv-green)' }}>{r.vit}V</span> · <span style={{ color: 'var(--pv-red)' }}>{r.der}D</span>{r.pend ? ' · ' + r.pend + ' aberta' + (r.pend > 1 ? 's' : '') : ''}</div>
