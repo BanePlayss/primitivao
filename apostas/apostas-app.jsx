@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-bet-modes ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-polish ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6884,7 +6884,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
           <div className="empty"><div className="e1">SEM SORTEIO AINDA</div><div className="e2">O admin sorteia as rodadas em CAMPEONATOS → MK. Aí as odds aparecem aqui.</div></div>
         ) : (
           <>
-            <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="coin" size={11} /> Apostas valendo <strong>PC</strong>. Casada combina palpites da <strong>mesma rodada</strong>; só dá pra apostar na rodada <strong>aberta</strong> (a anterior precisa ter fechado). Não dá pra apostar no próprio jogo.</div>
+            <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="coin" size={11} /> Valendo <strong>PC</strong> · só na rodada <strong>aberta</strong> · você não aposta no próprio jogo.</div>
             <div className="mk-bet-layout">
               <div className="mk-bet-main">
                 <div className="mk-rnav mk-bet-nav">
@@ -7043,7 +7043,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                     {cupom.length === 0 ? (
                       <div className="empty">
                         <div className="e1">VAZIO</div>
-                        <div className="e2">Clica nas odds da rodada aberta pra montar. Vários palpites do mesmo jogo (ou jogos diferentes da rodada) = aposta casada.</div>
+                        <div className="e2">Clica nas odds pra montar. 2+ palpites da rodada = casada.</div>
                       </div>
                     ) : (<>
                       {cupom.map(l => (
