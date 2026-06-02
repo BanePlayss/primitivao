@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-apostas-rail ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-bet-modes ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6796,6 +6796,21 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   const [betRound, setBetRound] = useState(0);
   const [cupom, setCupom] = useState([]);
   const [stake, setStake] = useState(10);
+  // #8: dois modos de apostador. SIMPLES (padrão) mostra só o VENCEDOR (quem
+  // ganha o confronto) — menos informação pro apostador casual. AVANÇADO abre
+  // todos os mercados (placares por partida, total de rounds, finalização,
+  // flawless). A escolha fica salva no localStorage.
+  const [betMode, setBetMode] = useState(() => {
+    try { return localStorage.getItem('mk_bet_mode') === 'avancado' ? 'avancado' : 'simples'; } catch (_) { return 'simples'; }
+  });
+  const chooseBetMode = (m) => {
+    setBetMode(m);
+    try { localStorage.setItem('mk_bet_mode', m); } catch (_) {}
+    // Ao entrar no SIMPLES, tira do cupom os palpites de mercados avançados que
+    // somem da tela — senão ficariam "fantasmas" (visíveis só no cupom).
+    if (m === 'simples') setCupom(prev => prev.filter(l => l.market === 'VENC'));
+  };
+  const visibleMarkets = betMode === 'avancado' ? MK_MARKETS : MK_MARKETS.filter(m => m === 'VENC');
   useEffect(() => { if (bettableIdx >= 0) { setBetRound(bettableIdx); setCupom([]); } }, [bettableIdx]);
   // Relógio que tica de 1 em 1s pro cronômetro de fechamento (#4): faz a contagem
   // regressiva andar e fecha o jogo sozinho quando lockAt vence. Só tica se há
@@ -6879,6 +6894,26 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                     <div className="mk-rnav-count">{betRound + 1} <span>/ {draw.length}</span></div>
                   </div>
                   <button className="mk-rnav-btn" onClick={() => setBetRound(v => Math.min(draw.length - 1, v + 1))} disabled={betRound === draw.length - 1} aria-label="Próxima rodada"><Icon name="chevron-right" size={18} /></button>
+                </div>
+                {/* #8: modo do apostador — SIMPLES (só quem vence) x AVANÇADO (tudo) */}
+                <div className="mk-bet-mode" role="tablist" aria-label="Modo de aposta">
+                  <div className="mk-bet-mode-tabs">
+                    <button type="button" role="tab" aria-selected={betMode === 'simples'}
+                      className={'mk-bet-mode-btn' + (betMode === 'simples' ? ' on' : '')}
+                      onClick={() => chooseBetMode('simples')}>
+                      <Icon name="target" size={11} /> SIMPLES
+                    </button>
+                    <button type="button" role="tab" aria-selected={betMode === 'avancado'}
+                      className={'mk-bet-mode-btn' + (betMode === 'avancado' ? ' on' : '')}
+                      onClick={() => chooseBetMode('avancado')}>
+                      <Icon name="chart" size={11} /> AVANÇADO
+                    </button>
+                  </div>
+                  <span className="mk-bet-mode-hint">
+                    {betMode === 'simples'
+                      ? 'Só quem vence o confronto. Casada = junta vencedores.'
+                      : 'Tudo: placares, total de rounds, finalização e flawless.'}
+                  </span>
                 </div>
                 {!isOpen && (
                   <div className="mk-bet-closed">
@@ -6971,7 +7006,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             )}
                           </div>
                         )}
-                        {MK_MARKETS.map(mkt => (
+                        {visibleMarkets.map(mkt => (
                           <div key={mkt} className="mk-bet-mkt">
                             <div className="mk-bet-mkt-h">{MK_MARKET_TITLE[mkt]}</div>
                             <div className="mk-bet-picks">
