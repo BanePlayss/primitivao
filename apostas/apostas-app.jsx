@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-titulos-apostas ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-admin-bets ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2457,6 +2457,31 @@ function App() {
     } catch (e) { console.warn('removeMkBet failed', e); }
   };
 
+  // ADMIN/MOD: ANULAR uma aposta (qualquer usuário, qualquer status). Pro caso
+  // de WO/jogo cancelado: desfaz o efeito financeiro (devolve o valor apostado
+  // e, se já tinha ganho, estorna o prêmio) e remove o cupom. Funciona pra FIFA
+  // e MK, ignorando trava/liquidação (é override de moderação). Como remove do
+  // array, a liquidação automática não recria nem reaplica nada.
+  const adminVoidBet = async (ticketId) => {
+    const me = session && session.nick;
+    if (!me || !(me === ADMIN_NICK || MOD_NICKS.includes(me))) return { err: 'Sem permissão.' };
+    try {
+      const res = await commitBetDocUpdate(remote => {
+        const t = (remote.bets || []).find(b => b.id === ticketId);
+        if (!t) return { __abort: true, result: { err: 'Aposta não encontrada.' } };
+        // Desfaz o efeito no saldo: ao apostar foi -amount; se ganhou foi +payout.
+        // pending/lost -> devolve amount; won -> devolve amount e estorna payout.
+        const delta = t.status === 'won' ? ((t.amount || 0) - (t.payout || 0)) : (t.amount || 0);
+        const users = { ...remote.users };
+        const u = users[t.user];
+        if (u) users[t.user] = { ...u, pc: Math.max(0, (u.pc || 0) + delta) };
+        const bets = (remote.bets || []).filter(b => b.id !== ticketId);
+        return { ...remote, users, bets };
+      });
+      return res || { ok: true };
+    } catch (e) { console.warn('adminVoidBet failed', e); return { err: 'Falha ao anular.' }; }
+  };
+
   // ── INSCRIÇÕES (campeonatos "em breve") ───────────────────────────────────
   // Transação atômica direto no Firestore — evita race com outras escritas
   // que poderiam sobrescrever a lista de inscritos. Local state atualiza
@@ -3084,7 +3109,7 @@ function App() {
                 splitCurrency={splitCurrency} ccCtx={ccCtx}
                 teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
                 discordWebhook={discordWebhook} remoteNews={remoteNews}
-                cs={cs} weeklyReady={weeklyReady}
+                cs={cs} weeklyReady={weeklyReady} onVoidBet={adminVoidBet}
                 worldcup={worldcup} wcFixtures={wcData.matches}
               />
             )}
@@ -9690,7 +9715,118 @@ function CatalogoAdminPanel({ cs, teamPlayers }) {
   );
 }
 
-function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, splitCurrency, ccCtx, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, weeklyReady, worldcup, wcFixtures }) {
+// ADMIN/MOD: lista TODAS as apostas (todos os usuários) com filtro por jogador,
+// jogo e status, e botão pra ANULAR (devolve o valor; estorna prêmio se ganhou).
+// Pro caso de WO / jogo cancelado (ex: o cara não apareceu).
+function AdminBetsPanel({ bets, users, teamPlayers, cs, onVoidBet }) {
+  const [statusF, setStatusF] = useState('all');
+  const [champF, setChampF] = useState('all');
+  const [q, setQ] = useState('');
+  const [busyId, setBusyId] = useState(null);
+
+  const legMatchup = (l) => {
+    if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) return '@' + l.home + ' x @' + l.away;
+    const p = parseGameId(l.fixtureId);
+    if (p && cs && cs.rounds && cs.rounds[p.ri] && cs.rounds[p.ri][p.gi]) {
+      const g = cs.rounds[p.ri][p.gi];
+      return '@' + ((teamPlayers || {})[g.home] || g.home) + ' x @' + ((teamPlayers || {})[g.away] || g.away);
+    }
+    return l.fixtureId || '?';
+  };
+  const legText = (l) => {
+    const isMk = typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0;
+    if (isMk) return (MK_MARKET_TITLE[l.market] || l.market) + ' ' + mkPickLabel(l.market, l.pick);
+    return (l.market || '') + ' ' + (l.pick || '');
+  };
+  const searchable = (b) => {
+    const parts = [b.user];
+    (b.legs || []).forEach(l => {
+      if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) { parts.push(l.home, l.away); }
+      else { const p = parseGameId(l.fixtureId); if (p && cs && cs.rounds && cs.rounds[p.ri] && cs.rounds[p.ri][p.gi]) { const g = cs.rounds[p.ri][p.gi]; parts.push((teamPlayers || {})[g.home] || g.home, (teamPlayers || {})[g.away] || g.away); } }
+    });
+    return parts.filter(Boolean).join(' ').toLowerCase();
+  };
+
+  const qq = q.trim().toLowerCase();
+  const list = (bets || [])
+    .filter(b => b.user !== 'admin')
+    .filter(b => statusF === 'all' || (b.status || 'pending') === statusF)
+    .filter(b => champF === 'all' || (b.champId || 'fifa') === champF)
+    .filter(b => !qq || searchable(b).includes(qq))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  const doVoid = async (b) => {
+    const head = b.status === 'won' ? 'ANULAR (estorna o prêmio)' : b.status === 'lost' ? 'ANULAR (devolve o valor)' : 'CANCELAR (devolve o valor)';
+    const extra = b.status === 'won'
+      ? '\n\nATENÇÃO: essa aposta JÁ GANHOU. Anular ESTORNA o prêmio (' + (b.payout || 0) + ' PC) e devolve o valor apostado (' + (b.amount || 0) + ' PC).'
+      : '\n\nDevolve ' + (b.amount || 0) + ' PC pro @' + b.user + '.';
+    if (!window.confirm(head + ' — aposta de @' + b.user + '?' + extra)) return;
+    setBusyId(b.id);
+    try {
+      const r = await onVoidBet(b.id);
+      if (r && r.err) showToast(r.err, 'error');
+      else showToast('Aposta anulada — valor devolvido pro @' + b.user + '.', 'success');
+    } finally { setBusyId(null); }
+  };
+
+  const fld = { padding: '6px 10px', fontWeight: 700, fontSize: 12 };
+  return (
+    <div className="card">
+      <div className="card-head">
+        <div className="title">TODAS AS APOSTAS</div>
+        <div className="sub">{list.length} {list.length === 1 ? 'CUPOM' : 'CUPONS'}</div>
+      </div>
+      <div className="card-body">
+        <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="shield" size={12} /> Anular devolve o valor apostado (e estorna o prêmio, se já tinha ganho). Use pra WO / jogo cancelado.</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="buscar jogador (ex: caco)" style={{ ...fld, flex: 1, minWidth: 140 }} />
+          <select value={champF} onChange={e => setChampF(e.target.value)} style={fld}>
+            <option value="all">Todos os jogos</option>
+            <option value="fifa">FIFA</option>
+            <option value="mk">MK</option>
+          </select>
+          <select value={statusF} onChange={e => setStatusF(e.target.value)} style={fld}>
+            <option value="all">Todos os status</option>
+            <option value="pending">Em aberto</option>
+            <option value="won">Ganhas</option>
+            <option value="lost">Perdidas</option>
+          </select>
+        </div>
+        {list.length === 0 ? (
+          <div className="empty"><div className="e1">NENHUMA APOSTA</div><div className="e2">Ajusta os filtros aí em cima.</div></div>
+        ) : list.map(b => {
+          const st = b.status || 'pending';
+          const stLabel = st === 'won' ? 'GANHOU +' + (b.payout || 0) : st === 'lost' ? 'PERDEU' : 'EM ABERTO';
+          const stColor = st === 'won' ? '#3a7d2a' : st === 'lost' ? '#c33' : 'var(--pv-orange)';
+          const champTag = (b.champId || 'fifa') === 'mk' ? 'MK' : 'FIFA';
+          return (
+            <div key={b.id} className="lb-row" style={{ gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', borderLeft: '3px solid ' + stColor, paddingLeft: 8 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <span className="lb-nick">@{b.user}</span>
+                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: 'var(--pv-orange)' }}>{champTag}</span>
+                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: stColor }}>{stLabel}</span>
+                  {b.legs && b.legs.length > 1 && <span style={{ fontSize: 9, fontWeight: 700, color: 'rgba(28,22,18,0.5)' }}>CASADA {b.legs.length}</span>}
+                </div>
+                <div style={{ fontSize: 11, color: 'rgba(28,22,18,0.7)', marginTop: 2 }}>
+                  {(b.legs || []).map((l, i) => (
+                    <div key={i} style={{ fontWeight: 600 }}>{legMatchup(l)} <span style={{ color: 'rgba(28,22,18,0.45)' }}>· {legText(l)}</span></div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', color: 'rgba(28,22,18,0.55)', marginTop: 2 }}>{b.amount} PC @ {Number(b.combinedOdds || 0).toFixed(2)}</div>
+              </div>
+              <button onClick={() => doVoid(b)} disabled={busyId === b.id} style={{ padding: '7px 12px', fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', background: 'transparent', border: '1.5px solid #c33', color: '#c33', cursor: busyId === b.id ? 'wait' : 'pointer', whiteSpace: 'nowrap' }}>
+                {busyId === b.id ? '...' : (st === 'pending' ? 'CANCELAR' : 'ANULAR')}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, splitCurrency, ccCtx, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, weeklyReady, worldcup, wcFixtures, onVoidBet }) {
   const [splitting, setSplitting] = useState(false);
   const handleSplit = async () => {
     if (splitting) return;
@@ -9702,9 +9838,10 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, splitCurrency
       else showToast('Moedas separadas! PC devolvido a quem comprou; loja agora roda em Campeão Coins.', 'success');
     } finally { setSplitting(false); }
   };
-  // Tabs do admin: USUÁRIOS / TIMES / NEWS / JORNALISTA / DISCORD / BACKUP / PERIGO.
+  // Tabs do admin. Moderador vê: APOSTAS (anular), TIMES e BACKUP (restrito).
+  // NEWS/JORNALISTA/USUÁRIOS/CATÁLOGO/DISCORD/PERIGO são só do admin full.
   // PERIGO ficou em aba separada pra não ser clicado por engano.
-  const [tab, setTab] = useState(isFullAdmin ? 'usuarios' : 'jornalista');
+  const [tab, setTab] = useState(isFullAdmin ? 'usuarios' : 'apostas');
   const playerTeam = reverseTeamMap(teamPlayers);
 
   return (
@@ -9713,18 +9850,20 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, splitCurrency
         <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="shield" size={12} /> Você é MODERADOR — lança placar e trava aposta. Operações de moeda e perigo ficam só com o admin.</div>
       )}
       <div className="tabs" style={{ marginBottom: 14 }}>
+        <button className={'tab ' + (tab === 'apostas' ? 'active' : '')} onClick={() => setTab('apostas')}>APOSTAS</button>
         {isFullAdmin && <button className={'tab ' + (tab === 'usuarios' ? 'active' : '')} onClick={() => setTab('usuarios')}>USUÁRIOS</button>}
         <button className={'tab ' + (tab === 'times' ? 'active' : '')} onClick={() => setTab('times')}>TIMES</button>
-        <button className={'tab ' + (tab === 'news' ? 'active' : '')} onClick={() => setTab('news')}>NEWS</button>
-        <button className={'tab ' + (tab === 'jornalista' ? 'active' : '')} onClick={() => setTab('jornalista')}>JORNALISTA</button>
+        {isFullAdmin && <button className={'tab ' + (tab === 'news' ? 'active' : '')} onClick={() => setTab('news')}>NEWS</button>}
+        {isFullAdmin && <button className={'tab ' + (tab === 'jornalista' ? 'active' : '')} onClick={() => setTab('jornalista')}>JORNALISTA</button>}
         {isFullAdmin && <button className={'tab ' + (tab === 'catalogo' ? 'active' : '')} onClick={() => setTab('catalogo')}>CATÁLOGO</button>}
         {isFullAdmin && <button className={'tab ' + (tab === 'discord' ? 'active' : '')} onClick={() => setTab('discord')}>DISCORD</button>}
         <button className={'tab ' + (tab === 'backup' ? 'active' : '')} onClick={() => setTab('backup')}>BACKUP</button>
         {isFullAdmin && <button className={'tab ' + (tab === 'perigo' ? 'active' : '')} onClick={() => setTab('perigo')} style={{ color: tab === 'perigo' ? '#c33' : 'rgba(195,51,51,0.6)', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="warning" size={12} /> PERIGO</button>}
       </div>
 
-      {tab === 'news' && <NewsAdminPanel remoteNews={remoteNews} />}
-      {tab === 'jornalista' && <JournalistAdminPanel cs={cs} bets={bets} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} />}
+      {tab === 'apostas' && <AdminBetsPanel bets={bets} users={users} teamPlayers={teamPlayers} cs={cs} onVoidBet={onVoidBet} />}
+      {tab === 'news' && isFullAdmin && <NewsAdminPanel remoteNews={remoteNews} />}
+      {tab === 'jornalista' && isFullAdmin && <JournalistAdminPanel cs={cs} bets={bets} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} />}
       {tab === 'catalogo' && isFullAdmin && <CatalogoAdminPanel cs={cs} teamPlayers={teamPlayers} />}
       {tab === 'discord' && isFullAdmin && <DiscordAdminPanel webhook={discordWebhook} />}
 
