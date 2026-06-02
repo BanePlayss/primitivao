@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-cacadores ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-mk-icons ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6372,6 +6372,25 @@ function mkHue(name) {
   for (let i = 0; i < String(name).length; i++) h = (h * 31 + String(name).charCodeAt(i)) % 360;
   return h;
 }
+// Slug do arquivo do ícone (igual ao gerador apostas/scripts/gen-mk-chars.mjs).
+function mkCharSlug(name) { return String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+// Badge do personagem: quadrado colorido + monograma de fundo + a imagem por
+// cima. Tenta o RETRATO PNG (apostas/mk-chars/<slug>.png) primeiro; se faltar,
+// cai pro ícone-símbolo SVG; se faltar os dois, fica só o monograma.
+function MkCharIcon({ name, sm }) {
+  const slug = mkCharSlug(name);
+  return (
+    <span className={'mk-fc-mono' + (sm ? ' sm' : '')} style={{ '--hue': mkHue(name) }}>
+      {mkMono(name)}
+      <img className="mk-char-ico" src={'mk-chars/' + slug + '.png'} alt="" loading="lazy"
+        onError={e => {
+          const img = e.currentTarget;
+          if (img.dataset.fb !== 'svg') { img.dataset.fb = 'svg'; img.src = 'mk-chars/' + slug + '.svg'; }
+          else { img.style.display = 'none'; }
+        }} />
+    </span>
+  );
+}
 // Lado do confronto (mandante OU visitante) com os 3 bonecos como portraits
 // clicáveis. `cur` = escolhido nessa partida; `taken` = travado (usado na outra).
 function MkFighterPick({ nick, chars, cur, taken, onPick, teamPlayers }) {
@@ -6388,7 +6407,7 @@ function MkFighterPick({ nick, chars, cur, taken, onPick, teamPlayers }) {
             return (
               <button key={c} type="button" className={'mk-fc-chip' + (on ? ' on' : '') + (locked ? ' locked' : '')}
                 disabled={locked} onClick={() => onPick(on ? '' : c)} title={locked ? c + ' (em uso na outra partida)' : c}>
-                <span className="mk-fc-mono" style={{ '--hue': mkHue(c) }}>{mkMono(c)}</span>
+                <MkCharIcon name={c} />
                 <span className="mk-fc-cname">{c}</span>
                 {on && <span className="mk-fc-badge pick"><Icon name="check" size={9} /></span>}
                 {locked && <span className="mk-fc-badge lock"><Icon name="lock" size={8} /></span>}
@@ -6407,7 +6426,7 @@ function MkFighterShow({ nick, char, teamPlayers }) {
       <div className="mk-fc-nick"><Avatar nick={nick} teamPlayers={teamPlayers} size={18} noBadge /> @{nick}</div>
       {char ? (
         <div className="mk-fc-chosen">
-          <span className="mk-fc-mono" style={{ '--hue': mkHue(char) }}>{mkMono(char)}</span>
+          <MkCharIcon name={char} />
           <span className="mk-fc-cname">{char}</span>
         </div>
       ) : <div className="mk-fc-noelenco">a definir</div>}
@@ -7055,12 +7074,12 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                                   <div key={p} className="mk-bet-fc-part">
                                     <span className="mk-bet-fc-num">J{pi + 1}</span>
                                     <span className="mk-bet-fc-fig">
-                                      <span className="mk-fc-mono sm" style={{ '--hue': mkHue(h) }}>{mkMono(h)}</span>
+                                      <MkCharIcon name={h} sm />
                                       <span className="mk-bet-fc-cn">{h}</span>
                                     </span>
                                     <span className="mk-bet-fc-vs"><Icon name="skull" size={10} /></span>
                                     <span className="mk-bet-fc-fig right">
-                                      <span className="mk-fc-mono sm" style={{ '--hue': mkHue(a) }}>{mkMono(a)}</span>
+                                      <MkCharIcon name={a} sm />
                                       <span className="mk-bet-fc-cn">{a}</span>
                                     </span>
                                   </div>
@@ -7571,7 +7590,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
                     <div className="mkt-label" style={{ marginTop: 14 }}>MEU ELENCO</div>
                     <div className="perfil-mk-roster">
                       {myMkChars.map(c => (
-                        <span key={c} className="perfil-mk-char"><span className="mk-fc-mono sm" style={{ '--hue': mkHue(c) }}>{mkMono(c)}</span> {c}</span>
+                        <span key={c} className="perfil-mk-char"><MkCharIcon name={c} sm /> {c}</span>
                       ))}
                     </div>
                   </>

@@ -3294,10 +3294,13 @@
     .mk-fc-chip:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(240,180,80,0.6); background: rgba(255,255,255,0.07); }
     .mk-fc-chip.on { border-color: #f0b450; background: rgba(215,100,20,0.18); box-shadow: 0 0 0 1px #f0b450, 0 0 16px rgba(215,100,20,0.5); }
     .mk-fc-chip.locked { opacity: 0.3; cursor: not-allowed; filter: grayscale(0.7); }
-    .mk-fc-mono { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9px;
+    .mk-fc-mono { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9px;
       font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 13px; color: #fff;
       background: linear-gradient(155deg, hsl(var(--hue), 68%, 54%), hsl(var(--hue), 62%, 34%));
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -3px 5px rgba(0,0,0,0.35); text-shadow: 0 1px 2px rgba(0,0,0,0.45); }
+    /* retrato/ícone do personagem por cima do monograma (fallback se não carregar).
+       object-fit cover + top = enquadra no rosto quando for PNG retrato. */
+    .mk-char-ico { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; object-position: center top; }
     .mk-fc-cname { font-size: 8.5px; font-weight: 700; letter-spacing: 0.01em; color: rgba(255,255,255,0.72); text-align: center; line-height: 1.1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .mk-fc-chip.on .mk-fc-cname { color: #ffd9a8; }
     .mk-fc-badge { position: absolute; top: -5px; right: -4px; width: 15px; height: 15px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #1a0f08; }
