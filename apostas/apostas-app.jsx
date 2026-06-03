@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-adiantar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-rodada-fx ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3118,7 +3118,7 @@ function App() {
                       users={users}
                       teamPlayers={teamPlayers || {}}
                       draw={mkDraw} onPublishDraw={publishMkDraw}
-                      scores={mkScores} onScore={setMkScoreField}
+                      scores={mkScores} onScore={setMkScoreField} lineups={mkLineups}
                       isAdmin={isAdmin} isMod={isMod} locked={mkLocked}
                     />
                   ) : showPlaceholder ? (
@@ -6928,7 +6928,7 @@ function MkCurtainOpening({ onDone }) {
 
 const MK_CURTAIN_KEY = 'mk_curtain_seen';
 
-function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, scores, onScore, isAdmin, isMod, locked }) {
+function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPublishDraw, scores, onScore, isAdmin, isMod, locked }) {
   // draw/scores vêm do App (persistidos no doc de apostas, campo `mk`).
   const [viewRound, setViewRound] = useState(0);
   const [curtain, setCurtain] = useState(() => {
@@ -7075,19 +7075,28 @@ function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, 
                             <div className="mk-fx-role mandante">MANDANTE</div>
                           </div>
                         </div>
-                        <div className="mk-fx-score mk-fx-score2">
-                          <div className="mk-fx-partida">
-                            <span className="mk-fx-pl">P1</span>
-                            <input className="cscore-in" value={sc.p1h || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isMod} onChange={e => setScore(k, 'p1h', e.target.value)} />
-                            <span className="mk-fx-x">×</span>
-                            <input className="cscore-in" value={sc.p1a || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isMod} onChange={e => setScore(k, 'p1a', e.target.value)} />
-                          </div>
-                          <div className="mk-fx-partida">
-                            <span className="mk-fx-pl">P2</span>
-                            <input className="cscore-in" value={sc.p2h || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isMod} onChange={e => setScore(k, 'p2h', e.target.value)} />
-                            <span className="mk-fx-x">×</span>
-                            <input className="cscore-in" value={sc.p2a || ''} placeholder="–" inputMode="numeric" maxLength={1} disabled={!isMod} onChange={e => setScore(k, 'p2a', e.target.value)} />
-                          </div>
+                        <div className="mk-fx-duel">
+                          {[1, 2].map(pi => {
+                            const luP = ((lineups || {})[k] || {})['p' + pi] || {};
+                            const sh = sc['p' + pi + 'h'], sa = sc['p' + pi + 'a'];
+                            const playd = sh !== '' && sh != null && sa !== '' && sa != null;
+                            const homeLost = playd && Number(sh) < Number(sa);
+                            const awayLost = playd && Number(sa) < Number(sh);
+                            return (
+                              <div key={pi} className="mk-fx-duel-row">
+                                <span className="mk-fx-duel-pl">P{pi}</span>
+                                <span className={'mk-fx-fighter' + (homeLost ? ' lost' : '')}>
+                                  {luP.home ? <MkCharIcon name={luP.home} /> : <span className="mk-fx-fighter-tbd">?</span>}
+                                  {homeLost && <span className="mk-fx-loseX"><Icon name="x" size={24} /></span>}
+                                </span>
+                                <span className="mk-fx-duel-vs"><Icon name="skull" size={10} /></span>
+                                <span className={'mk-fx-fighter' + (awayLost ? ' lost' : '')}>
+                                  {luP.away ? <MkCharIcon name={luP.away} /> : <span className="mk-fx-fighter-tbd">?</span>}
+                                  {awayLost && <span className="mk-fx-loseX"><Icon name="x" size={24} /></span>}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                         <div className="mk-fx-side away">
                           <Avatar nick={g.away} teamPlayers={teamPlayers} size={28} noBadge />
@@ -7097,6 +7106,19 @@ function MkChampionshipView({ players, users, teamPlayers, draw, onPublishDraw, 
                           </div>
                         </div>
                       </div>
+                      {isMod && (
+                        <div className="mk-fx-admin-score">
+                          <span className="mk-fx-admin-l"><Icon name="shield" size={10} /> LANÇAR PLACAR <span className="mk-fx-finish-adm">só admin</span></span>
+                          <span className="mk-fx-pl">P1</span>
+                          <input className="cscore-in" value={sc.p1h || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p1h', e.target.value)} />
+                          <span className="mk-fx-x">×</span>
+                          <input className="cscore-in" value={sc.p1a || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p1a', e.target.value)} />
+                          <span className="mk-fx-pl">P2</span>
+                          <input className="cscore-in" value={sc.p2h || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p2h', e.target.value)} />
+                          <span className="mk-fx-x">×</span>
+                          <input className="cscore-in" value={sc.p2a || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p2a', e.target.value)} />
+                        </div>
+                      )}
                       {isMod && (
                         <div className="mk-fx-finish">
                           <span className="mk-fx-finish-l"><Icon name="skull" size={10} /> FINALIZAÇÕES <span className="mk-fx-finish-adm">só admin</span></span>

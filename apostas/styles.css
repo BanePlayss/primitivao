@@ -3606,6 +3606,22 @@
     .mk-fx-partida { display: flex; align-items: center; gap: 4px; }
     .mk-fx-pl { width: 16px; flex-shrink: 0; font-size: 8px; font-weight: 800; letter-spacing: 0.04em; color: var(--pv-orange); }
     .mk-fx-score2 .cscore-in { width: 26px; height: 28px; font-size: 14px; }
+    /* RODADA: em vez do placar, os RETRATOS dos lutadores de cada partida, com X
+       vermelho em cima de quem perdeu. Os numeros viram so do admin (embaixo). */
+    .mk-fx-duel { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+    .mk-fx-duel-row { display: flex; align-items: center; gap: 6px; }
+    .mk-fx-duel-pl { width: 14px; flex-shrink: 0; font-size: 8px; font-weight: 800; letter-spacing: 0.04em; color: var(--pv-orange); }
+    .mk-fx-fighter { position: relative; display: inline-flex; flex-shrink: 0; }
+    .mk-fx-fighter .mk-fc-mono { width: 42px; height: 42px; border-radius: 8px; font-size: 15px; }
+    .mk-fx-fighter.lost .mk-fc-mono { filter: grayscale(0.85) brightness(0.6); }
+    .mk-fx-loseX { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #ef3b3b; pointer-events: none; }
+    .mk-fx-loseX > svg { filter: drop-shadow(0 1px 2px rgba(0,0,0,0.7)); }
+    .mk-fx-fighter-tbd { width: 42px; height: 42px; border-radius: 8px; background: rgba(28,22,18,0.08); display: inline-flex; align-items: center; justify-content: center; color: rgba(28,22,18,0.38); font-weight: 800; font-size: 16px; }
+    .mk-fx-duel-vs { color: var(--pv-orange); display: inline-flex; flex-shrink: 0; }
+    /* lançamento do placar — SO ADMIN, embaixo, escondido pra galera. */
+    .mk-fx-admin-score { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 7px; padding: 7px 8px; background: rgba(215,100,20,0.07); border: 1px dashed rgba(215,100,20,0.4); }
+    .mk-fx-admin-l { display: inline-flex; align-items: center; gap: 5px; font-size: 8.5px; font-weight: 800; letter-spacing: 0.05em; color: #9a4d14; width: 100%; }
+    .mk-fx-admin-score .cscore-in { width: 26px; height: 28px; font-size: 14px; }
     /* personagens da galera no confronto — discreto, no rodapé do card */
     .mk-fx-chars { display: flex; align-items: center; gap: 10px; margin-top: 7px; padding-top: 6px; border-top: 1px dashed rgba(28,22,18,0.16); }
     .mk-fx-ch { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; font-size: 8.5px; font-weight: 700; letter-spacing: 0.01em; color: rgba(28,22,18,0.55); }
