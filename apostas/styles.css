@@ -2809,6 +2809,33 @@
     .perfil-coin.cc .perfil-coin-v { color: var(--pv-orange); }
     .perfil-coin-l { font-size: 9px; font-weight: 800; letter-spacing: 0.16em; color: rgba(28,22,18,0.5); margin-top: 3px; }
     .perfil-tabs { margin-bottom: 14px; flex-wrap: wrap; }
+    /* MEU PERFIL com SIDEBAR: identidade (avatar/nick/moedas) + nav vertical à
+       esquerda; conteúdo da aba à direita. No mobile empilha. */
+    .perfil-grid { display: grid; grid-template-columns: 268px minmax(0, 1fr); gap: 16px; align-items: start; }
+    .perfil-side { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .perfil-side .perfil-head-card { margin-bottom: 0; }
+    .perfil-side .perfil-head { flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 18px 14px; }
+    .perfil-side .perfil-id { flex: none; min-width: 0; text-align: center; }
+    .perfil-side .perfil-nick { justify-content: center; font-size: 22px; }
+    .perfil-side .perfil-meta { justify-content: center; margin-top: 8px; }
+    .perfil-side .perfil-coins { margin-left: 0; width: 100%; justify-content: center; margin-top: 4px; }
+    .perfil-side-nav { display: flex; flex-direction: column; gap: 4px; background: var(--pv-charcoal); padding: 8px; }
+    .perfil-navi { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 14px; background: transparent; border: none; border-left: 3px solid transparent; color: rgba(244,234,215,0.6); font-family: inherit; font-weight: 800; font-size: 12px; letter-spacing: 0.08em; text-align: left; cursor: pointer; transition: background 0.12s, color 0.12s; }
+    .perfil-navi:hover { background: rgba(215,100,20,0.10); color: var(--pv-bone); }
+    .perfil-navi.active { background: rgba(215,100,20,0.18); color: var(--pv-bone); border-left-color: var(--pv-orange); }
+    .perfil-navi > svg { opacity: 0.85; flex-shrink: 0; }
+    .perfil-main { min-width: 0; }
+    @media (max-width: 760px) {
+      .perfil-grid { display: block; }
+      .perfil-side { position: static; margin-bottom: 14px; }
+      .perfil-side .perfil-head { flex-direction: row; text-align: left; align-items: center; }
+      .perfil-side .perfil-id { flex: 1; text-align: left; }
+      .perfil-side .perfil-nick, .perfil-side .perfil-meta { justify-content: flex-start; }
+      .perfil-side .perfil-coins { width: auto; }
+      .perfil-side-nav { flex-direction: row; flex-wrap: wrap; }
+      .perfil-navi { width: auto; flex: 1 1 110px; justify-content: center; border-left: none; border-bottom: 3px solid transparent; }
+      .perfil-navi.active { border-left-color: transparent; border-bottom-color: var(--pv-orange); }
+    }
     .perfil-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .perfil-hls { display: grid; grid-template-columns: repeat(auto-fit, minmax(82px, 1fr)); gap: 10px; }
     .perfil-hl { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 12px 8px; border-radius: 12px; background: rgba(28,22,18,0.04); border: 1.5px solid rgba(28,22,18,0.1); color: var(--pv-charcoal); cursor: pointer; transition: border-color .1s ease, background .1s ease; font-family: inherit; }

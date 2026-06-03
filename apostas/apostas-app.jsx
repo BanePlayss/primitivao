@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-enter-mk ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-perfil-sb ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2971,12 +2971,15 @@ function App() {
         myCosmetics={me?.cosmetics || {}}
       />
       <div className="below-topbar">
-        <ProfileSidebar
-          nick={session.nick} me={me} cs={cs} bets={bets} users={users}
-          teamPlayers={teamPlayers || {}} worldcup={worldcup} interests={interests || {}}
-          mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} isAdmin={isAdmin} isMod={isMod} setView={setView}
-          showMkMini={view === 'campeonatos' && (isAdmin || mkInscrito)}
-        />
+        {/* No MEU PERFIL completo o rail global some — o perfil tem a própria sidebar. */}
+        {view !== 'perfil' && (
+          <ProfileSidebar
+            nick={session.nick} me={me} cs={cs} bets={bets} users={users}
+            teamPlayers={teamPlayers || {}} worldcup={worldcup} interests={interests || {}}
+            mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} isAdmin={isAdmin} isMod={isMod} setView={setView}
+            showMkMini={view === 'campeonatos' && (isAdmin || mkInscrito)}
+          />
+        )}
         <div className="content-area">
           <div className="page">
             {/* Navegação mobile (some no desktop). Sempre montada pra que as
@@ -7619,8 +7622,10 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
   const mkResult = mkAllConcluded ? posResult(myMkPos, mkStand.length) : null;
 
   return (
-    <div className="perfil">
-      {/* HEADER — sempre visível: avatar, nick, moedas e time/posição num cartão só */}
+    <div className="perfil perfil-grid">
+      {/* SIDEBAR do perfil: identidade (avatar/nick/moedas) + navegação vertical. */}
+      <aside className="perfil-side">
+      {/* HEADER — avatar, nick, moedas e time/posição */}
       <div className="card perfil-head-card">
         <div className="perfil-head">
           {myTeamId
@@ -7648,13 +7653,16 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
         </div>
       </div>
 
-      {/* SUB-ABAS — o essencial fica no RESUMO, sem precisar scrollar */}
-      <div className="tabs perfil-tabs">
-        <button className={'tab ' + (ptab === 'resumo' ? 'active' : '')} onClick={() => setPtab('resumo')}>RESUMO</button>
-        {(myTeam || mkInscrito) && <button className={'tab ' + (ptab === 'time' ? 'active' : '')} onClick={() => setPtab('time')}>MEU TIME</button>}
-        <button className={'tab ' + (ptab === 'titulos' ? 'active' : '')} onClick={() => setPtab('titulos')}>CONQUISTAS</button>
-        {!isAdmin && <button className={'tab ' + (ptab === 'colecao' ? 'active' : '')} onClick={() => setPtab('colecao')}>COLEÇÃO</button>}
-      </div>
+      {/* NAV vertical do perfil (a sidebar) */}
+      <nav className="perfil-side-nav">
+        <button className={'perfil-navi ' + (ptab === 'resumo' ? 'active' : '')} onClick={() => setPtab('resumo')}><Icon name="chart" size={14} /> RESUMO</button>
+        {(myTeam || mkInscrito) && <button className={'perfil-navi ' + (ptab === 'time' ? 'active' : '')} onClick={() => setPtab('time')}><Icon name="shield" size={14} /> MEU TIME</button>}
+        <button className={'perfil-navi ' + (ptab === 'titulos' ? 'active' : '')} onClick={() => setPtab('titulos')}><Icon name="trophy" size={14} /> CONQUISTAS</button>
+        {!isAdmin && <button className={'perfil-navi ' + (ptab === 'colecao' ? 'active' : '')} onClick={() => setPtab('colecao')}><Icon name="star" size={14} /> COLEÇÃO</button>}
+      </nav>
+      </aside>
+      {/* CONTEÚDO da aba selecionada */}
+      <div className="perfil-main">
 
       {/* ===== RESUMO ===== */}
       {ptab === 'resumo' && (
@@ -7877,6 +7885,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
           onEquip={onEquip}
         />
       )}
+      </div>{/* /.perfil-main */}
     </div>
   );
 }
