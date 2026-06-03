@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-perfil-sb ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-no-flaw ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -500,7 +500,10 @@ function computeMkStandings(players, matches) {
 // e os placares por partida (P1/P2), que NÃO são redundantes. A lógica de
 // RESULT (título/label/liquidação) continua existindo logo abaixo só pra
 // apostas antigas já feitas continuarem liquidando e aparecendo certo.
-const MK_MARKETS = ['VENC', 'P1', 'P2', 'TOTAL', 'FINISH', 'FLAW'];
+// FLAW (Flawless Victory) também foi aposentado: dava pra FARMAR ponto solo e
+// não fazia sentido como aposta. A liquidação/label/odds dele seguem abaixo só
+// pras apostas antigas continuarem liquidando certo.
+const MK_MARKETS = ['VENC', 'P1', 'P2', 'TOTAL', 'FINISH'];
 const MK_MARKET_TITLE = { VENC: 'VENCEDOR', RESULT: 'RESULTADO (PARTIDAS)', P1: 'PLACAR PARTIDA 1', P2: 'PLACAR PARTIDA 2', TOTAL: 'TOTAL DE ROUNDS', FINISH: 'FINALIZAÇÃO', FLAW: 'FLAWLESS VICTORY' };
 const MK_RESULT_PICKS = ['20', '11', '02'];          // 2×0 / 1×1 / 0×2
 const MK_PARTIDA_PICKS = ['20', '21', '12', '02']; // mandante x visitante (primeiro a 2)
@@ -7265,7 +7268,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                   <span className="mk-bet-mode-hint">
                     {betMode === 'simples'
                       ? 'Só quem vence o confronto. Casada = junta vencedores.'
-                      : 'Tudo: placares, total de rounds, finalização e flawless.'}
+                      : 'Tudo: placares, total de rounds e finalização.'}
                   </span>
                 </div>
                 {!isOpen && (
