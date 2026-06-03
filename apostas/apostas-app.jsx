@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-rail-sep ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-adiantar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -608,6 +608,35 @@ function mkLegsContradict(a, b) {
     if (mkLegResult(a.market, a.pick, sc) === 'win' && mkLegResult(b.market, b.pick, sc) === 'win') return false;
   }
   return true; // nenhum resultado possível satisfaz os dois -> contradiz
+}
+
+// ── ADIANTAR JOGOS (pro campeonato não ficar travado) ───────────────────────
+// Rodada do PRÓXIMO jogo pendente (não lançado) de um jogador. Infinity se já
+// lançou tudo. Base do "adiantar": um jogo da rodada N só libera quando os DOIS
+// jogadores não têm nenhum jogo pendente em rodada < N (jogaram tudo atrás).
+function mkPlayerFirstPendingRound(player, draw, scores) {
+  if (!draw) return Infinity;
+  const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  for (let ri = 0; ri < draw.length; ri++) {
+    const r = draw[ri];
+    const gi = (r.games || []).findIndex(g => g.home === player || g.away === player);
+    if (gi >= 0 && !mkMatchOutcome((scores || {})[gk(r, gi)] || {})) return ri;
+  }
+  return Infinity;
+}
+// Jogos LIBERADOS pra jogar/apostar AGORA: não lançados e com os 2 jogadores sem
+// pendência em rodada anterior (dá pra adiantar). Retorna [{ r, ri, g, gi, key }].
+function mkLiberadoGames(draw, scores) {
+  if (!draw || !draw.length) return [];
+  const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const fpCache = {};
+  const fp = (p) => (p in fpCache ? fpCache[p] : (fpCache[p] = mkPlayerFirstPendingRound(p, draw, scores)));
+  const out = [];
+  draw.forEach((r, ri) => (r.games || []).forEach((g, gi) => {
+    if (mkMatchOutcome((scores || {})[gk(r, gi)] || {})) return;
+    if (fp(g.home) >= ri && fp(g.away) >= ri) out.push({ r, ri, g, gi, key: gk(r, gi) });
+  }));
+  return out;
 }
 
 const START_PC = 50;
@@ -2440,9 +2469,12 @@ function App() {
       roundN: payload.roundN, phase: payload.phase,
       nick, stake, combined, // aliases (display)
       legs: payload.legs.map(l => ({
-        fixtureId: 'mk:' + payload.phase + '-' + payload.roundN + '-' + l.gi,
+        // cada perna leva a SUA rodada (phase/roundN/gi) — casada pode misturar
+        // jogos de rodadas diferentes (jogos adiantados) e liquidar certo.
+        fixtureId: 'mk:' + (l.phase || payload.phase) + '-' + (l.roundN ?? payload.roundN) + '-' + l.gi,
         market: l.market, pick: l.pick, odds: l.odd, odd: l.odd,
-        home: l.home, away: l.away, gi: l.gi, roundN: payload.roundN, phase: payload.phase,
+        home: l.home, away: l.away, gi: l.gi,
+        roundN: (l.roundN ?? payload.roundN), phase: (l.phase || payload.phase),
       })),
     };
     try {
@@ -6606,13 +6638,10 @@ function MeuJogoMini({ nick, users, interests, draw, scores, lineups, teamPlayer
   const isInscrito = !!(((interests && interests.mk) || {})[nick]);
   const myChars = ((users || {})[nick] || {}).mkChars || [];
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
-  const roundConcluded = (ri) => !!(draw && draw[ri]) && draw[ri].games.every((g, gi) => !!mkMatchOutcome((scores || {})[gKey(draw[ri], gi)] || {}));
-  let curIdx = -1;
-  if (draw && draw.length) {
-    curIdx = draw.findIndex((r, ri) => !roundConcluded(ri) && (ri === 0 || roundConcluded(ri - 1)));
-    if (curIdx < 0) curIdx = draw.length - 1;
-  }
-  const curRound = curIdx >= 0 ? draw[curIdx] : null;
+  // MEU JOGO segue o PRÓXIMO jogo DO JOGADOR (1ª rodada pendente dele), não a
+  // rodada do campeonato — assim quem adiantou já vê/escala o próximo confronto.
+  const myIdx = mkPlayerFirstPendingRound(nick, draw, scores);
+  const curRound = (draw && myIdx < draw.length) ? draw[myIdx] : null;
   let myGame = null;
   if (curRound) {
     curRound.games.forEach((g, gi) => {
@@ -6696,16 +6725,11 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
     finally { setBusy(false); }
   };
 
-  // Só a RODADA ATUAL: a 1ª ainda não concluída cuja anterior já fechou (tudo
-  // fechado -> última). Mesma regra da aba APOSTAS.
+  // MEU JOGO segue o PRÓXIMO jogo DO JOGADOR (1ª rodada pendente dele) — assim
+  // quem adiantou já escala o próximo confronto, sem esperar a rodada do camp.
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
-  const roundConcluded = (ri) => !!(draw && draw[ri]) && draw[ri].games.every((g, gi) => !!mkMatchOutcome((scores || {})[gKey(draw[ri], gi)] || {}));
-  let curRoundIdx = -1;
-  if (draw && draw.length) {
-    curRoundIdx = draw.findIndex((r, ri) => !roundConcluded(ri) && (ri === 0 || roundConcluded(ri - 1)));
-    if (curRoundIdx < 0) curRoundIdx = draw.length - 1;
-  }
-  const curRound = curRoundIdx >= 0 ? draw[curRoundIdx] : null;
+  const curRoundIdx = mkPlayerFirstPendingRound(target, draw, scores);
+  const curRound = (draw && curRoundIdx < draw.length) ? draw[curRoundIdx] : null;
   const myGames = [];
   if (curRound && target) {
     curRound.games.forEach((g, gi) => {
@@ -7129,10 +7153,6 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
-  const roundConcluded = (ri) => !!(draw && draw[ri]) && draw[ri].games.every((g, gi) => !!mkMatchOutcome((scores || {})[gKey(draw[ri], gi)] || {}));
-  // Rodada ABERTA pra aposta: 1ª ainda não fechada cuja anterior já fechou.
-  const bettableIdx = draw ? draw.findIndex((r, ri) => !roundConcluded(ri) && (ri === 0 || roundConcluded(ri - 1))) : -1;
-  const [betRound, setBetRound] = useState(0);
   const [cupom, setCupom] = useState([]);
   const [stake, setStake] = useState(10);
   // #8: dois modos de apostador. SIMPLES (padrão) mostra só o VENCEDOR (quem
@@ -7150,7 +7170,6 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     if (m === 'simples') setCupom(prev => prev.filter(l => l.market === 'VENC'));
   };
   const visibleMarkets = betMode === 'avancado' ? MK_MARKETS : MK_MARKETS.filter(m => m === 'VENC');
-  useEffect(() => { if (bettableIdx >= 0) { setBetRound(bettableIdx); setCupom([]); } }, [bettableIdx]);
   // Relógio que tica de 1 em 1s pro cronômetro de fechamento (#4): faz a contagem
   // regressiva andar e fecha o jogo sozinho quando lockAt vence. Só tica se há
   // algum cronômetro ativo — senão fica parado pra não re-renderizar à toa.
@@ -7173,32 +7192,34 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     return () => document.removeEventListener('keydown', onEsc);
   }, [cupomOpen]);
 
-  const oddsMatches = draw ? draw.flatMap((r, ri) => roundConcluded(ri)
-    ? r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: (scores || {})[gKey(r, gi)] || {} }))
-    : []) : [];
+  // odds usam TODOS os jogos já LANÇADOS (não só rodadas 100% fechadas) — assim os
+  // jogos adiantados já têm odd com base no desempenho real até agora.
+  const oddsMatches = draw ? draw.flatMap(r => (r.games || []).map((g, gi) => ({
+    home: g.home, away: g.away, sc: (scores || {})[gKey(r, gi)] || {},
+  })).filter(m => mkMatchOutcome(m.sc))) : [];
   const metrics = computeMkPlayerMetrics(insc, oddsMatches);
-  const rd = draw ? draw[Math.min(betRound, draw.length - 1)] : null;
-  const isOpen = !!rd && betRound === bettableIdx;
-  // Jogos que AINDA aparecem pra apostar: o confronto some da lista assim que
-  // o placar é lançado (acabou) — porque nem todo jogo da rodada rola no mesmo
-  // dia. Preserva o índice original (gi) pra não bagunçar gKey/legs.
-  const visibleGames = rd
-    ? rd.games.map((g, gi) => ({ g, gi })).filter(({ gi }) => !mkMatchOutcome((scores || {})[gKey(rd, gi)] || {}))
-    : [];
+  // LISTA ÚNICA "LIBERADOS": todo jogo que dá pra apostar AGORA (de qualquer rodada,
+  // os 2 jogadores sem pendência atrás). Sem navegação por rodada.
+  const liberados = mkLiberadoGames(draw, scores);
+  // tira do cupom pernas de jogos que deixaram de estar liberados (foram lançados).
+  const liberadoKeys = liberados.map(x => x.key).join('|');
+  useEffect(() => {
+    const set = new Set(liberadoKeys ? liberadoKeys.split('|') : []);
+    setCupom(prev => prev.filter(l => set.has(l.phase + '-' + l.roundN + '-' + l.gi)));
+  }, [liberadoKeys]);
 
-  const legKey = (gi, market) => (rd ? rd.phase + '-' + rd.n + '-' + gi + '-' + market : '');
-  const pickInCupom = (gi, market, pick) => cupom.some(l => l.key === legKey(gi, market) && l.pick === pick);
-  const toggleLeg = (gi, g, market, pick, odd) => {
-    if (!isOpen) return;
+  const legKey = (r, gi, market) => r.phase + '-' + r.n + '-' + gi + '-' + market;
+  const pickInCupom = (r, gi, market, pick) => cupom.some(l => l.key === legKey(r, gi, market) && l.pick === pick);
+  const toggleLeg = (r, gi, g, market, pick, odd) => {
     if (myNick && (g.home === myNick || g.away === myNick)) { showToast('Você não pode apostar no próprio jogo.', 'error'); return; }
-    if (mkGameClosed((scores || {})[gKey(rd, gi)], now)) { showToast('As apostas desse jogo estão travadas.', 'error'); return; }
-    const key = legKey(gi, market);
+    if (mkGameClosed((scores || {})[gKey(r, gi)], now)) { showToast('As apostas desse jogo estão travadas.', 'error'); return; }
+    const key = legKey(r, gi, market);
     const ex = cupom.find(l => l.key === key);
     if (ex && ex.pick === pick) { setCupom(prev => prev.filter(l => l.key !== key)); return; } // desmarca
-    const newLeg = { key, roundN: rd.n, phase: rd.phase, gi, home: g.home, away: g.away, market, pick, odd };
+    const newLeg = { key, roundN: r.n, phase: r.phase, gi, home: g.home, away: g.away, market, pick, odd };
     // não dá pra casar palpites que se contradizem NO MESMO jogo (ex: vitória do
     // mandante + placar onde o visitante ganha).
-    const conflict = cupom.find(l => l.key !== key && l.phase === rd.phase && l.roundN === rd.n && l.gi === gi && mkLegsContradict(l, newLeg));
+    const conflict = cupom.find(l => l.key !== key && l.phase === r.phase && l.roundN === r.n && l.gi === gi && mkLegsContradict(l, newLeg));
     if (conflict) {
       showToast('Contradiz "' + MK_MARKET_TITLE[conflict.market] + ': ' + mkPickLabel(conflict.market, conflict.pick) + '" do mesmo jogo.', 'error');
       return;
@@ -7208,9 +7229,10 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   const combined = cupom.reduce((p, l) => p + l.odd, 0); // SOMA, igual à FIFA
   const isCasada = cupom.length >= 2;
   const place = async () => {
-    if (!isOpen || !cupom.length || !(stake > 0)) return;
+    if (!cupom.length || !(stake > 0)) return;
+    const first = cupom[0];
     const res = await onPlaceBet({
-      nick: myNick, roundN: rd.n, phase: rd.phase,
+      nick: myNick, roundN: first.roundN, phase: first.phase,
       legs: cupom.map(({ key, ...l }) => l), stake, combined: +combined.toFixed(2), casada: isCasada,
     });
     if (res && res.err) return; // erro já avisado por toast
@@ -7236,21 +7258,14 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
         <div className="sub">ODDS AUTOMÁTICAS</div>
       </div>
       <div className="card-body">
-        {!draw || !rd ? (
+        {!draw || !draw.length ? (
           <div className="empty"><div className="e1">SEM SORTEIO AINDA</div><div className="e2">O admin sorteia as rodadas em CAMPEONATOS → MK. Aí as odds aparecem aqui.</div></div>
         ) : (
           <>
-            <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="coin" size={11} /> Valendo <strong>PC</strong> · só na rodada <strong>aberta</strong> · você não aposta no próprio jogo.</div>
+            <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="coin" size={11} /> Valendo <strong>PC</strong> · você não aposta no próprio jogo. Um jogo <strong>libera</strong> quando os <strong>2 jogadores</strong> já fecharam as rodadas anteriores — dá pra adiantar.</div>
             <div className="mk-bet-layout">
               <div className="mk-bet-main">
-                <div className="mk-rnav mk-bet-nav">
-                  <button className="mk-rnav-btn" onClick={() => setBetRound(v => Math.max(0, v - 1))} disabled={betRound === 0} aria-label="Rodada anterior"><Icon name="chevron-left" size={18} /></button>
-                  <div className="mk-rnav-mid">
-                    <div className="mk-rnav-phase">RODADA {rd.n} · {rd.phase} {isOpen ? '· ABERTA' : ''}</div>
-                    <div className="mk-rnav-count">{betRound + 1} <span>/ {draw.length}</span></div>
-                  </div>
-                  <button className="mk-rnav-btn" onClick={() => setBetRound(v => Math.min(draw.length - 1, v + 1))} disabled={betRound === draw.length - 1} aria-label="Próxima rodada"><Icon name="chevron-right" size={18} /></button>
-                </div>
+                <div className="mk-liberados-h"><Icon name="skull" size={13} /> JOGOS LIBERADOS <span className="mk-liberados-c">{liberados.length}</span></div>
                 {/* #8: modo do apostador — SIMPLES (só quem vence) x AVANÇADO (tudo) */}
                 <div className="mk-bet-mode" role="tablist" aria-label="Modo de aposta">
                   <div className="mk-bet-mode-tabs">
@@ -7271,25 +7286,21 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                       : 'Tudo: placares, total de rounds e finalização.'}
                   </span>
                 </div>
-                {!isOpen && (
-                  <div className="mk-bet-closed">
-                    {roundConcluded(betRound) ? 'Essa rodada já fechou' : 'Essa rodada ainda não abriu'} — só dá pra apostar na rodada {bettableIdx >= 0 ? draw[bettableIdx].n : '—'} (aberta). Aqui é só ver as odds.
-                  </div>
-                )}
                 <div className="mk-bet-games">
-                  {visibleGames.length === 0 ? (
-                    <div className="empty"><div className="e1">RODADA ENCERRADA</div><div className="e2">Todos os confrontos dessa rodada já terminaram.</div></div>
-                  ) : visibleGames.map(({ g, gi }) => {
+                  {liberados.length === 0 ? (
+                    <div className="empty"><div className="e1">NENHUM JOGO LIBERADO</div><div className="e2">No momento não tem confronto com os 2 jogadores livres. Assim que alguém fecha a rodada anterior, libera aqui.</div></div>
+                  ) : liberados.map(({ r, gi, g, key }) => {
                     const odds = computeMkGameOdds(g.home, g.away, metrics);
                     const ownGame = !!myNick && (g.home === myNick || g.away === myNick);
-                    const scEntry = (scores || {})[gKey(rd, gi)] || null;
+                    const scEntry = (scores || {})[key] || null;
                     const gameLocked = mkGameClosed(scEntry, now);
                     const secsLeft = mkLockSecondsLeft(scEntry, now);
                     const counting = secsLeft > 0;
-                    const locked = !isOpen || ownGame || gameLocked;
+                    const locked = ownGame || gameLocked;
                     const scoreMkt = (m) => m === 'RESULT' || m === 'P1' || m === 'P2';
                     return (
-                      <div key={gi} className={'mk-bet-game' + (ownGame ? ' own' : '') + (gameLocked ? ' locked' : '') + (counting && !gameLocked ? ' closing' : '')}>
+                      <div key={key} className={'mk-bet-game' + (ownGame ? ' own' : '') + (gameLocked ? ' locked' : '') + (counting && !gameLocked ? ' closing' : '')}>
+                        <div className="mk-bet-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase} · JOGO {String(gi + 1).padStart(2, '0')}</div>
                         <div className="mk-bet-match">
                           <span className="mk-bm-side"><span className="mk-bm-nick mand">@{g.home}</span><span className="mk-bm-role mand">MANDANTE</span></span>
                           <span className="mk-bm-vs">×</span>
@@ -7298,7 +7309,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                         {(() => {
                           // CARD DE LUTA (#1): mostra pra TODO MUNDO os 2 jogos e os
                           // bonecos escolhidos, pra dar contexto antes de apostar.
-                          const lu = (lineups || {})[gKey(rd, gi)] || null;
+                          const lu = (lineups || {})[key] || null;
                           const arranged = !!lu && ['p1', 'p2'].every(p => (lu[p] || {}).home && (lu[p] || {}).away);
                           if (!arranged) {
                             return <div className="mk-bet-fc empty"><Icon name="refresh" size={10} /> @{g.home} ainda não montou o card de luta</div>;
@@ -7340,24 +7351,24 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                         {isMod && onSetGameLock && (
                           <div className="mk-bet-locktoggle">
                             {gameLocked ? (
-                              <button type="button" className="mk-bet-lockbtn on" onClick={() => onSetGameLock(gKey(rd, gi), { locked: false, lockAt: null })}>
+                              <button type="button" className="mk-bet-lockbtn on" onClick={() => onSetGameLock(key, { locked: false, lockAt: null })}>
                                 <Icon name="unlock" size={11} /> DESTRAVAR APOSTAS
                               </button>
                             ) : counting ? (
                               <>
-                                <button type="button" className="mk-bet-lockbtn ghost" onClick={() => onSetGameLock(gKey(rd, gi), { lockAt: null })}>
+                                <button type="button" className="mk-bet-lockbtn ghost" onClick={() => onSetGameLock(key, { lockAt: null })}>
                                   <Icon name="x" size={11} /> CANCELAR ({fmtSecs(secsLeft)})
                                 </button>
-                                <button type="button" className="mk-bet-lockbtn danger" onClick={() => onSetGameLock(gKey(rd, gi), { locked: true, lockAt: null })}>
+                                <button type="button" className="mk-bet-lockbtn danger" onClick={() => onSetGameLock(key, { locked: true, lockAt: null })}>
                                   <Icon name="lock" size={11} /> TRAVAR JÁ
                                 </button>
                               </>
                             ) : (
                               <>
-                                <button type="button" className="mk-bet-lockbtn" onClick={() => onSetGameLock(gKey(rd, gi), { lockAt: Date.now() + MK_LOCK_COUNTDOWN_S * 1000, locked: false })}>
+                                <button type="button" className="mk-bet-lockbtn" onClick={() => onSetGameLock(key, { lockAt: Date.now() + MK_LOCK_COUNTDOWN_S * 1000, locked: false })}>
                                   <Icon name="warning" size={11} /> FECHAR EM {MK_LOCK_COUNTDOWN_S}s
                                 </button>
-                                <button type="button" className="mk-bet-lockbtn danger" onClick={() => onSetGameLock(gKey(rd, gi), { locked: true, lockAt: null })}>
+                                <button type="button" className="mk-bet-lockbtn danger" onClick={() => onSetGameLock(key, { locked: true, lockAt: null })}>
                                   <Icon name="lock" size={11} /> TRAVAR JÁ
                                 </button>
                               </>
@@ -7369,10 +7380,10 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             <div className="mk-bet-mkt-h">{MK_MARKET_TITLE[mkt]}</div>
                             <div className="mk-bet-picks">
                               {mkMarketPicks(mkt, odds).map(pick => {
-                                const on = pickInCupom(gi, mkt, pick);
+                                const on = pickInCupom(r, gi, mkt, pick);
                                 return (
                                   <button key={pick} type="button" className={'mk-odd' + (on ? ' on' : '') + (locked ? ' off' : '')}
-                                    onClick={() => toggleLeg(gi, g, mkt, pick, odds[mkt][pick])} disabled={locked}>
+                                    onClick={() => toggleLeg(r, gi, g, mkt, pick, odds[mkt][pick])} disabled={locked}>
                                     <span className="mk-odd-l">
                                       {scoreMkt(mkt)
                                         ? <span className="mk-odd-pl"><span className="mk-sc-h">{pick[0]}</span><span className="mk-sc-x">×</span><span className="mk-sc-a">{pick[1]}</span></span>
@@ -7450,11 +7461,9 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                           <Icon name="warning" size={12} /> <span>APOSTA CASADA: precisa acertar TODOS os {cupom.length} palpites pra ganhar.</span>
                         </div>
                       )}
-                      {!isOpen && <div className="mk-cupom-warn">Vá pra rodada aberta pra apostar.</div>}
-
                       <div className="modal-btns">
                         <button className="btn-secondary" onClick={() => setCupom([])}>LIMPAR</button>
-                        <button className="btn-primary" disabled={!isOpen || !cupom.length || !(stake > 0)} onClick={place}>APOSTAR {stake} PC</button>
+                        <button className="btn-primary" disabled={!cupom.length || !(stake > 0)} onClick={place}>APOSTAR {stake} PC</button>
                       </div>
                       <button type="button" className="cupom-share" onClick={() => {
                         const txt = 'Cupom MK: ' + cupom.map(l => MK_MARKET_TITLE[l.market] + ' ' + mkLegLabel(l) + ' @' + l.odd.toFixed(2)).join(' + ') + ' = ' + combined.toFixed(2) + 'x';

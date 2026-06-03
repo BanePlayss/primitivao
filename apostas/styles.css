@@ -3664,6 +3664,10 @@
     .mk-bet-nav { max-width: 320px; margin: 0 auto 16px; }
     .mk-bet-games { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
     .mk-bet-game { border: 2px solid var(--pv-charcoal); background: var(--pv-bone); padding: 10px 12px; }
+    /* lista LIBERADOS (adiantar): cabeçalho + label de rodada por card. */
+    .mk-liberados-h { display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 12px; letter-spacing: 0.14em; color: var(--pv-orange); margin: 2px 0 14px; }
+    .mk-liberados-c { background: var(--pv-orange); color: var(--pv-bone); font-size: 11px; padding: 1px 9px; border-radius: 999px; }
+    .mk-bet-rod { font-size: 8.5px; font-weight: 800; letter-spacing: 0.14em; color: rgba(28,22,18,0.42); margin-bottom: 7px; }
     .mk-bet-game.own { opacity: 0.72; }
     .mk-bet-game.locked { border-color: #7a2222; }
     .mk-bet-game.closing { border-color: var(--pv-orange); box-shadow: 0 0 0 2px rgba(215,100,20,0.18); }
