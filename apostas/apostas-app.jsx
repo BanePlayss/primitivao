@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-no-flaw ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260602-rail-sep ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2973,7 +2973,7 @@ function App() {
         teamPlayers={teamPlayers || {}}
         myCosmetics={me?.cosmetics || {}}
       />
-      <div className="below-topbar">
+      <div className={'below-topbar' + (view !== 'perfil' ? ' has-rail' : '')}>
         {/* No MEU PERFIL completo o rail global some — o perfil tem a própria sidebar. */}
         {view !== 'perfil' && (
           <ProfileSidebar

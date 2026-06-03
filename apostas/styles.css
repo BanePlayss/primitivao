@@ -748,6 +748,11 @@
       min-height: calc(100vh - 76px); /* abaixo do topbar */
     }
     .content-area { flex: 1; min-width: 0; }
+    /* Separador vertical (full-height) entre o rail do MEU PERFIL e o conteúdo.
+       Só quando o rail existe (has-rail = fora do MEU PERFIL) e no desktop. */
+    @media (min-width: 721px) {
+      .below-topbar.has-rail .content-area { border-left: 1.5px solid rgba(28,22,18,0.13); padding-left: 24px; }
+    }
     /* SIDEBAR ESQUERDA DE PERFIL (fixa em todas as abas no desktop) */
     .app-profile { width: 224px; flex-shrink: 0; position: sticky; top: 84px; align-self: flex-start; max-height: calc(100vh - 96px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 12px; --ap-accent: var(--pv-orange); }
     /* Cartao do perfil com MOLDURA na cor do titulo do jogador (--ap-accent),
