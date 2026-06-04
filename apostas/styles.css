@@ -3406,7 +3406,19 @@
     .mk-jogo-list { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; max-width: 540px; }
     .mk-jogo-card { border: 1.5px solid rgba(28,22,18,0.14); border-radius: 10px; padding: 11px 12px; background: #fff; }
     .mk-jogo-card.is-mandante { border-color: rgba(215,100,20,0.5); box-shadow: inset 0 0 0 1px rgba(215,100,20,0.14); }
-    .mk-jogo-card-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .mk-jogo-card.is-next { border-color: rgba(215,100,20,0.55); box-shadow: 0 0 0 3px rgba(215,100,20,0.13); }
+    .mk-jogo-card.is-open { border-color: rgba(215,100,20,0.45); }
+    .mk-jogo-card-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; background: transparent; border: 0; padding: 0; margin: 0; cursor: pointer; font: inherit; color: inherit; text-align: left; }
+    .mk-jogo-card-h:hover .mk-jogo-chev { color: var(--pv-orange); }
+    .mk-jogo-hmeta { display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; }
+    .mk-jogo-st { font-size: 9px; font-weight: 800; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+    .mk-jogo-st.ok { color: #0a7d4d; background: rgba(0,180,110,0.15); }
+    .mk-jogo-st.partial { color: #9a6a14; background: rgba(215,160,20,0.18); }
+    .mk-jogo-st.todo { color: #9a4d14; background: rgba(215,100,20,0.15); }
+    .mk-jogo-st.wait { color: rgba(28,22,18,0.55); background: rgba(28,22,18,0.07); }
+    .mk-jogo-chev { display: inline-flex; color: rgba(28,22,18,0.45); transition: transform 0.16s ease, color 0.16s ease; }
+    .mk-jogo-chev.open { transform: rotate(90deg); color: var(--pv-orange); }
+    .mk-jogo-next { display: inline-block; margin-left: 7px; vertical-align: middle; font-size: 8.5px; font-weight: 800; letter-spacing: 0.08em; color: #fff; background: var(--pv-orange); border-radius: 999px; padding: 2px 7px; }
     .mk-jogo-rod { font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 10.5px; letter-spacing: 0.1em; color: rgba(28,22,18,0.55); }
     .mk-jogo-role { font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
     .mk-jogo-role.mandante { color: #9a4d14; background: rgba(215,100,20,0.14); }

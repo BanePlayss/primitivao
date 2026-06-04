@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260602-rodada-fx ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260603-todos-jogos ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6648,6 +6648,11 @@ function MeuJogoMini({ nick, users, interests, draw, scores, lineups, teamPlayer
       if (g.home === nick || g.away === nick) myGame = { key: gKey(curRound, gi), g, mandante: g.home === nick, opp: g.home === nick ? g.away : g.home };
     });
   }
+  // total de jogos pendentes do jogador — agora dá pra escalar todos, não só o próximo
+  let pendingCount = 0;
+  if (draw) draw.forEach((r) => (r.games || []).forEach((g, gi) => {
+    if ((g.home === nick || g.away === nick) && !mkMatchOutcome((scores || {})[gKey(r, gi)] || {})) pendingCount++;
+  }));
   const lu = myGame ? ((lineups || {})[myGame.key] || {}) : {};
   return (
     <div className="mj-mini">
@@ -6668,7 +6673,7 @@ function MeuJogoMini({ nick, users, interests, draw, scores, lineups, teamPlayer
           ) : (
             <div className="mj-mini-warn">Monte seu elenco — toque pra abrir.</div>
           )}
-          {curRound && <div className="mj-mini-lbl">RODADA {String(curRound.n).padStart(2, '0')} · {curRound.phase}</div>}
+          {curRound && <div className="mj-mini-lbl">PRÓXIMO · RODADA {String(curRound.n).padStart(2, '0')} · {curRound.phase}{pendingCount > 1 && <span>+{pendingCount - 1} liberados</span>}</div>}
           {curRound && (myGame ? (
             <div className="mj-mini-game">
               <div className="mj-mini-vs">
@@ -6708,7 +6713,11 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
   const [target, setTarget] = useState(isAdmin ? (inscritos[0] || '') : nick);
   const [sel, setSel] = useState(((users || {})[isAdmin ? (inscritos[0] || '') : nick] || {}).mkChars || []);
   const [busy, setBusy] = useState(false);
+  // accordion dos jogos: qual jogo está expandido. null = padrão (abre o PRÓXIMO).
+  // '' = todos fechados. Só reseta ao trocar de jogador (admin), não a cada snapshot.
+  const [openKey, setOpenKey] = useState(null);
   useEffect(() => { setSel(((users || {})[target] || {}).mkChars || []); }, [target, users]);
+  useEffect(() => { setOpenKey(null); }, [target]);
 
   const isInscrito = !!(((interests && interests.mk) || {})[target]);
   const charsFor = (n) => ((users || {})[n] || {}).mkChars || [];
@@ -6725,19 +6734,30 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
     finally { setBusy(false); }
   };
 
-  // MEU JOGO segue o PRÓXIMO jogo DO JOGADOR (1ª rodada pendente dele) — assim
-  // quem adiantou já escala o próximo confronto, sem esperar a rodada do camp.
+  // TODOS OS JOGOS DO JOGADOR (não só a rodada atual). Agora que quase todo mundo
+  // montou elenco, o mandante já pode escalar o card de luta de TODOS os seus
+  // confrontos que ainda não foram jogados — sem esperar rodada por rodada.
+  // Os jogos pendentes de um jogador são sempre um sufixo contíguo (só dá pra
+  // jogar a rodada N depois de concluir as anteriores), então a ordem cronológica
+  // já deixa o PRÓXIMO no topo. Jogos já encerrados saem da lista (nada pra escalar).
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
-  const curRoundIdx = mkPlayerFirstPendingRound(target, draw, scores);
-  const curRound = (draw && curRoundIdx < draw.length) ? draw[curRoundIdx] : null;
+  const nextRoundIdx = mkPlayerFirstPendingRound(target, draw, scores);
   const myGames = [];
-  if (curRound && target) {
-    curRound.games.forEach((g, gi) => {
-      if (g.home === target || g.away === target) {
-        myGames.push({ key: gKey(curRound, gi), phase: curRound.phase, n: curRound.n, g, mandante: g.home === target });
-      }
+  if (draw && target) {
+    draw.forEach((r, ri) => {
+      (r.games || []).forEach((g, gi) => {
+        if (g.home !== target && g.away !== target) return;
+        const key = gKey(r, gi);
+        if (mkMatchOutcome((scores || {})[key] || {})) return; // já jogado
+        myGames.push({ key, phase: r.phase, n: r.n, ri, g, mandante: g.home === target, isNext: ri === nextRoundIdx });
+      });
     });
   }
+  // accordion: por padrão abre o PRÓXIMO jogo; o resto fica recolhido (compacto).
+  const nextGame = myGames.find(m => m.isNext) || myGames[0] || null;
+  const nextKey = nextGame ? nextGame.key : null;
+  const effOpen = openKey == null ? nextKey : (openKey === '' ? null : openKey);
+  const toggleOpen = (k) => setOpenKey(cur => { const eff = cur == null ? nextKey : (cur === '' ? null : cur); return eff === k ? '' : k; });
   // ELENCO TRAVADO: quem JÁ JOGOU uma rodada (tem confronto concluído em
   // qualquer rodada) não pode mais trocar os 3 personagens — vale pra todo mundo.
   const rosterLocked = !!(draw && draw.some((r) =>
@@ -6797,11 +6817,11 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
 
             {/* MEU JOGO DA RODADA ATUAL (escalação do confronto) */}
             <div className="mk-jogo-sec">
-              <div className="mk-jogo-sec-h"><Icon name="skull" size={13} /> MEU JOGO DA RODADA {curRound && <span className="mk-jogo-sec-c">{String(curRound.n).padStart(2, '0')} · {curRound.phase}</span>}</div>
+              <div className="mk-jogo-sec-h"><Icon name="skull" size={13} /> MEUS JOGOS {myGames.length > 0 && <span className="mk-jogo-sec-c">{myGames.length} pra escalar</span>}</div>
               {!draw ? (
                 <div className="mk-jogo-empty"><Icon name="dice" size={20} /> As rodadas ainda não foram sorteadas. {isAdmin ? 'Sorteie em CAMPEONATOS.' : 'Aguarde o sorteio.'}</div>
               ) : myGames.length === 0 ? (
-                <div className="mk-jogo-empty">@{target} não joga na rodada atual (folga).</div>
+                <div className="mk-jogo-empty"><Icon name="trophy" size={18} /> {isAdmin ? '@' + target + ' já jogou' : 'Você já jogou'} todos os jogos do turno. Nada pra escalar agora.</div>
               ) : (
                 <div className="mk-jogo-list">
                   {myGames.map(mg => {
@@ -6810,19 +6830,34 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
                     const homeChars = charsFor(mg.g.home);
                     const awayChars = charsFor(mg.g.away);
                     const arranged = ['p1', 'p2'].some(p => (lu[p] || {}).home || (lu[p] || {}).away);
+                    const filled = ['p1', 'p2'].reduce((nn, p) => nn + ((lu[p] || {}).home ? 1 : 0) + ((lu[p] || {}).away ? 1 : 0), 0);
+                    const open = effOpen === mg.key;
+                    // selinho de status no cabeçalho (pra ver de relance sem abrir)
+                    let stTxt, stCls;
+                    if (mg.mandante) {
+                      if (filled === 4) { stTxt = 'PRONTO'; stCls = 'ok'; }
+                      else if (filled === 0) { stTxt = 'MONTAR'; stCls = 'todo'; }
+                      else { stTxt = filled + '/4'; stCls = 'partial'; }
+                    } else {
+                      stTxt = arranged ? 'CARD PRONTO' : 'AGUARDANDO'; stCls = arranged ? 'ok' : 'wait';
+                    }
                     return (
-                      <div key={mg.key} className={'mk-jogo-card' + (mg.mandante ? ' is-mandante' : '')}>
-                        <div className="mk-jogo-card-h">
-                          <span className="mk-jogo-rod">RODADA {String(mg.n).padStart(2, '0')} · {mg.phase}</span>
-                          <span className={'mk-jogo-role ' + (mg.mandante ? 'mandante' : 'visitante')}>{mg.mandante ? 'VOCÊ É MANDANTE' : 'VOCÊ É VISITANTE'}</span>
-                        </div>
+                      <div key={mg.key} className={'mk-jogo-card' + (mg.mandante ? ' is-mandante' : '') + (mg.isNext ? ' is-next' : '') + (open ? ' is-open' : '')}>
+                        <button type="button" className="mk-jogo-card-h" onClick={() => toggleOpen(mg.key)}>
+                          <span className="mk-jogo-rod">RODADA {String(mg.n).padStart(2, '0')} · {mg.phase}{mg.isNext && <span className="mk-jogo-next">PRÓXIMO</span>}</span>
+                          <span className="mk-jogo-hmeta">
+                            <span className={'mk-jogo-role ' + (mg.mandante ? 'mandante' : 'visitante')}>{mg.mandante ? 'MANDANTE' : 'VISITANTE'}</span>
+                            <span className={'mk-jogo-st ' + stCls}>{stTxt}</span>
+                            <span className={'mk-jogo-chev' + (open ? ' open' : '')}><Icon name="chevron-right" size={14} /></span>
+                          </span>
+                        </button>
                         <div className="mk-jogo-vs">
                           <span className="mk-jogo-vs-side"><Avatar nick={target} teamPlayers={teamPlayers} size={22} noBadge /> @{target}</span>
                           <span className="mk-jogo-vs-x">×</span>
                           <span className="mk-jogo-vs-side opp">@{opp} <Avatar nick={opp} teamPlayers={teamPlayers} size={22} noBadge /></span>
                         </div>
 
-                        {mg.mandante ? (
+                        {open && (mg.mandante ? (
                           <div className="mk-jogo-arr">
                             <div className="mk-jogo-arr-hint"><Icon name="fist" size={11} /> Monta o CARD DE LUTA — escolhe o boneco dos dois lados em cada partida.</div>
                             {homeChars.length === 0 && (
@@ -6846,12 +6881,9 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
                                   </div>
                                 );
                               })}
-                              {(() => {
-                                const filled = ['p1', 'p2'].reduce((nn, p) => nn + ((lu[p] || {}).home ? 1 : 0) + ((lu[p] || {}).away ? 1 : 0), 0);
-                                return filled === 4
-                                  ? <div className="mk-fc-ready"><Icon name="skull" size={13} /> ESCALAÇÃO PRONTA — FIGHT!</div>
-                                  : <div className="mk-fc-todo">Escala os 2 lados das 2 partidas · <strong>{filled}/4</strong></div>;
-                              })()}
+                              {filled === 4
+                                ? <div className="mk-fc-ready"><Icon name="skull" size={13} /> ESCALAÇÃO PRONTA — FIGHT!</div>
+                                : <div className="mk-fc-todo">Escala os 2 lados das 2 partidas · <strong>{filled}/4</strong></div>}
                             </div>
                           </div>
                         ) : (
@@ -6875,7 +6907,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
                               )}
                             </div>
                           </div>
-                        )}
+                        ))}
                       </div>
                     );
                   })}
