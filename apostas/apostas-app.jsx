@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260603-todos-jogos ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260607-bonus-domingo ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -640,30 +640,26 @@ function mkLiberadoGames(draw, scores) {
 }
 
 const START_PC = 50;
-const WEEKLY_PC = 500;
+const WEEKLY_PC = 550;
 
-// Bônus libera TODA SEGUNDA 10:00 BRT (= 13:00 UTC). Quem ainda não
-// resgatou nesta janela (lastWeekly < última segunda 10h) está elegível.
-// Como a regra é baseada em "última segunda passada", trocar o valor da
-// constante WEEKLY_PC ou qualquer ajuste já libera todo mundo cuja última
-// claim foi antes da última segunda — sem precisar de timestamp manual.
-function lastMondayAt10BRT(now) {
+// Bônus libera TODO DOMINGO 21:00 BRT (= 00:00 UTC de segunda). Quem ainda
+// não resgatou nesta janela (lastWeekly < último domingo 21h) está elegível.
+// Como a regra é baseada em "último domingo passado", a janela reabre sozinha
+// todo domingo 21h: todo mundo cuja última claim foi antes disso fica elegível
+// automaticamente, sem precisar de timestamp manual.
+function lastSundayAt21BRT(now) {
   const t = now == null ? Date.now() : now;
   const d = new Date(t);
-  const day = d.getUTCDay(); // 0=Dom, 1=Seg, ..., 6=Sáb
-  let daysBack;
-  if (day === 1) {
-    daysBack = d.getUTCHours() >= 13 ? 0 : 7; // antes das 10h BRT, volta 1 semana
-  } else {
-    daysBack = (day + 6) % 7; // Dom=0→6, Ter=2→1, Qua=3→2, Sáb=6→5
-  }
+  // Domingo 21:00 BRT == Segunda 00:00 UTC. Janela = última Segunda 00:00 UTC <= now.
+  const day = d.getUTCDay(); // 0=Dom, 1=Seg, ..., 6=Sáb (UTC)
+  const daysBack = (day + 6) % 7; // Seg=1→0, Ter=2→1, ..., Dom=0→6, Sáb=6→5
   const m = new Date(d);
   m.setUTCDate(d.getUTCDate() - daysBack);
-  m.setUTCHours(13, 0, 0, 0);
+  m.setUTCHours(0, 0, 0, 0);
   return m.getTime();
 }
-function nextMondayAt10BRT(now) {
-  return lastMondayAt10BRT(now) + 7 * 24 * 60 * 60 * 1000;
+function nextSundayAt21BRT(now) {
+  return lastSundayAt21BRT(now) + 7 * 24 * 60 * 60 * 1000;
 }
 
 const DEF_BY = 1.8; // ambos marcam: SIM
@@ -2321,7 +2317,7 @@ function App() {
 
   // Bônus semanal via transação: revalida elegibilidade contra dados REMOTOS
   // pra evitar dois cliques rápidos creditarem em dobro, ou ser sobrescrito.
-  // Elegível = user ainda não resgatou nesta semana (janela = última segunda 10h BRT).
+  // Elegível = user ainda não resgatou nesta semana (janela = último domingo 21h BRT).
   const claimWeekly = async () => {
     if (!session || isAdmin) return;
     const nick = session.nick;
@@ -2329,8 +2325,8 @@ function App() {
       await commitBetDocUpdate(remote => {
         const u = (remote.users || {})[nick];
         if (!u) return null;
-        const monday = lastMondayAt10BRT();
-        if ((u.lastWeekly || 0) >= monday) return null; // já resgatou nesta janela
+        const windowStart = lastSundayAt21BRT();
+        if ((u.lastWeekly || 0) >= windowStart) return null; // já resgatou nesta janela
         const users = {
           ...remote.users,
           [nick]: { ...u, pc: u.pc + WEEKLY_PC, lastWeekly: Date.now() },
@@ -2339,9 +2335,9 @@ function App() {
       });
     } catch (e) { console.warn('claimWeekly failed', e); }
   };
-  const weeklyReady = me ? ((me.lastWeekly || 0) < lastMondayAt10BRT()) : false;
+  const weeklyReady = me ? ((me.lastWeekly || 0) < lastSundayAt21BRT()) : false;
   const weeklyIn = me && !weeklyReady
-    ? Math.max(0, nextMondayAt10BRT() - Date.now())
+    ? Math.max(0, nextSundayAt21BRT() - Date.now())
     : 0;
 
   // ── CUPOM (parlay) ────────────────────────────────────────────────────────
@@ -3268,7 +3264,7 @@ function TopBar({ nick, pc, cc, isAdmin, onLogout, weeklyReady, weeklyIn, onClai
           </button>
         )}
         {!isAdmin && !weeklyReady && (
-          <div className="weekly-chip weekly-chip-locked" title="Próximo bônus: segunda 10h BRT">
+          <div className="weekly-chip weekly-chip-locked" title="Próximo bônus: domingo 21h BRT">
             <span className="weekly-chip-icon"><Icon name="lock" size={14} /></span>
             <span className="weekly-chip-stack">
               <span className="weekly-chip-main">BÔNUS</span>
@@ -4359,7 +4355,7 @@ function Login({ onAuth, isNewNick }) {
           <div className="login-feature"><span className="lf-ic"><Icon name="target" size={22} /></span><span>5 mercados</span></div>
           <div className="login-feature"><span className="lf-ic"><Icon name="trophy" size={22} /></span><span>7 campeonatos</span></div>
           <div className="login-feature"><span className="lf-ic"><Icon name="globe" size={22} /></span><span>bolão da Copa</span></div>
-          <div className="login-feature"><span className="lf-ic"><Icon name="coin" size={22} /></span><span>+500 PC/sem</span></div>
+          <div className="login-feature"><span className="lf-ic"><Icon name="coin" size={22} /></span><span>+550 PC/sem</span></div>
         </div>
       </form>
     </div>
@@ -4403,21 +4399,21 @@ const NEWS = [
   },
   {
     id: 'bonus-semanal',
-    title: '+500 PC NA CONTA, MEU FILHO!',
-    subtitle: 'O xamã liberou o cofre — não esquece de checar antes da rodada.',
-    date: '22/05/2026',
+    title: '+550 PC NA CONTA, MEU FILHO!',
+    subtitle: 'Agora todo domingo 21h (BRT) — corre que o cofre tá aberto.',
+    date: '07/06/2026',
     tag: 'PROMO',
     image: 'news/bonus-semanal.jpg',
     body: (
       <>
         <p>
-          Todo dia <strong>segunda-feira às 10h da manhã (BRT)</strong> o cofre
-          do xamã se abre e libera <strong>500 PC de graça</strong> pra cada
-          jogador. É só clicar no chip <strong>+500 PC RECLAMAR</strong> que
+          Todo <strong>domingo às 21h (BRT)</strong> o cofre
+          do xamã se abre e libera <strong>550 PC de graça</strong> pra cada
+          jogador. É só clicar no chip <strong>+550 PC RECLAMAR</strong> que
           aparece lá no topo da página, ao lado do seu saldo.
         </p>
         <p>
-          Não perdeu? Confere também o site toda segunda — quem não reclama
+          Não perdeu? Confere também o site todo domingo — quem não reclama
           fica de fora até a próxima.
         </p>
       </>
@@ -4441,7 +4437,7 @@ const NEWS = [
         <ul className="ic-list">
           <li><Icon name="dice" size={14} /><span>Odds <strong>automáticas</strong> baseadas na classificação</span></li>
           <li><Icon name="target" size={14} /><span>5 mercados: 1X2, Ambos Marcam, Ninguém Marca, +3 Gols (mandante/visitante)</span></li>
-          <li><Icon name="coin" size={14} /><span>Bônus semanal de <strong>500 PC</strong> (era 20!) — toda segunda 10h BRT</span></li>
+          <li><Icon name="coin" size={14} /><span>Bônus semanal de <strong>550 PC</strong> (era 20!) — todo domingo 21h BRT</span></li>
           <li><Icon name="trophy" size={14} /><span>Hall da Fama e Hall da Vergonha por temporada</span></li>
           <li><Icon name="user" size={14} /><span>Aba "Meu Perfil" com seu time, troféus e títulos</span></li>
           <li><Icon name="gamepad" size={14} /><span>Mortal Kombat, Rocket League, LoL, CS, Golf With Your Friends, Copa do Mundo — chegando em breve</span></li>
@@ -6201,7 +6197,7 @@ const TITLE_DEFS = [
   { id: 'milionario', name: 'MILIONÁRIO', icon: 'coin', color: '#d4af37',
     desc: 'Acumulou 100.000 PC ou mais no saldo. Banca gorda.', check: ACH.millionaire },
   { id: 'falido', name: 'FALIDO', icon: 'coin-fire', color: '#7a2222',
-    desc: 'Zerou o saldo. Já apostou de tudo, hoje só resta o bônus de segunda.', check: ACH.broke },
+    desc: 'Zerou o saldo. Já apostou de tudo, hoje só resta o bônus de domingo.', check: ACH.broke },
   // ── Apostas: volume / skill ──
   { id: 'apostador_plantao', name: 'APOSTADOR DE PLANTÃO', icon: 'ticket', color: '#d76414',
     desc: 'Fez 50 apostas ou mais. Não perde uma rodada.', check: ACH.grinder50 },
@@ -9977,7 +9973,7 @@ function DiscordAdminPanel({ webhook }) {
           <textarea
             value={customMsg}
             onChange={e => setCustomMsg(e.target.value)}
-            placeholder="ex: BÔNUS SEMANAL LIBERADO! Vai lá pegar 500 PC."
+            placeholder="ex: BÔNUS SEMANAL LIBERADO! Vai lá pegar 550 PC."
             rows={3}
             maxLength={1900}
             style={{ width: '100%', padding: 10, fontSize: 13, border: '2px solid var(--pv-charcoal)', background: 'var(--pv-bone)', fontFamily: 'inherit', marginTop: 6, boxSizing: 'border-box', resize: 'vertical' }}
