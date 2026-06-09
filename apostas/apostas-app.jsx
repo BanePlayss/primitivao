@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260607-bonus-domingo ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260607-ranking-km ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -8251,6 +8251,23 @@ function Stat({ label, value, accent }) {
 // ─── RANKING (apostadores por PC) ───────────────────────────────────────────
 // RANKING DE APOSTAS — POR SEASON. Cada campeonato (FIFA S1, MK S1...) tem o seu
 // ranking, por LUCRO nas apostas daquela season. Seasons encerradas viram histórico.
+// Formata um valor de PC de forma compacta pro ranking: 1.53M, 391K, 10K...
+// Sempre devolve o módulo (sem sinal) — o +/- fica por conta de quem renderiza.
+// Quem quiser o número exato confere no tooltip (title) da linha.
+function compactPC(n) {
+  let v = Math.abs(Number(n) || 0);
+  if (v < 1000) return String(Math.round(v));
+  const units = ['K', 'M', 'B', 'T'];
+  let i = -1;
+  while (v >= 1000 && i < units.length - 1) { v /= 1000; i++; }
+  let dec = v < 10 ? 2 : v < 100 ? 1 : 0; // 1.53M / 39.7K / 391K
+  // evita "1000K": se arredondar estourar a unidade, sobe pra próxima
+  if (Number(v.toFixed(dec)) >= 1000 && i < units.length - 1) { v /= 1000; i++; dec = 2; }
+  let s = v.toFixed(dec);
+  if (s.indexOf('.') >= 0) s = s.replace(/\.?0+$/, ''); // tira zeros à toa só na fração
+  return s + units[i];
+}
+
 function RankingView({ users, bets, me, teamPlayers, cs, lockChamp, compact }) {
   const withBets = new Set((bets || []).map(b => b.champId || 'fifa'));
   const champList = CHAMPIONSHIPS
@@ -8298,8 +8315,8 @@ function RankingView({ users, bets, me, teamPlayers, cs, lockChamp, compact }) {
                     <div className="lb-nick">@{r.nick}{u.title && <TitleBadge titleId={u.title} />}{rei && <span className="rank-rei-tag">REI</span>}</div>
                     <div className="rank-row-stats">{r.apostas} apostas · <span style={{ color: 'var(--pv-green)' }}>{r.vit}V</span> · <span style={{ color: 'var(--pv-red)' }}>{r.der}D</span>{r.pend ? ' · ' + r.pend + ' aberta' + (r.pend > 1 ? 's' : '') : ''}</div>
                   </div>
-                  <div className="rank-lucro" style={{ color: r.lucro > 0 ? 'var(--pv-green)' : r.lucro < 0 ? 'var(--pv-red)' : 'rgba(28,22,18,0.45)' }}>
-                    {r.lucro > 0 ? '+' : ''}{r.lucro}<small>PC</small>
+                  <div className="rank-lucro" title={(r.lucro > 0 ? '+' : '') + r.lucro.toLocaleString('pt-BR') + ' PC'} style={{ color: r.lucro > 0 ? 'var(--pv-green)' : r.lucro < 0 ? 'var(--pv-red)' : 'rgba(28,22,18,0.45)' }}>
+                    {r.lucro > 0 ? '+' : r.lucro < 0 ? '-' : ''}{compactPC(r.lucro)}<small>PC</small>
                   </div>
                 </div>
               );
