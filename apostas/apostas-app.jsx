@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260610-ux-review ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260610-review-fixes ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2461,7 +2461,15 @@ function App() {
       return [...others, { fixtureId: game.id, market, pick, odds }];
     });
   };
-  const removeLeg = (fixtureId) => setSlip(prev => prev.filter(s => s.fixtureId !== fixtureId));
+  // Remove perna do cupom. Com market/pick remove SÓ aquele palpite; sem
+  // (compat) remove todos os palpites do jogo. Importante porque o slip
+  // aceita vários mercados do mesmo jogo (1X2 + BTTS...) — o X de uma perna
+  // não pode engolir as outras.
+  const removeLeg = (fixtureId, market, pick) => setSlip(prev => prev.filter(s =>
+    market == null
+      ? s.fixtureId !== fixtureId
+      : !(s.fixtureId === fixtureId && s.market === market && s.pick === pick)
+  ));
   const clearSlip = () => setSlip([]);
 
   // PlaceBet via transação: debita PC + adiciona ticket atomicamente contra
@@ -4353,9 +4361,21 @@ function Login({ onAuth, isNewNick }) {
   const submit = async (e) => {
     e && e.preventDefault();
     if (busy) return;
-    if (isNew && senha !== senha2) {
-      setMsg('As senhas não conferem');
-      return;
+    // Validação SÓ pra conta NOVA — conta existente loga com o nick que tem
+    // (regra nova não pode trancar ninguém pra fora).
+    if (isNew) {
+      if (!/^[a-z0-9_.-]{2,20}$/.test(trimmedNick)) {
+        setMsg('Nick: 2 a 20 caracteres, só letras minúsculas, números, _ . -');
+        return;
+      }
+      if (senha.length < 4) {
+        setMsg('Senha muito curta (mínimo 4 caracteres)');
+        return;
+      }
+      if (senha !== senha2) {
+        setMsg('As senhas não conferem');
+        return;
+      }
     }
     setBusy(true);
     setMsg('');
@@ -5424,8 +5444,13 @@ function Comments({ newsId, list, sessionNick, isAdmin, onAdd, onDelete }) {
 
   const handleDel = async (commentId) => {
     if (!(await confirmModal({ title: 'APAGAR COMENTÁRIO?', body: 'Não tem como desfazer.', confirmLabel: 'APAGAR', danger: true }))) return;
-    try { await onDelete(newsId, commentId); }
-    catch (e) { console.warn(e); }
+    try {
+      await onDelete(newsId, commentId);
+      showToast('Comentário apagado.', 'success');
+    } catch (e) {
+      console.warn(e);
+      showToast('Não consegui apagar — tenta de novo.', 'error');
+    }
   };
 
   return (
@@ -5894,7 +5919,7 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
         {slip.length === 0 && (
           <div className="empty">
             <div className="e1">VAZIO</div>
-            <div className="e2">Clica nas odds dos jogos pra montar. Vários palpites = aposta casada (odds somam). Dá pra combinar mais de um mercado do mesmo jogo (ex: 1X2 + ambos marcam).</div>
+            <div className="e2">Clica nas odds dos jogos pra montar. Vários palpites = aposta casada: as odds somam, mas precisa acertar TODOS pra ganhar. Dá pra combinar mais de um mercado do mesmo jogo (ex: 1X2 + ambos marcam).</div>
           </div>
         )}
 
@@ -5905,7 +5930,7 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
               {legLabel(l)}
             </div>
             <div className="cupom-leg-odd mono">{l.odds.toFixed(2)}</div>
-            <button className="cupom-leg-x" onClick={() => onRemoveLeg(l.fixtureId)}><Icon name="x" size={12} /></button>
+            <button className="cupom-leg-x" title="Tirar este palpite" onClick={() => onRemoveLeg(l.fixtureId, l.market, l.pick)}><Icon name="x" size={12} /></button>
           </div>
         ))}
 
@@ -8294,6 +8319,11 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
                 <>
                   <div className="loja-prova-name" style={{ color: provaItem.color }}>
                     PROVANDO: {provaItem.name}
+                  </div>
+                  <div className="loja-prova-price">
+                    {inv.includes(provaItem.id)
+                      ? 'JÁ É SEU'
+                      : (provaItem.drop ? 'DESBLOQUEIA POR CONQUISTA' : provaItem.price + ' CC' + (cc >= (provaItem.price || 0) ? '' : ' — FALTA ' + ((provaItem.price || 0) - cc)))}
                   </div>
                   <button type="button" className="loja-prova-clear" onClick={() => setProva(null)}>
                     <Icon name="x" size={11} /> TIRAR
