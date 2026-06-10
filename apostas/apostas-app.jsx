@@ -3809,9 +3809,12 @@ function Sidebar({ view, setView, isAdmin, mkInscrito, isMod }) {
 }
 
 // ─── ICONES SVG PERSONALIZADOS ──────────────────────────────────────────────
-function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
+function Icon({ name, size = 20, strokeWidth, className = '' }) {
   const s = size;
-  const sw = strokeWidth;
+  // Stroke adaptativo: em ícones pequenos (chips/tags, ≤14px) o traço 1.8
+  // some na renderização — engrossa pra manter legível. Quem passa
+  // strokeWidth explícito continua mandando.
+  const sw = strokeWidth != null ? strokeWidth : (s <= 14 ? 2.4 : 1.8);
   const common = {
     width: s,
     height: s,
@@ -8227,9 +8230,20 @@ function computeTitleOwners(ctx) {
 // ─── LOJA (items cosméticos) ────────────────────────────────────────────────
 function LojaView({ nick, me, ctx, onBuy, onEquip }) {
   const [busy, setBusy] = useState({}); // { itemId: 'buy' | 'equip' }
+  // PROVADOR: { slot, id } — mostra o item aplicado no avatar grande lá em
+  // cima ANTES de comprar/equipar (funciona até pra item bloqueado).
+  const [prova, setProva] = useState(null);
   const inv = useMemo(() => effectiveInventory(nick, me, ctx), [nick, me, ctx]);
   const equipped = me?.cosmetics || {};
   const cc = ccBalanceFor(nick, me, ctx);
+  const provaCosm = prova ? { ...equipped, [prova.slot]: prova.id } : equipped;
+  const provaItem = prova ? ITEM_BY_ID[prova.id] : null;
+  const toggleProva = (slotId, itemId) => {
+    setProva(p => (p && p.id === itemId) ? null : { slot: slotId, id: itemId });
+    // garante que o provador (lá no topo) fica visível ao tocar PROVAR
+    const el = document.querySelector('.loja-prova-strip');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
 
   const handleBuy = async (item) => {
     if (busy[item.id]) return;
@@ -8272,6 +8286,27 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
             com CC e equipa distintivos desbloqueados por conquista. Items equipados aparecem no
             seu avatar em todo o site (TopBar, Ranking, Perfil, Vitrine).
           </p>
+          {/* PROVADOR: avatar grande com o item "provado" por cima do equipado */}
+          <div className="loja-prova-strip">
+            <Avatar nick={nick} teamPlayers={ctx?.teamPlayers} cosmetics={provaCosm} size={84} />
+            <div className="loja-prova-txt">
+              {provaItem ? (
+                <>
+                  <div className="loja-prova-name" style={{ color: provaItem.color }}>
+                    PROVANDO: {provaItem.name}
+                  </div>
+                  <button type="button" className="loja-prova-clear" onClick={() => setProva(null)}>
+                    <Icon name="x" size={11} /> TIRAR
+                  </button>
+                </>
+              ) : (
+                <div className="loja-prova-hint">
+                  Seu avatar como está hoje. Toca no <Icon name="eye" size={12} /> de qualquer
+                  item pra provar antes de comprar ou equipar.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -8291,8 +8326,9 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
                   const isDrop = !!item.drop;
                   const canAfford = !item.price || cc >= item.price;
                   const action = busy[item.id];
+                  const emProva = prova && prova.id === item.id;
                   return (
-                    <div key={item.id} className={'loja-item rarity-' + item.rarity + (owned ? ' owned' : ' locked')}>
+                    <div key={item.id} className={'loja-item rarity-' + item.rarity + (owned ? ' owned' : ' locked') + (emProva ? ' em-prova' : '')}>
                       <div className="loja-item-head">
                         <span className="loja-item-ic" style={{ color: item.color }}>
                           {owned ? <Icon name={item.icon} size={28} /> : <Icon name="lock" size={24} />}
@@ -8303,6 +8339,15 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
                           </div>
                           <div className="loja-item-rarity">{item.rarity}</div>
                         </div>
+                        <button
+                          type="button"
+                          className={'loja-prova-btn' + (emProva ? ' on' : '')}
+                          onClick={() => toggleProva(slot.id, item.id)}
+                          title={emProva ? 'Tirar do provador' : 'Provar no avatar'}
+                          aria-label={(emProva ? 'Tirar do provador: ' : 'Provar no avatar: ') + item.name}
+                        >
+                          <Icon name={emProva ? 'eye-off' : 'eye'} size={14} />
+                        </button>
                       </div>
                       <div className="loja-item-desc">{item.desc}</div>
                       <div className="loja-item-foot">
@@ -11206,10 +11251,10 @@ function DangerZone() {
   };
 
   return (
-    <div className="card" style={{ marginTop: 20, border: '2px solid #c33' }}>
-      <div className="card-head" style={{ background: '#3a0e0e' }}>
-        <div className="title" style={{ color: '#ff8a8a', display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="warning" size={16} /> ZONA DE PERIGO</div>
-        <div className="sub" style={{ color: '#ffb3b3' }}>OPERAÇÃO IRREVERSÍVEL</div>
+    <div className="card" style={{ marginTop: 20, border: '2px solid var(--pv-red-bright)' }}>
+      <div className="card-head" style={{ background: 'var(--pv-red-deep)' }}>
+        <div className="title" style={{ color: 'var(--pv-red-soft)', display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="warning" size={16} /> ZONA DE PERIGO</div>
+        <div className="sub" style={{ color: 'var(--pv-red-soft)' }}>OPERAÇÃO IRREVERSÍVEL</div>
       </div>
       <div className="card-body">
         <p style={{ marginTop: 0, lineHeight: 1.5 }}>
@@ -11223,7 +11268,7 @@ function DangerZone() {
           reset é abortado.
         </p>
         <p style={{ lineHeight: 1.5 }}>
-          Pra confirmar, digite <code style={{ background: '#222', padding: '2px 6px', color: '#ff8a8a' }}>{WIPE_CONFIRM_PHRASE}</code> no campo abaixo:
+          Pra confirmar, digite <code style={{ background: 'var(--pv-charcoal)', padding: '2px 6px', color: 'var(--pv-red-soft)' }}>{WIPE_CONFIRM_PHRASE}</code> no campo abaixo:
         </p>
         <input
           type="text"
@@ -11231,14 +11276,14 @@ function DangerZone() {
           onChange={e => setConfirmText(e.target.value)}
           placeholder={WIPE_CONFIRM_PHRASE}
           disabled={status === 'running'}
-          style={{ width: '100%', maxWidth: 280, padding: '8px 12px', fontSize: 14, fontFamily: 'monospace', border: '1.5px solid #c33', background: '#1a0606', color: '#ff8a8a', marginBottom: 12, letterSpacing: '0.1em' }}
+          style={{ width: '100%', maxWidth: 280, padding: '8px 12px', fontSize: 14, fontFamily: 'monospace', border: '1.5px solid var(--pv-red-bright)', background: 'var(--pv-red-deep)', color: 'var(--pv-red-soft)', marginBottom: 12, letterSpacing: '0.1em' }}
         />
         <div>
           <button
             onClick={onClick}
             disabled={!canFire}
             style={{
-              background: canFire ? '#c33' : '#5a2a2a',
+              background: canFire ? 'var(--pv-red-bright)' : '#5a2a2a',
               color: canFire ? '#fff' : '#999',
               padding: '10px 20px',
               fontWeight: 800,

@@ -6,6 +6,10 @@
       --pv-bone-2:   #e6dbc4;
       --pv-red:      #8b3a14;
       --pv-green:    #4d6a2e;
+      /* paleta de PERIGO (zona destrutiva do admin, avisos críticos) */
+      --pv-red-bright: #c33;
+      --pv-red-soft:   #ff8a8a;
+      --pv-red-deep:   #3a0e0e;
       /* ── design tokens (polish global) ── */
       --sh-sm:  3px 3px 0 var(--pv-charcoal);
       --sh-md:  6px 6px 0 var(--pv-charcoal);
@@ -38,6 +42,21 @@
     }
     /* feedback tátil: qualquer botão "afunda" levemente ao clicar */
     button:active:not(:disabled) { transform: translateY(1px); }
+
+    /* Foco visível consistente (navegação por teclado): contorno laranja em
+       tudo que é interativo. :focus-visible não aparece em clique/toque. */
+    button:focus-visible,
+    a:focus-visible,
+    [role="button"]:focus-visible {
+      outline: 2px solid var(--pv-orange);
+      outline-offset: 2px;
+    }
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible {
+      outline: 2px solid var(--pv-orange);
+      outline-offset: 1px;
+    }
     input, select, textarea {
       font-family: inherit;
       transition: border-color var(--dur) var(--ease),
@@ -2354,6 +2373,43 @@
     .loja-item.rarity-rara     { border-left: 6px solid #a8a8a8; }
     .loja-item.rarity-lendaria { border-left: 6px solid #d4af37; box-shadow: 0 0 0 1px rgba(212,175,55,0.3); }
     .loja-item-head { display: flex; align-items: center; gap: 10px; }
+    .loja-item.em-prova { border-color: var(--pv-orange); box-shadow: 3px 3px 0 var(--pv-orange); }
+    /* botão "provar no avatar" (olhinho) no canto do item */
+    .loja-prova-btn {
+      margin-left: auto; flex-shrink: 0;
+      width: 32px; height: 32px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent;
+      border: 1.5px solid rgba(28,22,18,0.35);
+      color: rgba(28,22,18,0.6);
+      cursor: pointer;
+    }
+    .loja-prova-btn:hover { border-color: var(--pv-orange); color: var(--pv-orange); }
+    .loja-prova-btn.on { background: var(--pv-orange); border-color: var(--pv-charcoal); color: var(--pv-bone); }
+    @media (pointer: coarse) { .loja-prova-btn { width: 40px; height: 40px; } }
+    /* provador (faixa no card do topo da loja) */
+    .loja-prova-strip {
+      display: flex; align-items: center; gap: 14px;
+      margin-top: 4px; padding: 12px;
+      border: 2px dashed rgba(28,22,18,0.3);
+      background: rgba(28,22,18,0.03);
+    }
+    .loja-prova-txt { min-width: 0; flex: 1; }
+    .loja-prova-name { font-weight: 800; font-size: 12px; letter-spacing: 0.14em; }
+    .loja-prova-hint { font-size: 12px; color: rgba(28,22,18,0.6); line-height: 1.5; }
+    .loja-prova-hint .pico-icon { vertical-align: -2px; }
+    .loja-prova-clear {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-top: 6px;
+      padding: 5px 10px;
+      background: transparent;
+      border: 1.5px solid rgba(28,22,18,0.4);
+      color: rgba(28,22,18,0.65);
+      font-family: inherit; font-weight: 800;
+      font-size: 9px; letter-spacing: 0.16em;
+      cursor: pointer;
+    }
+    .loja-prova-clear:hover { border-color: var(--pv-red); color: var(--pv-red); }
     .loja-item-ic {
       width: 44px; height: 44px;
       display: inline-flex; align-items: center; justify-content: center;
@@ -4158,4 +4214,45 @@
       .mk-curtain-panel { transition: none; }
       .mk-spotlight { animation: none; }
       .mk-curtain-opening .mk-stage-title, .mk-curtain-done .mk-stage-title { animation: none; opacity: 1; }
+    }
+
+    /* ════════════════════════════════════════════════════════════════════ */
+    /* ─────────────────── LANDSCAPE (celular deitado) ──────────────────── */
+    /* ════════════════════════════════════════════════════════════════════ */
+    /* pointer:coarse limita a touch — janela baixa de desktop não é afetada. */
+    @media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+      .topbar { padding-top: max(6px, env(safe-area-inset-top)); padding-bottom: 6px; }
+      .brand-text .t2 { display: none; }
+      .page { padding: 10px 14px; }
+      .tabs-mobile { margin-bottom: 10px; }
+      .cupom-fab { bottom: 10px; }
+    }
+
+    /* ════════════════════════════════════════════════════════════════════ */
+    /* ─────────────────── DARK MODE (papel na mesa escura) ─────────────── */
+    /* ════════════════════════════════════════════════════════════════════ */
+    /* Abordagem conservadora: o FUNDO da página escurece (a "mesa") e os
+       cards continuam de papel bone — coerente com a estética de jornal e
+       não exige repintar as ~480 cores internas. Só o texto que fica DIRETO
+       no fundo (fora de card/caixa escura) clareia. */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background:
+          radial-gradient(circle at 18% 12%, rgba(215,100,20,0.07), transparent 42%),
+          radial-gradient(circle at 82% 88%, rgba(215,100,20,0.04), transparent 42%),
+          #16100b;
+      }
+      /* rodapé do feed de notícias (texto solto no fundo) */
+      .inicio-foot { color: rgba(244,234,215,0.5); }
+      /* variante "bare" do header de campeonato (sem caixa escura) */
+      .champ-header--bare { color: var(--pv-bone); border-bottom-color: rgba(244,234,215,0.4); }
+      .champ-header--bare .champ-header-id { color: var(--pv-bone); }
+      .champ-header--bare .champ-trocar { color: var(--pv-bone); border-color: rgba(244,234,215,0.45); }
+      /* abas soltas no fundo (admin/perfil): texto e trilho clareiam */
+      .tabs { border-bottom-color: rgba(244,234,215,0.35); }
+      .tab { color: rgba(244,234,215,0.55); }
+      .tab.active { color: var(--pv-bone); background: rgba(215,100,20,0.16); }
+      /* a sombra dura charcoal some no fundo escuro — clareia o contorno */
+      .card { box-shadow: 6px 6px 0 rgba(0,0,0,0.55); border-color: #0d0a07; }
+      .card:hover { box-shadow: 8px 8px 0 rgba(0,0,0,0.6); }
     }
