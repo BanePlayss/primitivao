@@ -1858,6 +1858,15 @@ class ViewBoundary extends React.Component {
   }
 }
 
+// Views navegáveis via hash (#/apostas, #/ranking...). Tem que casar com os
+// ids de getTabItems + 'admin'. Hash desconhecido cai em 'apostas'.
+const VALID_VIEWS = ['apostas', 'campeonatos', 'copa', 'hall', 'inicio', 'loja', 'perfil', 'tickets', 'ranking', 'admin'];
+function viewFromHash() {
+  if (typeof window === 'undefined') return 'apostas';
+  const h = (window.location.hash || '').replace(/^#\/?/, '');
+  return VALID_VIEWS.indexOf(h) >= 0 ? h : 'apostas';
+}
+
 function App() {
   const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {}, comments: {}, worldcup: { results: {}, picks: {} } });
   const { users, fixtures, bets, interests, teamPlayers, comments, worldcup } = shared;
@@ -1920,7 +1929,30 @@ function App() {
   // 'discord' não é view — abre link externo direto.
   // APOSTAS (jogos pra apostar) é a tela inicial. CAMPEONATOS = classificação.
   // Ambas são escopadas pelo `championship` selecionado.
-  const [view, setView] = useState('apostas');
+  //
+  // HASH ROUTING: a view vive na URL (#/apostas, #/ranking...) — F5 mantém a
+  // tela, link compartilhado abre direto na view e o botão VOLTAR do browser
+  // navega entre views. Hash inválido cai em 'apostas'; 'admin' tem guard
+  // próprio (useEffect mais abaixo derruba não-mod pra 'apostas').
+  const [view, _setViewRaw] = useState(viewFromHash);
+  const setView = (id) => {
+    _setViewRaw(id);
+    const want = '#/' + id;
+    if (window.location.hash !== want) {
+      // pushState não dispara hashchange — evita set duplicado.
+      try { window.history.pushState(null, '', want); }
+      catch (e) { window.location.hash = want; }
+    }
+  };
+  useEffect(() => {
+    const onNav = () => _setViewRaw(viewFromHash());
+    window.addEventListener('popstate', onNav);
+    window.addEventListener('hashchange', onNav);
+    return () => {
+      window.removeEventListener('popstate', onNav);
+      window.removeEventListener('hashchange', onNav);
+    };
+  }, []);
   // Cupom compartilhado por URL (?cupom=...) — quando setado, mostra modal
   // de preview com botão "USAR" que joga as legs no slip atual.
   const [sharedSlip, setSharedSlip] = useState(null);
@@ -4760,6 +4792,39 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSa
   );
 }
 
+// Stepper de gols do palpite: botões -/+ grandes (touch) em volta do input,
+// que continua digitável. Sem valor ainda, o "+" começa do zero.
+function WcScoreStepper({ value, onChange, disabled, teamLabel, placeholder }) {
+  const num = value === '' || value == null ? null : Math.max(0, parseInt(value, 10) || 0);
+  const step = (d) => {
+    if (disabled) return;
+    const next = Math.max(0, Math.min(20, (num == null ? 0 : num) + d));
+    onChange(String(next));
+  };
+  return (
+    <span className="wc-stepper">
+      <button type="button" className="wc-step" onClick={() => step(-1)}
+              disabled={disabled || num == null || num <= 0}
+              aria-label={'Tirar um gol de ' + teamLabel} tabIndex={-1}>-</button>
+      <span className="wc-stepper-mid">
+        <input
+          className="wc-score-in"
+          type="number" min="0" max="20"
+          value={value}
+          placeholder={placeholder || '–'}
+          onChange={e => onChange(e.target.value)}
+          disabled={disabled}
+          aria-label={'Palpite gols ' + teamLabel}
+        />
+        <span className="wc-stepper-team" aria-hidden="true">{String(teamLabel || '').slice(0, 3).toUpperCase()}</span>
+      </span>
+      <button type="button" className="wc-step wc-step-plus" onClick={() => step(1)}
+              disabled={disabled || (num != null && num >= 20)}
+              aria-label={'Mais um gol pra ' + teamLabel} tabIndex={-1}>+</button>
+    </span>
+  );
+}
+
 function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSavePick, onSetResult }) {
   const closed = !!result; // admin já lançou o placar real -> congela
   // Se algum time é placeholder (mata-mata não decidido), bloqueia palpite
@@ -4826,24 +4891,20 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
           <span className="wc-name">{match.home}</span>
         </div>
         <div className="wc-inputs">
-          <input
-            className="wc-score-in"
-            type="number" min="0" max="20"
+          <WcScoreStepper
             value={closed ? '' : gh}
-            placeholder={closed && result ? String(result.gh) : '–'}
-            onChange={e => setGh(e.target.value)}
+            onChange={setGh}
             disabled={closed || !canBet || busy || isPlaceholder}
-            aria-label={`Palpite gols ${match.home}`}
+            teamLabel={match.home}
+            placeholder={closed && result ? String(result.gh) : '–'}
           />
           <span className="wc-x">×</span>
-          <input
-            className="wc-score-in"
-            type="number" min="0" max="20"
+          <WcScoreStepper
             value={closed ? '' : ga}
-            placeholder={closed && result ? String(result.ga) : '–'}
-            onChange={e => setGa(e.target.value)}
+            onChange={setGa}
             disabled={closed || !canBet || busy || isPlaceholder}
-            aria-label={`Palpite gols ${match.away}`}
+            teamLabel={match.away}
+            placeholder={closed && result ? String(result.ga) : '–'}
           />
         </div>
         <div className="wc-team wc-team-away">
