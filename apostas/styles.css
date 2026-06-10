@@ -1265,7 +1265,21 @@
       border-bottom: 1px dashed rgba(28,22,18,0.18);
     }
     .lb-row:last-child { border-bottom: none; }
-    .lb-row.me { background: rgba(215,100,20,0.10); padding: 10px 8px; }
+    .lb-row.me {
+      background: rgba(215,100,20,0.14);
+      padding: 10px 8px;
+      border-left: 4px solid var(--pv-orange);
+      border-bottom: 1px dashed rgba(215,100,20,0.4);
+    }
+    /* Chip "VOCÊ" ao lado do próprio nick no ranking */
+    .lb-you {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 6px;
+      background: var(--pv-orange); color: var(--pv-bone);
+      font-size: 8px; font-weight: 800; letter-spacing: 0.22em;
+      vertical-align: 2px;
+    }
     .lb-pos {
       font-family: "Bagel Fat One", Impact, sans-serif; font-size: 18px;
       color: var(--pv-orange); text-align: center;
@@ -1643,6 +1657,151 @@
       color: var(--pv-charcoal); letter-spacing: 0.02em;
     }
     .empty .e2 { font-size: 12px; margin-top: 6px; line-height: 1.5; max-width: 360px; margin-left: auto; margin-right: auto; }
+    /* Call-to-action dentro de empty state ("IR PRAS APOSTAS" etc.) */
+    .empty-cta {
+      display: inline-flex; align-items: center; gap: 7px;
+      margin-top: 14px;
+      padding: 10px 18px;
+      background: var(--pv-orange); color: var(--pv-bone);
+      border: 2px solid var(--pv-charcoal);
+      box-shadow: 3px 3px 0 var(--pv-charcoal);
+      font-family: inherit; font-weight: 800;
+      font-size: 11px; letter-spacing: 0.18em;
+      cursor: pointer;
+    }
+    .empty-cta:hover { background: var(--pv-charcoal); }
+    .empty-cta:active { transform: translate(2px, 2px); box-shadow: none; }
+
+    /* Banner "VERSÃO NOVA DISPONÍVEL" — fica até recarregar (não é toast). */
+    .update-banner {
+      position: fixed;
+      left: 50%; transform: translateX(-50%);
+      bottom: max(16px, calc(env(safe-area-inset-bottom) + 10px));
+      z-index: 130;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      background: var(--pv-charcoal); color: var(--pv-bone);
+      border: 3px solid var(--pv-orange);
+      box-shadow: 5px 5px 0 rgba(0,0,0,0.35);
+      animation: pv-fade var(--dur-lg) var(--ease);
+      max-width: calc(100vw - 24px);
+    }
+    .update-banner-txt {
+      font-size: 11px; font-weight: 800; letter-spacing: 0.18em;
+      white-space: nowrap;
+    }
+    .update-banner button {
+      padding: 7px 12px;
+      background: var(--pv-orange); color: var(--pv-charcoal);
+      border: none; cursor: pointer;
+      font-family: inherit; font-weight: 800;
+      font-size: 11px; letter-spacing: 0.16em;
+      white-space: nowrap;
+    }
+    .update-banner button:hover { background: var(--pv-bone); }
+
+    /* ──── CONFIRM MODAL (substitui window.confirm) ──── */
+    .confirm-bg { z-index: 140; }
+    .confirm-modal { max-width: 420px; }
+    .confirm-modal.confirm-danger { border-color: var(--pv-red); }
+    .confirm-modal.confirm-danger h3 { color: var(--pv-red); }
+    .confirm-body {
+      font-size: 13px; line-height: 1.55; font-weight: 600;
+      color: rgba(28,22,18,0.8);
+      margin: 8px 0 4px;
+      white-space: pre-line;
+    }
+    .btn-danger { background: var(--pv-red); color: var(--pv-bone); }
+    .btn-danger:hover { background: #a32a2a; }
+
+    /* ──── ADMIN: ajustador de moedas com preview ──── */
+    .coin-adj {
+      display: inline-flex; align-items: center; gap: 5px;
+      flex-wrap: wrap;
+    }
+    .coin-adj-lab {
+      font-size: 9px; font-weight: 800; letter-spacing: 0.12em;
+      color: rgba(28,22,18,0.55);
+    }
+    .coin-adj-btn {
+      width: 30px; height: 30px;
+      font-weight: 800; font-size: 15px; line-height: 1;
+      cursor: pointer;
+      border: 1.5px solid var(--pv-charcoal);
+      background: transparent;
+      font-family: inherit;
+    }
+    .coin-adj-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .coin-adj-plus { background: var(--pv-orange); color: var(--pv-bone); border-color: var(--pv-charcoal); }
+    .coin-adj-val {
+      min-width: 56px; text-align: center;
+      display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+      font-family: "Bagel Fat One", Impact, sans-serif; font-size: 15px;
+    }
+    .coin-adj-old { opacity: 0.45; text-decoration: line-through; font-size: 12px; }
+    .coin-adj-new { color: var(--pv-orange); }
+    .coin-adj-apply {
+      padding: 7px 10px;
+      background: var(--pv-charcoal); color: var(--pv-bone);
+      border: none; cursor: pointer;
+      font-family: inherit; font-weight: 800;
+      font-size: 10px; letter-spacing: 0.1em;
+      white-space: nowrap;
+    }
+    .coin-adj-apply:disabled { opacity: 0.5; cursor: wait; }
+    .coin-adj-undo {
+      width: 26px; height: 26px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent;
+      border: 1.5px solid rgba(28,22,18,0.4); color: rgba(28,22,18,0.6);
+      cursor: pointer;
+    }
+    .coin-adj-undo:hover { border-color: var(--pv-red); color: var(--pv-red); }
+
+    /* botão "resetar senha" na linha do usuário (admin) */
+    .admin-reset-pass {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-top: 6px;
+      padding: 4px 8px;
+      background: transparent;
+      border: 1.5px dashed rgba(28,22,18,0.4);
+      color: rgba(28,22,18,0.65);
+      font-family: inherit; font-weight: 800;
+      font-size: 9px; letter-spacing: 0.14em;
+      cursor: pointer;
+    }
+    .admin-reset-pass:hover { border-color: var(--pv-red); color: var(--pv-red); }
+
+    /* ──── PERFIL: trocar senha ──── */
+    .senha-card-head {
+      width: 100%;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 13px 18px;
+      background: var(--pv-charcoal); color: var(--pv-bone);
+      border: none; cursor: pointer;
+      font-family: inherit; text-align: left;
+      border-bottom: 2px solid var(--pv-orange);
+    }
+    .senha-card-title {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-weight: 800; font-size: 12px; letter-spacing: 0.18em;
+    }
+    .senha-form {
+      display: grid; gap: 12px;
+      max-width: 340px;
+    }
+    .senha-form label { display: block; }
+    .senha-form input {
+      width: 100%; margin-top: 5px;
+      padding: 10px 12px;
+      background: var(--pv-bone-2);
+      border: 2px solid var(--pv-charcoal);
+      font-family: inherit; font-size: 15px; font-weight: 700;
+      box-sizing: border-box;
+    }
+    .senha-submit { padding: 12px; border: 3px solid var(--pv-charcoal); font-weight: 800; letter-spacing: 0.16em; font-size: 12px; cursor: pointer; }
+    .senha-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .senha-hint { margin-top: 12px; font-size: 11px; color: rgba(28,22,18,0.55); line-height: 1.5; }
 
     /* Loading spinner (3 dots pulsando) — tela CONECTANDO */
     .loading-card { text-align: center; }

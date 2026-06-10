@@ -50,11 +50,29 @@
        usa dev.html que carrega o .jsx com Babel standalone. -->
   <script src="apostas-app.compiled.js?v=20260607-ranking-km"></script>
 
-  <!-- PWA: registra service worker pra cache offline + install no celular -->
+  <!-- PWA: registra service worker pra cache offline + install no celular.
+       Também detecta quando uma versão NOVA do app foi instalada com esta
+       página ainda aberta e avisa o React (banner RECARREGAR) — sem isso o
+       usuário fica preso no build velho até dar hard refresh. -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js').catch(err => {
+        navigator.serviceWorker.register('service-worker.js').then((reg) => {
+          const notifyUpdate = () => {
+            window.__swUpdateReady = true;
+            window.dispatchEvent(new CustomEvent('primitivao:sw-update'));
+          };
+          // Worker novo já esperando (raro com skipWaiting, mas cobre).
+          if (reg.waiting && navigator.serviceWorker.controller) notifyUpdate();
+          reg.addEventListener('updatefound', () => {
+            const nw = reg.installing;
+            if (!nw) return;
+            nw.addEventListener('statechange', () => {
+              // 'installed' + já existe controller = atualização (não 1ª visita).
+              if (nw.state === 'installed' && navigator.serviceWorker.controller) notifyUpdate();
+            });
+          });
+        }).catch(err => {
           console.warn('SW register failed:', err);
         });
       });
