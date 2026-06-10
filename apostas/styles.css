@@ -2396,6 +2396,12 @@
     }
     .loja-prova-txt { min-width: 0; flex: 1; }
     .loja-prova-name { font-weight: 800; font-size: 12px; letter-spacing: 0.14em; }
+    .loja-prova-price {
+      margin-top: 3px;
+      font-family: "Bagel Fat One", Impact, sans-serif;
+      font-size: 13px; letter-spacing: 0.04em;
+      color: var(--pv-charcoal);
+    }
     .loja-prova-hint { font-size: 12px; color: rgba(28,22,18,0.6); line-height: 1.5; }
     .loja-prova-hint .pico-icon { vertical-align: -2px; }
     .loja-prova-clear {
@@ -4255,4 +4261,14 @@
       /* a sombra dura charcoal some no fundo escuro — clareia o contorno */
       .card { box-shadow: 6px 6px 0 rgba(0,0,0,0.55); border-color: #0d0a07; }
       .card:hover { box-shadow: 8px 8px 0 rgba(0,0,0,0.6); }
+      /* subtabs da COPA e do HALL ficam direto no fundo (fora de card) —
+         mesmo tratamento das .tabs acima, senão o texto charcoal some */
+      .copa-subtabs, .hall-subtabs { border-bottom-color: rgba(244,234,215,0.35); }
+      .copa-subtab, .hall-subtab { color: rgba(244,234,215,0.55); }
+      .copa-subtab.active { color: var(--pv-bone); background: rgba(215,100,20,0.16); }
+      .hall-subtab.fame.active { color: #e3c14d; border-bottom-color: #e3c14d; }
+      .hall-subtab.shame.active { color: #e07a7a; border-bottom-color: #e07a7a; }
+      .hall-subtab:hover:not(.active) { color: var(--pv-bone); }
+      /* legenda dos grupos da Copa: <p> solto na página, herda texto do body */
+      .copa-grupos-legenda { background: rgba(244,234,215,0.08); color: var(--pv-bone); }
     }

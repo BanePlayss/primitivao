@@ -7,7 +7,7 @@
 //   - Firestore (firestore.googleapis.com): nunca cache, sempre rede.
 //   - Outros: network-first com fallback cache.
 
-const CACHE_VERSION = 'primitivao-v2026-06-10-ux-review';
+const CACHE_VERSION = 'primitivao-v2026-06-10-review-fixes';
 const STATIC_ASSETS = [
   './',
   './index.html',
