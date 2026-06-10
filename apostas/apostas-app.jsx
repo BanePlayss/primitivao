@@ -5882,7 +5882,7 @@ function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock }) {
 
 // ─── CUPOM (bet slip) ───────────────────────────────────────────────────────
 function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet, pruneMsg }) {
-  const [amt, setAmt] = useState(10);
+  const [amt, setAmt] = useState(50);
   const [busy, setBusy] = useState(false);
   const legs = slip.map(s => ({ ...s, _fix: gamesById ? gamesById[s.fixtureId] : null }));
   // SOMA (não multiplica) — ver placeBet.
@@ -5946,10 +5946,12 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
             <input type="number" min="1" max={balance} value={amt}
                    onChange={e => setAmt(Math.max(0, Math.min(balance, +e.target.value || 0)))}
                    className="stake-input" />
+            {/* Valores rápidos calibrados pra economia atual (bônus semanal
+                de 550 PC, saldos na casa dos milhares). Clampa no saldo. */}
             <div className="quick">
-              <button onClick={() => setAmt(5)}>5</button>
-              <button onClick={() => setAmt(10)}>10</button>
-              <button onClick={() => setAmt(25)}>25</button>
+              <button onClick={() => setAmt(Math.min(50, balance))}>50</button>
+              <button onClick={() => setAmt(Math.min(100, balance))}>100</button>
+              <button onClick={() => setAmt(Math.min(500, balance))}>500</button>
               <button onClick={() => setAmt(balance)}>MAX</button>
             </div>
 
@@ -7392,7 +7394,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
   const [cupom, setCupom] = useState([]);
-  const [stake, setStake] = useState(10);
+  const [stake, setStake] = useState(50);
   // #8: dois modos de apostador. SIMPLES (padrão) mostra só o VENCEDOR (quem
   // ganha o confronto) — menos informação pro apostador casual. AVANÇADO abre
   // todos os mercados (placares por partida, total de rounds, finalização,
@@ -7681,10 +7683,11 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                       <div style={{ marginTop: 10 }} className="small-label">QUANTO APOSTAR (PC)</div>
                       <input type="number" min="1" value={stake} className="stake-input"
                         onChange={e => setStake(Math.max(0, Math.min(Number.isFinite(balance) ? balance : 1e9, +e.target.value || 0)))} />
+                      {/* mesmos valores rápidos do cupom FIFA (50/100/500) */}
                       <div className="quick">
-                        <button onClick={() => setStake(5)}>5</button>
-                        <button onClick={() => setStake(10)}>10</button>
-                        <button onClick={() => setStake(25)}>25</button>
+                        <button onClick={() => setStake(Number.isFinite(balance) ? Math.min(50, balance) : 50)}>50</button>
+                        <button onClick={() => setStake(Number.isFinite(balance) ? Math.min(100, balance) : 100)}>100</button>
+                        <button onClick={() => setStake(Number.isFinite(balance) ? Math.min(500, balance) : 500)}>500</button>
                         <button onClick={() => setStake(Number.isFinite(balance) ? balance : 1000)}>MAX</button>
                       </div>
 
