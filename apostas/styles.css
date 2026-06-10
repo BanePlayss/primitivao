@@ -6,6 +6,10 @@
       --pv-bone-2:   #e6dbc4;
       --pv-red:      #8b3a14;
       --pv-green:    #4d6a2e;
+      /* paleta de PERIGO (zona destrutiva do admin, avisos críticos) */
+      --pv-red-bright: #c33;
+      --pv-red-soft:   #ff8a8a;
+      --pv-red-deep:   #3a0e0e;
       /* ── design tokens (polish global) ── */
       --sh-sm:  3px 3px 0 var(--pv-charcoal);
       --sh-md:  6px 6px 0 var(--pv-charcoal);
@@ -38,6 +42,21 @@
     }
     /* feedback tátil: qualquer botão "afunda" levemente ao clicar */
     button:active:not(:disabled) { transform: translateY(1px); }
+
+    /* Foco visível consistente (navegação por teclado): contorno laranja em
+       tudo que é interativo. :focus-visible não aparece em clique/toque. */
+    button:focus-visible,
+    a:focus-visible,
+    [role="button"]:focus-visible {
+      outline: 2px solid var(--pv-orange);
+      outline-offset: 2px;
+    }
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible {
+      outline: 2px solid var(--pv-orange);
+      outline-offset: 1px;
+    }
     input, select, textarea {
       font-family: inherit;
       transition: border-color var(--dur) var(--ease),
@@ -426,6 +445,30 @@
     .wc-score-in:focus { outline: none; background: rgba(215,100,20,0.15); }
     .wc-score-in:disabled { opacity: 0.55; cursor: not-allowed; }
     .wc-x { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 20px; color: var(--pv-orange); }
+    /* Stepper do palpite: -/+ touch-friendly em volta do input digitável,
+       com a sigla do time embaixo pra não confundir mandante/visitante. */
+    .wc-stepper { display: inline-flex; align-items: flex-start; gap: 4px; }
+    .wc-stepper-mid { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; }
+    .wc-stepper-team {
+      font-size: 8px; font-weight: 800; letter-spacing: 0.2em;
+      color: rgba(28,22,18,0.5);
+    }
+    .wc-step {
+      width: 34px; height: 44px;
+      border: 2px solid var(--pv-charcoal);
+      background: var(--pv-bone-2);
+      font-family: inherit; font-weight: 800; font-size: 18px; line-height: 1;
+      cursor: pointer;
+      color: var(--pv-charcoal);
+    }
+    .wc-step:hover:not(:disabled) { background: rgba(215,100,20,0.15); }
+    .wc-step:active:not(:disabled) { background: var(--pv-orange); color: var(--pv-bone); }
+    .wc-step:disabled { opacity: 0.3; cursor: not-allowed; }
+    .wc-step-plus { background: rgba(215,100,20,0.12); }
+    /* esconde os spinners nativos do input number (o stepper cobre) */
+    .wc-stepper .wc-score-in::-webkit-outer-spin-button,
+    .wc-stepper .wc-score-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .wc-stepper .wc-score-in { -moz-appearance: textfield; appearance: textfield; }
     .wc-actions {
       margin-top: 10px;
       display: flex; gap: 10px; align-items: center;
@@ -1265,7 +1308,21 @@
       border-bottom: 1px dashed rgba(28,22,18,0.18);
     }
     .lb-row:last-child { border-bottom: none; }
-    .lb-row.me { background: rgba(215,100,20,0.10); padding: 10px 8px; }
+    .lb-row.me {
+      background: rgba(215,100,20,0.14);
+      padding: 10px 8px;
+      border-left: 4px solid var(--pv-orange);
+      border-bottom: 1px dashed rgba(215,100,20,0.4);
+    }
+    /* Chip "VOCÊ" ao lado do próprio nick no ranking */
+    .lb-you {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 6px;
+      background: var(--pv-orange); color: var(--pv-bone);
+      font-size: 8px; font-weight: 800; letter-spacing: 0.22em;
+      vertical-align: 2px;
+    }
     .lb-pos {
       font-family: "Bagel Fat One", Impact, sans-serif; font-size: 18px;
       color: var(--pv-orange); text-align: center;
@@ -1643,6 +1700,151 @@
       color: var(--pv-charcoal); letter-spacing: 0.02em;
     }
     .empty .e2 { font-size: 12px; margin-top: 6px; line-height: 1.5; max-width: 360px; margin-left: auto; margin-right: auto; }
+    /* Call-to-action dentro de empty state ("IR PRAS APOSTAS" etc.) */
+    .empty-cta {
+      display: inline-flex; align-items: center; gap: 7px;
+      margin-top: 14px;
+      padding: 10px 18px;
+      background: var(--pv-orange); color: var(--pv-bone);
+      border: 2px solid var(--pv-charcoal);
+      box-shadow: 3px 3px 0 var(--pv-charcoal);
+      font-family: inherit; font-weight: 800;
+      font-size: 11px; letter-spacing: 0.18em;
+      cursor: pointer;
+    }
+    .empty-cta:hover { background: var(--pv-charcoal); }
+    .empty-cta:active { transform: translate(2px, 2px); box-shadow: none; }
+
+    /* Banner "VERSÃO NOVA DISPONÍVEL" — fica até recarregar (não é toast). */
+    .update-banner {
+      position: fixed;
+      left: 50%; transform: translateX(-50%);
+      bottom: max(16px, calc(env(safe-area-inset-bottom) + 10px));
+      z-index: 130;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      background: var(--pv-charcoal); color: var(--pv-bone);
+      border: 3px solid var(--pv-orange);
+      box-shadow: 5px 5px 0 rgba(0,0,0,0.35);
+      animation: pv-fade var(--dur-lg) var(--ease);
+      max-width: calc(100vw - 24px);
+    }
+    .update-banner-txt {
+      font-size: 11px; font-weight: 800; letter-spacing: 0.18em;
+      white-space: nowrap;
+    }
+    .update-banner button {
+      padding: 7px 12px;
+      background: var(--pv-orange); color: var(--pv-charcoal);
+      border: none; cursor: pointer;
+      font-family: inherit; font-weight: 800;
+      font-size: 11px; letter-spacing: 0.16em;
+      white-space: nowrap;
+    }
+    .update-banner button:hover { background: var(--pv-bone); }
+
+    /* ──── CONFIRM MODAL (substitui window.confirm) ──── */
+    .confirm-bg { z-index: 140; }
+    .confirm-modal { max-width: 420px; }
+    .confirm-modal.confirm-danger { border-color: var(--pv-red); }
+    .confirm-modal.confirm-danger h3 { color: var(--pv-red); }
+    .confirm-body {
+      font-size: 13px; line-height: 1.55; font-weight: 600;
+      color: rgba(28,22,18,0.8);
+      margin: 8px 0 4px;
+      white-space: pre-line;
+    }
+    .btn-danger { background: var(--pv-red); color: var(--pv-bone); }
+    .btn-danger:hover { background: #a32a2a; }
+
+    /* ──── ADMIN: ajustador de moedas com preview ──── */
+    .coin-adj {
+      display: inline-flex; align-items: center; gap: 5px;
+      flex-wrap: wrap;
+    }
+    .coin-adj-lab {
+      font-size: 9px; font-weight: 800; letter-spacing: 0.12em;
+      color: rgba(28,22,18,0.55);
+    }
+    .coin-adj-btn {
+      width: 30px; height: 30px;
+      font-weight: 800; font-size: 15px; line-height: 1;
+      cursor: pointer;
+      border: 1.5px solid var(--pv-charcoal);
+      background: transparent;
+      font-family: inherit;
+    }
+    .coin-adj-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .coin-adj-plus { background: var(--pv-orange); color: var(--pv-bone); border-color: var(--pv-charcoal); }
+    .coin-adj-val {
+      min-width: 56px; text-align: center;
+      display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+      font-family: "Bagel Fat One", Impact, sans-serif; font-size: 15px;
+    }
+    .coin-adj-old { opacity: 0.45; text-decoration: line-through; font-size: 12px; }
+    .coin-adj-new { color: var(--pv-orange); }
+    .coin-adj-apply {
+      padding: 7px 10px;
+      background: var(--pv-charcoal); color: var(--pv-bone);
+      border: none; cursor: pointer;
+      font-family: inherit; font-weight: 800;
+      font-size: 10px; letter-spacing: 0.1em;
+      white-space: nowrap;
+    }
+    .coin-adj-apply:disabled { opacity: 0.5; cursor: wait; }
+    .coin-adj-undo {
+      width: 26px; height: 26px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent;
+      border: 1.5px solid rgba(28,22,18,0.4); color: rgba(28,22,18,0.6);
+      cursor: pointer;
+    }
+    .coin-adj-undo:hover { border-color: var(--pv-red); color: var(--pv-red); }
+
+    /* botão "resetar senha" na linha do usuário (admin) */
+    .admin-reset-pass {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-top: 6px;
+      padding: 4px 8px;
+      background: transparent;
+      border: 1.5px dashed rgba(28,22,18,0.4);
+      color: rgba(28,22,18,0.65);
+      font-family: inherit; font-weight: 800;
+      font-size: 9px; letter-spacing: 0.14em;
+      cursor: pointer;
+    }
+    .admin-reset-pass:hover { border-color: var(--pv-red); color: var(--pv-red); }
+
+    /* ──── PERFIL: trocar senha ──── */
+    .senha-card-head {
+      width: 100%;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 13px 18px;
+      background: var(--pv-charcoal); color: var(--pv-bone);
+      border: none; cursor: pointer;
+      font-family: inherit; text-align: left;
+      border-bottom: 2px solid var(--pv-orange);
+    }
+    .senha-card-title {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-weight: 800; font-size: 12px; letter-spacing: 0.18em;
+    }
+    .senha-form {
+      display: grid; gap: 12px;
+      max-width: 340px;
+    }
+    .senha-form label { display: block; }
+    .senha-form input {
+      width: 100%; margin-top: 5px;
+      padding: 10px 12px;
+      background: var(--pv-bone-2);
+      border: 2px solid var(--pv-charcoal);
+      font-family: inherit; font-size: 15px; font-weight: 700;
+      box-sizing: border-box;
+    }
+    .senha-submit { padding: 12px; border: 3px solid var(--pv-charcoal); font-weight: 800; letter-spacing: 0.16em; font-size: 12px; cursor: pointer; }
+    .senha-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .senha-hint { margin-top: 12px; font-size: 11px; color: rgba(28,22,18,0.55); line-height: 1.5; }
 
     /* Loading spinner (3 dots pulsando) — tela CONECTANDO */
     .loading-card { text-align: center; }
@@ -2171,6 +2373,43 @@
     .loja-item.rarity-rara     { border-left: 6px solid #a8a8a8; }
     .loja-item.rarity-lendaria { border-left: 6px solid #d4af37; box-shadow: 0 0 0 1px rgba(212,175,55,0.3); }
     .loja-item-head { display: flex; align-items: center; gap: 10px; }
+    .loja-item.em-prova { border-color: var(--pv-orange); box-shadow: 3px 3px 0 var(--pv-orange); }
+    /* botão "provar no avatar" (olhinho) no canto do item */
+    .loja-prova-btn {
+      margin-left: auto; flex-shrink: 0;
+      width: 32px; height: 32px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent;
+      border: 1.5px solid rgba(28,22,18,0.35);
+      color: rgba(28,22,18,0.6);
+      cursor: pointer;
+    }
+    .loja-prova-btn:hover { border-color: var(--pv-orange); color: var(--pv-orange); }
+    .loja-prova-btn.on { background: var(--pv-orange); border-color: var(--pv-charcoal); color: var(--pv-bone); }
+    @media (pointer: coarse) { .loja-prova-btn { width: 40px; height: 40px; } }
+    /* provador (faixa no card do topo da loja) */
+    .loja-prova-strip {
+      display: flex; align-items: center; gap: 14px;
+      margin-top: 4px; padding: 12px;
+      border: 2px dashed rgba(28,22,18,0.3);
+      background: rgba(28,22,18,0.03);
+    }
+    .loja-prova-txt { min-width: 0; flex: 1; }
+    .loja-prova-name { font-weight: 800; font-size: 12px; letter-spacing: 0.14em; }
+    .loja-prova-hint { font-size: 12px; color: rgba(28,22,18,0.6); line-height: 1.5; }
+    .loja-prova-hint .pico-icon { vertical-align: -2px; }
+    .loja-prova-clear {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-top: 6px;
+      padding: 5px 10px;
+      background: transparent;
+      border: 1.5px solid rgba(28,22,18,0.4);
+      color: rgba(28,22,18,0.65);
+      font-family: inherit; font-weight: 800;
+      font-size: 9px; letter-spacing: 0.16em;
+      cursor: pointer;
+    }
+    .loja-prova-clear:hover { border-color: var(--pv-red); color: var(--pv-red); }
     .loja-item-ic {
       width: 44px; height: 44px;
       display: inline-flex; align-items: center; justify-content: center;
@@ -3975,4 +4214,45 @@
       .mk-curtain-panel { transition: none; }
       .mk-spotlight { animation: none; }
       .mk-curtain-opening .mk-stage-title, .mk-curtain-done .mk-stage-title { animation: none; opacity: 1; }
+    }
+
+    /* ════════════════════════════════════════════════════════════════════ */
+    /* ─────────────────── LANDSCAPE (celular deitado) ──────────────────── */
+    /* ════════════════════════════════════════════════════════════════════ */
+    /* pointer:coarse limita a touch — janela baixa de desktop não é afetada. */
+    @media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+      .topbar { padding-top: max(6px, env(safe-area-inset-top)); padding-bottom: 6px; }
+      .brand-text .t2 { display: none; }
+      .page { padding: 10px 14px; }
+      .tabs-mobile { margin-bottom: 10px; }
+      .cupom-fab { bottom: 10px; }
+    }
+
+    /* ════════════════════════════════════════════════════════════════════ */
+    /* ─────────────────── DARK MODE (papel na mesa escura) ─────────────── */
+    /* ════════════════════════════════════════════════════════════════════ */
+    /* Abordagem conservadora: o FUNDO da página escurece (a "mesa") e os
+       cards continuam de papel bone — coerente com a estética de jornal e
+       não exige repintar as ~480 cores internas. Só o texto que fica DIRETO
+       no fundo (fora de card/caixa escura) clareia. */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background:
+          radial-gradient(circle at 18% 12%, rgba(215,100,20,0.07), transparent 42%),
+          radial-gradient(circle at 82% 88%, rgba(215,100,20,0.04), transparent 42%),
+          #16100b;
+      }
+      /* rodapé do feed de notícias (texto solto no fundo) */
+      .inicio-foot { color: rgba(244,234,215,0.5); }
+      /* variante "bare" do header de campeonato (sem caixa escura) */
+      .champ-header--bare { color: var(--pv-bone); border-bottom-color: rgba(244,234,215,0.4); }
+      .champ-header--bare .champ-header-id { color: var(--pv-bone); }
+      .champ-header--bare .champ-trocar { color: var(--pv-bone); border-color: rgba(244,234,215,0.45); }
+      /* abas soltas no fundo (admin/perfil): texto e trilho clareiam */
+      .tabs { border-bottom-color: rgba(244,234,215,0.35); }
+      .tab { color: rgba(244,234,215,0.55); }
+      .tab.active { color: var(--pv-bone); background: rgba(215,100,20,0.16); }
+      /* a sombra dura charcoal some no fundo escuro — clareia o contorno */
+      .card { box-shadow: 6px 6px 0 rgba(0,0,0,0.55); border-color: #0d0a07; }
+      .card:hover { box-shadow: 8px 8px 0 rgba(0,0,0,0.6); }
     }

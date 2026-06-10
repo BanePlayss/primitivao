@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260607-ranking-km ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260610-ux-review ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1708,6 +1708,78 @@ function ToastHost() {
   );
 }
 
+// Banner fixo "VERSÃO NOVA" — o index.html dispara `primitivao:sw-update`
+// quando o service worker instala um build novo com esta página ainda aberta.
+// Diferente do toast (some em 4s), o banner fica até o usuário recarregar.
+function UpdateBanner() {
+  const [ready, setReady] = useState(() => typeof window !== 'undefined' && !!window.__swUpdateReady);
+  useEffect(() => {
+    const on = () => setReady(true);
+    window.addEventListener('primitivao:sw-update', on);
+    return () => window.removeEventListener('primitivao:sw-update', on);
+  }, []);
+  if (!ready) return null;
+  return (
+    <div className="update-banner" role="alert">
+      <Icon name="rocket" size={16} />
+      <span className="update-banner-txt">VERSÃO NOVA DISPONÍVEL</span>
+      <button type="button" onClick={() => window.location.reload()}>RECARREGAR</button>
+    </div>
+  );
+}
+
+// Modal de confirmação custom — substitui window.confirm (que é feio e
+// genérico). Promise-based, mesmo padrão CustomEvent do showToast:
+//   const ok = await confirmModal({ title, body, confirmLabel, danger });
+// `danger: true` pinta o botão de vermelho (operações destrutivas).
+// Com `infoOnly: true` vira um aviso com um botão só (ex: mostrar senha temp).
+function confirmModal(opts) {
+  return new Promise((resolve) => {
+    window.dispatchEvent(new CustomEvent('primitivao:confirm', { detail: { ...(opts || {}), resolve } }));
+  });
+}
+function ConfirmHost() {
+  const [req, setReq] = useState(null);
+  useEffect(() => {
+    const on = (e) => setReq(prev => {
+      // Se já tem um aberto, resolve o antigo como "cancelado" (não empilha).
+      if (prev) prev.resolve(false);
+      return e.detail;
+    });
+    window.addEventListener('primitivao:confirm', on);
+    return () => window.removeEventListener('primitivao:confirm', on);
+  }, []);
+  useEffect(() => {
+    if (!req) return;
+    const onEsc = (ev) => { if (ev.key === 'Escape') { req.resolve(false); setReq(null); } };
+    document.addEventListener('keydown', onEsc);
+    return () => document.removeEventListener('keydown', onEsc);
+  }, [req]);
+  if (!req) return null;
+  const done = (ok) => { req.resolve(ok); setReq(null); };
+  return (
+    <div className="modal-bg confirm-bg" onClick={() => done(false)}>
+      <div
+        className={'modal confirm-modal' + (req.danger ? ' confirm-danger' : '')}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog" aria-modal="true" aria-label={req.title || 'Confirmar'}
+      >
+        <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {req.danger && <Icon name="warning" size={18} />}
+          {req.title || 'CONFIRMAR?'}
+        </h3>
+        {req.body && <div className="confirm-body">{req.body}</div>}
+        <div className="modal-btns">
+          {!req.infoOnly && <button className="btn-secondary" onClick={() => done(false)}>VOLTAR</button>}
+          <button className={req.danger ? 'btn-danger' : 'btn-primary'} onClick={() => done(true)} autoFocus>
+            {req.confirmLabel || (req.infoOnly ? 'ENTENDI' : 'CONFIRMAR')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── DISCORD WEBHOOK ────────────────────────────────────────────────────────
 // Posta uma mensagem no canal do Discord configurado em `discord_webhook`
 // (top-level field do doc do Firestore). Retorna { ok, err? }.
@@ -1786,6 +1858,15 @@ class ViewBoundary extends React.Component {
   }
 }
 
+// Views navegáveis via hash (#/apostas, #/ranking...). Tem que casar com os
+// ids de getTabItems + 'admin'. Hash desconhecido cai em 'apostas'.
+const VALID_VIEWS = ['apostas', 'campeonatos', 'copa', 'hall', 'inicio', 'loja', 'perfil', 'tickets', 'ranking', 'admin'];
+function viewFromHash() {
+  if (typeof window === 'undefined') return 'apostas';
+  const h = (window.location.hash || '').replace(/^#\/?/, '');
+  return VALID_VIEWS.indexOf(h) >= 0 ? h : 'apostas';
+}
+
 function App() {
   const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {}, comments: {}, worldcup: { results: {}, picks: {} } });
   const { users, fixtures, bets, interests, teamPlayers, comments, worldcup } = shared;
@@ -1848,7 +1929,30 @@ function App() {
   // 'discord' não é view — abre link externo direto.
   // APOSTAS (jogos pra apostar) é a tela inicial. CAMPEONATOS = classificação.
   // Ambas são escopadas pelo `championship` selecionado.
-  const [view, setView] = useState('apostas');
+  //
+  // HASH ROUTING: a view vive na URL (#/apostas, #/ranking...) — F5 mantém a
+  // tela, link compartilhado abre direto na view e o botão VOLTAR do browser
+  // navega entre views. Hash inválido cai em 'apostas'; 'admin' tem guard
+  // próprio (useEffect mais abaixo derruba não-mod pra 'apostas').
+  const [view, _setViewRaw] = useState(viewFromHash);
+  const setView = (id) => {
+    _setViewRaw(id);
+    const want = '#/' + id;
+    if (window.location.hash !== want) {
+      // pushState não dispara hashchange — evita set duplicado.
+      try { window.history.pushState(null, '', want); }
+      catch (e) { window.location.hash = want; }
+    }
+  };
+  useEffect(() => {
+    const onNav = () => _setViewRaw(viewFromHash());
+    window.addEventListener('popstate', onNav);
+    window.addEventListener('hashchange', onNav);
+    return () => {
+      window.removeEventListener('popstate', onNav);
+      window.removeEventListener('hashchange', onNav);
+    };
+  }, []);
   // Cupom compartilhado por URL (?cupom=...) — quando setado, mostra modal
   // de preview com botão "USAR" que joga as legs no slip atual.
   const [sharedSlip, setSharedSlip] = useState(null);
@@ -2373,9 +2477,9 @@ function App() {
     if (validSlip.length !== slip.length) {
       const removed = slip.length - validSlip.length;
       setSlip(validSlip);
-      alert(removed === 1
-        ? 'Um palpite foi removido porque o jogo acabou de ter o placar lançado. Confere o cupom e tenta de novo.'
-        : `${removed} palpites foram removidos (jogos já finalizados). Confere o cupom e tenta de novo.`);
+      showToast(removed === 1
+        ? 'Um palpite foi removido (jogo finalizado/travado). Confere o cupom e tenta de novo.'
+        : `${removed} palpites foram removidos (jogos finalizados/travados). Confere o cupom e tenta de novo.`, 'error');
       return;
     }
     if (amount <= 0) return;
@@ -2402,11 +2506,13 @@ function App() {
         const bets = [ticket, ...(remote.bets || [])];
         return { ...remote, users, bets };
       });
-      if (result && result.err) { alert(result.err); return; }
+      if (result && result.err) { showToast(result.err, 'error'); return; }
       setSlip([]);
+      showToast(`Aposta de ${amount} PC registrada — acompanha em MEUS TICKETS`, 'success');
+      return { ok: true };
     } catch (e) {
       console.warn('placeBet failed', e);
-      alert('Erro ao colocar aposta: ' + (e && e.message || e) + '. Tenta de novo em alguns segundos.');
+      showToast('Erro ao registrar a aposta: ' + (e && e.message || e) + '. Tenta de novo em alguns segundos.', 'error');
     }
   };
 
@@ -3165,7 +3271,7 @@ function App() {
               />
             )}
             {view === 'tickets' && (
-              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} onCancel={cancelBet} />
+              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} onCancel={cancelBet} onGoApostas={() => setView('apostas')} />
             )}
             {view === 'ranking' && (
               <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} cs={cs} />
@@ -3214,6 +3320,8 @@ function App() {
         />
       )}
       <ToastHost />
+      <UpdateBanner />
+      <ConfirmHost />
     </>
   );
 }
@@ -3701,9 +3809,12 @@ function Sidebar({ view, setView, isAdmin, mkInscrito, isMod }) {
 }
 
 // ─── ICONES SVG PERSONALIZADOS ──────────────────────────────────────────────
-function Icon({ name, size = 20, strokeWidth = 1.8, className = '' }) {
+function Icon({ name, size = 20, strokeWidth, className = '' }) {
   const s = size;
-  const sw = strokeWidth;
+  // Stroke adaptativo: em ícones pequenos (chips/tags, ≤14px) o traço 1.8
+  // some na renderização — engrossa pra manter legível. Quem passa
+  // strokeWidth explícito continua mandando.
+  const sw = strokeWidth != null ? strokeWidth : (s <= 14 ? 2.4 : 1.8);
   const common = {
     width: s,
     height: s,
@@ -4684,6 +4795,39 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSa
   );
 }
 
+// Stepper de gols do palpite: botões -/+ grandes (touch) em volta do input,
+// que continua digitável. Sem valor ainda, o "+" começa do zero.
+function WcScoreStepper({ value, onChange, disabled, teamLabel, placeholder }) {
+  const num = value === '' || value == null ? null : Math.max(0, parseInt(value, 10) || 0);
+  const step = (d) => {
+    if (disabled) return;
+    const next = Math.max(0, Math.min(20, (num == null ? 0 : num) + d));
+    onChange(String(next));
+  };
+  return (
+    <span className="wc-stepper">
+      <button type="button" className="wc-step" onClick={() => step(-1)}
+              disabled={disabled || num == null || num <= 0}
+              aria-label={'Tirar um gol de ' + teamLabel} tabIndex={-1}>-</button>
+      <span className="wc-stepper-mid">
+        <input
+          className="wc-score-in"
+          type="number" min="0" max="20"
+          value={value}
+          placeholder={placeholder || '–'}
+          onChange={e => onChange(e.target.value)}
+          disabled={disabled}
+          aria-label={'Palpite gols ' + teamLabel}
+        />
+        <span className="wc-stepper-team" aria-hidden="true">{String(teamLabel || '').slice(0, 3).toUpperCase()}</span>
+      </span>
+      <button type="button" className="wc-step wc-step-plus" onClick={() => step(1)}
+              disabled={disabled || (num != null && num >= 20)}
+              aria-label={'Mais um gol pra ' + teamLabel} tabIndex={-1}>+</button>
+    </span>
+  );
+}
+
 function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSavePick, onSetResult }) {
   const closed = !!result; // admin já lançou o placar real -> congela
   // Se algum time é placeholder (mata-mata não decidido), bloqueia palpite
@@ -4750,24 +4894,20 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
           <span className="wc-name">{match.home}</span>
         </div>
         <div className="wc-inputs">
-          <input
-            className="wc-score-in"
-            type="number" min="0" max="20"
+          <WcScoreStepper
             value={closed ? '' : gh}
-            placeholder={closed && result ? String(result.gh) : '–'}
-            onChange={e => setGh(e.target.value)}
+            onChange={setGh}
             disabled={closed || !canBet || busy || isPlaceholder}
-            aria-label={`Palpite gols ${match.home}`}
+            teamLabel={match.home}
+            placeholder={closed && result ? String(result.gh) : '–'}
           />
           <span className="wc-x">×</span>
-          <input
-            className="wc-score-in"
-            type="number" min="0" max="20"
+          <WcScoreStepper
             value={closed ? '' : ga}
-            placeholder={closed && result ? String(result.ga) : '–'}
-            onChange={e => setGa(e.target.value)}
+            onChange={setGa}
             disabled={closed || !canBet || busy || isPlaceholder}
-            aria-label={`Palpite gols ${match.away}`}
+            teamLabel={match.away}
+            placeholder={closed && result ? String(result.ga) : '–'}
           />
         </div>
         <div className="wc-team wc-team-away">
@@ -5283,7 +5423,7 @@ function Comments({ newsId, list, sessionNick, isAdmin, onAdd, onDelete }) {
   };
 
   const handleDel = async (commentId) => {
-    if (!confirm('Apagar esse comentário?')) return;
+    if (!(await confirmModal({ title: 'APAGAR COMENTÁRIO?', body: 'Não tem como desfazer.', confirmLabel: 'APAGAR', danger: true }))) return;
     try { await onDelete(newsId, commentId); }
     catch (e) { console.warn(e); }
   };
@@ -5563,7 +5703,13 @@ function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, 
               <Icon name="caret-down" size={14} />
             </button>
             <Cupom slip={slip} gamesById={gamesById} balance={me ? me.pc : 0} pruneMsg={slipPruneMsg}
-                   onRemoveLeg={onRemoveLeg} onClearSlip={onClearSlip} onPlaceBet={onPlaceBet} />
+                   onRemoveLeg={onRemoveLeg} onClearSlip={onClearSlip}
+                   onPlaceBet={async (amt) => {
+                     const r = await onPlaceBet(amt);
+                     // Aposta entrou: fecha o bottom-sheet (mobile) pra voltar pros jogos.
+                     if (r && r.ok) setCupomOpen(false);
+                     return r;
+                   }} />
           </div>
         )}
       </aside>
@@ -5902,11 +6048,24 @@ function TicketsMini({ bets, limit = 6, onOpen }) {
   );
 }
 
-function TicketsView({ bets, gamesById, cs, mkScores, onCancel, limit, title }) {
+function TicketsView({ bets, gamesById, cs, mkScores, onCancel, limit, title, onGoApostas }) {
   if (bets.length === 0) {
     return <div className="card"><div className="card-head"><div className="title">{title || 'MEUS TICKETS'}</div></div><div className="card-body"><div className="empty">
-      <div className="e1">SEM TICKETS</div><div className="e2">Você ainda não apostou aqui.</div></div></div></div>;
+      <div className="e1">SEM TICKETS</div><div className="e2">Você ainda não apostou aqui.</div>
+      {onGoApostas && (
+        <button type="button" className="empty-cta" onClick={onGoApostas}>
+          <Icon name="ticket" size={14} /> IR PRAS APOSTAS
+        </button>
+      )}
+    </div></div></div>;
   }
+  // "22/05 14:32" — quando o ticket foi feito (auditoria pessoal).
+  const fmtWhen = (ts) => {
+    if (!ts) return null;
+    const d = new Date(ts);
+    const p = (n) => String(n).padStart(2, '0');
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  };
   const rounds = cs?.rounds || [];
   // Resolve o jogo de uma perna: pode estar em gamesById (ainda pendente)
   // ou já ter sido jogado (busca em cs.rounds). IDs antigos retornam null.
@@ -5942,7 +6101,7 @@ function TicketsView({ bets, gamesById, cs, mkScores, onCancel, limit, title }) 
             <div key={t.id} className={cls} style={{ gridTemplateColumns: '1fr auto' }}>
               <div>
                 <div className="pick">
-                  <small>{multi ? `CASADA · ${t.legs.length} PALPITES` : 'SIMPLES'} · @ {Number(t.combinedOdds).toFixed(2)}</small>
+                  <small>{multi ? `CASADA · ${t.legs.length} PALPITES` : 'SIMPLES'} · @ {Number(t.combinedOdds).toFixed(2)}{t.createdAt ? ` · ${fmtWhen(t.createdAt)}` : ''}</small>
                   {t.legs.map((l, i) => {
                     const isMk = typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0;
                     const f = isMk ? null : resolveGame(l.fixtureId);
@@ -6967,8 +7126,12 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
   const insc = (players || []).slice().sort();
 
   // ADMIN sorteia e PUBLICA o chaveamento. Se já existe, confirma (zera placares).
-  const doDraw = () => {
-    if (draw && !window.confirm('Refazer o chaveamento? Isso ZERA todos os placares lançados e as apostas seguem valendo no novo confronto. Confirma?')) return;
+  const doDraw = async () => {
+    if (draw && !(await confirmModal({
+      title: 'REFAZER O CHAVEAMENTO?',
+      body: 'Isso ZERA todos os placares lançados. As apostas seguem valendo no novo confronto.',
+      confirmLabel: 'REFAZER', danger: true,
+    }))) return;
     onPublishDraw(generateMkDraw(shuffleArr(insc)));
     setViewRound(0);
   };
@@ -7556,6 +7719,65 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   );
 }
 
+// Card "TROCAR SENHA" do perfil. Valida a senha atual contra o hash gravado
+// e troca numa transação. Colapsado por padrão pra não poluir o resumo.
+function TrocarSenhaCard({ nick }) {
+  const [open, setOpen] = useState(false);
+  const [cur, setCur] = useState('');
+  const [nova, setNova] = useState('');
+  const [conf, setConf] = useState('');
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    if (nova.length < 4) { showToast('Senha nova muito curta (mínimo 4 caracteres).', 'error'); return; }
+    if (nova !== conf) { showToast('A confirmação não bate com a senha nova.', 'error'); return; }
+    setBusy(true);
+    try {
+      const curHash = await hashPassword(cur);
+      const novaHash = await hashPassword(nova);
+      const r = await commitBetDocUpdate(remote => {
+        const u = (remote.users || {})[nick];
+        if (!u) return { __abort: true, result: { err: 'Conta não sincronizada — sai e entra de novo.' } };
+        if (u.senhaHash && u.senhaHash !== curHash) return { __abort: true, result: { err: 'Senha atual incorreta.' } };
+        return { ...remote, users: { ...remote.users, [nick]: { ...u, senhaHash: novaHash } } };
+      });
+      if (r && r.err) { showToast(r.err, 'error'); return; }
+      setCur(''); setNova(''); setConf(''); setOpen(false);
+      showToast('Senha trocada!', 'success');
+    } catch (e2) {
+      showToast('Falha ao trocar senha: ' + (e2.message || e2), 'error');
+    } finally { setBusy(false); }
+  };
+  return (
+    <div className="card" style={{ marginTop: 14 }}>
+      <button type="button" className="senha-card-head" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <span className="senha-card-title"><Icon name="lock" size={14} /> TROCAR SENHA</span>
+        <Icon name={open ? 'caret-up' : 'caret-down'} size={12} />
+      </button>
+      {open && (
+        <div className="card-body">
+          <form onSubmit={submit} className="senha-form">
+            <label className="small-label">SENHA ATUAL
+              <input type="password" value={cur} onChange={e => setCur(e.target.value)} autoComplete="current-password" />
+            </label>
+            <label className="small-label">SENHA NOVA
+              <input type="password" value={nova} onChange={e => setNova(e.target.value)} autoComplete="new-password" />
+            </label>
+            <label className="small-label">CONFIRMA A NOVA
+              <input type="password" value={conf} onChange={e => setConf(e.target.value)} autoComplete="new-password" />
+            </label>
+            <button type="submit" className="btn-primary senha-submit" disabled={busy || !cur || !nova || !conf}>
+              {busy ? 'TROCANDO…' : 'TROCAR SENHA'}
+            </button>
+          </form>
+          <div className="senha-hint">Esqueceu a atual? Pede pro admin resetar (ele te manda uma temporária).</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest, mkDraw, mkScores, isNaturalMod, modDisabled, onToggleMod }) {
   const [inscBusy, setInscBusy] = useState(null);
   const [ptab, setPtab] = useState('resumo'); // sub-aba: resumo / time / trofeus / titulos / colecao
@@ -7570,7 +7792,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
     interests[cid] && interests[cid][nick] && (CHAMP_BY_ID[cid] ? CHAMP_BY_ID[cid].status === 'soon' : false));
   const cancelInscription = async (cid) => {
     if (inscBusy) return;
-    if (!window.confirm('Cancelar sua inscrição em ' + champLabel(cid) + '?')) return;
+    if (!(await confirmModal({ title: 'CANCELAR INSCRIÇÃO?', body: 'Sai da lista de ' + champLabel(cid) + '. Dá pra se inscrever de novo depois.', confirmLabel: 'CANCELAR INSCRIÇÃO', danger: true }))) return;
     setInscBusy(cid);
     try {
       await onCancelInterest(cid);
@@ -7821,6 +8043,9 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
               </div>
             </div>
           )}
+
+          {/* SEGURANÇA — trocar a própria senha (admin tem senha fixa no código) */}
+          {!isAdmin && <TrocarSenhaCard nick={nick} />}
         </>
       )}
 
@@ -8005,9 +8230,20 @@ function computeTitleOwners(ctx) {
 // ─── LOJA (items cosméticos) ────────────────────────────────────────────────
 function LojaView({ nick, me, ctx, onBuy, onEquip }) {
   const [busy, setBusy] = useState({}); // { itemId: 'buy' | 'equip' }
+  // PROVADOR: { slot, id } — mostra o item aplicado no avatar grande lá em
+  // cima ANTES de comprar/equipar (funciona até pra item bloqueado).
+  const [prova, setProva] = useState(null);
   const inv = useMemo(() => effectiveInventory(nick, me, ctx), [nick, me, ctx]);
   const equipped = me?.cosmetics || {};
   const cc = ccBalanceFor(nick, me, ctx);
+  const provaCosm = prova ? { ...equipped, [prova.slot]: prova.id } : equipped;
+  const provaItem = prova ? ITEM_BY_ID[prova.id] : null;
+  const toggleProva = (slotId, itemId) => {
+    setProva(p => (p && p.id === itemId) ? null : { slot: slotId, id: itemId });
+    // garante que o provador (lá no topo) fica visível ao tocar PROVAR
+    const el = document.querySelector('.loja-prova-strip');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
 
   const handleBuy = async (item) => {
     if (busy[item.id]) return;
@@ -8050,6 +8286,27 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
             com CC e equipa distintivos desbloqueados por conquista. Items equipados aparecem no
             seu avatar em todo o site (TopBar, Ranking, Perfil, Vitrine).
           </p>
+          {/* PROVADOR: avatar grande com o item "provado" por cima do equipado */}
+          <div className="loja-prova-strip">
+            <Avatar nick={nick} teamPlayers={ctx?.teamPlayers} cosmetics={provaCosm} size={84} />
+            <div className="loja-prova-txt">
+              {provaItem ? (
+                <>
+                  <div className="loja-prova-name" style={{ color: provaItem.color }}>
+                    PROVANDO: {provaItem.name}
+                  </div>
+                  <button type="button" className="loja-prova-clear" onClick={() => setProva(null)}>
+                    <Icon name="x" size={11} /> TIRAR
+                  </button>
+                </>
+              ) : (
+                <div className="loja-prova-hint">
+                  Seu avatar como está hoje. Toca no <Icon name="eye" size={12} /> de qualquer
+                  item pra provar antes de comprar ou equipar.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -8069,8 +8326,9 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
                   const isDrop = !!item.drop;
                   const canAfford = !item.price || cc >= item.price;
                   const action = busy[item.id];
+                  const emProva = prova && prova.id === item.id;
                   return (
-                    <div key={item.id} className={'loja-item rarity-' + item.rarity + (owned ? ' owned' : ' locked')}>
+                    <div key={item.id} className={'loja-item rarity-' + item.rarity + (owned ? ' owned' : ' locked') + (emProva ? ' em-prova' : '')}>
                       <div className="loja-item-head">
                         <span className="loja-item-ic" style={{ color: item.color }}>
                           {owned ? <Icon name={item.icon} size={28} /> : <Icon name="lock" size={24} />}
@@ -8081,6 +8339,15 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
                           </div>
                           <div className="loja-item-rarity">{item.rarity}</div>
                         </div>
+                        <button
+                          type="button"
+                          className={'loja-prova-btn' + (emProva ? ' on' : '')}
+                          onClick={() => toggleProva(slot.id, item.id)}
+                          title={emProva ? 'Tirar do provador' : 'Provar no avatar'}
+                          aria-label={(emProva ? 'Tirar do provador: ' : 'Provar no avatar: ') + item.name}
+                        >
+                          <Icon name={emProva ? 'eye-off' : 'eye'} size={14} />
+                        </button>
                       </div>
                       <div className="loja-item-desc">{item.desc}</div>
                       <div className="loja-item-foot">
@@ -8312,7 +8579,7 @@ function RankingView({ users, bets, me, teamPlayers, cs, lockChamp, compact }) {
                   <div className="lb-pos">{rei ? <Icon name="tr-betking" size={20} /> : i + 1}</div>
                   <Avatar nick={r.nick} teamPlayers={teamPlayers} cosmetics={u.cosmetics || {}} size={compact ? 36 : 42} />
                   <div style={{ minWidth: 0 }}>
-                    <div className="lb-nick">@{r.nick}{u.title && <TitleBadge titleId={u.title} />}{rei && <span className="rank-rei-tag">REI</span>}</div>
+                    <div className="lb-nick">@{r.nick}{r.nick === me && <span className="lb-you">VOCÊ</span>}{u.title && <TitleBadge titleId={u.title} />}{rei && <span className="rank-rei-tag">REI</span>}</div>
                     <div className="rank-row-stats">{r.apostas} apostas · <span style={{ color: 'var(--pv-green)' }}>{r.vit}V</span> · <span style={{ color: 'var(--pv-red)' }}>{r.der}D</span>{r.pend ? ' · ' + r.pend + ' aberta' + (r.pend > 1 ? 's' : '') : ''}</div>
                   </div>
                   <div className="rank-lucro" title={(r.lucro > 0 ? '+' : '') + r.lucro.toLocaleString('pt-BR') + ' PC'} style={{ color: r.lucro > 0 ? 'var(--pv-green)' : r.lucro < 0 ? 'var(--pv-red)' : 'rgba(28,22,18,0.45)' }}>
@@ -9667,8 +9934,8 @@ function TabloidBuilderPanel({ cs, bets, users, teamPlayers, worldcup, wcFixture
     showToast('Zoeira re-sorteada!', 'success');
   };
 
-  const reload = () => {
-    if (!confirm('Recarregar tudo da classificação? Você perde as edições manuais desta edição.')) return;
+  const reload = async () => {
+    if (!(await confirmModal({ title: 'RECARREGAR TABLOIDE?', body: 'Refaz tudo a partir da classificação. Você perde as edições manuais desta edição.', confirmLabel: 'RECARREGAR', danger: true }))) return;
     setData(makeData(champId, type));
     showToast('Tabloide recarregado.', 'success');
   };
@@ -10106,7 +10373,7 @@ function NewsAdminPanel({ remoteNews }) {
                   </div>
                 </div>
                 <Icon name={open ? 'caret-up' : 'caret-down'} size={13} />
-                <button onClick={(e) => { e.stopPropagation(); if (confirm('Remover notícia "' + n.title + '"?')) removeNews(n.id); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--pv-red)', padding: 4, display: 'inline-flex' }}>
+                <button onClick={async (e) => { e.stopPropagation(); if (await confirmModal({ title: 'REMOVER NOTÍCIA?', body: '"' + n.title + '" sai do feed pra todo mundo.', confirmLabel: 'REMOVER', danger: true })) removeNews(n.id); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--pv-red)', padding: 4, display: 'inline-flex' }}>
                   <Icon name="trash" size={14} />
                 </button>
               </div>
@@ -10308,11 +10575,11 @@ function AdminBetsPanel({ bets, users, teamPlayers, cs, onVoidBet }) {
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   const doVoid = async (b) => {
-    const head = b.status === 'won' ? 'ANULAR (estorna o prêmio)' : b.status === 'lost' ? 'ANULAR (devolve o valor)' : 'CANCELAR (devolve o valor)';
+    const head = b.status === 'won' ? 'ANULAR APOSTA VENCEDORA?' : b.status === 'lost' ? 'ANULAR APOSTA PERDIDA?' : 'CANCELAR APOSTA?';
     const extra = b.status === 'won'
-      ? '\n\nATENÇÃO: essa aposta JÁ GANHOU. Anular ESTORNA o prêmio (' + (b.payout || 0) + ' PC) e devolve o valor apostado (' + (b.amount || 0) + ' PC).'
-      : '\n\nDevolve ' + (b.amount || 0) + ' PC pro @' + b.user + '.';
-    if (!window.confirm(head + ' — aposta de @' + b.user + '?' + extra)) return;
+      ? 'ATENÇÃO: essa aposta de @' + b.user + ' JÁ GANHOU. Anular ESTORNA o prêmio (' + (b.payout || 0) + ' PC) e devolve o valor apostado (' + (b.amount || 0) + ' PC).'
+      : 'Devolve ' + (b.amount || 0) + ' PC pro @' + b.user + '.';
+    if (!(await confirmModal({ title: head, body: extra, confirmLabel: b.status === 'pending' ? 'CANCELAR APOSTA' : 'ANULAR', danger: true }))) return;
     setBusyId(b.id);
     try {
       const r = await onVoidBet(b.id);
@@ -10378,11 +10645,59 @@ function AdminBetsPanel({ bets, users, teamPlayers, cs, onVoidBet }) {
   );
 }
 
+// Ajustador de moedas do admin com PREVIEW: acumula o delta local e mostra
+// "atual → novo" antes de gravar. Um clique errado não dispara mais transação
+// no Firestore — só o APLICAR grava (e em UMA transação, não N).
+function CoinAdjuster({ label, value, accent, onApply }) {
+  const [delta, setDelta] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const cur = value || 0;
+  // Não deixa o preview ir abaixo de zero (saldo nunca fica negativo).
+  const step = (dir) => setDelta(d => Math.max(-cur, d + dir * 50));
+  const target = cur + delta;
+  const apply = async () => {
+    if (!delta || busy) return;
+    setBusy(true);
+    try { await onApply(delta); setDelta(0); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="coin-adj">
+      <span className="coin-adj-lab" style={accent ? { color: 'var(--pv-orange)' } : undefined}>{label}</span>
+      <button type="button" className="coin-adj-btn" onClick={() => step(-1)} disabled={busy || target <= 0}>-</button>
+      <div className="coin-adj-val mono">
+        {delta === 0 ? cur : (
+          <>
+            <span className="coin-adj-old">{cur}</span>
+            <Icon name="arrow-right" size={10} />
+            <strong className="coin-adj-new">{target}</strong>
+          </>
+        )}
+      </div>
+      <button type="button" className="coin-adj-btn coin-adj-plus" onClick={() => step(1)} disabled={busy}>+</button>
+      {delta !== 0 && (
+        <>
+          <button type="button" className="coin-adj-apply" onClick={apply} disabled={busy}>
+            {busy ? 'GRAVANDO…' : 'APLICAR ' + (delta > 0 ? '+' : '') + delta}
+          </button>
+          <button type="button" className="coin-adj-undo" onClick={() => setDelta(0)} disabled={busy} title="Descartar ajuste">
+            <Icon name="x" size={11} />
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, splitCurrency, ccCtx, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, weeklyReady, worldcup, wcFixtures, onVoidBet }) {
   const [splitting, setSplitting] = useState(false);
   const handleSplit = async () => {
     if (splitting) return;
-    if (!window.confirm('SEPARAR MOEDAS agora?\n\nDevolve em PC o que cada um gastou na loja, remove os itens comprados (recompra com CC depois), mantém os drops de conquista e cria o saldo CC (zerado). Roda uma vez (idempotente).')) return;
+    if (!(await confirmModal({
+      title: 'SEPARAR MOEDAS AGORA?',
+      body: 'Devolve em PC o que cada um gastou na loja, remove os itens comprados (recompra com CC depois), mantém os drops de conquista e cria o saldo CC (zerado). Roda uma vez (idempotente).',
+      confirmLabel: 'RODAR MIGRAÇÃO', danger: true,
+    }))) return;
     setSplitting(true);
     try {
       const r = await splitCurrency();
@@ -10390,6 +10705,35 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, splitCurrency
       else showToast('Moedas separadas! PC devolvido a quem comprou; loja agora roda em Campeão Coins.', 'success');
     } finally { setSplitting(false); }
   };
+  // Reset de senha: gera temporária de 6 chars, grava o hash e mostra a temp
+  // pro admin repassar (a antiga para de valer na hora). O usuário troca
+  // depois em MEU PERFIL → TROCAR SENHA.
+  const resetPassword = async (nick) => {
+    const ok = await confirmModal({
+      title: 'RESETAR SENHA?',
+      body: 'Gera uma senha temporária pra @' + nick + '. A senha antiga para de funcionar na hora.',
+      confirmLabel: 'GERAR SENHA', danger: true,
+    });
+    if (!ok) return;
+    const temp = Math.random().toString(36).replace(/[^a-z0-9]/g, '').slice(0, 6) || 'troca1';
+    try {
+      const senhaHash = await hashPassword(temp);
+      const r = await commitBetDocUpdate(remote => {
+        const u = (remote.users || {})[nick];
+        if (!u) return { __abort: true, result: { err: 'Usuário não encontrado.' } };
+        return { ...remote, users: { ...remote.users, [nick]: { ...u, senhaHash } } };
+      });
+      if (r && r.err) { showToast(r.err, 'error'); return; }
+      await confirmModal({
+        title: 'SENHA TEMPORÁRIA GERADA',
+        body: '@' + nick + ' agora entra com a senha:  ' + temp + '  — manda pra ele e sugere trocar em MEU PERFIL → TROCAR SENHA.',
+        confirmLabel: 'ANOTEI', infoOnly: true,
+      });
+    } catch (e) {
+      showToast('Falha ao resetar senha: ' + (e.message || e), 'error');
+    }
+  };
+
   // Tabs do admin. Moderador vê: APOSTAS (anular), TIMES e BACKUP (restrito).
   // NEWS/JORNALISTA/USUÁRIOS/CATÁLOGO/DISCORD/PERIGO são só do admin full.
   // PERIGO ficou em aba separada pra não ser clicado por engano.
@@ -10435,8 +10779,6 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, splitCurrency
             {Object.entries(users).map(([nick, u]) => {
               const tid = playerTeam[nick];
               const team = tid ? TEAM(tid) : null;
-              const pm = { width: 30, height: 30, fontWeight: 800, cursor: 'pointer', border: '1.5px solid var(--pv-charcoal)', background: 'transparent', lineHeight: 1 };
-              const pmPlus = { ...pm, background: 'var(--pv-orange)', color: 'var(--pv-bone)' };
               return (
                 <div key={nick} className="lb-row" style={{ gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center' }}>
                   <div>
@@ -10446,20 +10788,13 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, splitCurrency
                         TIME: {team.name.toUpperCase()}
                       </div>
                     )}
+                    <button type="button" className="admin-reset-pass" onClick={() => resetPassword(nick)}>
+                      <Icon name="lock" size={11} /> RESETAR SENHA
+                    </button>
                   </div>
-                  <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(28,22,18,0.55)' }}>PC</span>
-                      <button onClick={() => adjustPc(nick, -50)} style={pm}>-</button>
-                      <div className="lb-pc mono" style={{ minWidth: 52, textAlign: 'center' }}>{u.pc || 0}</div>
-                      <button onClick={() => adjustPc(nick, 50)} style={pmPlus}>+</button>
-                    </div>
-                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: 'var(--pv-orange)' }}>CC</span>
-                      <button onClick={() => adjustCc(nick, -50)} style={pm}>-</button>
-                      <div className="lb-pc mono" style={{ minWidth: 52, textAlign: 'center' }}>{ccBalanceFor(nick, u, ccCtx)}</div>
-                      <button onClick={() => adjustCc(nick, 50)} style={pmPlus}>+</button>
-                    </div>
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <CoinAdjuster label="PC" value={u.pc || 0} onApply={(d) => adjustPc(nick, d)} />
+                    <CoinAdjuster label="CC" accent value={ccBalanceFor(nick, u, ccCtx)} onApply={(d) => adjustCc(nick, d)} />
                   </div>
                 </div>
               );
@@ -10795,11 +11130,11 @@ function RestorePanel() {
 
   const onRestore = async () => {
     if (!file || !preview || preview.error) return;
-    const ok = window.confirm(
-      'Vai SOBRESCREVER o estado atual com o conteúdo do backup.\n\n' +
-      'Um backup de segurança do estado ATUAL vai ser baixado antes (caso queira voltar).\n\n' +
-      'Confirma?'
-    );
+    const ok = await confirmModal({
+      title: 'RESTAURAR BACKUP?',
+      body: 'Vai SOBRESCREVER o estado atual com o conteúdo do backup. Um backup de segurança do estado ATUAL é baixado antes (caso queira voltar).',
+      confirmLabel: 'RESTAURAR', danger: true,
+    });
     if (!ok) return;
     setStatus('running');
     try {
@@ -10916,10 +11251,10 @@ function DangerZone() {
   };
 
   return (
-    <div className="card" style={{ marginTop: 20, border: '2px solid #c33' }}>
-      <div className="card-head" style={{ background: '#3a0e0e' }}>
-        <div className="title" style={{ color: '#ff8a8a', display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="warning" size={16} /> ZONA DE PERIGO</div>
-        <div className="sub" style={{ color: '#ffb3b3' }}>OPERAÇÃO IRREVERSÍVEL</div>
+    <div className="card" style={{ marginTop: 20, border: '2px solid var(--pv-red-bright)' }}>
+      <div className="card-head" style={{ background: 'var(--pv-red-deep)' }}>
+        <div className="title" style={{ color: 'var(--pv-red-soft)', display: 'flex', alignItems: 'center', gap: 8 }}><Icon name="warning" size={16} /> ZONA DE PERIGO</div>
+        <div className="sub" style={{ color: 'var(--pv-red-soft)' }}>OPERAÇÃO IRREVERSÍVEL</div>
       </div>
       <div className="card-body">
         <p style={{ marginTop: 0, lineHeight: 1.5 }}>
@@ -10933,7 +11268,7 @@ function DangerZone() {
           reset é abortado.
         </p>
         <p style={{ lineHeight: 1.5 }}>
-          Pra confirmar, digite <code style={{ background: '#222', padding: '2px 6px', color: '#ff8a8a' }}>{WIPE_CONFIRM_PHRASE}</code> no campo abaixo:
+          Pra confirmar, digite <code style={{ background: 'var(--pv-charcoal)', padding: '2px 6px', color: 'var(--pv-red-soft)' }}>{WIPE_CONFIRM_PHRASE}</code> no campo abaixo:
         </p>
         <input
           type="text"
@@ -10941,14 +11276,14 @@ function DangerZone() {
           onChange={e => setConfirmText(e.target.value)}
           placeholder={WIPE_CONFIRM_PHRASE}
           disabled={status === 'running'}
-          style={{ width: '100%', maxWidth: 280, padding: '8px 12px', fontSize: 14, fontFamily: 'monospace', border: '1.5px solid #c33', background: '#1a0606', color: '#ff8a8a', marginBottom: 12, letterSpacing: '0.1em' }}
+          style={{ width: '100%', maxWidth: 280, padding: '8px 12px', fontSize: 14, fontFamily: 'monospace', border: '1.5px solid var(--pv-red-bright)', background: 'var(--pv-red-deep)', color: 'var(--pv-red-soft)', marginBottom: 12, letterSpacing: '0.1em' }}
         />
         <div>
           <button
             onClick={onClick}
             disabled={!canFire}
             style={{
-              background: canFire ? '#c33' : '#5a2a2a',
+              background: canFire ? 'var(--pv-red-bright)' : '#5a2a2a',
               color: canFire ? '#fff' : '#999',
               padding: '10px 20px',
               fontWeight: 800,
