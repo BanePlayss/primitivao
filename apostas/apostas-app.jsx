@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260610-review-fixes ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260611-revisao-geral ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -266,9 +266,23 @@ function convertWcTime(dateISO, timeStr) {
   return { date: `${dd}/${mm}`, time: `${hh}:${mn}` };
 }
 
+// Timestamp UTC do pontapé inicial ("2026-06-11" + "13:00 UTC-6" -> ms epoch).
+// null se o horário não parsear (sem trava — mesmo comportamento de hoje).
+function wcKickoffTs(dateISO, timeStr) {
+  const t = String(timeStr || '').match(/^(\d{1,2}):(\d{2})\s*UTC([+-]\d+)$/);
+  const d = String(dateISO || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!t || !d) return null;
+  const h = parseInt(t[1], 10), min = parseInt(t[2], 10), off = parseInt(t[3], 10);
+  // hora local - offset = hora UTC; Date.UTC normaliza estouro de dia sozinho
+  return Date.UTC(parseInt(d[1], 10), parseInt(d[2], 10) - 1, parseInt(d[3], 10), h - off, min);
+}
+
 // Traduz slot de mata-mata ("2A", "1E", "3A/B/C/D/F") pra label legível.
 function translateKnockoutSlot(slot) {
   if (!slot) return '';
+  // "W74"/"L101" = vencedor/perdedor do jogo N (oitavas em diante)
+  const mWL = String(slot).match(/^([WL])(\d+)$/);
+  if (mWL) return (mWL[1] === 'W' ? 'VENCEDOR JOGO ' : 'PERDEDOR JOGO ') + mWL[2];
   const m1 = String(slot).match(/^(\d+)([A-Z](?:\/[A-Z])*)$/);
   if (!m1) return slot;
   return `${m1[1]}º G ${m1[2]}`;
@@ -278,7 +292,8 @@ function translateKnockoutSlot(slot) {
 function normalizeWcMatch(raw, idx, teamsByName) {
   if (!raw) return null;
   const { date: brtDate, time: brtTime } = convertWcTime(raw.date, raw.time);
-  const isPlaceholder = (s) => /^(\d+)([A-Z](?:\/[A-Z])*)$/.test(String(s || ''));
+  // Slot não decidido: "2A"/"3A/B/C" (terceiros) ou "W74"/"L101" (mata-mata).
+  const isPlaceholder = (s) => /^(\d+)([A-Z](?:\/[A-Z])*)$/.test(String(s || '')) || /^[WL]\d+$/.test(String(s || ''));
   const t1Real = !isPlaceholder(raw.team1);
   const t2Real = !isPlaceholder(raw.team2);
   // sentinels usados pela função renderFlag() abaixo — emoji real seria
@@ -291,6 +306,10 @@ function normalizeWcMatch(raw, idx, teamsByName) {
   const t2 = t2Real
     ? { name: translateTeamName(raw.team2), flag: (teamsByName[raw.team2] || {}).flag_icon || FLAG_DEFAULT, isSlot: false, rawSlot: null, rawName: raw.team2 }
     : { name: translateKnockoutSlot(raw.team2), flag: FLAG_UNKNOWN, isSlot: true, rawSlot: raw.team2, rawName: null };
+  // ATENÇÃO (load-bearing): os 72 jogos da fase de grupos NÃO têm "num" no
+  // worldcup.json, então o id deles é POSICIONAL (wc-i0…wc-i71) e já existem
+  // palpites salvos no Firestore com essas chaves. NUNCA reordenar/inserir/
+  // remover jogos no meio do array — isso reaponta palpites pro jogo errado.
   const id = raw.num != null ? `wc-${raw.num}` : `wc-i${idx}`;
   const isKnockout = !raw.group;
   return {
@@ -301,6 +320,7 @@ function normalizeWcMatch(raw, idx, teamsByName) {
     dateISO: raw.date,
     date: brtDate,
     time: brtTime,
+    kickoffTs: wcKickoffTs(raw.date, raw.time),
     home: t1.name, away: t2.name,
     rawHome: t1.rawName, rawAway: t2.rawName, // nome em inglês (lookup interno)
     flagHome: t1.flag, flagAway: t2.flag,
@@ -438,6 +458,10 @@ function mkMatchOutcome(sc) {
   const v = ['p1h', 'p1a', 'p2h', 'p2a'].map(k => parseInt(sc[k], 10));
   if (v.some(x => Number.isNaN(x))) return null;
   const [p1h, p1a, p2h, p2a] = v;
+  // Partida MD3 válida: um lado fecha 2, o outro faz 0 ou 1 (2×0, 2×1, 0×2, 1×2).
+  // Placar impossível (1×1, 2×2, 0×0...) = jogo segue pendente, igual incompleto.
+  const okPartida = (h, a) => (h === 2 && a <= 1) || (a === 2 && h <= 1);
+  if (!okPartida(p1h, p1a) || !okPartida(p2h, p2a)) return null;
   const confH = (p1h > p1a ? 1 : 0) + (p2h > p2a ? 1 : 0);
   const confA = 2 - confH;
   const roundsH = p1h + p2h, roundsA = p1a + p2a;
@@ -1953,6 +1977,10 @@ function App() {
       window.removeEventListener('hashchange', onNav);
     };
   }, []);
+  // Trocar de view sempre volta pro topo — no mobile os atalhos (VER TODOS,
+  // ESCALAR/EDITAR) ficam no fundo da página e sem isso o usuário aterrissava
+  // no meio da view nova, parecendo que nada aconteceu.
+  useLayoutEffect(() => { window.scrollTo(0, 0); }, [view]);
   // Cupom compartilhado por URL (?cupom=...) — quando setado, mostra modal
   // de preview com botão "USAR" que joga as legs no slip atual.
   const [sharedSlip, setSharedSlip] = useState(null);
@@ -2252,7 +2280,10 @@ function App() {
               newPayout = undefined;
             }
             dirty = true;
-            return { ...b, legs, status: newStatus, payout: newPayout };
+            // settledAt marca QUANDO o ticket liquidou (Jornalista ordena por isso)
+            const settledAt = newStatus === 'pending' ? undefined
+              : (oldStatus !== newStatus ? Date.now() : b.settledAt);
+            return { ...b, legs, status: newStatus, payout: newPayout, settledAt };
           });
           if (!dirty) return null;
           return { ...remote, users: newUsers, bets: newBets };
@@ -2308,7 +2339,10 @@ function App() {
             } else if (newStatus === 'lost') { newPayout = 0; }
             else if (newStatus === 'pending') { newPayout = undefined; }
             dirty = true;
-            return { ...b, legs, status: newStatus, payout: newPayout };
+            // settledAt marca QUANDO o ticket liquidou (Jornalista ordena por isso)
+            const settledAt = newStatus === 'pending' ? undefined
+              : (oldStatus !== newStatus ? Date.now() : b.settledAt);
+            return { ...b, legs, status: newStatus, payout: newPayout, settledAt };
           });
           if (!dirty) return null;
           return { ...remote, users: newUsers, bets: newBets };
@@ -2425,19 +2459,28 @@ function App() {
   const claimWeekly = async () => {
     if (!session || isAdmin) return;
     const nick = session.nick;
+    // flag de fora da transação: o reducer pode rodar mais de uma vez (retry),
+    // só o resultado da última execução vale pro toast.
+    let credited = false;
     try {
       await commitBetDocUpdate(remote => {
+        credited = false;
         const u = (remote.users || {})[nick];
         if (!u) return null;
         const windowStart = lastSundayAt21BRT();
         if ((u.lastWeekly || 0) >= windowStart) return null; // já resgatou nesta janela
+        credited = true;
         const users = {
           ...remote.users,
           [nick]: { ...u, pc: u.pc + WEEKLY_PC, lastWeekly: Date.now() },
         };
         return { ...remote, users };
       });
-    } catch (e) { console.warn('claimWeekly failed', e); }
+      if (credited) showToast('+' + WEEKLY_PC + ' PC creditados! Bom jogo.', 'success');
+    } catch (e) {
+      console.warn('claimWeekly failed', e);
+      showToast('Falha ao resgatar o bônus. Tenta de novo.', 'error');
+    }
   };
   const weeklyReady = me ? ((me.lastWeekly || 0) < lastSundayAt21BRT()) : false;
   const weeklyIn = me && !weeklyReady
@@ -2557,7 +2600,7 @@ function App() {
         }
         return { ...remote, bets, users };
       });
-      if (result && result.err) alert(result.err);
+      if (result && result.err) showToast(result.err, 'error');
     } catch (e) {
       console.warn('cancelBet failed', e);
     }
@@ -2759,8 +2802,18 @@ function App() {
     if (!session || !session.nick) return;
     const nick = session.nick;
     const pgh = parseInt(gh, 10), pga = parseInt(ga, 10);
-    if (Number.isNaN(pgh) || Number.isNaN(pga)) return;
-    if (pgh < 0 || pga < 0) return;
+    // Erros NOMEADOS (não return silencioso): o card mapeia pra mensagem certa
+    // em vez de mostrar "palpite salvo" sem ter salvo nada.
+    if (Number.isNaN(pgh) || Number.isNaN(pga) || pgh < 0 || pga < 0 || pgh > 20 || pga > 20) {
+      throw new Error('PALPITE_INVALIDO');
+    }
+    // Trava por horário também na GRAVAÇÃO: uma aba aberta antes do pontapé
+    // não pode salvar palpite depois que a bola rolou (a UI trava sozinha,
+    // isso aqui é o cinto de segurança).
+    const wcMatch = (wcData.matches || []).find(x => x.id === matchId);
+    if (wcMatch && wcMatch.kickoffTs != null && Date.now() >= wcMatch.kickoffTs) {
+      throw new Error('JOGO_INICIADO');
+    }
     const ref = BET_DOC();
     let newState = null;
     try {
@@ -2769,7 +2822,7 @@ function App() {
         const cur = (snap.exists && snap.data().worldcup && typeof snap.data().worldcup === 'object')
           ? snap.data().worldcup : {};
         // Não permite alterar palpite se o admin já lançou o placar real
-        if (cur.results && cur.results[matchId]) return;
+        if (cur.results && cur.results[matchId]) throw new Error('RESULTADO_JA_LANCADO');
         const picks = { ...(cur.picks || {}) };
         const userPicks = { ...(picks[nick] || {}) };
         userPicks[matchId] = { gh: pgh, ga: pga, at: Date.now() };
@@ -4681,6 +4734,13 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSa
   // States dos filtros (precisam vir antes de qualquer return)
   const [stageFilter, setStageFilter] = useState('all'); // 'all' | 'group' | 'knockout'
   const [teamFilter, setTeamFilter]   = useState('');     // nome PT do time, '' = todos
+  // Relógio de 30s: quando um jogo atinge o horário do pontapé, a trava de
+  // palpite engata sozinha na tela, sem precisar recarregar.
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30 * 1000);
+    return () => clearInterval(t);
+  }, []);
 
   // Standings de cada grupo (memoizado)
   const standingsByGroup = useMemo(() => {
@@ -4803,6 +4863,7 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSa
                   allPicks={allPicks}
                   isAdmin={isAdmin}
                   canBet={!!myNick}
+                  now={now}
                   onSavePick={onSavePick}
                   onSetResult={onSetResult}
                 />
@@ -4848,10 +4909,13 @@ function WcScoreStepper({ value, onChange, disabled, teamLabel, placeholder }) {
   );
 }
 
-function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSavePick, onSetResult }) {
+function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, onSavePick, onSetResult }) {
   const closed = !!result; // admin já lançou o placar real -> congela
   // Se algum time é placeholder (mata-mata não decidido), bloqueia palpite
   const isPlaceholder = match.slotHome || match.slotAway;
+  // Bola rolando: passou do horário do pontapé e o resultado ainda não saiu.
+  // Palpite trava na hora do jogo — sem isso dava pra palpitar vendo o jogo.
+  const started = !closed && match.kickoffTs != null && (now || Date.now()) >= match.kickoffTs;
   const [gh, setGh] = useState(myPick ? String(myPick.gh) : '');
   const [ga, setGa] = useState(myPick ? String(myPick.ga) : '');
   const [busy, setBusy] = useState(false);
@@ -4863,14 +4927,18 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
   const [adminBusy, setAdminBusy] = useState(false);
 
   const handleSave = async () => {
-    if (busy || closed || isPlaceholder) return;
+    if (busy || closed || started || isPlaceholder) return;
     setBusy(true); setMsg('');
     try {
       await onSavePick(match.id, gh, ga);
       setMsg('palpite salvo');
       setTimeout(() => setMsg(''), 2000);
     } catch (e) {
-      setMsg('erro — tenta de novo');
+      const em = e && e.message;
+      setMsg(em === 'JOGO_INICIADO' ? 'jogo já começou — travado'
+        : em === 'RESULTADO_JA_LANCADO' ? 'placar já saiu — palpite travado'
+        : em === 'PALPITE_INVALIDO' ? 'palpite inválido — usa 0 a 20'
+        : 'erro — tenta de novo');
     } finally { setBusy(false); }
   };
 
@@ -4900,10 +4968,12 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
   const tagPrefix = match.isKnockout ? match.roundLabel : `GRUPO ${match.group}`;
 
   return (
-    <div className={'wc-match ' + (closed ? 'closed' : '') + (isPlaceholder ? ' placeholder' : '')}>
+    <div className={'wc-match ' + (closed ? 'closed' : '') + (isPlaceholder ? ' placeholder' : '') + (started ? ' started' : '')}>
       <div className="wc-match-head">
         <span className="wc-tag">{tagPrefix} · {match.date} · {match.time}</span>
-        <span className="wc-pickcount">{pickCount} palpite{pickCount === 1 ? '' : 's'}</span>
+        {started
+          ? <span className="wc-live-tag"><span className="wc-live-dot" /> BOLA ROLANDO</span>
+          : <span className="wc-pickcount">{pickCount} palpite{pickCount === 1 ? '' : 's'}</span>}
       </div>
       {match.ground && (
         <div className="wc-ground"><Icon name="pin" size={12} /> {match.ground}</div>
@@ -4915,19 +4985,19 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
         </div>
         <div className="wc-inputs">
           <WcScoreStepper
-            value={closed ? '' : gh}
+            value={closed ? (myPick ? String(myPick.gh) : '') : gh}
             onChange={setGh}
-            disabled={closed || !canBet || busy || isPlaceholder}
+            disabled={closed || started || !canBet || busy || isPlaceholder}
             teamLabel={match.home}
-            placeholder={closed && result ? String(result.gh) : '–'}
+            placeholder="–"
           />
           <span className="wc-x">×</span>
           <WcScoreStepper
-            value={closed ? '' : ga}
+            value={closed ? (myPick ? String(myPick.ga) : '') : ga}
             onChange={setGa}
-            disabled={closed || !canBet || busy || isPlaceholder}
+            disabled={closed || started || !canBet || busy || isPlaceholder}
             teamLabel={match.away}
-            placeholder={closed && result ? String(result.ga) : '–'}
+            placeholder="–"
           />
         </div>
         <div className="wc-team wc-team-away">
@@ -4938,7 +5008,16 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
 
       {isPlaceholder && !closed && (
         <div className="wc-placeholder-note">
-          Times ainda não definidos — palpites liberam quando classificação resolver o slot.
+          Times ainda não definidos — dependem dos resultados das fases anteriores.
+        </div>
+      )}
+
+      {started && (
+        <div className="wc-live-strip">
+          <Icon name="lock" size={12} />
+          {myPick
+            ? <span>Palpites travados — o jogo começou. Seu palpite: <strong>{myPick.gh}×{myPick.ga}</strong>. Aguardando placar final.</span>
+            : <span>Palpites travados — o jogo começou e você ficou sem palpitar esse.</span>}
         </div>
       )}
 
@@ -4954,7 +5033,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
         </div>
       )}
 
-      {!closed && canBet && !isPlaceholder && (
+      {!closed && !started && canBet && !isPlaceholder && (
         <div className="wc-actions">
           <button className="wc-save" onClick={handleSave} disabled={busy || !gh || !ga}>
             {busy ? 'SALVANDO…' : (myPick ? 'ATUALIZAR PALPITE' : 'SALVAR PALPITE')}
@@ -4963,9 +5042,12 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, onSav
         </div>
       )}
 
-      {isAdmin && !isPlaceholder && (
+      {/* Admin lança placar MESMO em card placeholder: o resultado vale pro
+          confronto do slot — sem isso 3º lugar/final/melhores-terceiros nunca
+          pontuariam no bolão. */}
+      {isAdmin && (
         <div className="wc-admin">
-          <span className="wc-admin-label">ADMIN — PLACAR REAL:</span>
+          <span className="wc-admin-label">ADMIN — PLACAR REAL{isPlaceholder ? ' (slot)' : ''}:</span>
           <input
             className="wc-score-in wc-admin-in"
             type="number" min="0" max="20"
@@ -5136,6 +5218,7 @@ function CopaRanking({ users, fixtures, results, picks, myNick }) {
           picks={picks[openNick] || {}}
           fixtures={fixtures}
           results={results}
+          myNick={myNick}
           onClose={() => setOpenNick(null)}
         />
       )}
@@ -5144,8 +5227,12 @@ function CopaRanking({ users, fixtures, results, picks, myNick }) {
 }
 
 // Modal que mostra todos os palpites de um jogador da Copa, agrupados por
-// fase (grupo / oitavas / quartas / ...).
-function CopaPicksModal({ nick, picks, fixtures, results, onClose }) {
+// fase (grupo / oitavas / quartas / ...). Palpite ALHEIO em jogo que ainda não
+// começou fica escondido — senão dava pra copiar o líder antes da bola rolar.
+function CopaPicksModal({ nick, picks, fixtures, results, myNick, onClose }) {
+  const isMe = nick === myNick;
+  const revealed = (m) => !!results[m.id] || (m.kickoffTs != null && Date.now() >= m.kickoffTs);
+  const hiddenCount = isMe ? 0 : fixtures.filter(m => picks[m.id] && !revealed(m)).length;
   const grouped = useMemo(() => {
     const byFase = {};
     for (const m of fixtures) {
@@ -5182,7 +5269,7 @@ function CopaPicksModal({ nick, picks, fixtures, results, onClose }) {
         </div>
         <div className="shared-slip-body">
           {Object.entries(grouped).map(([fase, ms]) => {
-            const pickedInFase = ms.filter(m => picks[m.id]);
+            const pickedInFase = ms.filter(m => picks[m.id] && (isMe || revealed(m)));
             if (pickedInFase.length === 0) return null;
             return (
               <div key={fase} style={{ marginBottom: 14 }}>
@@ -5212,6 +5299,11 @@ function CopaPicksModal({ nick, picks, fixtures, results, onClose }) {
               </div>
             );
           })}
+          {hiddenCount > 0 && (
+            <div className="empty">
+              <div className="e2"><Icon name="lock" size={12} /> +{hiddenCount} palpite{hiddenCount === 1 ? '' : 's'} escondido{hiddenCount === 1 ? '' : 's'} até a bola rolar.</div>
+            </div>
+          )}
           {myPickCount === 0 && (
             <div className="empty">
               <div className="e2">@{nick} ainda não palpitou em nenhum jogo.</div>
@@ -5270,8 +5362,8 @@ function CopaBracket({ fixtures, results }) {
                 const played = !!r;
                 const winnerHome = played && r.gh > r.ga;
                 const winnerAway = played && r.ga > r.gh;
-                const isPlaceholderHome = String(m.home || '').includes('º G');
-                const isPlaceholderAway = String(m.away || '').includes('º G');
+                const isPlaceholderHome = !!m.slotHome;
+                const isPlaceholderAway = !!m.slotAway;
                 return (
                   <div key={m.id} className={'bracket-match ' + (played ? 'played' : '')}>
                     <div className="bracket-date">{m.date} · {m.time}</div>
@@ -6855,7 +6947,7 @@ function MeuJogoMini({ nick, users, interests, draw, scores, lineups, teamPlayer
           ) : (
             <div className="mj-mini-warn">Monte seu elenco — toque pra abrir.</div>
           )}
-          {curRound && <div className="mj-mini-lbl">PRÓXIMO · RODADA {String(curRound.n).padStart(2, '0')} · {curRound.phase}{pendingCount > 1 && <span>+{pendingCount - 1} liberados</span>}</div>}
+          {curRound && <div className="mj-mini-lbl">PRÓXIMO · RODADA {String(curRound.n).padStart(2, '0')} · {curRound.phase}{pendingCount > 1 && <span>+{pendingCount - 1} pendentes</span>}</div>}
           {curRound && (myGame ? (
             <div className="mj-mini-game">
               <div className="mj-mini-vs">
@@ -6882,7 +6974,7 @@ function MeuJogoMini({ nick, users, interests, draw, scores, lineups, teamPlayer
             <div className="mj-mini-warn">Folga nessa rodada.</div>
           ))}
           <button type="button" className="mj-mini-cta" onClick={onOpen}>
-            {myGame && myGame.mandante ? 'ESCALAR' : 'VER'} / EDITAR <Icon name="chevron-right" size={11} />
+            {myGame && myGame.mandante ? 'ESCALAR / EDITAR' : 'VER MEUS JOGOS'} <Icon name="chevron-right" size={11} />
           </button>
         </>
       )}
@@ -7025,25 +7117,29 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
                     }
                     return (
                       <div key={mg.key} className={'mk-jogo-card' + (mg.mandante ? ' is-mandante' : '') + (mg.isNext ? ' is-next' : '') + (open ? ' is-open' : '')}>
-                        <button type="button" className="mk-jogo-card-h" onClick={() => toggleOpen(mg.key)}>
+                        {/* Cabeçalho + linha do confronto = UM botão: o card fechado
+                            inteiro abre/fecha (a linha com avatares é a área mais
+                            convidativa). span no lugar de div: div dentro de button
+                            é HTML inválido. */}
+                        <button type="button" className="mk-jogo-card-h" aria-expanded={open} onClick={() => toggleOpen(mg.key)}>
                           <span className="mk-jogo-rod">RODADA {String(mg.n).padStart(2, '0')} · {mg.phase}{mg.isNext && <span className="mk-jogo-next">PRÓXIMO</span>}</span>
                           <span className="mk-jogo-hmeta">
                             <span className={'mk-jogo-role ' + (mg.mandante ? 'mandante' : 'visitante')}>{mg.mandante ? 'MANDANTE' : 'VISITANTE'}</span>
                             <span className={'mk-jogo-st ' + stCls}>{stTxt}</span>
                             <span className={'mk-jogo-chev' + (open ? ' open' : '')}><Icon name="chevron-right" size={14} /></span>
                           </span>
+                          <span className="mk-jogo-vs">
+                            <span className="mk-jogo-vs-side"><Avatar nick={target} teamPlayers={teamPlayers} size={22} noBadge /> @{target}</span>
+                            <span className="mk-jogo-vs-x">×</span>
+                            <span className="mk-jogo-vs-side opp">@{opp} <Avatar nick={opp} teamPlayers={teamPlayers} size={22} noBadge /></span>
+                          </span>
                         </button>
-                        <div className="mk-jogo-vs">
-                          <span className="mk-jogo-vs-side"><Avatar nick={target} teamPlayers={teamPlayers} size={22} noBadge /> @{target}</span>
-                          <span className="mk-jogo-vs-x">×</span>
-                          <span className="mk-jogo-vs-side opp">@{opp} <Avatar nick={opp} teamPlayers={teamPlayers} size={22} noBadge /></span>
-                        </div>
 
                         {open && (mg.mandante ? (
                           <div className="mk-jogo-arr">
                             <div className="mk-jogo-arr-hint"><Icon name="fist" size={11} /> Monta o CARD DE LUTA — escolhe o boneco dos dois lados em cada partida.</div>
                             {homeChars.length === 0 && (
-                              <div className="mk-jogo-warn">Escolhe teu elenco acima pra poder escalar.</div>
+                              <div className="mk-jogo-warn">Escolhe teu elenco logo abaixo pra poder escalar.</div>
                             )}
                             <div className="mk-fc">
                               {['p1', 'p2'].map((p, pi) => {
@@ -7144,7 +7240,9 @@ const MK_CURTAIN_KEY = 'mk_curtain_seen';
 
 function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPublishDraw, scores, onScore, isAdmin, isMod, locked }) {
   // draw/scores vêm do App (persistidos no doc de apostas, campo `mk`).
-  const [viewRound, setViewRound] = useState(0);
+  // null = segue a 1ª rodada com jogo pendente (a "rodada atual"); número =
+  // navegação manual do usuário pelas setas.
+  const [selRound, setSelRound] = useState(null);
   const [curtain, setCurtain] = useState(() => {
     try { return !localStorage.getItem(MK_CURTAIN_KEY); } catch (e) { return false; }
   });
@@ -7160,7 +7258,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
       confirmLabel: 'REFAZER', danger: true,
     }))) return;
     onPublishDraw(generateMkDraw(shuffleArr(insc)));
-    setViewRound(0);
+    setSelRound(null);
   };
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const setScore = (key, side, val) => {
@@ -7175,6 +7273,10 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
   const playedCount = matches.filter(m => mkMatchOutcome(m.sc)).length;
   const standings = computeMkStandings(insc, matches);
   const charsFor = (nick) => ((users || {})[nick] || {}).mkChars || [];
+  // Rodada exibida: a escolhida nas setas, senão a 1ª com jogo pendente
+  // (temporada encerrada cai na última).
+  const pendIdx = draw ? draw.findIndex(r => r.games.some((g, gi) => !mkMatchOutcome(scores[gKey(r, gi)] || {}))) : -1;
+  const viewRound = selRound != null ? selRound : (pendIdx === -1 ? (draw ? draw.length - 1 : 0) : pendIdx);
   const curRound = draw ? draw[viewRound] : null;
 
   return (
@@ -7262,14 +7364,14 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
           ) : (
             <>
               <div className="mk-rnav">
-                <button className="mk-rnav-btn" onClick={() => setViewRound(v => Math.max(0, v - 1))} disabled={viewRound === 0} aria-label="Rodada anterior">
+                <button className="mk-rnav-btn" onClick={() => setSelRound(Math.max(0, viewRound - 1))} disabled={viewRound === 0} aria-label="Rodada anterior">
                   <Icon name="chevron-left" size={18} />
                 </button>
                 <div className="mk-rnav-mid">
                   <div className="mk-rnav-phase">{curRound.phase === 'IDA' ? 'TURNO · IDA' : 'RETURNO · VOLTA'}</div>
                   <div className="mk-rnav-count">{viewRound + 1} <span>/ {draw.length}</span></div>
                 </div>
-                <button className="mk-rnav-btn" onClick={() => setViewRound(v => Math.min(draw.length - 1, v + 1))} disabled={viewRound === draw.length - 1} aria-label="Próxima rodada">
+                <button className="mk-rnav-btn" onClick={() => setSelRound(Math.min(draw.length - 1, viewRound + 1))} disabled={viewRound === draw.length - 1} aria-label="Próxima rodada">
                   <Icon name="chevron-right" size={18} />
                 </button>
               </div>
@@ -7277,13 +7379,18 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                 {curRound.games.map((g, gi) => {
                   const k = gKey(curRound, gi);
                   const sc = scores[k] || {};
-                  const done = !!mkMatchOutcome(sc);
+                  const out = mkMatchOutcome(sc);
+                  const done = !!out;
                   const hc = charsFor(g.home), ac = charsFor(g.away);
+                  // partida com placar completo mas impossível (MD3: um lado fecha 2)
+                  const badP = (h, a) => h !== '' && h != null && a !== '' && a != null
+                    && !((Number(h) === 2 && Number(a) <= 1) || (Number(a) === 2 && Number(h) <= 1));
+                  const p1bad = badP(sc.p1h, sc.p1a), p2bad = badP(sc.p2h, sc.p2a);
                   return (
                     <div key={gi} className={'mk-fx' + (done ? ' done' : '')}>
                       <div className="mk-fx-top">
                         <span>JOGO {String(gi + 1).padStart(2, '0')}</span>
-                        {done && <span className="mk-fx-done"><Icon name="check" size={11} /> LANÇADO</span>}
+                        {done && <span className="mk-fx-done"><Icon name="check" size={11} /> {out.confH}×{out.confA}{out.winner === 'D' ? ' · EMPATE' : ''}</span>}
                       </div>
                       <div className="mk-fx-body">
                         <div className="mk-fx-side home">
@@ -7307,7 +7414,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                                   {luP.home ? <MkCharIcon name={luP.home} /> : <span className="mk-fx-fighter-tbd">?</span>}
                                   {homeLost && <span className="mk-fx-loseX"><Icon name="x" size={24} /></span>}
                                 </span>
-                                <span className="mk-fx-duel-vs"><Icon name="skull" size={10} /></span>
+                                <span className="mk-fx-duel-vs">{playd ? <span className="mk-fx-duel-sc">{sh}×{sa}</span> : <Icon name="skull" size={10} />}</span>
                                 <span className={'mk-fx-fighter' + (awayLost ? ' lost' : '')}>
                                   {luP.away ? <MkCharIcon name={luP.away} /> : <span className="mk-fx-fighter-tbd">?</span>}
                                   {awayLost && <span className="mk-fx-loseX"><Icon name="x" size={24} /></span>}
@@ -7328,13 +7435,14 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                         <div className="mk-fx-admin-score">
                           <span className="mk-fx-admin-l"><Icon name="shield" size={10} /> LANÇAR PLACAR <span className="mk-fx-finish-adm">só admin</span></span>
                           <span className="mk-fx-pl">P1</span>
-                          <input className="cscore-in" value={sc.p1h || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p1h', e.target.value)} />
+                          <input className={'cscore-in' + (p1bad ? ' cscore-bad' : '')} value={sc.p1h || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p1h', e.target.value)} />
                           <span className="mk-fx-x">×</span>
-                          <input className="cscore-in" value={sc.p1a || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p1a', e.target.value)} />
+                          <input className={'cscore-in' + (p1bad ? ' cscore-bad' : '')} value={sc.p1a || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p1a', e.target.value)} />
                           <span className="mk-fx-pl">P2</span>
-                          <input className="cscore-in" value={sc.p2h || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p2h', e.target.value)} />
+                          <input className={'cscore-in' + (p2bad ? ' cscore-bad' : '')} value={sc.p2h || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p2h', e.target.value)} />
                           <span className="mk-fx-x">×</span>
-                          <input className="cscore-in" value={sc.p2a || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p2a', e.target.value)} />
+                          <input className={'cscore-in' + (p2bad ? ' cscore-bad' : '')} value={sc.p2a || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p2a', e.target.value)} />
+                          {(p1bad || p2bad) && <span className="mk-fx-score-err">placar inválido — um lado fecha 2</span>}
                         </div>
                       )}
                       {isMod && (
@@ -7492,7 +7600,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   };
 
   return (
-    <div className="card mk-card mk-betting">
+    <div className={'card mk-card mk-betting' + (cupom.length ? ' mk-betting--betbar' : '')}>
       <div className="card-head">
         <div className="title"><Icon name="coin" size={16} /> APOSTAS · MORTAL KOMBAT</div>
         <div className="sub">ODDS AUTOMÁTICAS</div>
@@ -7661,7 +7769,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                     {cupom.length === 0 ? (
                       <div className="empty">
                         <div className="e1">VAZIO</div>
-                        <div className="e2">Clica nas odds pra montar. 2+ palpites da rodada = casada.</div>
+                        <div className="e2">Clica nas odds pra montar. 2+ palpites = casada (vale misturar jogos liberados de rodadas diferentes).</div>
                       </div>
                     ) : (<>
                       {cupom.map(l => (
@@ -7704,11 +7812,11 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                       )}
                       <div className="modal-btns">
                         <button className="btn-secondary" onClick={() => setCupom([])}>LIMPAR</button>
-                        <button className="btn-primary" disabled={!cupom.length || !(stake > 0)} onClick={place}>APOSTAR {stake} PC</button>
+                        <button className="btn-primary" disabled={!cupom.length || !(stake > 0) || (Number.isFinite(balance) && stake > balance)} onClick={place}>{Number.isFinite(balance) && stake > balance ? 'SALDO INSUFICIENTE' : 'APOSTAR ' + stake + ' PC'}</button>
                       </div>
                       <button type="button" className="cupom-share" onClick={() => {
                         const txt = 'Cupom MK: ' + cupom.map(l => MK_MARKET_TITLE[l.market] + ' ' + mkLegLabel(l) + ' @' + l.odd.toFixed(2)).join(' + ') + ' = ' + combined.toFixed(2) + 'x';
-                        try { navigator.clipboard.writeText(txt); showToast('Cupom copiado!', 'success'); } catch (e) { showToast('Falha ao copiar.', 'error'); }
+                        navigator.clipboard.writeText(txt).then(() => showToast('Cupom copiado!', 'success'), () => showToast('Falha ao copiar.', 'error'));
                       }}>
                         <Icon name="arrow-up-right" size={13} /> COMPARTILHAR CUPOM
                       </button>
@@ -7934,35 +8042,36 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
   const mkResult = mkAllConcluded ? posResult(myMkPos, mkStand.length) : null;
 
   return (
-    <div className="perfil perfil-grid">
-      {/* SIDEBAR do perfil: identidade (avatar/nick/moedas) + navegação vertical. */}
+    <div className="perfil perfil-grid" style={{ '--ap-accent': ((me && me.title && getTitleDef(me.title)) || {}).color || '#d76414' }}>
+      {/* SIDEBAR do perfil: cartão de identidade (mesma linguagem do rail global
+          .ap-card — charcoal + moldura na cor do título) + navegação vertical. */}
       <aside className="perfil-side">
-      {/* HEADER — avatar, nick, moedas e time/posição */}
-      <div className="card perfil-head-card">
-        <div className="perfil-head">
-          {myTeamId
-            ? <Avatar teamId={myTeamId} cosmetics={me?.cosmetics} size={84} className="profile-avatar" />
-            : <div className="perfil-avatar-fallback">{String(nick).slice(0, 2).toUpperCase()}</div>}
-          <div className="perfil-id">
-            <div className="perfil-nick">@{nick}{me?.title && <TitleBadge titleId={me.title} />}</div>
-            <div className="perfil-meta">
-              {myTeam
-                ? <span className="perfil-team">{myTeam.name}</span>
-                : <span className="perfil-team none">{isAdmin ? 'ADMIN' : 'sem time'}</span>}
-              {myResult && (
-                <span className="perfil-pos" style={{ color: myResult.color, borderColor: myResult.color }}>
-                  <Icon name={myResult.icon} size={11} /> {myPos}º · {myResult.label}
-                </span>
-              )}
-            </div>
-          </div>
-          {!isAdmin && (
-            <div className="perfil-coins">
-              <div className="perfil-coin"><span className="perfil-coin-v">{me?.pc ?? 0}</span><span className="perfil-coin-l">PC</span></div>
-              <div className="perfil-coin cc"><span className="perfil-coin-v">{ccBalanceFor(nick, me, { bets, users, teamPlayers, cs, worldcup, interests })}</span><span className="perfil-coin-l">CC</span></div>
-            </div>
+      <div className="perfil-id-card">
+        {myTeamId
+          ? <Avatar teamId={myTeamId} cosmetics={me?.cosmetics} size={92} className="perfil-id-avatar" />
+          : <div className="perfil-id-avatar-fb">{String(nick).slice(0, 2).toUpperCase()}</div>}
+        <div className="perfil-id-nick">@{nick}</div>
+        {me?.title && <TitleBadge titleId={me.title} size="lg" />}
+        <div className="perfil-id-meta">
+          {myTeam
+            ? <span className="perfil-id-team">{myTeam.name}</span>
+            : <span className="perfil-id-team none">{isAdmin ? 'ADMIN' : 'sem time'}</span>}
+          {myResult && (
+            <span className="perfil-pos" style={{ color: myResult.color, borderColor: myResult.color }}>
+              <Icon name={myResult.icon} size={11} /> {myPos}º · {myResult.label}
+            </span>
           )}
         </div>
+        {!isAdmin && (
+          <div className="perfil-id-coins">
+            <div className="perfil-id-coin" title={(me?.pc ?? 0).toLocaleString('pt-BR') + ' Primitivo Coins'}>
+              <span className="perfil-id-coin-v">{compactPC(me?.pc ?? 0)}</span><span className="perfil-id-coin-l">PC</span>
+            </div>
+            <div className="perfil-id-coin cc" title="Caco Coins">
+              <span className="perfil-id-coin-v">{compactPC(ccBalanceFor(nick, me, { bets, users, teamPlayers, cs, worldcup, interests }))}</span><span className="perfil-id-coin-l">CC</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* NAV vertical do perfil (a sidebar) */}

@@ -335,6 +335,33 @@
     }
     .wc-match.closed { background: rgba(199,84,24,0.06); }
     .wc-match.placeholder { opacity: 0.7; border-style: dashed; }
+    /* bola rolando: jogo começou, palpites travados, aguardando placar */
+    .wc-match.started { border-color: var(--pv-orange); }
+    .wc-live-tag {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 9px; font-weight: 800; letter-spacing: 0.12em;
+      color: var(--pv-orange);
+    }
+    .wc-live-dot {
+      width: 7px; height: 7px; border-radius: 999px;
+      background: var(--pv-orange);
+      animation: wc-live-pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes wc-live-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.25; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .wc-live-dot { animation: none; }
+    }
+    .wc-live-strip {
+      margin-top: 8px; padding: 8px 10px;
+      display: flex; align-items: center; gap: 7px;
+      background: rgba(215,100,20,0.10);
+      border-left: 3px solid var(--pv-orange);
+      font-size: 11px; color: rgba(28,22,18,0.75); font-weight: 600;
+    }
+    .wc-live-strip svg { flex-shrink: 0; color: var(--pv-orange); }
     .wc-ground {
       font-size: 10px; letter-spacing: 0.06em;
       color: rgba(28,22,18,0.55); font-weight: 700;
@@ -442,7 +469,7 @@
       font-family: "Bagel Fat One", Impact, sans-serif;
       font-size: 22px;
     }
-    .wc-score-in:focus { outline: none; background: rgba(215,100,20,0.15); }
+    .wc-score-in:focus { outline: none; border-color: var(--pv-orange); background: rgba(215,100,20,0.15); }
     .wc-score-in:disabled { opacity: 0.55; cursor: not-allowed; }
     .wc-x { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 20px; color: var(--pv-orange); }
     /* Stepper do palpite: -/+ touch-friendly em volta do input digitável,
@@ -545,6 +572,7 @@
       .wc-team, .wc-team-away { justify-content: center; flex-direction: row; }
       .wc-inputs { justify-content: center; }
       .wc-rank-stats { display: none; } /* mobile: simplifica ranking */
+      .wc-rank-legend { display: none; } /* legenda explica colunas escondidas acima */
     }
 
     /* Comentários (uma seção embaixo de cada news-card) */
@@ -1939,7 +1967,10 @@
       width: 36px; height: 44px; text-align: center; border: 2px solid var(--pv-charcoal);
       background: var(--pv-bone); font-family: "Bagel Fat One", Impact, sans-serif; font-size: 20px;
     }
-    .cscore-in:focus { outline: none; background: rgba(215,100,20,0.15); }
+    .cscore-in:focus { outline: none; border-color: var(--pv-orange); background: rgba(215,100,20,0.15); }
+    /* placar MD3 impossível (1×1, 2×2...) — input acende e aviso aparece */
+    .cscore-in.cscore-bad { border-color: var(--pv-red); background: rgba(139,58,20,0.10); }
+    .mk-fx-score-err { color: var(--pv-red); font-size: 10px; font-weight: 800; letter-spacing: 0.04em; }
     .cteam-sel {
       margin-top: 4px; width: 100%; max-width: 80px; padding: 3px;
       border: 1.5px solid var(--pv-charcoal); background: var(--pv-bone);
@@ -2055,7 +2086,12 @@
       .pc-unit { display: none; }
       .pc-pill { padding: 5px 10px 5px 6px; }
       .weekly-chip { gap: 0; padding: 6px 9px; }
-      .weekly-chip-stack { display: none; }
+      /* só o chip TRAVADO compacta pra ícone; o RECLAMAR (call-to-action do
+         bônus) mantém o valor visível senão ninguém percebe que tem PC */
+      .weekly-chip-locked .weekly-chip-stack { display: none; }
+      .weekly-chip-ready { gap: 6px; }
+      .weekly-chip-ready .weekly-chip-sub { display: none; }
+      .weekly-chip-ready .weekly-chip-main { font-size: 11px; }
       .logout-btn { padding: 6px 9px; }
     }
 
@@ -2257,7 +2293,7 @@
       .round-tabs .rt { font-size: 12px; padding: 6px 0; }
 
       .odd-btn .val { font-size: 16px; }
-      .odd-btn .lab { font-size: 7px; }
+      .odd-btn .lab { font-size: 9px; letter-spacing: 0.12em; }
     }
 
     /* ──── PERFIL: MINHA COLEÇÃO ──── */
@@ -3061,30 +3097,42 @@
     .perfil-tabs { margin-bottom: 14px; flex-wrap: wrap; }
     /* MEU PERFIL com SIDEBAR: identidade (avatar/nick/moedas) + nav vertical à
        esquerda; conteúdo da aba à direita. No mobile empilha. */
-    .perfil-grid { display: grid; grid-template-columns: 268px minmax(0, 1fr); gap: 16px; align-items: start; }
-    .perfil-side { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-    .perfil-side .perfil-head-card { margin-bottom: 0; }
-    .perfil-side .perfil-head { flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 18px 14px; }
-    .perfil-side .perfil-id { flex: none; min-width: 0; text-align: center; }
-    .perfil-side .perfil-nick { justify-content: center; font-size: 22px; }
-    .perfil-side .perfil-meta { justify-content: center; margin-top: 8px; }
-    .perfil-side .perfil-coins { margin-left: 0; width: 100%; justify-content: center; margin-top: 4px; }
-    .perfil-side-nav { display: flex; flex-direction: column; gap: 4px; background: var(--pv-charcoal); padding: 8px; }
-    .perfil-navi { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 14px; background: transparent; border: none; border-left: 3px solid transparent; color: rgba(244,234,215,0.6); font-family: inherit; font-weight: 800; font-size: 12px; letter-spacing: 0.08em; text-align: left; cursor: pointer; transition: background 0.12s, color 0.12s; }
-    .perfil-navi:hover { background: rgba(215,100,20,0.10); color: var(--pv-bone); }
-    .perfil-navi.active { background: rgba(215,100,20,0.18); color: var(--pv-bone); border-left-color: var(--pv-orange); }
+    .perfil-grid { display: grid; grid-template-columns: 268px minmax(0, 1fr); gap: 16px; align-items: start; --ap-accent: var(--pv-orange); }
+    .perfil-side { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    /* Cartão de identidade — mesma linguagem do .ap-card do rail global:
+       charcoal + moldura na cor do título do jogador + faixa no topo. */
+    .perfil-id-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 24px 14px 18px; background: linear-gradient(180deg, #241a10 0%, var(--pv-charcoal) 58%); color: var(--pv-bone); border: 2px solid var(--ap-accent); border-radius: 7px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 7px 18px rgba(28,22,18,0.22); overflow: hidden; }
+    .perfil-id-card::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 5px; background: var(--ap-accent); }
+    .perfil-id-avatar { box-shadow: 0 0 0 3px var(--ap-accent), 0 0 0 5px #0e0a06; border-radius: 50%; margin-top: 4px; }
+    .perfil-id-avatar-fb { width: 92px; height: 92px; flex-shrink: 0; border-radius: 50%; margin-top: 4px; background: var(--ap-accent); color: var(--pv-bone); display: flex; align-items: center; justify-content: center; font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 34px; box-shadow: 0 0 0 3px var(--ap-accent), 0 0 0 5px #0e0a06; }
+    .perfil-id-nick { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 21px; line-height: 1.05; margin-top: 4px; word-break: break-word; text-align: center; }
+    .perfil-id-meta { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .perfil-id-team { font-size: 10.5px; font-weight: 800; letter-spacing: 0.1em; color: rgba(244,234,215,0.65); text-transform: uppercase; }
+    .perfil-id-team.none { color: rgba(244,234,215,0.4); font-style: italic; }
+    .perfil-id-coins { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; width: 100%; margin-top: 4px; }
+    .perfil-id-coin { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px; background: rgba(244,234,215,0.06); border: 1.5px solid rgba(244,234,215,0.14); border-radius: 5px; }
+    .perfil-id-coin-v { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 19px; line-height: 1; color: var(--pv-bone); }
+    .perfil-id-coin.cc .perfil-id-coin-v { color: var(--ap-accent); }
+    .perfil-id-coin-l { font-size: 8px; font-weight: 800; letter-spacing: 0.18em; color: rgba(244,234,215,0.5); }
+    .perfil-side-nav { display: flex; flex-direction: column; gap: 4px; background: var(--pv-charcoal); padding: 8px; border-radius: 7px; }
+    .perfil-navi { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 14px; background: transparent; border: none; border-left: 3px solid transparent; border-radius: 4px; color: rgba(244,234,215,0.6); font-family: inherit; font-weight: 800; font-size: 12px; letter-spacing: 0.08em; text-align: left; cursor: pointer; transition: background 0.12s, color 0.12s; }
+    .perfil-navi:hover { background: rgba(244,234,215,0.08); color: var(--pv-bone); }
+    .perfil-navi.active { background: rgba(244,234,215,0.1); color: var(--pv-bone); border-left-color: var(--ap-accent); border-radius: 0 4px 4px 0; }
     .perfil-navi > svg { opacity: 0.85; flex-shrink: 0; }
+    .perfil-navi.active > svg { color: var(--ap-accent); opacity: 1; }
     .perfil-main { min-width: 0; }
     @media (max-width: 760px) {
       .perfil-grid { display: block; }
       .perfil-side { position: static; margin-bottom: 14px; }
-      .perfil-side .perfil-head { flex-direction: row; text-align: left; align-items: center; }
-      .perfil-side .perfil-id { flex: 1; text-align: left; }
-      .perfil-side .perfil-nick, .perfil-side .perfil-meta { justify-content: flex-start; }
-      .perfil-side .perfil-coins { width: auto; }
+      /* No mobile o cartão deita: avatar à esquerda, identidade à direita. */
+      .perfil-id-card { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; text-align: left; padding: 18px 14px 14px; column-gap: 14px; }
+      .perfil-id-avatar, .perfil-id-avatar-fb { margin-top: 0; }
+      .perfil-id-nick { margin-top: 0; text-align: left; flex: 1 1 auto; }
+      .perfil-id-meta { align-items: flex-start; flex-basis: 100%; }
+      .perfil-id-coins { grid-template-columns: repeat(2, minmax(110px, 160px)); }
       .perfil-side-nav { flex-direction: row; flex-wrap: wrap; }
-      .perfil-navi { width: auto; flex: 1 1 110px; justify-content: center; border-left: none; border-bottom: 3px solid transparent; }
-      .perfil-navi.active { border-left-color: transparent; border-bottom-color: var(--pv-orange); }
+      .perfil-navi { width: auto; flex: 1 1 110px; justify-content: center; border-left: none; border-bottom: 3px solid transparent; border-radius: 4px 4px 0 0; }
+      .perfil-navi.active { border-left-color: transparent; border-bottom-color: var(--ap-accent); }
     }
     .perfil-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .perfil-hls { display: grid; grid-template-columns: repeat(auto-fit, minmax(82px, 1fr)); gap: 10px; }
@@ -3653,7 +3701,7 @@
     .mk-jogo-card.is-mandante { border-color: rgba(215,100,20,0.5); box-shadow: inset 0 0 0 1px rgba(215,100,20,0.14); }
     .mk-jogo-card.is-next { border-color: rgba(215,100,20,0.55); box-shadow: 0 0 0 3px rgba(215,100,20,0.13); }
     .mk-jogo-card.is-open { border-color: rgba(215,100,20,0.45); }
-    .mk-jogo-card-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; background: transparent; border: 0; padding: 0; margin: 0; cursor: pointer; font: inherit; color: inherit; text-align: left; }
+    .mk-jogo-card-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; width: 100%; background: transparent; border: 0; padding: 0; margin: 0; cursor: pointer; font: inherit; color: inherit; text-align: left; }
     .mk-jogo-card-h:hover .mk-jogo-chev { color: var(--pv-orange); }
     .mk-jogo-hmeta { display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; }
     .mk-jogo-st { font-size: 9px; font-weight: 800; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
@@ -3668,7 +3716,7 @@
     .mk-jogo-role { font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
     .mk-jogo-role.mandante { color: #9a4d14; background: rgba(215,100,20,0.14); }
     .mk-jogo-role.visitante { color: rgba(28,22,18,0.6); background: rgba(28,22,18,0.07); }
-    .mk-jogo-vs { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 9px 0; font-weight: 800; font-size: 12.5px; color: var(--pv-charcoal); }
+    .mk-jogo-vs { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin: 9px 0 0; font-weight: 800; font-size: 12.5px; color: var(--pv-charcoal); }
     .mk-jogo-vs-side { display: inline-flex; align-items: center; gap: 6px; }
     .mk-jogo-vs-side.opp { color: rgba(28,22,18,0.7); }
     .mk-jogo-vs-x { font-family: 'Bagel Fat One', Impact; color: var(--pv-orange); }
@@ -3738,12 +3786,12 @@
     .mj-mini-h:hover { color: var(--pv-bone); }
     .mj-mini-h > span { display: inline-flex; align-items: center; gap: 6px; }
     .mj-mini-empty, .mj-mini-warn { font-size: 10.5px; color: rgba(244,234,215,0.55); padding: 2px 2px 6px; line-height: 1.4; }
-    .mj-mini-lbl { display: flex; justify-content: space-between; font-size: 8px; font-weight: 800; letter-spacing: 0.14em; color: rgba(244,234,215,0.45); padding: 7px 2px 5px; }
+    .mj-mini-lbl { display: flex; justify-content: space-between; font-size: 9.5px; font-weight: 800; letter-spacing: 0.1em; color: rgba(244,234,215,0.5); padding: 7px 2px 5px; }
     .mj-mini-lbl span { color: var(--pv-orange); }
     .mj-mini-chars { display: flex; gap: 5px; }
     .mj-mini-char { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; }
     .mj-mini-char .mk-fc-mono { width: 100%; max-width: 72px; height: auto; aspect-ratio: 1 / 1; border-radius: 9px; font-size: 17px; }
-    .mj-mini-cn { font-size: 7.5px; font-weight: 700; color: rgba(244,234,215,0.72); text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mj-mini-cn { font-size: 10px; line-height: 1.2; font-weight: 700; color: rgba(244,234,215,0.78); text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .mj-mini-vs { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; padding: 2px 0 7px; }
     .mj-mini-x { color: var(--pv-orange); }
     .mj-mini-opp { min-width: 0; color: rgba(244,234,215,0.85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3751,7 +3799,7 @@
     .mj-mini-part { display: flex; align-items: center; gap: 6px; background: rgba(244,234,215,0.05); padding: 4px 7px; }
     .mj-mini-pn { width: 15px; height: 15px; border-radius: 50%; background: var(--pv-orange); color: #1a0f08; font-size: 8px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .mj-mini-part .mk-fc-mono { width: 44px; height: 44px; border-radius: 7px; font-size: 15px; }
-    .mj-mini-px { font-size: 8px; font-weight: 800; color: rgba(244,234,215,0.5); }
+    .mj-mini-px { font-size: 9px; font-weight: 800; color: rgba(244,234,215,0.55); }
     .mj-mini-tbd { width: 44px; height: 44px; border-radius: 7px; background: rgba(244,234,215,0.08); display: inline-flex; align-items: center; justify-content: center; color: rgba(244,234,215,0.4); font-weight: 800; flex-shrink: 0; }
     .mj-mini-cta { width: 100%; margin-top: 9px; padding: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: var(--pv-orange); color: var(--pv-bone); border: none; font-family: inherit; font-weight: 800; font-size: 9px; letter-spacing: 0.12em; cursor: pointer; transition: background 0.12s, color 0.12s; }
     .mj-mini-cta:hover { background: var(--pv-bone); color: var(--pv-charcoal); }
@@ -3871,10 +3919,11 @@
     .mk-fx-fighter { position: relative; display: inline-flex; flex-shrink: 0; }
     .mk-fx-fighter .mk-fc-mono { width: 42px; height: 42px; border-radius: 8px; font-size: 15px; }
     .mk-fx-fighter.lost .mk-fc-mono { filter: grayscale(0.85) brightness(0.6); }
-    .mk-fx-loseX { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #ef3b3b; pointer-events: none; }
+    .mk-fx-loseX { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #c2401c; pointer-events: none; }
     .mk-fx-loseX > svg { filter: drop-shadow(0 1px 2px rgba(0,0,0,0.7)); }
     .mk-fx-fighter-tbd { width: 42px; height: 42px; border-radius: 8px; background: rgba(28,22,18,0.08); display: inline-flex; align-items: center; justify-content: center; color: rgba(28,22,18,0.38); font-weight: 800; font-size: 16px; }
     .mk-fx-duel-vs { color: var(--pv-orange); display: inline-flex; flex-shrink: 0; }
+    .mk-fx-duel-sc { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 12px; min-width: 24px; text-align: center; }
     /* lançamento do placar — SO ADMIN, embaixo, escondido pra galera. */
     .mk-fx-admin-score { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 7px; padding: 7px 8px; background: rgba(215,100,20,0.07); border: 1px dashed rgba(215,100,20,0.4); }
     .mk-fx-admin-l { display: inline-flex; align-items: center; gap: 5px; font-size: 8.5px; font-weight: 800; letter-spacing: 0.05em; color: #9a4d14; width: 100%; }
@@ -3996,6 +4045,9 @@
     .mk-betbar-odd { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 20px; line-height: 1; }
     .mk-betbar-go { display: inline-flex; align-items: center; gap: 5px; font-weight: 800; font-size: 11px; letter-spacing: 0.12em; }
     @media (max-width: 460px) { .mk-betbar-sub { display: none; } .mk-betbar-go span, .mk-betbar { gap: 10px; } }
+    /* com cupom aberto a barra fixa existe — reserva o espaço dela no fim da
+       lista pra ela não tapar os últimos jogos/aviso de tickets */
+    .mk-betting--betbar > .card-body { padding-bottom: 84px; }
     .mk-bet-match { display: flex; align-items: flex-start; justify-content: center; gap: 10px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1.5px dashed rgba(28,22,18,0.2); }
     .mk-bm-side { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; flex: 1; }
     .mk-bm-side.right { align-items: flex-end; }
