@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260611-revisao-geral ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260611-copa-minimiza ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4741,6 +4741,10 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSa
     const t = setInterval(() => setNow(Date.now()), 30 * 1000);
     return () => clearInterval(t);
   }, []);
+  // Rodada encerrada (todos os jogos com placar) vem MINIMIZADA por padrão, pra
+  // abrir a aba já caindo nos jogos que ainda dá pra palpitar. openMap guarda só
+  // os toggles manuais do usuário; o resto segue o default por estado da rodada.
+  const [openMap, setOpenMap] = useState({});
 
   // Standings de cada grupo (memoizado)
   const standingsByGroup = useMemo(() => {
@@ -4847,28 +4851,50 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSa
         const matches = byRound[rk];
         const isKO = matches[0]?.isKnockout;
         const label = translateRound(rk);
+        // ENCERRADA = todos os jogos já têm placar real. EM BREVE = todos ainda
+        // são placeholder (mata-mata não definido). As duas vêm minimizadas; a
+        // rodada atual (com jogo pra palpitar) vem aberta.
+        const roundDone = matches.every(m => !!results[m.id]);
+        const roundFuture = !roundDone && matches.every(m => (m.slotHome || m.slotAway));
+        const defaultOpen = !roundDone && !roundFuture;
+        const isOpen = openMap[rk] !== undefined ? openMap[rk] : defaultOpen;
+        // Pontos do usuário na rodada — resuminho que fica visível mesmo fechada.
+        let roundPts = 0, roundPicked = 0;
+        if (roundDone) for (const m of matches) {
+          if (myPicks[m.id]) { roundPicked++; roundPts += scoreWcPick(results[m.id], myPicks[m.id]); }
+        }
         return (
-          <div key={rk} className="card copa-round-card">
-            <div className="card-head">
+          <div key={rk} className={'card copa-round-card' + (isOpen ? '' : ' collapsed')}>
+            <button type="button" className="card-head copa-round-head" aria-expanded={isOpen} onClick={() => setOpenMap(o => ({ ...o, [rk]: !isOpen }))}>
               <div className="title">{isKO ? '' : 'FASE DE GRUPOS · '}{label}</div>
-              <div className="sub">{matches.length} JOGO{matches.length === 1 ? '' : 'S'}</div>
-            </div>
-            <div className="card-body">
-              {matches.map(m => (
-                <CopaMatchCard
-                  key={m.id}
-                  match={m}
-                  result={results[m.id]}
-                  myPick={myPicks[m.id]}
-                  allPicks={allPicks}
-                  isAdmin={isAdmin}
-                  canBet={!!myNick}
-                  now={now}
-                  onSavePick={onSavePick}
-                  onSetResult={onSetResult}
-                />
-              ))}
-            </div>
+              <div className="copa-round-meta">
+                {roundDone
+                  ? <span className="copa-round-badge done">ENCERRADA{roundPicked ? ' · ' + roundPts + ' pt' + (roundPts === 1 ? '' : 's') : ''}</span>
+                  : roundFuture
+                    ? <span className="copa-round-badge soon">EM BREVE</span>
+                    : null}
+                <span className="sub">{matches.length} JOGO{matches.length === 1 ? '' : 'S'}</span>
+                <Icon name={isOpen ? 'caret-up' : 'caret-down'} size={14} className="copa-round-chev" />
+              </div>
+            </button>
+            {isOpen && (
+              <div className="card-body">
+                {matches.map(m => (
+                  <CopaMatchCard
+                    key={m.id}
+                    match={m}
+                    result={results[m.id]}
+                    myPick={myPicks[m.id]}
+                    allPicks={allPicks}
+                    isAdmin={isAdmin}
+                    canBet={!!myNick}
+                    now={now}
+                    onSavePick={onSavePick}
+                    onSetResult={onSetResult}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
