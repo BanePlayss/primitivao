@@ -302,7 +302,7 @@
       letter-spacing: 0.04em; line-height: 1.5;
     }
     .copa-subtabs {
-      display: flex; gap: 0; margin-bottom: 14px;
+      display: flex; flex-wrap: wrap; gap: 0 2px; margin-bottom: 14px;
       border-bottom: 3px solid var(--pv-charcoal);
     }
     .copa-subtab {
@@ -330,6 +330,31 @@
     .copa-round-badge.done { color: var(--pv-bone); background: rgba(244,234,215,0.16); }
     .copa-round-badge.soon { color: var(--pv-orange); background: rgba(215,100,20,0.18); }
     .copa-round-chev { color: rgba(244,234,215,0.65); flex-shrink: 0; transition: color 0.14s; }
+    /* ABA ENCERRADOS: jogo (resultado real) à esquerda, palpites da galera à direita */
+    .copa-enc-body { padding: 0; }
+    .copa-enc-game { display: grid; grid-template-columns: minmax(0, 248px) minmax(0, 1fr); gap: 14px; padding: 13px 16px; border-bottom: 1px solid rgba(28,22,18,0.1); align-items: start; }
+    .copa-enc-game:last-child { border-bottom: none; }
+    .copa-enc-match { min-width: 0; }
+    .copa-enc-teams { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .copa-enc-team { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-weight: 700; font-size: 12.5px; color: var(--pv-charcoal); }
+    .copa-enc-team.away { justify-content: flex-end; text-align: right; }
+    .copa-enc-tn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .copa-enc-score { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 18px; line-height: 1; color: var(--pv-charcoal); }
+    .copa-enc-x { color: var(--pv-orange); font-size: 13px; }
+    .copa-enc-meta { font-size: 10px; color: rgba(28,22,18,0.5); font-weight: 700; letter-spacing: 0.03em; margin-top: 6px; }
+    .copa-enc-picks { display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; }
+    .copa-enc-pick { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; font-size: 11px; border: 1.5px solid transparent; background: rgba(28,22,18,0.05); white-space: nowrap; }
+    .copa-enc-pick.pts-3 { background: rgba(58,125,42,0.12); border-color: rgba(58,125,42,0.45); color: #2c5f20; }
+    .copa-enc-pick.pts-1 { background: rgba(201,138,20,0.14); border-color: rgba(201,138,20,0.45); color: #87590c; }
+    .copa-enc-pick.pts-0 { background: rgba(28,22,18,0.05); border-color: rgba(28,22,18,0.14); color: rgba(28,22,18,0.6); }
+    .copa-enc-pick.me { box-shadow: 0 0 0 2px var(--pv-orange); }
+    .copa-enc-pn { font-weight: 800; }
+    .copa-enc-pp { font-family: 'Space Grotesk', monospace; font-weight: 800; }
+    .copa-enc-pts { font-size: 8px; font-weight: 800; letter-spacing: 0.08em; opacity: 0.85; }
+    .copa-enc-nopick { font-size: 11px; font-style: italic; color: rgba(28,22,18,0.5); }
+    @media (max-width: 640px) {
+      .copa-enc-game { grid-template-columns: 1fr; gap: 9px; }
+    }
     .copa-warn {
       padding: 12px 16px;
       background: rgba(215,100,20,0.15);
