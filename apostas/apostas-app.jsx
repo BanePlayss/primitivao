@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260611-copa-encerrados ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260611-copa-feed ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4712,7 +4712,6 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePi
 
       <div className="copa-subtabs">
         <button className={'copa-subtab ' + (subTab === 'jogos' ? 'active' : '')} onClick={() => setSubTab('jogos')}>JOGOS</button>
-        <button className={'copa-subtab ' + (subTab === 'encerrados' ? 'active' : '')} onClick={() => setSubTab('encerrados')}><Icon name="check" size={14} /> ENCERRADOS</button>
         <button className={'copa-subtab ' + (subTab === 'grupos' ? 'active' : '')} onClick={() => setSubTab('grupos')}><Icon name="chart" size={14} /> GRUPOS</button>
         <button className={'copa-subtab ' + (subTab === 'bracket' ? 'active' : '')} onClick={() => setSubTab('bracket')}><Icon name="trophy" size={14} /> MATA-MATA</button>
         <button className={'copa-subtab ' + (subTab === 'ranking' ? 'active' : '')} onClick={() => setSubTab('ranking')}><Icon name="trophy" size={14} /> RANKING DO BOLÃO</button>
@@ -4728,15 +4727,6 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePi
           isAdmin={isAdmin}
           onSavePick={onSavePick}
           onSetResult={onSetResult}
-        />
-      )}
-
-      {subTab === 'encerrados' && (
-        <CopaEncerrados
-          fixtures={fixtures || []}
-          results={results}
-          allPicks={picks}
-          myNick={myNick}
         />
       )}
 
@@ -4804,32 +4794,34 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSa
     return Array.from(s).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   })();
 
-  // Rodada FINALIZADA (todos os jogos com placar) sai daqui e vai pra aba
-  // ENCERRADOS. JOGOS fica só com o que ainda dá pra acompanhar/palpitar.
-  const roundsAll = {};
-  for (const m of resolvedFixtures) (roundsAll[m.round] = roundsAll[m.round] || []).push(m);
-  const doneRounds = new Set(Object.keys(roundsAll).filter(r => roundsAll[r].every(m => !!results[m.id])));
-  const jogosFixtures = resolvedFixtures.filter(m => !doneRounds.has(m.round));
-
-  const filtered = jogosFixtures.filter(m => {
+  const passaFiltro = (m) => {
     if (stageFilter === 'group'    && m.isKnockout) return false;
     if (stageFilter === 'knockout' && !m.isKnockout) return false;
     if (teamFilter && m.home !== teamFilter && m.away !== teamFilter) return false;
     return true;
-  });
+  };
 
-  // Agrupa por round (na ordem canônica)
-  const byRound = filtered.reduce((acc, m) => {
+  // ESQUERDA = jogos que ainda NÃO foram (sem placar), agrupados por rodada.
+  const activeGames = resolvedFixtures.filter(m => !results[m.id] && passaFiltro(m));
+  const byRound = activeGames.reduce((acc, m) => {
     (acc[m.round] = acc[m.round] || []).push(m); return acc;
   }, {});
   const presentRounds = WC_STAGE_ORDER.filter(r => byRound[r] && byRound[r].length > 0);
   const extraRounds = Object.keys(byRound).filter(r => !WC_STAGE_ORDER.includes(r));
   const roundKeys = [...presentRounds, ...extraRounds];
 
-  const totalAll = jogosFixtures.length;
-  const totalGroup = jogosFixtures.filter(m => !m.isKnockout).length;
-  const totalKO = jogosFixtures.filter(m => m.isKnockout).length;
-  const allDoneNothingOpen = jogosFixtures.length === 0 && resolvedFixtures.length > 0;
+  // DIREITA = todos os jogos FINALIZADOS (com placar) num feed só, do mais
+  // recente pro mais antigo, sem separador de rodada. Vai ao lado dos jogos.
+  const finishedGames = resolvedFixtures
+    .filter(m => !!results[m.id] && passaFiltro(m))
+    .sort((a, b) => (b.kickoffTs || 0) - (a.kickoffTs || 0));
+  const nicks = Object.keys(allPicks || {});
+
+  // Contagem dos chips = jogos ainda EM ABERTO por fase.
+  const openGames = resolvedFixtures.filter(m => !results[m.id]);
+  const totalAll = openGames.length;
+  const totalGroup = openGames.filter(m => !m.isKnockout).length;
+  const totalKO = openGames.filter(m => m.isKnockout).length;
 
   return (
     <div>
@@ -4858,17 +4850,16 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSa
         </div>
       </div>
 
-      {allDoneNothingOpen ? (
-        <div className="card"><div className="card-body"><div className="empty">
-          <div className="e1">TUDO ENCERRADO POR AGORA</div>
-          <div className="e2">Todas as rodadas atuais já têm placar. Os resultados e os palpites da galera estão na aba <strong>ENCERRADOS</strong>.</div>
-        </div></div></div>
-      ) : roundKeys.length === 0 && (
-        <div className="card"><div className="card-body"><div className="empty">
-          <div className="e2">Nenhum jogo bate com esse filtro.</div>
-        </div></div></div>
-      )}
-
+      <div className="copa-jogos-wrap">
+        {/* ESQUERDA: jogos pra palpitar, agrupados por rodada */}
+        <div className="copa-jogos-main">
+          {roundKeys.length === 0 && (
+            <div className="card"><div className="card-body"><div className="empty">
+              {openGames.length === 0 && finishedGames.length > 0
+                ? <><div className="e1">TUDO ENCERRADO POR AGORA</div><div className="e2">Todos os jogos já têm placar — os resultados e os palpites estão no painel ao lado.</div></>
+                : <div className="e2">Nenhum jogo em aberto bate com esse filtro.</div>}
+            </div></div></div>
+          )}
       {roundKeys.map(rk => {
         const matches = byRound[rk];
         const isKO = matches[0]?.isKnockout;
@@ -4909,99 +4900,51 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSa
           </div>
         );
       })}
-    </div>
-  );
-}
+        </div>
 
-// Aba ENCERRADOS: rodadas que já acabaram (todos os jogos com placar). Cada jogo
-// mostra o RESULTADO REAL e, ao lado, os palpites que a galera fez — com pontos.
-// A rodada mais recente abre por padrão; as antigas ficam recolhidas.
-function CopaEncerrados({ fixtures, results, allPicks, myNick }) {
-  const resolved = useMemo(() => resolveWcFixtures(fixtures, results), [fixtures, results]);
-  const [openMap, setOpenMap] = useState({});
-
-  const byRound = {};
-  for (const m of resolved) (byRound[m.round] = byRound[m.round] || []).push(m);
-  const ordered = WC_STAGE_ORDER
-    .filter(r => byRound[r] && byRound[r].length > 0 && byRound[r].every(m => !!results[m.id]))
-    .reverse(); // rodada mais recente primeiro
-
-  if (ordered.length === 0) {
-    return (
-      <div className="card"><div className="card-body"><div className="empty">
-        <div className="e1">NADA ENCERRADO AINDA</div>
-        <div className="e2">Quando uma rodada inteira tiver placar, ela aparece aqui com os palpites de todo mundo.</div>
-      </div></div></div>
-    );
-  }
-
-  const nicks = Object.keys(allPicks || {});
-  return (
-    <div>
-      {ordered.map((rk, idx) => {
-        const matches = byRound[rk];
-        const isKO = matches[0]?.isKnockout;
-        const label = translateRound(rk);
-        const isOpen = openMap[rk] !== undefined ? openMap[rk] : idx === 0;
-        let myPts = 0, myPicked = 0;
-        for (const m of matches) {
-          const p = (allPicks[myNick] || {})[m.id];
-          if (p) { myPicked++; myPts += scoreWcPick(results[m.id], p); }
-        }
-        return (
-          <div key={rk} className={'card copa-round-card copa-enc-card' + (isOpen ? '' : ' collapsed')}>
-            <button type="button" className="card-head copa-round-head" aria-expanded={isOpen} onClick={() => setOpenMap(o => ({ ...o, [rk]: !isOpen }))}>
-              <div className="title">{isKO ? '' : 'FASE DE GRUPOS · '}{label}</div>
-              <div className="copa-round-meta">
-                {myNick && <span className="copa-round-badge done">{myPicked ? 'VOCÊ: ' + myPts + ' pt' + (myPts === 1 ? '' : 's') : 'SEM PALPITE'}</span>}
-                <span className="sub">{matches.length} JOGO{matches.length === 1 ? '' : 'S'}</span>
-                <Icon name={isOpen ? 'caret-up' : 'caret-down'} size={14} className="copa-round-chev" />
-              </div>
-            </button>
-            {isOpen && (
-              <div className="card-body copa-enc-body">
-                {matches.map(m => {
-                  const r = results[m.id];
-                  const gp = nicks
-                    .map(n => ({ n, p: (allPicks[n] || {})[m.id] }))
-                    .filter(x => x.p)
-                    .map(x => ({ ...x, pts: scoreWcPick(r, x.p) }))
-                    .sort((a, b) => b.pts - a.pts || a.n.localeCompare(b.n, 'pt-BR'));
-                  return (
-                    <div key={m.id} className="copa-enc-game">
-                      <div className="copa-enc-match">
-                        <div className="copa-enc-teams">
-                          <span className="copa-enc-team">
-                            <span className="wc-flag"><TeamFlag flag={m.flagHome} /></span>
-                            <span className="copa-enc-tn">{m.home}</span>
-                          </span>
-                          <span className="copa-enc-score">{r.gh}<span className="copa-enc-x">×</span>{r.ga}</span>
-                          <span className="copa-enc-team away">
-                            <span className="copa-enc-tn">{m.away}</span>
-                            <span className="wc-flag"><TeamFlag flag={m.flagAway} /></span>
-                          </span>
-                        </div>
-                        <div className="copa-enc-meta">{m.date}{m.ground ? ' · ' + m.ground : ''}</div>
-                      </div>
-                      <div className="copa-enc-picks">
-                        {gp.length === 0
-                          ? <div className="copa-enc-nopick">Ninguém palpitou nesse jogo.</div>
-                          : gp.map(({ n, p, pts }) => (
-                              <div key={n} className={'copa-enc-pick pts-' + pts + (n === myNick ? ' me' : '')} title={'@' + n + ' palpitou ' + p.gh + '×' + p.ga}>
-                                <span className="copa-enc-pn">@{n}</span>
-                                <span className="copa-enc-pp">{p.gh}×{p.ga}</span>
-                                <span className="copa-enc-pts">{pts === 3 ? 'EXATO' : pts === 1 ? 'CERTO' : 'ERROU'}</span>
-                              </div>
-                            ))}
-                      </div>
+        {/* DIREITA: feed de FINALIZADOS — tudo junto, sem separador de rodada */}
+        <aside className="copa-jogos-side">
+          <div className="copa-fin-head"><Icon name="check" size={13} /> ENCERRADOS <span className="copa-fin-count">{finishedGames.length}</span></div>
+          {finishedGames.length === 0 ? (
+            <div className="copa-fin-empty">Nenhum jogo finalizado ainda. Assim que sair o primeiro placar, os palpites da galera aparecem aqui.</div>
+          ) : (
+            <div className="copa-fin-list">
+              {finishedGames.map(m => {
+                const r = results[m.id];
+                const gp = nicks
+                  .map(n => ({ n, p: (allPicks[n] || {})[m.id] }))
+                  .filter(x => x.p)
+                  .map(x => ({ ...x, pts: scoreWcPick(r, x.p) }))
+                  .sort((a, b) => b.pts - a.pts || a.n.localeCompare(b.n, 'pt-BR'));
+                return (
+                  <div key={m.id} className="copa-fin-game">
+                    <div className="copa-fin-top">
+                      <span className="copa-fin-round">{translateRound(m.round)}</span>
+                      <span className="copa-fin-date">{m.date}</span>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
+                    <div className="copa-fin-teams">
+                      <span className="copa-fin-team"><span className="wc-flag"><TeamFlag flag={m.flagHome} /></span><span className="copa-fin-tn">{m.home}</span></span>
+                      <span className="copa-fin-score">{r.gh}<span className="copa-enc-x">×</span>{r.ga}</span>
+                      <span className="copa-fin-team away"><span className="copa-fin-tn">{m.away}</span><span className="wc-flag"><TeamFlag flag={m.flagAway} /></span></span>
+                    </div>
+                    <div className="copa-fin-picks">
+                      {gp.length === 0
+                        ? <span className="copa-enc-nopick">sem palpites</span>
+                        : gp.map(({ n, p, pts }) => (
+                            <span key={n} className={'copa-enc-pick pts-' + pts + (n === myNick ? ' me' : '')} title={'@' + n + ' palpitou ' + p.gh + '×' + p.ga}>
+                              <span className="copa-enc-pn">@{n}</span>
+                              <span className="copa-enc-pp">{p.gh}×{p.ga}</span>
+                              <span className="copa-enc-pts">{pts === 3 ? 'EXATO' : pts === 1 ? 'CERTO' : 'ERROU'}</span>
+                            </span>
+                          ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }

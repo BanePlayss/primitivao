@@ -282,7 +282,7 @@
     }
 
     /* ──── COPA DO MUNDO (bolão) ──── */
-    .copa-view { max-width: 880px; margin: 0 auto; }
+    .copa-view { max-width: 1100px; margin: 0 auto; }
     .copa-hero {
       padding: 20px 24px;
       background: var(--pv-charcoal); color: var(--pv-bone);
@@ -354,6 +354,30 @@
     .copa-enc-nopick { font-size: 11px; font-style: italic; color: rgba(28,22,18,0.5); }
     @media (max-width: 640px) {
       .copa-enc-game { grid-template-columns: 1fr; gap: 9px; }
+    }
+    /* ABA JOGOS em 2 colunas: jogos pra palpitar (esq) + feed de FINALIZADOS (dir) */
+    .copa-jogos-wrap { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+    .copa-jogos-main { min-width: 0; }
+    .copa-jogos-side { min-width: 0; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; }
+    .copa-fin-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--pv-charcoal); color: var(--pv-bone); font-weight: 800; font-size: 12px; letter-spacing: 0.14em; border-bottom: 2px solid var(--pv-orange); position: sticky; top: 0; z-index: 2; }
+    .copa-fin-head svg { color: var(--pv-orange); }
+    .copa-fin-count { margin-left: auto; font-size: 11px; color: var(--pv-charcoal); background: var(--pv-bone); border-radius: 999px; padding: 1px 9px; }
+    .copa-fin-empty { padding: 16px 14px; font-size: 12px; font-style: italic; color: rgba(28,22,18,0.55); background: var(--pv-bone); border: 1px solid rgba(28,22,18,0.12); }
+    .copa-fin-list { display: flex; flex-direction: column; }
+    .copa-fin-game { padding: 11px 12px; background: var(--pv-bone); border: 1px solid rgba(28,22,18,0.12); border-top: none; }
+    .copa-fin-game:first-child { border-top: 1px solid rgba(28,22,18,0.12); }
+    .copa-fin-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .copa-fin-round { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; color: var(--pv-orange); }
+    .copa-fin-date { font-size: 9.5px; font-weight: 700; color: rgba(28,22,18,0.45); }
+    .copa-fin-teams { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .copa-fin-team { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-weight: 700; font-size: 12px; color: var(--pv-charcoal); }
+    .copa-fin-team.away { justify-content: flex-end; text-align: right; }
+    .copa-fin-tn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .copa-fin-score { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 16px; line-height: 1; color: var(--pv-charcoal); }
+    .copa-fin-picks { display: flex; flex-wrap: wrap; gap: 5px; }
+    @media (max-width: 1100px) {
+      .copa-jogos-wrap { grid-template-columns: 1fr; }
+      .copa-jogos-side { position: static; max-height: none; overflow: visible; }
     }
     .copa-warn {
       padding: 12px 16px;
