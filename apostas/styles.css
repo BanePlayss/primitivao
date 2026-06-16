@@ -3168,6 +3168,7 @@
     .perfil-id-team { font-size: 10.5px; font-weight: 800; letter-spacing: 0.1em; color: rgba(244,234,215,0.65); text-transform: uppercase; }
     .perfil-id-team.none { color: rgba(244,234,215,0.4); font-style: italic; }
     .perfil-id-coins { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; width: 100%; margin-top: 4px; }
+    .perfil-id-coins.solo { grid-template-columns: 1fr; } /* só PC quando CC está oculto */
     .perfil-id-coin { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px; background: rgba(244,234,215,0.06); border: 1.5px solid rgba(244,234,215,0.14); border-radius: 5px; }
     .perfil-id-coin-v { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 19px; line-height: 1; color: var(--pv-bone); }
     .perfil-id-coin.cc .perfil-id-coin-v { color: var(--ap-accent); }

@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260611-copa-feed ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260616-ocultar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1885,6 +1885,12 @@ class ViewBoundary extends React.Component {
 // Views navegáveis via hash (#/apostas, #/ranking...). Tem que casar com os
 // ids de getTabItems + 'admin'. Hash desconhecido cai em 'apostas'.
 const VALID_VIEWS = ['apostas', 'campeonatos', 'copa', 'hall', 'inicio', 'loja', 'perfil', 'tickets', 'ranking', 'admin'];
+
+// Telas/recursos escondidos POR ENQUANTO. O código continua TODO no lugar — só
+// não aparecem na navegação/UI. Pra reativar: tira do set / vira HIDE_CC = false.
+const HIDDEN_VIEWS = new Set(['hall', 'inicio', 'loja']); // VITRINE · NEWS · MERCADINHO
+const HIDE_CC = true; // Campeão Coins (CC)
+
 function viewFromHash() {
   if (typeof window === 'undefined') return 'apostas';
   const h = (window.location.hash || '').replace(/^#\/?/, '');
@@ -3415,9 +3421,9 @@ function TopBar({ nick, pc, cc, isAdmin, onLogout, weeklyReady, weeklyIn, onClai
         <button className={'pnav ' + (view === 'apostas' ? 'active' : '')} onClick={() => onView && onView('apostas')}>APOSTAS</button>
         <button className={'pnav ' + (view === 'campeonatos' ? 'active' : '')} onClick={() => onView && onView('campeonatos')}>CAMPEONATOS</button>
         <button className={'pnav ' + (view === 'copa' ? 'active' : '')} onClick={() => onView && onView('copa')}>COPA DO MUNDO</button>
-        <button className={'pnav ' + (view === 'hall' ? 'active' : '')} onClick={() => onView && onView('hall')}>VITRINE</button>
-        <button className={'pnav ' + (view === 'inicio' ? 'active' : '')} onClick={() => onView && onView('inicio')}>NEWS</button>
-        <button className={'pnav ' + (view === 'loja' ? 'active' : '')} onClick={() => onView && onView('loja')}>MERCADINHO</button>
+        {!HIDDEN_VIEWS.has('hall') && <button className={'pnav ' + (view === 'hall' ? 'active' : '')} onClick={() => onView && onView('hall')}>VITRINE</button>}
+        {!HIDDEN_VIEWS.has('inicio') && <button className={'pnav ' + (view === 'inicio' ? 'active' : '')} onClick={() => onView && onView('inicio')}>NEWS</button>}
+        {!HIDDEN_VIEWS.has('loja') && <button className={'pnav ' + (view === 'loja' ? 'active' : '')} onClick={() => onView && onView('loja')}>MERCADINHO</button>}
         <button className="pnav pnav-ext" onClick={goDiscord} title="Abre em nova aba">
           DISCORD <span className="pnav-ext-icon"><Icon name="arrow-up-right" size={12} /></span>
         </button>
@@ -3450,7 +3456,7 @@ function TopBar({ nick, pc, cc, isAdmin, onLogout, weeklyReady, weeklyIn, onClai
             </div>
           </div>
         )}
-        {!isAdmin && (
+        {!isAdmin && !HIDE_CC && (
           <div className="pc-pill cc-pill" title="Campeão Coins — moeda da loja">
             <div className="pc-coin">C</div>
             <div>
@@ -3707,7 +3713,7 @@ function getTabItems(isAdmin, mkInscrito, isMod) {
     { id: 'hall',        label: 'VITRINE',       icon: 'trophy' },
     { id: 'inicio',      label: 'NEWS',          icon: 'newspaper' },
     { id: 'loja',        label: 'MERCADINHO',    icon: 'coin' },
-  ];
+  ].filter(it => !HIDDEN_VIEWS.has(it.id)); // esconde VITRINE/NEWS/MERCADINHO por enquanto
   // MEUS TICKETS, RANKING e MEU JOGO foram pra dentro de APOSTAS/CAMPEONATOS;
   // o perfil agora é a sidebar esquerda (clica e abre o completo). Sobra só o
   // PERFIL e o ADMIN no "meu espaço" (usado no menu mobile).
@@ -8136,13 +8142,15 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
           )}
         </div>
         {!isAdmin && (
-          <div className="perfil-id-coins">
+          <div className={'perfil-id-coins' + (HIDE_CC ? ' solo' : '')}>
             <div className="perfil-id-coin" title={(me?.pc ?? 0).toLocaleString('pt-BR') + ' Primitivo Coins'}>
               <span className="perfil-id-coin-v">{compactPC(me?.pc ?? 0)}</span><span className="perfil-id-coin-l">PC</span>
             </div>
-            <div className="perfil-id-coin cc" title="Caco Coins">
-              <span className="perfil-id-coin-v">{compactPC(ccBalanceFor(nick, me, { bets, users, teamPlayers, cs, worldcup, interests }))}</span><span className="perfil-id-coin-l">CC</span>
-            </div>
+            {!HIDE_CC && (
+              <div className="perfil-id-coin cc" title="Caco Coins">
+                <span className="perfil-id-coin-v">{compactPC(ccBalanceFor(nick, me, { bets, users, teamPlayers, cs, worldcup, interests }))}</span><span className="perfil-id-coin-l">CC</span>
+              </div>
+            )}
           </div>
         )}
       </div>
