@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260618-crab ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260618-campicons ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1352,6 +1352,29 @@ function ClubCrest({ nick, size = 30, className = '' }) {
       loading="lazy"
     />
   );
+}
+
+// ─── ÍCONES DOS CAMPEONATOS ─────────────────────────────────────────────────
+// Logo real de cada campeonato (imagens em apostas/champs/<id>.(png|svg)).
+// Sem imagem (ex.: copa) cai no glifo lineart do tema (tabloidTheme().icon).
+const CHAMP_ICON = {
+  fifa: 'champs/fifa.png', fifa2: 'champs/fifa.png', mk: 'champs/mk.png',
+  rl: 'champs/rl.png', lol: 'champs/lol.svg', cs: 'champs/cs.png',
+  gwyf: 'champs/gwyf.png', valorant: 'champs/valorant.png', tft: 'champs/tft.png',
+  pokemon: 'champs/pokemon.png', magic: 'champs/magic.png', crab: 'champs/crab.png',
+};
+function ChampIcon({ champId, size = 22, className = '' }) {
+  const src = CHAMP_ICON[champId];
+  if (src) {
+    return (
+      <img src={src} alt="" width={size} height={size}
+        className={'champ-img-ic ' + className}
+        style={{ objectFit: 'contain', display: 'block', flexShrink: 0 }}
+        loading="lazy" />
+    );
+  }
+  const th = tabloidTheme(champId);
+  return <Icon name={th.icon} size={Math.round(size * 0.62)} className={className} />;
 }
 
 // ─── AVATAR ──────────────────────────────────────────────────────────────────
@@ -3665,7 +3688,7 @@ function ChampSidebar({ value, onChange, cs, interests, mode }) {
                 disabled={disabled}
                 aria-current={sel ? 'true' : undefined}
               >
-                <span className="champ-item-ic" style={{ background: th.color }}><Icon name={th.icon} size={14} /></span>
+                <span className="champ-item-ic" style={{ background: CHAMP_ICON[c.id] ? 'var(--pv-bone)' : th.color }}><ChampIcon champId={c.id} size={22} /></span>
                 <span className="champ-item-body">
                   <span className="champ-item-name">{champShort(c)}</span>
                   <span className="champ-item-sub">{sub}</span>
