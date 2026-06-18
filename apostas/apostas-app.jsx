@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260618-fifaref ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260618-crab ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -134,6 +134,7 @@ const CHAMPIONSHIPS = [
   { id: 'tft',  name: 'Primitivão — Teamfight Tactics 2026',     season: 'Season 1', tag: 'TFT',  status: 'soon'   },
   { id: 'pokemon', name: 'Primitivão — Pokémon 2026',            season: 'Season 1', tag: 'POKÉMON', status: 'soon' },
   { id: 'magic', name: 'Primitivão — Magic: The Gathering 2026', season: 'Season 1', tag: 'MAGIC', status: 'soon'  },
+  { id: 'crab', name: 'Primitivão — Crab Game 2026',             season: 'Season 1', tag: 'CRAB GAME', status: 'soon' },
   // FIFA Season 2: nova temporada do MESMO jogo — só inscrição por enquanto.
   // id próprio (fifa2) pra não colidir com a Season 1 ativa; vira 'active' o dia
   // que ganhar fixtures/chaveamento próprios.
@@ -153,6 +154,7 @@ const TABLOID_THEMES = {
   tft:      { wordmark: 'TEAMFIGHT',      accent: '戦', stamp: 'GG!',      icon: 'chess',     color: '#6c5ce7' },
   pokemon:  { wordmark: 'POKÉMON',        accent: '捕', stamp: 'GOTCHA!',  icon: 'pokeball',  color: '#d63b2f' },
   magic:    { wordmark: 'MAGIC',          accent: '魔', stamp: 'TAP!',     icon: 'cards',     color: '#7a3fb0' },
+  crab:     { wordmark: 'CRAB GAME',      accent: '蟹', stamp: 'SNAP!',    icon: 'crab',      color: '#e2552e' },
   fifa2:    { wordmark: 'PRIMITIVÃO FC',  accent: '球', stamp: 'GOL!',     icon: 'football',  color: '#2e8b3d' },
   copa:     { wordmark: 'COPA DO MUNDO',  accent: '杯', stamp: 'GOOOL!',   icon: 'globe',     color: '#1f8f8a' },
 };
@@ -4457,6 +4459,19 @@ function Icon({ name, size = 20, strokeWidth, className = '' }) {
         <svg {...common}>
           <path d="M6.2 7 12.6 8.8l-2.1 8.7L4.1 15.7 6.2 7z" strokeLinejoin="round" />
           <rect x="10.2" y="5.8" width="8.4" height="12.6" rx="1.6" />
+        </svg>
+      );
+    case 'crab': // caranguejo — Crab Game
+      return (
+        <svg {...common}>
+          <path d="M6.5 13.5a5.5 4 0 0 1 11 0" />
+          <path d="M6.5 13.5h11" />
+          <circle cx="10" cy="9.9" r="0.9" fill="currentColor" stroke="none" />
+          <circle cx="14" cy="9.9" r="0.9" fill="currentColor" stroke="none" />
+          <path d="M10 10.3V9M14 10.3V9" strokeLinecap="round" />
+          <path d="M6.6 12.6C4 12 3 10.5 3.3 8.8M3.3 8.8l1.6.2M3.3 8.8l.3 1.6" strokeLinejoin="round" />
+          <path d="M17.4 12.6C20 12 21 10.5 20.7 8.8M20.7 8.8l-1.6.2M20.7 8.8l-.3 1.6" strokeLinejoin="round" />
+          <path d="M8 14.6l-2.6 2.5M16 14.6l2.6 2.5M10 15.2l-1.4 3M14 15.2l1.4 3" strokeLinecap="round" />
         </svg>
       );
     default:
@@ -10834,7 +10849,7 @@ const ALL_ICON_NAMES = [
   'book', 'newspaper', 'dice', 'user', 'gamepad', 'phone', 'chart', 'pin',
   'square-filled', 'chat', 'ticket', 'flask', 'tag', 'trash', 'toilet',
   'toothbrush', 'crown', 'bolt', 'heart', 'football', 'sword', 'whistle',
-  'snowflake', 'rocket', 'crosshair', 'fist', 'chess', 'pokeball', 'cards',
+  'snowflake', 'rocket', 'crosshair', 'fist', 'chess', 'pokeball', 'cards', 'crab',
 ];
 
 // ─── ADMIN: CATÁLOGO (galeria de tudo — QA visual) ──────────────────────────
