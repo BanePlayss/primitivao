@@ -3944,30 +3944,25 @@
     .mk-rnav-count { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 21px; line-height: 1.05; }
     .mk-rnav-count span { font-size: 12px; opacity: 0.7; }
 
-    /* trilho de visão geral das rodadas — chips clicáveis agrupados por
-       TURNO (ida) / RETURNO (volta), com status por cor (encerrada/atual/a vir).
-       Substitui o "navegar uma por vez": dá pra ver tudo e pular pra qualquer rodada. */
-    .mk-rstrip { display: flex; gap: 18px; align-items: flex-start; overflow-x: auto; padding: 2px 2px 9px; margin-bottom: 8px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
-    .mk-rstrip::-webkit-scrollbar { height: 6px; }
-    .mk-rstrip::-webkit-scrollbar-thumb { background: rgba(28,22,18,0.22); border-radius: 3px; }
-    .mk-rstrip-grp { display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
-    .mk-rstrip-lab { font-size: 8px; font-weight: 800; letter-spacing: 0.18em; color: rgba(28,22,18,0.42); padding-left: 1px; }
-    .mk-rstrip-chips { display: flex; gap: 5px; }
-    .mk-rchip { position: relative; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 40px; padding: 7px 0 6px; background: var(--pv-bone-2); border: 1.5px solid rgba(28,22,18,0.16); color: rgba(28,22,18,0.5); cursor: pointer; transition: transform .08s ease, border-color .1s ease, color .1s ease, background .1s ease; }
-    .mk-rchip:hover { border-color: var(--pv-charcoal); color: var(--pv-charcoal); transform: translateY(-1px); }
-    .mk-rchip-n { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 16px; line-height: 1; }
-    .mk-rchip-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: 0.4; }
-    .mk-rchip-done { color: var(--pv-charcoal); background: var(--pv-bone); border-color: rgba(28,22,18,0.28); }
-    .mk-rchip-done .mk-rchip-dot { background: var(--pv-green, #2f9e54); opacity: 1; }
-    .mk-rchip-live { color: var(--pv-orange); background: rgba(215,100,20,0.07); border-color: var(--pv-orange); }
-    .mk-rchip-live .mk-rchip-dot { background: var(--pv-orange); opacity: 1; }
-    .mk-rchip-future .mk-rchip-dot { opacity: 0.28; }
-    .mk-rchip.sel { box-shadow: 0 0 0 2px var(--pv-charcoal); border-color: var(--pv-charcoal); transform: translateY(-1px); }
-    .mk-rchip-live.sel { box-shadow: 0 0 0 2px var(--pv-orange); border-color: var(--pv-orange); }
+    /* visão geral das rodadas — GRADE que quebra linha: todas as rodadas à vista
+       de uma vez (sem scroll horizontal), agrupadas em TURNO (ida) / RETURNO
+       (volta). Cada tile = uma rodada; a cor conta o status. Clicar abre a rodada. */
+    .mk-rstrip { display: flex; flex-direction: column; gap: 11px; margin-bottom: 11px; }
+    .mk-rstrip-grp { display: flex; flex-direction: column; gap: 6px; }
+    .mk-rstrip-lab { font-size: 8px; font-weight: 800; letter-spacing: 0.2em; color: rgba(28,22,18,0.4); }
+    .mk-rstrip-chips { display: grid; grid-template-columns: repeat(auto-fill, 38px); justify-content: start; gap: 6px; }
+    .mk-rchip { position: relative; height: 38px; display: flex; align-items: center; justify-content: center; background: var(--pv-bone-2); border: 1.5px solid rgba(28,22,18,0.12); border-bottom-width: 3px; color: rgba(28,22,18,0.5); font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 15px; line-height: 1; cursor: pointer; transition: transform .08s ease, box-shadow .1s ease, background .1s ease, color .1s ease, border-color .1s ease; }
+    .mk-rchip:hover { transform: translateY(-2px); box-shadow: 0 3px 0 rgba(28,22,18,0.18); color: var(--pv-charcoal); }
+    .mk-rchip-done { background: var(--pv-bone); color: var(--pv-charcoal); border-color: rgba(28,22,18,0.2); border-bottom-color: var(--pv-green, #4d6a2e); }
+    .mk-rchip-live { background: var(--pv-orange); color: #fff; border-color: var(--pv-orange); border-bottom-color: rgba(0,0,0,0.28); box-shadow: 0 3px 0 rgba(215,100,20,0.3); }
+    .mk-rchip-live:hover { color: #fff; box-shadow: 0 4px 0 rgba(215,100,20,0.38); }
+    .mk-rchip-future { color: rgba(28,22,18,0.38); }
+    .mk-rchip.sel { box-shadow: 0 0 0 2px var(--pv-charcoal); transform: translateY(-2px); }
+    .mk-rchip-live.sel { box-shadow: 0 0 0 2px var(--pv-charcoal); }
     .mk-rstrip-leg { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 13px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; color: rgba(28,22,18,0.5); }
     .mk-rstrip-leg span { display: inline-flex; align-items: center; gap: 4px; }
     .mk-lg-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-    .mk-lg-dot.done { background: var(--pv-green, #2f9e54); }
+    .mk-lg-dot.done { background: var(--pv-green, #4d6a2e); }
     .mk-lg-dot.live { background: var(--pv-orange); }
     .mk-lg-dot.future { background: rgba(28,22,18,0.25); }
     .mk-rstrip-now { display: inline-flex; align-items: center; gap: 4px; background: var(--pv-orange); color: #fff; border: none; padding: 4px 10px; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; cursor: pointer; transition: background .1s ease; }

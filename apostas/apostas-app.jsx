@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260618-camp-nav ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260618-rodadas ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -7369,8 +7369,6 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
   // null = segue a 1ª rodada com jogo pendente (a "rodada atual"); número =
   // navegação manual do usuário pelas setas.
   const [selRound, setSelRound] = useState(null);
-  const stripRef = useRef(null);     // trilho de rodadas (scroll horizontal)
-  const selChipRef = useRef(null);   // chip da rodada em exibição (pra centralizar)
   const [curtain, setCurtain] = useState(() => {
     try { return !localStorage.getItem(MK_CURTAIN_KEY); } catch (e) { return false; }
   });
@@ -7418,23 +7416,6 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
     return { idx, phase: r.phase, n: r.n, total, doneN, st };
   });
   const doneRounds = roundsMeta.filter(rm => rm.st === 'done').length;
-
-  // Centraliza a rodada em exibição no trilho quando ela muda (setas ou clique).
-  // Rola só o trilho na HORIZONTAL (scrollLeft) — de propósito NÃO usa
-  // scrollIntoView, que arrastaria a página inteira na vertical se o trilho
-  // estivesse abaixo da dobra no 1º render.
-  useEffect(() => {
-    const c = stripRef.current, el = selChipRef.current;
-    if (!c || !el || !el.getBoundingClientRect) return;
-    try {
-      const cr = c.getBoundingClientRect();
-      const er = el.getBoundingClientRect();
-      // só age se o chip estiver (parcialmente) fora da área visível do trilho
-      if (er.left < cr.left || er.right > cr.right) {
-        c.scrollLeft += (er.left + er.width / 2) - (cr.left + cr.width / 2);
-      }
-    } catch (e) {}
-  }, [viewRound]);
 
   return (
     <div className="mk-champ">
@@ -7534,7 +7515,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
               </div>
               {/* Trilho de rodadas: visão geral clicável (encerrada/atual/a vir). */}
               {draw.length > 1 && (
-                <div className="mk-rstrip" ref={stripRef} role="tablist" aria-label="Todas as rodadas">
+                <div className="mk-rstrip" role="tablist" aria-label="Todas as rodadas">
                   {['IDA', 'VOLTA'].map(phase => {
                     const list = roundsMeta.filter(rm => rm.phase === phase);
                     if (!list.length) return null;
@@ -7545,7 +7526,6 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                           {list.map(rm => (
                             <button
                               key={rm.idx}
-                              ref={rm.idx === viewRound ? selChipRef : null}
                               type="button"
                               role="tab"
                               aria-selected={rm.idx === viewRound}
@@ -7554,7 +7534,6 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                               title={'Rodada ' + String(rm.n).padStart(2, '0') + ' · ' + (phase === 'IDA' ? 'ida' : 'volta') + ' · ' + rm.doneN + '/' + rm.total + ' jogos'}
                             >
                               <span className="mk-rchip-n">{String(rm.n).padStart(2, '0')}</span>
-                              <span className="mk-rchip-dot" />
                             </button>
                           ))}
                         </div>
