@@ -3953,10 +3953,10 @@
     .mk-rstrip-grp { display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
     .mk-rstrip-lab { font-size: 8px; font-weight: 800; letter-spacing: 0.18em; color: rgba(28,22,18,0.42); padding-left: 1px; }
     .mk-rstrip-chips { display: flex; gap: 5px; }
-    .mk-rchip { position: relative; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 34px; padding: 5px 0; background: var(--pv-bone-2); border: 1.5px solid rgba(28,22,18,0.16); color: rgba(28,22,18,0.5); cursor: pointer; transition: transform .08s ease, border-color .1s ease, color .1s ease, background .1s ease; }
-    .mk-rchip:hover { border-color: var(--pv-charcoal); color: var(--pv-charcoal); }
-    .mk-rchip-n { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 13px; line-height: 1; }
-    .mk-rchip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.4; }
+    .mk-rchip { position: relative; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 40px; padding: 7px 0 6px; background: var(--pv-bone-2); border: 1.5px solid rgba(28,22,18,0.16); color: rgba(28,22,18,0.5); cursor: pointer; transition: transform .08s ease, border-color .1s ease, color .1s ease, background .1s ease; }
+    .mk-rchip:hover { border-color: var(--pv-charcoal); color: var(--pv-charcoal); transform: translateY(-1px); }
+    .mk-rchip-n { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 16px; line-height: 1; }
+    .mk-rchip-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: 0.4; }
     .mk-rchip-done { color: var(--pv-charcoal); background: var(--pv-bone); border-color: rgba(28,22,18,0.28); }
     .mk-rchip-done .mk-rchip-dot { background: var(--pv-green, #2f9e54); opacity: 1; }
     .mk-rchip-live { color: var(--pv-orange); background: rgba(215,100,20,0.07); border-color: var(--pv-orange); }
@@ -3970,6 +3970,8 @@
     .mk-lg-dot.done { background: var(--pv-green, #2f9e54); }
     .mk-lg-dot.live { background: var(--pv-orange); }
     .mk-lg-dot.future { background: rgba(28,22,18,0.25); }
+    .mk-rstrip-now { display: inline-flex; align-items: center; gap: 4px; background: var(--pv-orange); color: #fff; border: none; padding: 4px 10px; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; cursor: pointer; transition: background .1s ease; }
+    .mk-rstrip-now:hover { background: var(--pv-charcoal); }
     .mk-rstrip-prog { margin-left: auto; font-family: 'JetBrains Mono', monospace; letter-spacing: 0; color: rgba(28,22,18,0.6); }
 
     /* confrontos estilo .cmatch da FIFA: avatar + nick + caixas de placar.

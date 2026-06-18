@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260618-campeonatos ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260618-camp-nav ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1925,6 +1925,13 @@ function App() {
   const [slip, setSlip]     = useState([]); // [{fixtureId='rXgY', market, pick, odds}]
   const [synced, setSynced] = useState(false);
   const [championship, setChampionship] = useState('fifa');
+  // Pick MANUAL de campeonato (clicar num "em breve"/encerrado dentro da aba
+  // CAMPEONATOS) trava a autosseleção do ATIVO — senão, quando o cs carrega, a
+  // gente jogaria o usuário de volta pro MK. lastChampViewRef detecta a ENTRADA
+  // na aba pra esquecer o pick manual da visita anterior. Ver o efeito abaixo.
+  const manualChampRef = useRef(false);
+  const lastChampViewRef = useRef(null);
+  const pickChampionship = (id) => { manualChampRef.current = true; setChampionship(id); };
   // Estado OFICIAL do MK — persiste no campo `mk` do doc de apostas (commit
   // transacional já blindado; NÃO toca no doc da FIFA). Lido na subscription do
   // BET_DOC; escrito via os helpers persistMk* abaixo (optimistic local + commit).
@@ -2033,16 +2040,21 @@ function App() {
     }
   }, [view, championship, session]);
 
-  // SEMPRE entrar em APOSTAS/CAMPEONATOS mostrando o campeonato ATIVO (MK). Ao
-  // NAVEGAR pra essas abas, a seleção volta pro ativo; já DENTRO de campeonatos
-  // ainda dá pra clicar num "em breve" pra ver/inscrever (a seleção fica até sair).
+  // SEMPRE entrar em APOSTAS/CAMPEONATOS mostrando o campeonato ATIVO DE VERDADE
+  // (o MK) — não o FIFA, que já encerrou. champStatusFor depende do `cs`, que
+  // carrega ASSÍNCRONO: na 1ª passada o cs pode estar vazio e o FIFA ainda
+  // parecer "ativo", caindo na seleção errada. Por isso re-rodamos quando o cs
+  // muda (deps [view, cs]) — aí o FIFA vira "encerrado" e corrige pro MK. Um
+  // pick manual nesta visita (clicou num "em breve"/encerrado) trava a correção.
   useLayoutEffect(() => {
-    if (view === 'apostas' || view === 'campeonatos') {
-      // ATIVO de verdade = champStatusFor (FIFA já encerrou, então é o MK).
-      const firstActive = (CHAMPIONSHIPS.find(c => champStatusFor(c, cs) === 'active') || CHAMPIONSHIPS[0]).id;
-      setChampionship(firstActive);
-    }
-  }, [view]);
+    const inTabs = view === 'apostas' || view === 'campeonatos';
+    if (!inTabs) { lastChampViewRef.current = null; return; }
+    // Entrou agora na aba? Esquece o pick manual da visita anterior.
+    if (lastChampViewRef.current !== view) { lastChampViewRef.current = view; manualChampRef.current = false; }
+    if (manualChampRef.current) return;
+    const firstActive = (CHAMPIONSHIPS.find(c => champStatusFor(c, cs) === 'active') || CHAMPIONSHIPS[0]).id;
+    setChampionship(firstActive);
+  }, [view, cs]);
 
   // Dados estáticos da Copa do Mundo 2026 (carregados de JSON).
   const [wcData, setWcData] = useState({ matches: [], teamsByName: {} });
@@ -3288,9 +3300,9 @@ function App() {
               <div className="champ-layout champ-layout--camp">
                 {/* lista de CAMPEONATOS grudada na CLASSIFICAÇÃO (sem gap). O MEU JOGO
                     mini vai embaixo do MEU PERFIL (ProfileSidebar) no desktop. */}
-                <ChampSidebar value={championship} onChange={setChampionship} cs={cs} interests={interests || {}} mode="campeonatos" />
+                <ChampSidebar value={championship} onChange={pickChampionship} cs={cs} interests={interests || {}} mode="campeonatos" />
                 <div className="champ-main">
-                  <ChampHeader value={championship} onChange={setChampionship} interests={interests || {}} bare />
+                  <ChampHeader value={championship} onChange={pickChampionship} interests={interests || {}} bare />
                   {active.id === 'mk' ? (
                     // MK: CLASSIFICACAO (centro) + RODADAS (direita), grid de 2 colunas.
                     <MkChampionshipView
@@ -7556,6 +7568,12 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                   <span><i className="mk-lg-dot done" /> encerrada</span>
                   <span><i className="mk-lg-dot live" /> atual</span>
                   <span><i className="mk-lg-dot future" /> a vir</span>
+                  {/* atalho: volta pra rodada atual e VOLTA a seguir ela (selRound=null) */}
+                  {pendIdx >= 0 && viewRound !== pendIdx && (
+                    <button type="button" className="mk-rstrip-now" onClick={() => setSelRound(null)}>
+                      <Icon name="target" size={11} /> RODADA ATUAL
+                    </button>
+                  )}
                   <span className="mk-rstrip-prog">{doneRounds}/{draw.length} rodadas</span>
                 </div>
               )}
