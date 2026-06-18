@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260618-2jogos ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260618-fifaref ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1325,6 +1325,30 @@ function TeamMini({ team, size = 36 }) {
         {t.short.charAt(0)}
       </text>
     </svg>
+  );
+}
+
+// ─── ESCUDOS DOS CLUBES (FIFA S1) ───────────────────────────────────────────
+// Cada jogador da FIFA S1 "é" um clube real. PNGs em apostas/clubs/<nick>.png
+// (recorte transparente, ~160px). Nick sem clube cai no escudo genérico TeamMini.
+const CLUB_NAME = {
+  juca: 'Barcelona', potato: 'Arsenal', celin: 'Liverpool', magreza: 'Real Madrid',
+  caco: 'Newcastle', vitinho: 'Bayern', bane: 'PSG', mohamed: 'Man City',
+};
+function ClubCrest({ nick, size = 30, className = '' }) {
+  const name = CLUB_NAME[nick];
+  if (!name) return <TeamMini team={nick} size={size} />;
+  return (
+    <img
+      src={'clubs/' + nick + '.png'}
+      alt={name}
+      title={name}
+      width={size}
+      height={size}
+      className={'club-crest ' + className}
+      style={{ display: 'block', objectFit: 'contain', flexShrink: 0 }}
+      loading="lazy"
+    />
   );
 }
 
@@ -3333,7 +3357,7 @@ function App() {
                 />
                   ) : (
                     <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isMod}
-                                       users={users} teamPlayers={teamPlayers || {}} />
+                                       users={users} teamPlayers={teamPlayers || {}} myNick={session.nick} />
                   )}
                   {/* Mobile-only: MEU JOGO mini (no desktop ele vai embaixo do MEU PERFIL). */}
                   {active.id === 'mk' && (isAdmin || mkInscrito) && (
@@ -9246,7 +9270,7 @@ function HallView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick, bets }
 // ─── CLASSIFICAÇÃO (aba) ────────────────────────────────────────────────────
 // Controlled component: cs e setCs vêm do App (que mantém o subscribe ao
 // primitivao/state, faz write-back e liquidação automática das apostas).
-function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers }) {
+function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
   const [viewRound, setViewRound] = useState(0); // LOCAL: rodada que ESTE usuário está vendo
   const initViewRef = useRef(false);
 
@@ -9264,129 +9288,173 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers }) {
   }
 
   const standings = computeStandings(cs.rounds);
-  const round = cs.rounds[viewRound] || [];
+  const rounds = cs.rounds || [];
+  const round = rounds[viewRound] || [];
+
+  // status de cada rodada pro trilho (igual ao MK): encerrada / atual / a vir.
+  const isPlayed = (m) => { const h = parseInt(m.gh, 10), a = parseInt(m.ga, 10); return !Number.isNaN(h) && !Number.isNaN(a); };
+  const pendIdx = rounds.findIndex(r => r.some(m => !isPlayed(m)));
+  const liveIdx = pendIdx === -1 ? TOTAL_ROUNDS - 1 : pendIdx;
+  const roundsMeta = rounds.map((r, idx) => {
+    const total = r.length;
+    const doneN = r.reduce((acc, m) => acc + (isPlayed(m) ? 1 : 0), 0);
+    const allDone = total > 0 && doneN >= total;
+    const st = allDone ? 'done' : ((idx === pendIdx || doneN > 0) ? 'live' : 'future');
+    return { idx, n: idx + 1, total, doneN, st };
+  });
+  const doneRounds = roundsMeta.filter(rm => rm.st === 'done').length;
+  // confronto do usuário logado: destaca e joga pro topo da rodada.
+  const isMine = (m) => !!(myNick && (m.home === myNick || m.away === myNick));
 
   const patchMatch = (gi, patch) => {
     setCs(prev => {
-      const rounds = prev.rounds.map((r, ri) => ri !== viewRound ? r : r.map((m, mi) => mi === gi ? { ...m, ...patch } : m));
-      return { ...prev, rounds };
+      const rs = prev.rounds.map((r, ri) => ri !== viewRound ? r : r.map((m, mi) => mi === gi ? { ...m, ...patch } : m));
+      return { ...prev, rounds: rs };
     });
   };
 
   return (
-    <div className="grid">
-      <div className="card">
+    <div className="grid mk-grid">
+      <div className="card mk-card">
         <div className="card-head">
-          <div className="title">CLASSIFICAÇÃO</div>
-          <div className="sub">PRIMITIVÃO · IDA</div>
+          <div className="title"><Icon name="football" size={16} /> CLASSIFICAÇÃO · FIFA</div>
+          <div className="sub">{standings.length} JOGADORES · IDA</div>
         </div>
-        <div className="card-body" style={{ overflowX: 'auto' }}>
-          <table className="std-table">
-            <thead>
-              <tr><th>#</th><th style={{ textAlign: 'left' }}>TIME</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th><th>P</th></tr>
-            </thead>
-            <tbody>
-              {standings.map((s, i) => {
-                const sg = s.gp - s.gc;
-                const cls = i < 2 ? 'glory' : i >= standings.length - 2 ? 'releg' : '';
-                // descobre o título exibido pelo jogador desse time, se houver
-                const playerNick = (teamPlayers || {})[s.id];
-                const playerTitle = playerNick ? (users || {})[playerNick]?.title : null;
-                return (
-                  <tr key={s.id} className={cls}>
-                    <td className="std-pos">{String(i + 1).padStart(2, '0')}</td>
-                    <td>
-                      <div className="tnm" style={{ flexWrap: 'wrap' }}>
-                        <TeamMini team={s.id} size={22} />
-                        <span>{s.name}</span>
-                        {playerTitle && <TitleBadge titleId={playerTitle} />}
-                      </div>
-                    </td>
-                    <td>{s.j}</td><td style={{ fontWeight: 800 }}>{s.v}</td><td>{s.e}</td>
-                    <td style={{ color: 'rgba(28,22,18,0.45)' }}>{s.d}</td>
-                    <td>{sg > 0 ? '+' + sg : sg}</td>
-                    <td style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 16 }}>{s.p}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="card-body">
+          <div style={{ overflowX: 'auto' }}>
+            <table className="std-table">
+              <thead>
+                <tr><th>#</th><th style={{ textAlign: 'left' }}>JOGADOR</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th><th>P</th></tr>
+              </thead>
+              <tbody>
+                {standings.map((s, i) => {
+                  const sg = s.gp - s.gc;
+                  const cls = i < 2 ? 'glory' : i >= standings.length - 2 ? 'releg' : '';
+                  const playerTitle = (users || {})[s.id]?.title;
+                  return (
+                    <tr key={s.id} className={cls}>
+                      <td className="std-pos">{String(i + 1).padStart(2, '0')}</td>
+                      <td>
+                        <div className="tnm" style={{ flexWrap: 'wrap' }}>
+                          <ClubCrest nick={s.id} size={24} />
+                          <span>@{s.id}</span>
+                          {playerTitle && <TitleBadge titleId={playerTitle} />}
+                        </div>
+                      </td>
+                      <td>{s.j}</td><td style={{ fontWeight: 800 }}>{s.v}</td><td>{s.e}</td>
+                      <td style={{ color: 'rgba(28,22,18,0.45)' }}>{s.d}</td>
+                      <td>{sg > 0 ? '+' + sg : sg}</td>
+                      <td style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 16 }}>{s.p}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="mk-legend">
+            <strong>SG</strong> = saldo de gols. Vitória vale 3, empate 1. Os <strong>2 primeiros</strong> em glória, os <strong>2 últimos</strong> na zona.
+          </div>
         </div>
       </div>
 
       <aside>
-        <div className="card">
+        <div className="card mk-card mk-rodada-card">
           <div className="card-head">
             <div className="title">RODADA {String(viewRound + 1).padStart(2, '0')}</div>
-            <div className="sub">{isAdmin ? 'EDITÁVEL' : 'SOMENTE LEITURA'}</div>
+            <div className="sub">{isAdmin ? 'EDITÁVEL' : 'OFICIAL'}</div>
           </div>
           <div className="card-body">
-            <div className="round-tabs">
-              {Array.from({ length: TOTAL_ROUNDS }).map((_, i) => (
-                <button key={i} className={'rt ' + (i === viewRound ? 'active' : '')}
-                        onClick={() => setViewRound(i)}>
-                  {String(i + 1).padStart(2, '0')}
-                </button>
-              ))}
+            <div className="mk-rnav">
+              <button className="mk-rnav-btn" onClick={() => setViewRound(Math.max(0, viewRound - 1))} disabled={viewRound === 0} aria-label="Rodada anterior"><Icon name="chevron-left" size={18} /></button>
+              <div className="mk-rnav-mid">
+                <div className="mk-rnav-phase">PRIMITIVÃO · IDA</div>
+                <div className="mk-rnav-count">{viewRound + 1} <span>/ {TOTAL_ROUNDS}</span></div>
+              </div>
+              <button className="mk-rnav-btn" onClick={() => setViewRound(Math.min(TOTAL_ROUNDS - 1, viewRound + 1))} disabled={viewRound === TOTAL_ROUNDS - 1} aria-label="Próxima rodada"><Icon name="chevron-right" size={18} /></button>
             </div>
-
-            {round.map((m, gi) => {
-              const h = TEAM(m.home), a = TEAM(m.away);
-              const ghN = parseInt(m.gh, 10), gaN = parseInt(m.ga, 10);
-              const played = !Number.isNaN(ghN) && !Number.isNaN(gaN);
-              return (
-                <div key={gi} className="cmatch">
-                  <div className="cmatch-top">
-                    <span>JOGO {String(gi + 1).padStart(2, '0')}</span>
-                    <span>{m.day} · {m.date} · {m.time}</span>
-                  </div>
-                  <div className="cmatch-body">
-                    <div style={{ textAlign: 'center' }}>
-                      <TeamMini team={h} size={34} />
-                      {isAdmin ? (
-                        <select className="cteam-sel" value={m.home} onChange={e => patchMatch(gi, { home: e.target.value })}>
-                          {TEAMS.map(t => <option key={t.id} value={t.id}>{t.short}</option>)}
-                        </select>
-                      ) : <div style={{ fontWeight: 800, fontSize: 12, marginTop: 4 }}>{h.short}</div>}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
-                      {isAdmin ? (
-                        <>
-                          <input className="cscore-in" value={m.gh} placeholder="–"
-                                 onChange={e => patchMatch(gi, { gh: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
-                          <span className="display">×</span>
-                          <input className="cscore-in" value={m.ga} placeholder="–"
-                                 onChange={e => patchMatch(gi, { ga: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
-                        </>
-                      ) : (
-                        <div className="display" style={{ fontSize: 22, color: played ? 'var(--pv-orange)' : 'rgba(28,22,18,0.3)' }}>
-                          {played ? `${ghN} × ${gaN}` : '– × –'}
+            <div className="mk-rstrip" role="tablist" aria-label="Todas as rodadas">
+              <div className="mk-rstrip-grp">
+                <span className="mk-rstrip-lab">RODADAS</span>
+                <div className="mk-rstrip-chips">
+                  {roundsMeta.map(rm => (
+                    <button key={rm.idx} type="button" role="tab" aria-selected={rm.idx === viewRound}
+                            className={'mk-rchip mk-rchip-' + rm.st + (rm.idx === viewRound ? ' sel' : '')}
+                            onClick={() => setViewRound(rm.idx)}
+                            title={'Rodada ' + String(rm.n).padStart(2, '0') + ' · ' + rm.doneN + '/' + rm.total + ' jogos'}>
+                      <span className="mk-rchip-n">{String(rm.n).padStart(2, '0')}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="mk-rstrip-leg">
+              <span><i className="mk-lg-dot done" /> encerrada</span>
+              <span><i className="mk-lg-dot live" /> atual</span>
+              <span><i className="mk-lg-dot future" /> a vir</span>
+              {viewRound !== liveIdx && (
+                <button type="button" className="mk-rstrip-now" onClick={() => setViewRound(liveIdx)}><Icon name="target" size={11} /> RODADA ATUAL</button>
+              )}
+              <span className="mk-rstrip-prog">{doneRounds}/{TOTAL_ROUNDS} rodadas</span>
+            </div>
+            <div className="mk-fixtures">
+              {round
+                .map((m, gi) => ({ m, gi }))
+                .sort((a, b) => (isMine(b.m) ? 1 : 0) - (isMine(a.m) ? 1 : 0)) // SEU JOGO no topo
+                .map(({ m, gi }) => {
+                  const ghN = parseInt(m.gh, 10), gaN = parseInt(m.ga, 10);
+                  const played = !Number.isNaN(ghN) && !Number.isNaN(gaN);
+                  const mine = isMine(m);
+                  return (
+                    <div key={gi} className={'mk-fx' + (played ? ' done' : '') + (mine ? ' mine' : '')}>
+                      <div className="mk-fx-top">
+                        <span className="mk-fx-jogo">JOGO {String(gi + 1).padStart(2, '0')}{mine && <span className="mk-fx-mine"><Icon name="football" size={10} /> SEU JOGO</span>}</span>
+                        {played
+                          ? <span className="mk-fx-done"><Icon name="check" size={11} /> {ghN}×{gaN}</span>
+                          : (m.day || m.date || m.time) ? <span className="mk-fx-meta">{[m.day, m.date, m.time].filter(Boolean).join(' · ')}</span> : null}
+                      </div>
+                      <div className="mk-fx-body">
+                        <div className="mk-fx-side home">
+                          <ClubCrest nick={m.home} size={32} />
+                          <div className="mk-fx-id">
+                            {isAdmin
+                              ? <select className="cteam-sel" value={m.home} onChange={e => patchMatch(gi, { home: e.target.value })}>{TEAMS.map(t => <option key={t.id} value={t.id}>{t.id}</option>)}</select>
+                              : <div className="mk-fx-nick">@{m.home}</div>}
+                            <div className="mk-fx-role mandante">MANDANTE</div>
+                          </div>
+                        </div>
+                        <div className="fifa-fx-score">
+                          {isAdmin ? (
+                            <>
+                              <input className="cscore-in" value={m.gh} placeholder="–" inputMode="numeric" onChange={e => patchMatch(gi, { gh: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
+                              <span className="fifa-fx-x">×</span>
+                              <input className="cscore-in" value={m.ga} placeholder="–" inputMode="numeric" onChange={e => patchMatch(gi, { ga: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
+                            </>
+                          ) : (
+                            <span className="fifa-fx-sc" style={{ color: played ? 'var(--pv-orange)' : 'rgba(28,22,18,0.3)' }}>{played ? ghN + ' × ' + gaN : '– × –'}</span>
+                          )}
+                        </div>
+                        <div className="mk-fx-side away">
+                          <ClubCrest nick={m.away} size={32} />
+                          <div className="mk-fx-id">
+                            {isAdmin
+                              ? <select className="cteam-sel" value={m.away} onChange={e => patchMatch(gi, { away: e.target.value })}>{TEAMS.map(t => <option key={t.id} value={t.id}>{t.id}</option>)}</select>
+                              : <div className="mk-fx-nick">@{m.away}</div>}
+                            <div className="mk-fx-role visitante">VISITANTE</div>
+                          </div>
+                        </div>
+                      </div>
+                      {isAdmin && (
+                        <div className="cmatch-foot">
+                          <input className="cfld" value={m.day} maxLength={3} placeholder="DIA" onChange={e => patchMatch(gi, { day: e.target.value.toUpperCase().slice(0, 3) })} />
+                          <input className="cfld" value={m.date} maxLength={5} placeholder="DATA" onChange={e => patchMatch(gi, { date: e.target.value })} />
+                          <input className="cfld" value={m.time} maxLength={5} placeholder="HORA" onChange={e => patchMatch(gi, { time: e.target.value })} />
+                          <button className="cclear" onClick={() => patchMatch(gi, { gh: '', ga: '' })}>LIMPAR</button>
                         </div>
                       )}
                     </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <TeamMini team={a} size={34} />
-                      {isAdmin ? (
-                        <select className="cteam-sel" value={m.away} onChange={e => patchMatch(gi, { away: e.target.value })}>
-                          {TEAMS.map(t => <option key={t.id} value={t.id}>{t.short}</option>)}
-                        </select>
-                      ) : <div style={{ fontWeight: 800, fontSize: 12, marginTop: 4 }}>{a.short}</div>}
-                    </div>
-                  </div>
-                  {isAdmin && (
-                    <div className="cmatch-foot">
-                      <input className="cfld" value={m.day} maxLength={3} placeholder="DIA"
-                             onChange={e => patchMatch(gi, { day: e.target.value.toUpperCase().slice(0, 3) })} />
-                      <input className="cfld" value={m.date} maxLength={5} placeholder="DATA"
-                             onChange={e => patchMatch(gi, { date: e.target.value })} />
-                      <input className="cfld" value={m.time} maxLength={5} placeholder="HORA"
-                             onChange={e => patchMatch(gi, { time: e.target.value })} />
-                      <button className="cclear" onClick={() => patchMatch(gi, { gh: '', ga: '' })}>LIMPAR</button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                  );
+                })}
+            </div>
           </div>
         </div>
       </aside>

@@ -3993,6 +3993,13 @@
     .mk-fx.mine { border-color: var(--pv-orange); background: rgba(215,100,20,0.07); box-shadow: inset 0 0 0 1px var(--pv-orange), 0 3px 0 rgba(215,100,20,0.22); }
     .mk-fx-jogo { display: inline-flex; align-items: center; gap: 6px; }
     .mk-fx-mine { display: inline-flex; align-items: center; gap: 3px; background: var(--pv-orange); color: #fff; padding: 1px 6px; letter-spacing: 0.1em; }
+    /* FIFA: placar no meio do card de confronto (no lugar do "duelo" do MK) +
+       data/hora do jogo quando ainda não foi jogado. Escudo = ClubCrest (img). */
+    .fifa-fx-score { display: flex; align-items: center; justify-content: center; gap: 5px; flex-shrink: 0; }
+    .fifa-fx-sc { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 19px; line-height: 1; white-space: nowrap; }
+    .fifa-fx-x { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 12px; color: rgba(28,22,18,0.38); }
+    .mk-fx-meta { font-size: 8px; font-weight: 700; letter-spacing: 0.04em; color: rgba(28,22,18,0.42); }
+    .club-crest { object-fit: contain; }
     .mk-fx-body { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; }
     .mk-fx-side { display: flex; align-items: center; gap: 6px; min-width: 0; }
     .mk-fx-side.away { flex-direction: row-reverse; }
