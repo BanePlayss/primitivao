@@ -838,6 +838,9 @@
     .page {
       max-width: 1120px; margin: 0 auto; padding: 24px;
     }
+    /* CAMPEONATOS usa mais largura no desktop (tem 2 trilhos + classificação +
+       rodadas), pra sobrar espaço pra coluna das RODADAS. */
+    .page--wide { max-width: 1440px; }
     .grid {
       display: grid;
       grid-template-columns: 1fr 360px;
@@ -3862,6 +3865,9 @@
     .mj-mini-tbd { width: 44px; height: 44px; border-radius: 7px; background: rgba(244,234,215,0.08); display: inline-flex; align-items: center; justify-content: center; color: rgba(244,234,215,0.4); font-weight: 800; flex-shrink: 0; }
     .mj-mini-cta { width: 100%; margin-top: 9px; padding: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: var(--pv-orange); color: var(--pv-bone); border: none; font-family: inherit; font-weight: 800; font-size: 9px; letter-spacing: 0.12em; cursor: pointer; transition: background 0.12s, color 0.12s; }
     .mj-mini-cta:hover { background: var(--pv-bone); color: var(--pv-charcoal); }
+    /* RODADAS ganham mais largura no desktop: classificação ~1.3fr e rodadas ~1fr
+       (mín. 360px), então em tela larga a coluna das rodadas cresce junto. */
+    .champ-main .mk-grid { grid-template-columns: minmax(0, 1.3fr) minmax(360px, 1fr); }
     /* CAMPEONATOS tem 2 trilhos (perfil + lista), então CLASSIFICAÇÃO | RODADAS só
        cabem lado a lado em tela larga. Abaixo de 1180px, a grade empilha. */
     @media (max-width: 1180px) { .champ-main .mk-grid { grid-template-columns: 1fr; } }
