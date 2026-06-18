@@ -3944,6 +3944,34 @@
     .mk-rnav-count { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 21px; line-height: 1.05; }
     .mk-rnav-count span { font-size: 12px; opacity: 0.7; }
 
+    /* trilho de visão geral das rodadas — chips clicáveis agrupados por
+       TURNO (ida) / RETURNO (volta), com status por cor (encerrada/atual/a vir).
+       Substitui o "navegar uma por vez": dá pra ver tudo e pular pra qualquer rodada. */
+    .mk-rstrip { display: flex; gap: 18px; align-items: flex-start; overflow-x: auto; padding: 2px 2px 9px; margin-bottom: 8px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+    .mk-rstrip::-webkit-scrollbar { height: 6px; }
+    .mk-rstrip::-webkit-scrollbar-thumb { background: rgba(28,22,18,0.22); border-radius: 3px; }
+    .mk-rstrip-grp { display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
+    .mk-rstrip-lab { font-size: 8px; font-weight: 800; letter-spacing: 0.18em; color: rgba(28,22,18,0.42); padding-left: 1px; }
+    .mk-rstrip-chips { display: flex; gap: 5px; }
+    .mk-rchip { position: relative; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 34px; padding: 5px 0; background: var(--pv-bone-2); border: 1.5px solid rgba(28,22,18,0.16); color: rgba(28,22,18,0.5); cursor: pointer; transition: transform .08s ease, border-color .1s ease, color .1s ease, background .1s ease; }
+    .mk-rchip:hover { border-color: var(--pv-charcoal); color: var(--pv-charcoal); }
+    .mk-rchip-n { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 13px; line-height: 1; }
+    .mk-rchip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.4; }
+    .mk-rchip-done { color: var(--pv-charcoal); background: var(--pv-bone); border-color: rgba(28,22,18,0.28); }
+    .mk-rchip-done .mk-rchip-dot { background: var(--pv-green, #2f9e54); opacity: 1; }
+    .mk-rchip-live { color: var(--pv-orange); background: rgba(215,100,20,0.07); border-color: var(--pv-orange); }
+    .mk-rchip-live .mk-rchip-dot { background: var(--pv-orange); opacity: 1; }
+    .mk-rchip-future .mk-rchip-dot { opacity: 0.28; }
+    .mk-rchip.sel { box-shadow: 0 0 0 2px var(--pv-charcoal); border-color: var(--pv-charcoal); transform: translateY(-1px); }
+    .mk-rchip-live.sel { box-shadow: 0 0 0 2px var(--pv-orange); border-color: var(--pv-orange); }
+    .mk-rstrip-leg { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 13px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; color: rgba(28,22,18,0.5); }
+    .mk-rstrip-leg span { display: inline-flex; align-items: center; gap: 4px; }
+    .mk-lg-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .mk-lg-dot.done { background: var(--pv-green, #2f9e54); }
+    .mk-lg-dot.live { background: var(--pv-orange); }
+    .mk-lg-dot.future { background: rgba(28,22,18,0.25); }
+    .mk-rstrip-prog { margin-left: auto; font-family: 'JetBrains Mono', monospace; letter-spacing: 0; color: rgba(28,22,18,0.6); }
+
     /* confrontos estilo .cmatch da FIFA: avatar + nick + caixas de placar.
        Layout horizontal compacto: [avatar  nick/papel] [placar] [papel/nick  avatar] */
     .mk-fixtures { display: flex; flex-direction: column; gap: 7px; }

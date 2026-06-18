@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260616-ocultar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260618-campeonatos ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -131,6 +131,13 @@ const CHAMPIONSHIPS = [
   { id: 'cs',   name: 'Primitivão — Counter-Strike 2026',        season: 'Season 1', tag: 'CS',   status: 'soon'   },
   { id: 'gwyf', name: 'Primitivão — Golf With Your Friends 2026', season: 'Season 1', tag: 'GWYF', status: 'soon'   },
   { id: 'valorant', name: 'Primitivão — Valorant 2026',          season: 'Season 1', tag: 'VALORANT', status: 'soon' },
+  { id: 'tft',  name: 'Primitivão — Teamfight Tactics 2026',     season: 'Season 1', tag: 'TFT',  status: 'soon'   },
+  { id: 'pokemon', name: 'Primitivão — Pokémon 2026',            season: 'Season 1', tag: 'POKÉMON', status: 'soon' },
+  { id: 'magic', name: 'Primitivão — Magic: The Gathering 2026', season: 'Season 1', tag: 'MAGIC', status: 'soon'  },
+  // FIFA Season 2: nova temporada do MESMO jogo — só inscrição por enquanto.
+  // id próprio (fifa2) pra não colidir com a Season 1 ativa; vira 'active' o dia
+  // que ganhar fixtures/chaveamento próprios.
+  { id: 'fifa2', name: 'Primitivão — FIFA 2026',                 season: 'Season 2', tag: 'FIFA', status: 'soon'   },
 ];
 
 // Tema do tabloide por campeonato: título grande, caractere decorativo e selo.
@@ -143,6 +150,10 @@ const TABLOID_THEMES = {
   cs:       { wordmark: 'COUNTER-STRIKE', accent: '弾', stamp: 'CLUTCH!',  icon: 'crosshair', color: '#d98324' },
   gwyf:     { wordmark: 'GOLF FRIENDS',   accent: '球', stamp: 'HOLE!',    icon: 'flag',      color: '#6f9b1f' },
   valorant: { wordmark: 'VALORANT',       accent: '撃', stamp: 'ACE!',     icon: 'target',    color: '#d6346b' },
+  tft:      { wordmark: 'TEAMFIGHT',      accent: '戦', stamp: 'GG!',      icon: 'chess',     color: '#6c5ce7' },
+  pokemon:  { wordmark: 'POKÉMON',        accent: '捕', stamp: 'GOTCHA!',  icon: 'pokeball',  color: '#d63b2f' },
+  magic:    { wordmark: 'MAGIC',          accent: '魔', stamp: 'TAP!',     icon: 'cards',     color: '#7a3fb0' },
+  fifa2:    { wordmark: 'PRIMITIVÃO FC',  accent: '球', stamp: 'GOL!',     icon: 'football',  color: '#2e8b3d' },
   copa:     { wordmark: 'COPA DO MUNDO',  accent: '杯', stamp: 'GOOOL!',   icon: 'globe',     color: '#1f8f8a' },
 };
 const tabloidTheme = (champId) => TABLOID_THEMES[champId] || TABLOID_THEMES.fifa;
@@ -4380,6 +4391,30 @@ function Icon({ name, size = 20, strokeWidth, className = '' }) {
           <path d="M17.5 11.5h2.4a1.6 1.6 0 0 1 0 3.2h-2.4" strokeLinejoin="round" />
         </svg>
       );
+    case 'chess': // peão de xadrez — TFT / tática
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="6" r="2.6" />
+          <path d="M9 11h6" strokeLinecap="round" />
+          <path d="M10 11c0 2-1.6 3.5-1.6 6h7.2c0-2.5-1.6-4-1.6-6" />
+          <path d="M7.3 17h9.4l1.1 3.5H6.2L7.3 17z" />
+        </svg>
+      );
+    case 'pokeball': // pokébola — Pokémon
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M3 12h6.4M14.6 12H21" strokeLinecap="round" />
+          <circle cx="12" cy="12" r="2.7" />
+        </svg>
+      );
+    case 'cards': // baralho — Magic (card game)
+      return (
+        <svg {...common}>
+          <path d="M6.2 7 12.6 8.8l-2.1 8.7L4.1 15.7 6.2 7z" strokeLinejoin="round" />
+          <rect x="10.2" y="5.8" width="8.4" height="12.6" rx="1.6" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -7322,6 +7357,8 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
   // null = segue a 1ª rodada com jogo pendente (a "rodada atual"); número =
   // navegação manual do usuário pelas setas.
   const [selRound, setSelRound] = useState(null);
+  const stripRef = useRef(null);     // trilho de rodadas (scroll horizontal)
+  const selChipRef = useRef(null);   // chip da rodada em exibição (pra centralizar)
   const [curtain, setCurtain] = useState(() => {
     try { return !localStorage.getItem(MK_CURTAIN_KEY); } catch (e) { return false; }
   });
@@ -7357,6 +7394,35 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
   const pendIdx = draw ? draw.findIndex(r => r.games.some((g, gi) => !mkMatchOutcome(scores[gKey(r, gi)] || {}))) : -1;
   const viewRound = selRound != null ? selRound : (pendIdx === -1 ? (draw ? draw.length - 1 : 0) : pendIdx);
   const curRound = draw ? draw[viewRound] : null;
+
+  // Visão geral das rodadas (trilho clicável): status de cada uma —
+  // 'done' (todos os jogos com placar) · 'live' (a rodada atual / em andamento)
+  // · 'future' (ainda não começou). pendIdx = 1ª rodada com jogo pendente.
+  const roundsMeta = (draw || []).map((r, idx) => {
+    const total = r.games.length;
+    const doneN = r.games.reduce((acc, g, gi) => acc + (mkMatchOutcome(scores[gKey(r, gi)] || {}) ? 1 : 0), 0);
+    const allDone = total > 0 && doneN >= total;
+    const st = allDone ? 'done' : ((idx === pendIdx || doneN > 0) ? 'live' : 'future');
+    return { idx, phase: r.phase, n: r.n, total, doneN, st };
+  });
+  const doneRounds = roundsMeta.filter(rm => rm.st === 'done').length;
+
+  // Centraliza a rodada em exibição no trilho quando ela muda (setas ou clique).
+  // Rola só o trilho na HORIZONTAL (scrollLeft) — de propósito NÃO usa
+  // scrollIntoView, que arrastaria a página inteira na vertical se o trilho
+  // estivesse abaixo da dobra no 1º render.
+  useEffect(() => {
+    const c = stripRef.current, el = selChipRef.current;
+    if (!c || !el || !el.getBoundingClientRect) return;
+    try {
+      const cr = c.getBoundingClientRect();
+      const er = el.getBoundingClientRect();
+      // só age se o chip estiver (parcialmente) fora da área visível do trilho
+      if (er.left < cr.left || er.right > cr.right) {
+        c.scrollLeft += (er.left + er.width / 2) - (cr.left + cr.width / 2);
+      }
+    } catch (e) {}
+  }, [viewRound]);
 
   return (
     <div className="mk-champ">
@@ -7454,6 +7520,45 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                   <Icon name="chevron-right" size={18} />
                 </button>
               </div>
+              {/* Trilho de rodadas: visão geral clicável (encerrada/atual/a vir). */}
+              {draw.length > 1 && (
+                <div className="mk-rstrip" ref={stripRef} role="tablist" aria-label="Todas as rodadas">
+                  {['IDA', 'VOLTA'].map(phase => {
+                    const list = roundsMeta.filter(rm => rm.phase === phase);
+                    if (!list.length) return null;
+                    return (
+                      <div className="mk-rstrip-grp" key={phase}>
+                        <span className="mk-rstrip-lab">{phase === 'IDA' ? 'TURNO' : 'RETURNO'}</span>
+                        <div className="mk-rstrip-chips">
+                          {list.map(rm => (
+                            <button
+                              key={rm.idx}
+                              ref={rm.idx === viewRound ? selChipRef : null}
+                              type="button"
+                              role="tab"
+                              aria-selected={rm.idx === viewRound}
+                              className={'mk-rchip mk-rchip-' + rm.st + (rm.idx === viewRound ? ' sel' : '')}
+                              onClick={() => setSelRound(rm.idx)}
+                              title={'Rodada ' + String(rm.n).padStart(2, '0') + ' · ' + (phase === 'IDA' ? 'ida' : 'volta') + ' · ' + rm.doneN + '/' + rm.total + ' jogos'}
+                            >
+                              <span className="mk-rchip-n">{String(rm.n).padStart(2, '0')}</span>
+                              <span className="mk-rchip-dot" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {draw.length > 1 && (
+                <div className="mk-rstrip-leg">
+                  <span><i className="mk-lg-dot done" /> encerrada</span>
+                  <span><i className="mk-lg-dot live" /> atual</span>
+                  <span><i className="mk-lg-dot future" /> a vir</span>
+                  <span className="mk-rstrip-prog">{doneRounds}/{draw.length} rodadas</span>
+                </div>
+              )}
               <div className="mk-fixtures">
                 {curRound.games.map((g, gi) => {
                   const k = gKey(curRound, gi);
@@ -10649,7 +10754,7 @@ const ALL_ICON_NAMES = [
   'book', 'newspaper', 'dice', 'user', 'gamepad', 'phone', 'chart', 'pin',
   'square-filled', 'chat', 'ticket', 'flask', 'tag', 'trash', 'toilet',
   'toothbrush', 'crown', 'bolt', 'heart', 'football', 'sword', 'whistle',
-  'snowflake', 'rocket',
+  'snowflake', 'rocket', 'crosshair', 'fist', 'chess', 'pokeball', 'cards',
 ];
 
 // ─── ADMIN: CATÁLOGO (galeria de tudo — QA visual) ──────────────────────────
