@@ -3976,6 +3976,10 @@
     .mk-fx.done { border-color: var(--pv-orange); box-shadow: inset 0 0 0 1px rgba(215,100,20,0.25); }
     .mk-fx-top { display: flex; justify-content: space-between; align-items: center; font-size: 8px; letter-spacing: 0.18em; font-weight: 800; color: rgba(28,22,18,0.5); margin-bottom: 6px; }
     .mk-fx-done { display: inline-flex; align-items: center; gap: 3px; color: var(--pv-orange); letter-spacing: 0.08em; }
+    /* SEU JOGO — confronto do usuário logado, destacado e no topo da rodada */
+    .mk-fx.mine { border-color: var(--pv-orange); background: rgba(215,100,20,0.07); box-shadow: inset 0 0 0 1px var(--pv-orange), 0 3px 0 rgba(215,100,20,0.22); }
+    .mk-fx-jogo { display: inline-flex; align-items: center; gap: 6px; }
+    .mk-fx-mine { display: inline-flex; align-items: center; gap: 3px; background: var(--pv-orange); color: #fff; padding: 1px 6px; letter-spacing: 0.1em; }
     .mk-fx-body { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; }
     .mk-fx-side { display: flex; align-items: center; gap: 6px; min-width: 0; }
     .mk-fx-side.away { flex-direction: row-reverse; }

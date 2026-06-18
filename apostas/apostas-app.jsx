@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260618-s1nome ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260618-seujogo ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3319,7 +3319,7 @@ function App() {
                       teamPlayers={teamPlayers || {}}
                       draw={mkDraw} onPublishDraw={publishMkDraw}
                       scores={mkScores} onScore={setMkScoreField} lineups={mkLineups}
-                      isAdmin={isAdmin} isMod={isMod} locked={mkLocked}
+                      isAdmin={isAdmin} isMod={isMod} locked={mkLocked} myNick={session.nick}
                     />
                   ) : showPlaceholder ? (
                 <ChampionshipPlaceholder
@@ -7372,7 +7372,7 @@ function MkCurtainOpening({ onDone }) {
 
 const MK_CURTAIN_KEY = 'mk_curtain_seen';
 
-function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPublishDraw, scores, onScore, isAdmin, isMod, locked }) {
+function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPublishDraw, scores, onScore, isAdmin, isMod, locked, myNick }) {
   // draw/scores vêm do App (persistidos no doc de apostas, campo `mk`).
   // null = segue a 1ª rodada com jogo pendente (a "rodada atual"); número =
   // navegação manual do usuário pelas setas.
@@ -7407,6 +7407,9 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
   const playedCount = matches.filter(m => mkMatchOutcome(m.sc)).length;
   const standings = computeMkStandings(insc, matches);
   const charsFor = (nick) => ((users || {})[nick] || {}).mkChars || [];
+  // Confronto do usuário logado: destaca e joga pro TOPO da rodada (cada um joga
+  // 1 jogo por rodada), pra não precisar caçar entre JOGO 01, 02, 03...
+  const isMine = (g) => !!(myNick && (g.home === myNick || g.away === myNick));
   // Rodada exibida: a escolhida nas setas, senão a 1ª com jogo pendente
   // (temporada encerrada cai na última).
   const pendIdx = draw ? draw.findIndex(r => r.games.some((g, gi) => !mkMatchOutcome(scores[gKey(r, gi)] || {}))) : -1;
@@ -7565,20 +7568,24 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                 </div>
               )}
               <div className="mk-fixtures">
-                {curRound.games.map((g, gi) => {
+                {curRound.games
+                  .map((g, gi) => ({ g, gi }))
+                  .sort((a, b) => (isMine(b.g) ? 1 : 0) - (isMine(a.g) ? 1 : 0)) // SEU JOGO no topo
+                  .map(({ g, gi }) => {
                   const k = gKey(curRound, gi);
                   const sc = scores[k] || {};
                   const out = mkMatchOutcome(sc);
                   const done = !!out;
+                  const mine = isMine(g);
                   const hc = charsFor(g.home), ac = charsFor(g.away);
                   // partida com placar completo mas impossível (MD3: um lado fecha 2)
                   const badP = (h, a) => h !== '' && h != null && a !== '' && a != null
                     && !((Number(h) === 2 && Number(a) <= 1) || (Number(a) === 2 && Number(h) <= 1));
                   const p1bad = badP(sc.p1h, sc.p1a), p2bad = badP(sc.p2h, sc.p2a);
                   return (
-                    <div key={gi} className={'mk-fx' + (done ? ' done' : '')}>
+                    <div key={gi} className={'mk-fx' + (done ? ' done' : '') + (mine ? ' mine' : '')}>
                       <div className="mk-fx-top">
-                        <span>JOGO {String(gi + 1).padStart(2, '0')}</span>
+                        <span className="mk-fx-jogo">JOGO {String(gi + 1).padStart(2, '0')}{mine && <span className="mk-fx-mine"><Icon name="fist" size={10} /> SEU JOGO</span>}</span>
                         {done && <span className="mk-fx-done"><Icon name="check" size={11} /> {out.confH}×{out.confA}{out.winner === 'D' ? ' · EMPATE' : ''}</span>}
                       </div>
                       <div className="mk-fx-body">
