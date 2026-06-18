@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260618-rodadas ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260618-s1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -157,6 +157,14 @@ const TABLOID_THEMES = {
   copa:     { wordmark: 'COPA DO MUNDO',  accent: '杯', stamp: 'GOOOL!',   icon: 'globe',     color: '#1f8f8a' },
 };
 const tabloidTheme = (champId) => TABLOID_THEMES[champId] || TABLOID_THEMES.fifa;
+
+// Rótulo CURTO de temporada pra UI: "Season 1" -> "S1", "Season 2" -> "S2".
+// Mantém o dado canônico ("Season N") e só encurta na exibição; qualquer outro
+// formato (ex.: "Copa do Mundo 2026") passa inalterado.
+function seasonShort(season) {
+  const m = String(season || '').match(/season\s*(\d+)/i);
+  return m ? 'S' + m[1] : String(season || '');
+}
 
 // Opções do picker de campeonato no tabloide = os campeonatos + a COPA DO MUNDO
 // (bolão separado, não vive em CHAMPIONSHIPS, mas tem tabloide próprio).
@@ -3546,7 +3554,7 @@ function ChampHeader({ value, onChange, interests, title, tag, stats, bare, acti
         </div>
       )}
       <div className="champ-header-champ">
-        <span className="champ-header-id">{active.tag} · {active.season.toUpperCase()}</span>
+        <span className="champ-header-id">{active.tag} · {seasonShort(active.season)}</span>
         <div className="champ-switcher" ref={ref}>
           <button
             className="champ-trocar"
@@ -3569,7 +3577,7 @@ function ChampHeader({ value, onChange, interests, title, tag, stats, bare, acti
                     onClick={() => pick(c.id)}
                     role="menuitem"
                   >
-                    <span className="csi-name">{c.tag} · {c.season.toUpperCase()}</span>
+                    <span className="csi-name">{c.tag} · {seasonShort(c.season)}</span>
                     <span className="csi-status">
                       {isComing ? 'EM BREVE' : 'ATIVO'}
                       {isComing && count > 0 ? ' · ' + count : ''}
@@ -3620,7 +3628,7 @@ function ChampSidebar({ value, onChange, cs, interests, mode }) {
             const sel = c.id === value;
             const count = Object.keys((interests && interests[c.id]) || {}).length;
             const disabled = apostas && g !== 'active';
-            const sub = g === 'closed' ? 'encerrado' : g === 'soon' ? (count > 0 ? count + ' inscritos' : 'em breve') : c.season;
+            const sub = g === 'closed' ? 'encerrado' : g === 'soon' ? (count > 0 ? count + ' inscritos' : 'em breve') : seasonShort(c.season);
             return (
               <button
                 key={c.id}
@@ -3665,7 +3673,7 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
     <div className="card">
       <div className="card-head">
         <div className="title">{champ.name.toUpperCase()}</div>
-        <div className="sub">{champ.season} · EM BREVE</div>
+        <div className="sub">{seasonShort(champ.season)} · EM BREVE</div>
       </div>
       <div className="card-body" style={{ textAlign: 'center', padding: '40px 20px' }}>
         <div style={{
@@ -6220,7 +6228,7 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
 function ChampStandingsCard({ champId, cs, users, teamPlayers, mkDraw, mkScores, interests, myNick }) {
   let rows = [], label = '', closed = false;
   if (champId === 'mk') {
-    label = 'MK · SEASON 1';
+    label = 'MK · ' + seasonShort(CHAMP_BY_ID.mk?.season || 'Season 1');
     const players = Object.keys((interests && interests.mk) || {});
     const gK = (r, gi) => r.phase + '-' + r.n + '-' + gi;
     const concl = [];
@@ -6228,7 +6236,7 @@ function ChampStandingsCard({ champId, cs, users, teamPlayers, mkDraw, mkScores,
     closed = (mkDraw || []).length > 0 && mkDraw.every(r => (r.games || []).every((g, gi) => !!mkMatchOutcome((mkScores || {})[gK(r, gi)])));
     rows = computeMkStandings(players, concl).map((s, i) => ({ pos: i + 1, nick: s.nick, p: s.p, v: s.v, e: s.e, d: s.d, sg: (s.rp - s.rc) }));
   } else {
-    label = (CHAMP_BY_ID[champId]?.tag || champId.toUpperCase()) + ' · SEASON 1';
+    label = (CHAMP_BY_ID[champId]?.tag || champId.toUpperCase()) + ' · ' + seasonShort(CHAMP_BY_ID[champId]?.season || 'Season 1');
     closed = computeChampStandings(champId, cs).status === 'closed';
     rows = computeStandings(cs?.rounds || []).map((t, i) => ({ pos: i + 1, nick: (teamPlayers || {})[t.id] || t.id, p: t.p, v: t.v, e: t.e, d: t.d, sg: (t.gp - t.gc) }));
   }
@@ -8100,7 +8108,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
   const [ptab, setPtab] = useState('resumo'); // sub-aba: resumo / time / trofeus / titulos / colecao
   const champLabel = (cid) => cid === 'copa'
     ? 'COPA DO MUNDO'
-    : (CHAMP_BY_ID[cid] ? `${CHAMP_BY_ID[cid].tag} · ${CHAMP_BY_ID[cid].season}` : cid.toUpperCase());
+    : (CHAMP_BY_ID[cid] ? `${CHAMP_BY_ID[cid].tag} · ${seasonShort(CHAMP_BY_ID[cid].season)}` : cid.toUpperCase());
   const champTag = (cid) => cid === 'copa' ? 'COPA' : (CHAMP_BY_ID[cid]?.tag || cid.toUpperCase());
   // Só inscrições de campeonatos que AINDA NÃO COMEÇARAM (status 'soon'/em breve).
   // Quando o campeonato vira 'active' (ex: MK, que já rolou o sorteio) ou fecha,
@@ -8316,7 +8324,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
                   <div className="tr-betking-txt">
                     <div className="tr-betking-label">REI DAS APOSTAS{betKingSeasons.length > 1 ? ` · ${betKingSeasons.length}` : ''}</div>
                     <div className="tr-betking-eds">
-                      {betKingSeasons.map((s, i) => <span key={i} className="tr-betking-ed">{s.tag} · {s.season}</span>)}
+                      {betKingSeasons.map((s, i) => <span key={i} className="tr-betking-ed">{s.tag} · {seasonShort(s.season)}</span>)}
                     </div>
                   </div>
                 </div>
@@ -8820,7 +8828,7 @@ function TrophyGroup({ kind, editions }) {
         {meta.label}{editions.length > 1 ? ` ·${editions.length}` : ''}
       </div>
       <div className="tr-eds">
-        {editions.map((e, i) => <div key={i} className="tr-ed">{e.tag} · {e.season}</div>)}
+        {editions.map((e, i) => <div key={i} className="tr-ed">{e.tag} · {seasonShort(e.season)}</div>)}
       </div>
     </div>
   );
@@ -8876,7 +8884,7 @@ function RankingView({ users, bets, me, teamPlayers, cs, lockChamp, compact }) {
     <div className="card">
       <div className="card-head">
         <div className="title"><Icon name="tr-betking" size={16} /> RANKING DE APOSTAS</div>
-        <div className="sub">{champ.tag} · {champ.season} · {encerrada ? 'ENCERRADA' : 'AO VIVO'}</div>
+        <div className="sub">{champ.tag} · {seasonShort(champ.season)} · {encerrada ? 'ENCERRADA' : 'AO VIVO'}</div>
       </div>
       <div className="card-body">
         {!lockChamp && champList.length > 1 && (
@@ -8886,14 +8894,14 @@ function RankingView({ users, bets, me, teamPlayers, cs, lockChamp, compact }) {
               return (
                 <button key={c.id} type="button" className={'rank-season' + (c.id === sel ? ' on' : '') + (fim ? ' fechada' : '')} onClick={() => setSel(c.id)}>
                   <span className="rank-season-tag">{c.tag}</span>
-                  <span className="rank-season-sub">{c.season.replace('Season ', 'S')}{fim ? ' · fim' : ''}</span>
+                  <span className="rank-season-sub">{seasonShort(c.season)}{fim ? ' · fim' : ''}</span>
                 </button>
               );
             })}
           </div>
         )}
         {ranking.length === 0 ? (
-          <div className="empty"><div className="e1">SEM APOSTAS</div><div className="e2">Ninguém apostou em {champ.tag} · {champ.season} ainda.</div></div>
+          <div className="empty"><div className="e1">SEM APOSTAS</div><div className="e2">Ninguém apostou em {champ.tag} · {seasonShort(champ.season)} ainda.</div></div>
         ) : (
           <div className={'rank-list' + (compact ? ' rank-list--mini' : '')}>
             {ranking.map((r, i) => {
@@ -9029,7 +9037,7 @@ function ShowcaseItem({ item, theme, rank, season, status }) {
   const p = palettes[rank] || palettes[0];
   const top = rank === 0;
   const badge = status === 'closed'
-    ? `${item.label} ${season}`
+    ? `${item.label} ${seasonShort(season)}`
     : (top ? (item.copaNick ? 'LÍDER DO BOLÃO' : 'LÍDER ATUAL') : `${item.pos}º · PARCIAL`);
   // stats: override (Copa) ou futebol (FIFA)
   const stats = item.statsOverride || [
@@ -9085,7 +9093,7 @@ function TrophyShowcase({ champ, items, theme, status, sideRanking, myNick, side
       <div className={'showcase-cab ' + (isFame ? 'fame' : 'shame')}>
         <div className="showcase-cab-head">
           <Icon name={isFame ? 'trophy' : 'toilet'} size={16} /> {champ.name.toUpperCase()}
-          <span className="showcase-cab-season">{champ.season}</span>
+          <span className="showcase-cab-season">{seasonShort(champ.season)}</span>
         </div>
         <div className="showcase-empty">
           <Icon name="lock" size={28} />
@@ -9100,7 +9108,7 @@ function TrophyShowcase({ champ, items, theme, status, sideRanking, myNick, side
     <div className={'showcase-cab ' + (isFame ? 'fame' : 'shame')}>
       <div className="showcase-cab-head">
         <Icon name={isFame ? 'trophy' : 'toilet'} size={16} /> {champ.name.toUpperCase()}
-        <span className="showcase-cab-season">{champ.season}</span>
+        <span className="showcase-cab-season">{seasonShort(champ.season)}</span>
         {status === 'ongoing' && <span className="showcase-cab-live">EM ANDAMENTO · PÓDIO PROVISÓRIO</span>}
       </div>
       <div className={'showcase-body' + (hasSide ? ' with-side' : '')}>
@@ -9195,7 +9203,7 @@ function HallDaVergonhaView({ cs, users, teamPlayers, worldcup, wcFixtures, myNi
 // HallView — vitrine de troféus (Fama + Vergonha) com subTabs.
 function HallView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick, bets }) {
   const [subTab, setSubTab] = useState('fama'); // 'fama' | 'vergonha'
-  const season = (CHAMPIONSHIPS.find(c => c.id === 'fifa') || {}).season || '';
+  const season = seasonShort((CHAMPIONSHIPS.find(c => c.id === 'fifa') || {}).season || '');
   return (
     <div>
       <div className={'hall-hero ' + subTab}>
@@ -9903,7 +9911,7 @@ function buildTabloidData(ctx, champId, type) {
     volume: '09',
     masthead: 'PRIMITIVÃO TIMES',
     editionLabel: 'EDIÇÃO',
-    cornerTag: champMeta.tag + ' · ' + champMeta.season.toUpperCase(),
+    cornerTag: champMeta.tag + ' · ' + seasonShort(champMeta.season).toUpperCase(),
     wordmark: theme.wordmark,
     accent: theme.accent,
     stamp: '',
