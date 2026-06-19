@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260619-stats3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260619-stats4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -8216,9 +8216,8 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   // lado independente — dá pra comparar dois perfis quaisquer. VOCÊ (`nick`)
   // fica destacado onde aparecer.
   const left0 = players.indexOf(nick) >= 0 ? nick : (players[0] || nick);
-  const right0 = players.find(n => n !== left0) || left0;
   const [left, setLeft] = useState(left0);
-  const [right, setRight] = useState(right0);
+  const [right, setRight] = useState(null); // direita começa VAZIA (escolhe na lista pra comparar)
 
   // FIFA guarda fixtures por TEAM ID (não nick); teamPlayers mapeia teamId->nick.
   // reverseTeamMap dá nick->teamId. Identidade na maioria, menos ex.: juca->jucamelero.
@@ -8269,7 +8268,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
     return dir === 'more' ? (a > b ? -1 : 1) : (a < b ? -1 : 1);
   };
 
-  const list = h2hBetween(left, right);
+  const list = right ? h2hBetween(left, right) : [];
   let aWins = 0, bWins = 0, draws = 0;
   list.forEach(x => { if (x.winner === 'D') draws++; else if (x.winner === left) aWins++; else if (x.winner === right) bWins++; });
   const cmpRows = [
@@ -8281,119 +8280,157 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   ];
 
   return (
-    <div className="stats-view">
-      <div className="card">
-        <div className="card-head">
-          <div className="title"><Icon name="medal" size={16} /> ESTATÍSTICAS</div>
-          <div className="sub">COMPARAÇÃO · H2H</div>
+    <div className="stats-layout">
+      {/* SIDEBAR ESQUERDA — escolhe o jogador da esquerda */}
+      <aside className="stats-rail">
+        <div className="stats-rail-h"><Icon name="user" size={12} /> ESQUERDA</div>
+        <div className="stats-rail-list">
+          {players.map(n => (
+            <button key={n} type="button" className={'stats-rail-item' + (left === n ? ' on' : '')} onClick={() => setLeft(n)} disabled={n === right}>
+              <Avatar nick={n} teamPlayers={teamPlayers} size={28} noBadge />
+              <span className="stats-rail-nick">@{n}</span>
+              {n === nick && <span className="stats-rail-you">VOCÊ</span>}
+            </button>
+          ))}
         </div>
-        <div className="card-body">
-          <p className="stats-intro">Escolha dois perfis nas <strong>caixas de seleção</strong> pra comparar. <strong>Você</strong> aparece destacado.</p>
-          <div className="stats-vs">
-            <div className={'stats-vs-pick' + (left === nick ? ' me' : '')}>
-              <div className="stats-vs-side">
-                <Avatar nick={left} teamPlayers={teamPlayers} size={56} />
+      </aside>
+
+      {/* CENTRO — comparação */}
+      <div className="stats-main">
+        <div className="card">
+          <div className="card-head">
+            <div className="title"><Icon name="medal" size={16} /> ESTATÍSTICAS</div>
+            <div className="sub">COMPARAÇÃO · H2H</div>
+          </div>
+          <div className="card-body">
+            <div className="stats-vs">
+              <div className={'stats-vs-side' + (left === nick ? ' me' : '')}>
+                <Avatar nick={left} teamPlayers={teamPlayers} size={64} />
                 <span className="stats-vs-nick">@{left}</span><small>{sideLabel(left)}</small>
               </div>
-              <select className="stats-vs-sel" value={left} onChange={e => setLeft(e.target.value)} aria-label="Jogador da esquerda">
-                {players.map(n => <option key={n} value={n} disabled={n === right}>@{n}{n === nick ? ' (você)' : ''}</option>)}
-              </select>
-            </div>
-            <div className="stats-vs-mid">
-              <span className="stats-vs-score"><b className={aWins > bWins ? 'hi' : ''}>{aWins}</b><i>-</i><b className={bWins > aWins ? 'hi' : ''}>{bWins}</b></span>
-              <span className="stats-vs-d">{draws} empate{draws === 1 ? '' : 's'}</span>
-            </div>
-            <div className={'stats-vs-pick' + (right === nick ? ' me' : '')}>
-              <div className="stats-vs-side">
-                <Avatar nick={right} teamPlayers={teamPlayers} size={56} />
-                <span className="stats-vs-nick">@{right}</span><small>{sideLabel(right)}</small>
+              <div className="stats-vs-mid">
+                {right ? (
+                  <>
+                    <span className="stats-vs-score"><b className={aWins > bWins ? 'hi' : ''}>{aWins}</b><i>-</i><b className={bWins > aWins ? 'hi' : ''}>{bWins}</b></span>
+                    <span className="stats-vs-d">{draws} empate{draws === 1 ? '' : 's'}</span>
+                  </>
+                ) : <span className="stats-vs-novs">VS</span>}
               </div>
-              <select className="stats-vs-sel" value={right} onChange={e => setRight(e.target.value)} aria-label="Jogador da direita">
-                {players.map(n => <option key={n} value={n} disabled={n === left}>@{n}{n === nick ? ' (você)' : ''}</option>)}
-              </select>
+              {right ? (
+                <div className={'stats-vs-side' + (right === nick ? ' me' : '')}>
+                  <Avatar nick={right} teamPlayers={teamPlayers} size={64} />
+                  <span className="stats-vs-nick">@{right}</span><small>{sideLabel(right)}</small>
+                </div>
+              ) : (
+                <div className="stats-vs-empty">Escolha um jogador na lista da <strong>direita</strong> pra comparar.</div>
+              )}
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="card">
-        <div className="card-head"><div className="title">COMPARAÇÃO</div></div>
-        <div className="card-body" style={{ overflowX: 'auto' }}>
-          <table className="stats-cmp">
-            <thead><tr><th></th><th className={left === nick ? 'me' : ''}>@{left}{left === nick && <span className="stats-you">VOCÊ</span>}</th><th className={right === nick ? 'me' : ''}>@{right}{right === nick && <span className="stats-you">VOCÊ</span>}</th></tr></thead>
-            <tbody>
-              {cmpRows.map(r => {
-                const c = better(r.a, r.b, r.dir);
-                const fmt = (v) => v == null ? '—' : (r.label.indexOf('POSIÇÃO') === 0 ? v + 'º' : v);
-                return (
-                  <tr key={r.label}>
-                    <td className="stats-cmp-l">{r.label}</td>
-                    <td className={c < 0 ? 'win' : ''}>{fmt(r.a)}</td>
-                    <td className={c > 0 ? 'win' : ''}>{fmt(r.b)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        {right && (
+          <div className="card">
+            <div className="card-head"><div className="title">COMPARAÇÃO</div></div>
+            <div className="card-body" style={{ overflowX: 'auto' }}>
+              <table className="stats-cmp">
+                <thead><tr><th></th><th className={left === nick ? 'me' : ''}>@{left}{left === nick && <span className="stats-you">VOCÊ</span>}</th><th className={right === nick ? 'me' : ''}>@{right}{right === nick && <span className="stats-you">VOCÊ</span>}</th></tr></thead>
+                <tbody>
+                  {cmpRows.map(r => {
+                    const c = better(r.a, r.b, r.dir);
+                    const fmt = (v) => v == null ? '—' : (r.label.indexOf('POSIÇÃO') === 0 ? v + 'º' : v);
+                    return (
+                      <tr key={r.label}>
+                        <td className="stats-cmp-l">{r.label}</td>
+                        <td className={c < 0 ? 'win' : ''}>{fmt(r.a)}</td>
+                        <td className={c > 0 ? 'win' : ''}>{fmt(r.b)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
-      <div className="card mk-card">
-        <div className="card-head"><div className="title"><Icon name="sword" size={15} /> CONFRONTOS DIRETOS</div><div className="sub">{list.length} JOGO{list.length === 1 ? '' : 'S'}</div></div>
-        <div className="card-body">
-          {list.length === 0 ? (
-            <div className="empty"><div className="e1">SEM CONFRONTOS</div><div className="e2">@{left} e @{right} ainda não se enfrentaram em nenhum jogo lançado.</div></div>
-          ) : (
-            <div className="mk-fixtures">
-              {list.map((x, i) => {
-                const draw = x.winner === 'D';
-                const youIn = left === nick || right === nick;
-                const youWon = x.winner === nick;
-                const youLost = youIn && !draw && !youWon;
-                const resClass = draw ? 'd' : youWon ? 'w' : youLost ? 'l' : 'n';
-                const resText = draw ? 'EMPATE' : (youWon ? 'VOCÊ VENCEU' : '@' + x.winner + ' VENCEU');
+        {right && (
+          <div className="card mk-card">
+            <div className="card-head"><div className="title"><Icon name="sword" size={15} /> CONFRONTOS DIRETOS</div><div className="sub">{list.length} JOGO{list.length === 1 ? '' : 'S'}</div></div>
+            <div className="card-body">
+              {list.length === 0 ? (
+                <div className="empty"><div className="e1">SEM CONFRONTOS</div><div className="e2">@{left} e @{right} ainda não se enfrentaram em nenhum jogo lançado.</div></div>
+              ) : (
+                <div className="mk-fixtures">
+                  {list.map((x, i) => {
+                    const draw = x.winner === 'D';
+                    const youIn = left === nick || right === nick;
+                    const youWon = x.winner === nick;
+                    const youLost = youIn && !draw && !youWon;
+                    const resClass = draw ? 'd' : youWon ? 'w' : youLost ? 'l' : 'n';
+                    const resText = draw ? 'EMPATE' : (youWon ? 'VOCÊ VENCEU' : '@' + x.winner + ' VENCEU');
+                    return (
+                      <div key={i} className={'mk-fx done' + (youWon ? ' mine' : '')}>
+                        <div className="mk-fx-top">
+                          <span className="mk-fx-jogo">{x.label}</span>
+                          <span className={'h2h-res ' + resClass}>{resText}</span>
+                        </div>
+                        <div className="mk-fx-body">
+                          <div className="mk-fx-side home">{playerIc(x.home, x.game)}<div className="mk-fx-id"><div className="mk-fx-nick">@{x.homeLabel}</div></div></div>
+                          <div className="fifa-fx-score"><span className="fifa-fx-sc">{x.sh} × {x.sa}</span></div>
+                          <div className="mk-fx-side away">{playerIc(x.away, x.game)}<div className="mk-fx-id"><div className="mk-fx-nick">@{x.awayLabel}</div></div></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="card">
+          <div className="card-head"><div className="title">TROFÉUS E TÍTULOS</div></div>
+          <div className="card-body">
+            <div className={'stats-tro-cols' + (right ? '' : ' single')}>
+              {[left, right].filter(Boolean).map((p, pi) => {
+                const tro = trophiesOf(p), tit = titlesOf(p);
                 return (
-                  <div key={i} className={'mk-fx done' + (youWon ? ' mine' : '')}>
-                    <div className="mk-fx-top">
-                      <span className="mk-fx-jogo">{x.label}</span>
-                      <span className={'h2h-res ' + resClass}>{resText}</span>
-                    </div>
-                    <div className="mk-fx-body">
-                      <div className="mk-fx-side home">{playerIc(x.home, x.game)}<div className="mk-fx-id"><div className="mk-fx-nick">@{x.homeLabel}</div></div></div>
-                      <div className="fifa-fx-score"><span className="fifa-fx-sc">{x.sh} × {x.sa}</span></div>
-                      <div className="mk-fx-side away">{playerIc(x.away, x.game)}<div className="mk-fx-id"><div className="mk-fx-nick">@{x.awayLabel}</div></div></div>
-                    </div>
+                  <div key={p + pi} className="stats-prof">
+                    <div className={'stats-tro-name' + (p === nick ? ' me' : '')}>@{p}{p === nick && <span className="stats-you">VOCÊ</span>}</div>
+                    <div className="stats-tro-h">TROFÉUS · {tro.length}</div>
+                    {tro.length === 0 ? <div className="stats-none">Sem troféus ainda.</div> : (
+                      <div className="stats-tro-big">
+                        {['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'].map(kind => {
+                          const group = tro.filter(t => t.kind === kind);
+                          if (!group.length) return null;
+                          const editions = group.map(t => { const cc = CHAMP_BY_ID[t.champId]; return { tag: (cc && cc.tag) || t.champId, season: (cc && cc.season) || '' }; });
+                          return <TrophyGroup key={kind} kind={kind} editions={editions} />;
+                        })}
+                      </div>
+                    )}
+                    <div className="stats-tro-h" style={{ marginTop: 16 }}>TÍTULOS · {tit.length}</div>
+                    {tit.length === 0 ? <div className="stats-none">Sem títulos ainda.</div> : (
+                      <div className="stats-tro">{tit.map(t => <TitleBadge key={t.id} titleId={t.id} />)}</div>
+                    )}
                   </div>
                 );
               })}
             </div>
-          )}
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="card-head"><div className="title">TROFÉUS E TÍTULOS</div></div>
-        <div className="card-body">
-          <div className="stats-tro-cols">
-            {[left, right].map((p, pi) => {
-              const tro = trophiesOf(p), tit = titlesOf(p);
-              return (
-                <div key={p + pi} className="stats-tro-col">
-                  <div className={'stats-tro-name' + (p === nick ? ' me' : '')}>@{p}{p === nick && <span className="stats-you">VOCÊ</span>}</div>
-                  <div className="stats-tro-h">TROFÉUS · {tro.length}</div>
-                  {tro.length === 0 ? <div className="stats-none">Sem troféus ainda.</div> : (
-                    <div className="stats-tro">{tro.map((t, i) => { const c = CHAMP_BY_ID[t.champId]; return <span key={i} className="stats-tro-chip"><Icon name={'tr-' + t.kind} size={18} /> {c ? c.tag : t.champId}</span>; })}</div>
-                  )}
-                  <div className="stats-tro-h" style={{ marginTop: 14 }}>TÍTULOS · {tit.length}</div>
-                  {tit.length === 0 ? <div className="stats-none">Sem títulos ainda.</div> : (
-                    <div className="stats-tro">{tit.map(t => <TitleBadge key={t.id} titleId={t.id} />)}</div>
-                  )}
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
+
+      {/* SIDEBAR DIREITA — escolhe o jogador da direita (clica de novo pra limpar) */}
+      <aside className="stats-rail">
+        <div className="stats-rail-h"><Icon name="user" size={12} /> DIREITA</div>
+        <div className="stats-rail-list">
+          {players.map(n => (
+            <button key={n} type="button" className={'stats-rail-item' + (right === n ? ' on' : '')} onClick={() => setRight(right === n ? null : n)} disabled={n === left}>
+              <Avatar nick={n} teamPlayers={teamPlayers} size={28} noBadge />
+              <span className="stats-rail-nick">@{n}</span>
+            </button>
+          ))}
+        </div>
+      </aside>
     </div>
   );
 }
