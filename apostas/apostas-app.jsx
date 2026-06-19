@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260618-stats ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260618-xaolin ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -447,10 +447,26 @@ function shuffleArr(arrIn) {
   return a;
 }
 
+// ─── JOGADOR RETIRADO DO MK (anulado) ───────────────────────────────────────
+// Jogador que saiu do campeonato no meio: some da tabela, dos inscritos, dos
+// jogos e do mercado COMO SE NUNCA TIVESSE ENTRADO. Os jogos dele NO DRAW não
+// são apagados — o índice do jogo na rodada é a CHAVE do placar (`phase-n-gi`),
+// então reindexar corromperia placares/locks já gravados (a escrita é por índice
+// na transação remota). Em vez disso são tratados como ANULADOS: contam como
+// "já resolvidos" (não bloqueiam o avanço da rodada, não ficam pendentes, não
+// aparecem pra apostar) e NÃO pontuam pra ninguém. Reversível: basta tirar o
+// nick desta lista que tudo volta. (CLAUDE.md — emergência: xaolin saiu do MK.)
+const MK_WITHDRAWN = ['xaolin'];
+const mkIsWithdrawn = (nick) => MK_WITHDRAWN.indexOf(nick) !== -1;
+// jogo anulado = envolve um jogador retirado (aceita {home,away} de draw ou match).
+const mkGameVoid = (g) => !!g && (mkIsWithdrawn(g.home) || mkIsWithdrawn(g.away));
+// inscritos VÁLIDOS do MK (sem os retirados) a partir do top-level `interests`.
+const mkInscritos = (interests) => Object.keys((interests && interests.mk) || {}).filter(n => !mkIsWithdrawn(n));
+
 // Sorteio todos-contra-todos IDA e VOLTA (método do círculo). Devolve as rodadas
 // [{ phase:'IDA'|'VOLTA', n, games:[{home,away}] }]. Ephemeral (regera no clique).
 function generateMkDraw(playersIn) {
-  const players = (playersIn || []).slice();
+  const players = (playersIn || []).slice().filter(n => !mkIsWithdrawn(n));
   if (players.length < 2) return [];
   if (players.length % 2 === 1) players.push('__bye__');
   const n = players.length, half = n / 2;
@@ -665,7 +681,9 @@ function mkPlayerFirstPendingRound(player, draw, scores) {
   for (let ri = 0; ri < draw.length; ri++) {
     const r = draw[ri];
     const gi = (r.games || []).findIndex(g => g.home === player || g.away === player);
-    if (gi >= 0 && !mkMatchOutcome((scores || {})[gk(r, gi)] || {})) return ri;
+    if (gi < 0) continue;
+    if (mkGameVoid(r.games[gi])) continue; // jogo anulado (adversário retirado) = resolvido, não bloqueia
+    if (!mkMatchOutcome((scores || {})[gk(r, gi)] || {})) return ri;
   }
   return Infinity;
 }
@@ -678,6 +696,7 @@ function mkLiberadoGames(draw, scores) {
   const fp = (p) => (p in fpCache ? fpCache[p] : (fpCache[p] = mkPlayerFirstPendingRound(p, draw, scores)));
   const out = [];
   draw.forEach((r, ri) => (r.games || []).forEach((g, gi) => {
+    if (mkGameVoid(g)) return; // jogo anulado (jogador retirado) não entra em liberados
     if (mkMatchOutcome((scores || {})[gk(r, gi)] || {})) return;
     if (fp(g.home) >= ri && fp(g.away) >= ri) out.push({ r, ri, g, gi, key: gk(r, gi) });
   }));
@@ -2400,6 +2419,7 @@ function App() {
             if (!b || b.champId !== 'mk') return b;
             let changed = false;
             const legs = (b.legs || []).map(l => {
+              if (mkGameVoid(l)) return l; // jogo anulado (jogador retirado): não liquida nem reverte — preserva o histórico já decidido
               const gk = (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) ? l.fixtureId.slice(3) : null;
               const sc = gk ? (snap[gk] || {}) : {};
               const done = !!mkMatchOutcome(sc);
@@ -3088,7 +3108,7 @@ function App() {
         const draw = Array.isArray(mk.draw) ? mk.draw : [];
         const scores = mk.scores || {};
         const played = draw.some(r => (r.games || []).some((g, gi) =>
-          (g.home === targetNick || g.away === targetNick) &&
+          (g.home === targetNick || g.away === targetNick) && !mkGameVoid(g) &&
           !!mkMatchOutcome(scores[r.phase + '-' + r.n + '-' + gi] || {})));
         if (played) return { __abort: true, result: { err: 'Elenco travado: esse jogador já jogou uma rodada.' } };
         return { ...remote, users: { ...remote.users, [targetNick]: { ...u, mkChars: clean } } };
@@ -3233,7 +3253,7 @@ function App() {
   const isBettableChamp = champStatusFor(active, cs) === 'active';
   const firstBettableChampId = (CHAMPIONSHIPS.find(c => champStatusFor(c, cs) === 'active') || CHAMPIONSHIPS[0]).id;
   const apostasChampId = isBettableChamp ? championship : firstBettableChampId;
-  const mkInscrito = !!(interests && interests.mk && session && interests.mk[session.nick]);
+  const mkInscrito = !!(interests && interests.mk && session && interests.mk[session.nick] && !mkIsWithdrawn(session.nick));
   // CAMPEONATOS mostra a página "EM BREVE" quando o campeonato selecionado não
   // está ativo. APOSTAS nunca mostra (sempre usa apostasChampId, que é ativo).
   const showPlaceholder = view === 'campeonatos' && !isActiveChamp;
@@ -3315,7 +3335,7 @@ function App() {
                     <>
                       <ChampHeader value={apostasChampId} onChange={setChampionship} interests={interests || {}} bare activeOnly />
                   <MkBettingView
-                    players={Object.keys(interests?.mk || {})}
+                    players={mkInscritos(interests)}
                     users={users}
                     teamPlayers={teamPlayers || {}}
                     draw={mkDraw}
@@ -3363,7 +3383,7 @@ function App() {
                   {active.id === 'mk' ? (
                     // MK: CLASSIFICACAO (centro) + RODADAS (direita), grid de 2 colunas.
                     <MkChampionshipView
-                      players={Object.keys(interests?.mk || {})}
+                      players={mkInscritos(interests)}
                       users={users}
                       teamPlayers={teamPlayers || {}}
                       draw={mkDraw} onPublishDraw={publishMkDraw}
@@ -3898,7 +3918,7 @@ function ProfileSidebar({ nick, me, cs, bets, users, teamPlayers, worldcup, inte
   const myTeamId = reverseTeamMap(teamPlayers)[nick];
   const trophyCount = trophiesForNick(nick, cs, teamPlayers).length + betKingChamps(nick, cs, bets).length;
   const titleDef = me && me.title ? getTitleDef(me.title) : null;
-  const mkPlayers = Object.keys((interests && interests.mk) || {});
+  const mkPlayers = mkInscritos(interests);
   const gK = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const concl = [];
   (mkDraw || []).forEach(r => (r.games || []).forEach((g, gi) => { const sc = (mkScores || {})[gK(r, gi)]; if (sc && mkMatchOutcome(sc)) concl.push({ home: g.home, away: g.away, sc }); }));
@@ -6300,11 +6320,11 @@ function ChampStandingsCard({ champId, cs, users, teamPlayers, mkDraw, mkScores,
   let rows = [], label = '', closed = false;
   if (champId === 'mk') {
     label = champShort(CHAMP_BY_ID.mk) || 'MK S1';
-    const players = Object.keys((interests && interests.mk) || {});
+    const players = mkInscritos(interests);
     const gK = (r, gi) => r.phase + '-' + r.n + '-' + gi;
     const concl = [];
     (mkDraw || []).forEach(r => (r.games || []).forEach((g, gi) => { const sc = (mkScores || {})[gK(r, gi)]; if (sc && mkMatchOutcome(sc)) concl.push({ home: g.home, away: g.away, sc }); }));
-    closed = (mkDraw || []).length > 0 && mkDraw.every(r => (r.games || []).every((g, gi) => !!mkMatchOutcome((mkScores || {})[gK(r, gi)])));
+    closed = (mkDraw || []).length > 0 && mkDraw.every(r => (r.games || []).every((g, gi) => mkGameVoid(g) || !!mkMatchOutcome((mkScores || {})[gK(r, gi)])));
     rows = computeMkStandings(players, concl).map((s, i) => ({ pos: i + 1, nick: s.nick, p: s.p, v: s.v, e: s.e, d: s.d, sg: (s.rp - s.rc) }));
   } else {
     label = CHAMP_BY_ID[champId] ? champShort(CHAMP_BY_ID[champId]) : (champId.toUpperCase() + ' S1');
@@ -7114,7 +7134,7 @@ function MkFighterShow({ nick, char, teamPlayers }) {
 // mostra o ELENCO (3 personagens) e o CONFRONTO da rodada com os icones dos
 // personagens. Clica e abre o MEU JOGO completo (escalacao/edicao).
 function MeuJogoMini({ nick, users, interests, draw, scores, lineups, teamPlayers, onOpen }) {
-  const isInscrito = !!(((interests && interests.mk) || {})[nick]);
+  const isInscrito = !!(((interests && interests.mk) || {})[nick]) && !mkIsWithdrawn(nick);
   const myChars = ((users || {})[nick] || {}).mkChars || [];
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   // MEU JOGO segue o PRÓXIMO jogo DO JOGADOR (1ª rodada pendente dele), não a
@@ -7130,7 +7150,7 @@ function MeuJogoMini({ nick, users, interests, draw, scores, lineups, teamPlayer
   // total de jogos pendentes do jogador — agora dá pra escalar todos, não só o próximo
   let pendingCount = 0;
   if (draw) draw.forEach((r) => (r.games || []).forEach((g, gi) => {
-    if ((g.home === nick || g.away === nick) && !mkMatchOutcome((scores || {})[gKey(r, gi)] || {})) pendingCount++;
+    if ((g.home === nick || g.away === nick) && !mkGameVoid(g) && !mkMatchOutcome((scores || {})[gKey(r, gi)] || {})) pendingCount++;
   }));
   const lu = myGame ? ((lineups || {})[myGame.key] || {}) : {};
   return (
@@ -7188,7 +7208,7 @@ function MeuJogoMini({ nick, users, interests, draw, scores, lineups, teamPlayer
 }
 
 function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, lineups, onSlot, teamPlayers }) {
-  const inscritos = Object.keys((interests && interests.mk) || {}).sort();
+  const inscritos = mkInscritos(interests).sort();
   const [target, setTarget] = useState(isAdmin ? (inscritos[0] || '') : nick);
   const [sel, setSel] = useState(((users || {})[isAdmin ? (inscritos[0] || '') : nick] || {}).mkChars || []);
   const [busy, setBusy] = useState(false);
@@ -7198,7 +7218,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
   useEffect(() => { setSel(((users || {})[target] || {}).mkChars || []); }, [target, users]);
   useEffect(() => { setOpenKey(null); }, [target]);
 
-  const isInscrito = !!(((interests && interests.mk) || {})[target]);
+  const isInscrito = !!(((interests && interests.mk) || {})[target]) && !mkIsWithdrawn(target);
   const charsFor = (n) => ((users || {})[n] || {}).mkChars || [];
   const toggle = (c) => setSel(prev => prev.includes(c) ? prev.filter(x => x !== c) : (prev.length >= MK_MAX_CHARS ? prev : [...prev, c]));
   const save = async () => {
@@ -7226,6 +7246,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
     draw.forEach((r, ri) => {
       (r.games || []).forEach((g, gi) => {
         if (g.home !== target && g.away !== target) return;
+        if (mkGameVoid(g)) return; // jogo anulado (adversário retirado) — some
         const key = gKey(r, gi);
         if (mkMatchOutcome((scores || {})[key] || {})) return; // já jogado
         myGames.push({ key, phase: r.phase, n: r.n, ri, g, mandante: g.home === target, isNext: ri === nextRoundIdx });
@@ -7240,7 +7261,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
   // ELENCO TRAVADO: quem JÁ JOGOU uma rodada (tem confronto concluído em
   // qualquer rodada) não pode mais trocar os 3 personagens — vale pra todo mundo.
   const rosterLocked = !!(draw && draw.some((r) =>
-    (r.games || []).some((g, gi) => (g.home === target || g.away === target) && !!mkMatchOutcome((scores || {})[gKey(r, gi)] || {}))
+    (r.games || []).some((g, gi) => (g.home === target || g.away === target) && !mkGameVoid(g) && !!mkMatchOutcome((scores || {})[gKey(r, gi)] || {}))
   ));
   // Atualiza um slot da escalação (mandante). lineups[key] = { p1:{home,away}, p2:{home,away} }
   const setSlot = (key, part, side, val) => onSlot(key, part, side, val);
@@ -7474,7 +7495,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
   const toggleFlawless = (key) => onScore(key, { flawless: !(scores[key] || {}).flawless });
 
   // Resultados lançados -> confrontos -> classificação (recalcula ao vivo).
-  const matches = draw ? draw.flatMap(r => r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: scores[gKey(r, gi)] || {} }))) : [];
+  const matches = draw ? draw.flatMap(r => r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: scores[gKey(r, gi)] || {} }))).filter(m => !mkGameVoid(m)) : [];
   const playedCount = matches.filter(m => mkMatchOutcome(m.sc)).length;
   const standings = computeMkStandings(insc, matches);
   const charsFor = (nick) => ((users || {})[nick] || {}).mkChars || [];
@@ -7483,7 +7504,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
   const isMine = (g) => !!(myNick && (g.home === myNick || g.away === myNick));
   // Rodada exibida: a escolhida nas setas, senão a 1ª com jogo pendente
   // (temporada encerrada cai na última).
-  const pendIdx = draw ? draw.findIndex(r => r.games.some((g, gi) => !mkMatchOutcome(scores[gKey(r, gi)] || {}))) : -1;
+  const pendIdx = draw ? draw.findIndex(r => r.games.some((g, gi) => !mkGameVoid(g) && !mkMatchOutcome(scores[gKey(r, gi)] || {}))) : -1;
   const viewRound = selRound != null ? selRound : (pendIdx === -1 ? (draw ? draw.length - 1 : 0) : pendIdx);
   const curRound = draw ? draw[viewRound] : null;
 
@@ -7491,8 +7512,8 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
   // 'done' (todos os jogos com placar) · 'live' (a rodada atual / em andamento)
   // · 'future' (ainda não começou). pendIdx = 1ª rodada com jogo pendente.
   const roundsMeta = (draw || []).map((r, idx) => {
-    const total = r.games.length;
-    const doneN = r.games.reduce((acc, g, gi) => acc + (mkMatchOutcome(scores[gKey(r, gi)] || {}) ? 1 : 0), 0);
+    const total = r.games.filter(g => !mkGameVoid(g)).length;
+    const doneN = r.games.reduce((acc, g, gi) => acc + ((!mkGameVoid(g) && mkMatchOutcome(scores[gKey(r, gi)] || {})) ? 1 : 0), 0);
     const allDone = total > 0 && doneN >= total;
     const st = allDone ? 'done' : ((idx === pendIdx || doneN > 0) ? 'live' : 'future');
     return { idx, phase: r.phase, n: r.n, total, doneN, st };
@@ -7641,6 +7662,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
               <div className="mk-fixtures">
                 {curRound.games
                   .map((g, gi) => ({ g, gi }))
+                  .filter(({ g }) => !mkGameVoid(g)) // jogo anulado (jogador retirado) some da rodada
                   .sort((a, b) => (isMine(b.g) ? 1 : 0) - (isMine(a.g) ? 1 : 0)) // SEU JOGO no topo
                   .map(({ g, gi }) => {
                   const k = gKey(curRound, gi);
@@ -8190,7 +8212,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   const ctx = { users: users || {}, bets: bets || [], teamPlayers: teamPlayers || {}, cs, worldcup, interests: interests || {} };
 
   // universo de jogadores (todos menos você e o admin)
-  const allNicks = Object.keys(users || {}).filter(n => n && n !== nick && n !== ADMIN_NICK).sort((a, b) => a.localeCompare(b));
+  const allNicks = Object.keys(users || {}).filter(n => n && n !== nick && n !== ADMIN_NICK && !mkIsWithdrawn(n)).sort((a, b) => a.localeCompare(b));
 
   // posições
   // FIFA guarda fixtures por TEAM ID (não nick); teamPlayers mapeia teamId->nick.
@@ -8201,8 +8223,8 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   const nickOf = (tid) => (teamPlayers || {})[tid] || tid; // teamId -> nick (fallback: o próprio)
   const fifaPos = (n) => { const i = fifaStand.findIndex(s => s.id === teamOf(n)); return i < 0 ? null : i + 1; };
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
-  const mkPlayers = Object.keys((interests && interests.mk) || {});
-  const mkMatchesAll = (mkDraw || []).flatMap(r => r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: (mkScores || {})[gKey(r, gi)] || {} })));
+  const mkPlayers = mkInscritos(interests);
+  const mkMatchesAll = (mkDraw || []).flatMap(r => r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: (mkScores || {})[gKey(r, gi)] || {} }))).filter(m => !mkGameVoid(m));
   const mkStand = computeMkStandings(mkPlayers, mkMatchesAll);
   const mkPos = (n) => { const i = mkStand.findIndex(s => s.nick === n); return i < 0 ? null : i + 1; };
 
@@ -8224,6 +8246,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
     }));
     // MK: home/away já são nicks (computeMkStandings usa os inscritos).
     (mkDraw || []).forEach(r => r.games.forEach((g, gi) => {
+      if (mkGameVoid(g)) return; // jogo anulado (jogador retirado) não conta no H2H
       if (!((g.home === nick && g.away === them) || (g.home === them && g.away === nick))) return;
       const o = mkMatchOutcome((mkScores || {})[gKey(r, gi)]);
       if (!o) return;
@@ -8475,7 +8498,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
 
   // MORTAL KOMBAT (rolando agora): é por JOGADOR, não por time. Calcula a
   // colocação na classificação do MK + os confrontos do jogador.
-  const mkPlayers = Object.keys((interests && interests.mk) || {});
+  const mkPlayers = mkInscritos(interests);
   const mkInscrito = mkPlayers.includes(nick);
   const mkGKeyP = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const mkConcluded = [];
@@ -8490,12 +8513,13 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
   const myMkChars = Array.isArray(me?.mkChars) ? me.mkChars : [];
   const myMkGames = [];
   (mkDraw || []).forEach((r, ri) => (r.games || []).forEach((g, gi) => {
+    if (mkGameVoid(g)) return; // jogo anulado (adversário retirado) — some do perfil
     if (g.home === nick || g.away === nick) {
       const key = mkGKeyP(r, gi);
       myMkGames.push({ ri, gi, round: r.n, phase: r.phase, opp: g.home === nick ? g.away : g.home, mandante: g.home === nick, sc: (mkScores || {})[key] });
     }
   }));
-  const mkAllConcluded = (mkDraw || []).length > 0 && mkDraw.every(r => (r.games || []).every((g, gi) => !!mkMatchOutcome((mkScores || {})[mkGKeyP(r, gi)])));
+  const mkAllConcluded = (mkDraw || []).length > 0 && mkDraw.every(r => (r.games || []).every((g, gi) => mkGameVoid(g) || !!mkMatchOutcome((mkScores || {})[mkGKeyP(r, gi)])));
   const mkResult = mkAllConcluded ? posResult(myMkPos, mkStand.length) : null;
 
   return (
