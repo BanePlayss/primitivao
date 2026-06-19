@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260619-stats4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260619-stats5 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -8235,6 +8235,9 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   const trophiesOf = (n) => trophiesForNick(n, cs, teamPlayers || {});
   const titlesOf = (n) => titlesForNick(n, ctx);
   const pcOf = (n) => Math.round(((users || {})[n] || {}).pc || 0);
+  // REI DAS APOSTAS — campeão da season de apostas (por campeonato fechado).
+  const betKingOf = (n) => betKingChamps(n, cs, bets).map(b => { const c = CHAMP_BY_ID[b.champId]; return { tag: (c && c.tag) || b.champId, season: (c && c.season) || '' }; });
+  const troTotal = (n) => trophiesOf(n).length + betKingOf(n).length;
 
   // confrontos diretos entre A (esq) e B (dir) em todos os jogos.
   const h2hBetween = (a, b) => {
@@ -8272,7 +8275,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   let aWins = 0, bWins = 0, draws = 0;
   list.forEach(x => { if (x.winner === 'D') draws++; else if (x.winner === left) aWins++; else if (x.winner === right) bWins++; });
   const cmpRows = [
-    { label: 'TROFÉUS', a: trophiesOf(left).length, b: trophiesOf(right).length, dir: 'more' },
+    { label: 'TROFÉUS', a: troTotal(left), b: troTotal(right), dir: 'more' },
     { label: 'TÍTULOS', a: titlesOf(left).length, b: titlesOf(right).length, dir: 'more' },
     { label: 'PRIMITIVO COINS', a: pcOf(left), b: pcOf(right), dir: 'more' },
     { label: 'POSIÇÃO FIFA', a: fifaPos(left), b: fifaPos(right), dir: 'less' },
@@ -8392,20 +8395,34 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
           <div className="card-body">
             <div className={'stats-tro-cols' + (right ? '' : ' single')}>
               {[left, right].filter(Boolean).map((p, pi) => {
-                const tro = trophiesOf(p), tit = titlesOf(p);
+                const tro = trophiesOf(p), tit = titlesOf(p), betKing = betKingOf(p);
+                const totalTro = tro.length + betKing.length;
                 return (
                   <div key={p + pi} className="stats-prof">
                     <div className={'stats-tro-name' + (p === nick ? ' me' : '')}>@{p}{p === nick && <span className="stats-you">VOCÊ</span>}</div>
-                    <div className="stats-tro-h">TROFÉUS · {tro.length}</div>
-                    {tro.length === 0 ? <div className="stats-none">Sem troféus ainda.</div> : (
-                      <div className="stats-tro-big">
-                        {['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'].map(kind => {
-                          const group = tro.filter(t => t.kind === kind);
-                          if (!group.length) return null;
-                          const editions = group.map(t => { const cc = CHAMP_BY_ID[t.champId]; return { tag: (cc && cc.tag) || t.champId, season: (cc && cc.season) || '' }; });
-                          return <TrophyGroup key={kind} kind={kind} editions={editions} />;
-                        })}
-                      </div>
+                    <div className="stats-tro-h">TROFÉUS · {totalTro}</div>
+                    {totalTro === 0 ? <div className="stats-none">Sem troféus ainda.</div> : (
+                      <>
+                        {betKing.length > 0 && (
+                          <div className="tr-betking" style={{ marginBottom: 12 }}>
+                            <div className="tr-betking-art"><Icon name="tr-betking" size={42} /></div>
+                            <div className="tr-betking-txt">
+                              <div className="tr-betking-label">REI DAS APOSTAS{betKing.length > 1 ? ' · ' + betKing.length : ''}</div>
+                              <div className="tr-betking-eds">{betKing.map((s, i) => <span key={i} className="tr-betking-ed">{s.tag} · {s.season}</span>)}</div>
+                            </div>
+                          </div>
+                        )}
+                        {tro.length > 0 && (
+                          <div className="stats-tro-big">
+                            {['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'].map(kind => {
+                              const group = tro.filter(t => t.kind === kind);
+                              if (!group.length) return null;
+                              const editions = group.map(t => { const cc = CHAMP_BY_ID[t.champId]; return { tag: (cc && cc.tag) || t.champId, season: (cc && cc.season) || '' }; });
+                              return <TrophyGroup key={kind} kind={kind} editions={editions} />;
+                            })}
+                          </div>
+                        )}
+                      </>
                     )}
                     <div className="stats-tro-h" style={{ marginTop: 16 }}>TÍTULOS · {tit.length}</div>
                     {tit.length === 0 ? <div className="stats-none">Sem títulos ainda.</div> : (
