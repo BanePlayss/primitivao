@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260619-stats2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260619-stats3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -8219,16 +8219,6 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   const right0 = players.find(n => n !== left0) || left0;
   const [left, setLeft] = useState(left0);
   const [right, setRight] = useState(right0);
-  // setas: cicla a lista pulando o que o outro lado já tem (left !== right).
-  const step = (cur, other, dir) => {
-    if (players.length <= 1) return cur;
-    let i = players.indexOf(cur);
-    for (let k = 0; k < players.length; k++) {
-      i = (i + dir + players.length) % players.length;
-      if (players[i] !== other) return players[i];
-    }
-    return cur;
-  };
 
   // FIFA guarda fixtures por TEAM ID (não nick); teamPlayers mapeia teamId->nick.
   // reverseTeamMap dá nick->teamId. Identidade na maioria, menos ex.: juca->jucamelero.
@@ -8298,27 +8288,29 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
           <div className="sub">COMPARAÇÃO · H2H</div>
         </div>
         <div className="card-body">
-          <p className="stats-intro">Use as <strong>setas</strong> pra trocar cada lado e comparar dois perfis. <strong>Você</strong> aparece destacado.</p>
+          <p className="stats-intro">Escolha dois perfis nas <strong>caixas de seleção</strong> pra comparar. <strong>Você</strong> aparece destacado.</p>
           <div className="stats-vs">
             <div className={'stats-vs-pick' + (left === nick ? ' me' : '')}>
-              <button type="button" className="stats-vs-arrow" aria-label="Anterior" onClick={() => setLeft(step(left, right, -1))}><Icon name="chevron-left" size={18} /></button>
               <div className="stats-vs-side">
                 <Avatar nick={left} teamPlayers={teamPlayers} size={56} />
                 <span className="stats-vs-nick">@{left}</span><small>{sideLabel(left)}</small>
               </div>
-              <button type="button" className="stats-vs-arrow" aria-label="Próximo" onClick={() => setLeft(step(left, right, 1))}><Icon name="chevron-right" size={18} /></button>
+              <select className="stats-vs-sel" value={left} onChange={e => setLeft(e.target.value)} aria-label="Jogador da esquerda">
+                {players.map(n => <option key={n} value={n} disabled={n === right}>@{n}{n === nick ? ' (você)' : ''}</option>)}
+              </select>
             </div>
             <div className="stats-vs-mid">
               <span className="stats-vs-score"><b className={aWins > bWins ? 'hi' : ''}>{aWins}</b><i>-</i><b className={bWins > aWins ? 'hi' : ''}>{bWins}</b></span>
               <span className="stats-vs-d">{draws} empate{draws === 1 ? '' : 's'}</span>
             </div>
             <div className={'stats-vs-pick' + (right === nick ? ' me' : '')}>
-              <button type="button" className="stats-vs-arrow" aria-label="Anterior" onClick={() => setRight(step(right, left, -1))}><Icon name="chevron-left" size={18} /></button>
               <div className="stats-vs-side">
                 <Avatar nick={right} teamPlayers={teamPlayers} size={56} />
                 <span className="stats-vs-nick">@{right}</span><small>{sideLabel(right)}</small>
               </div>
-              <button type="button" className="stats-vs-arrow" aria-label="Próximo" onClick={() => setRight(step(right, left, 1))}><Icon name="chevron-right" size={18} /></button>
+              <select className="stats-vs-sel" value={right} onChange={e => setRight(e.target.value)} aria-label="Jogador da direita">
+                {players.map(n => <option key={n} value={n} disabled={n === left}>@{n}{n === nick ? ' (você)' : ''}</option>)}
+              </select>
             </div>
           </div>
         </div>
