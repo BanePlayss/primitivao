@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260618-campicons ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260618-stats ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1952,7 +1952,7 @@ class ViewBoundary extends React.Component {
 
 // Views navegáveis via hash (#/apostas, #/ranking...). Tem que casar com os
 // ids de getTabItems + 'admin'. Hash desconhecido cai em 'apostas'.
-const VALID_VIEWS = ['apostas', 'campeonatos', 'copa', 'hall', 'inicio', 'loja', 'perfil', 'tickets', 'ranking', 'admin'];
+const VALID_VIEWS = ['apostas', 'campeonatos', 'copa', 'estatisticas', 'hall', 'inicio', 'loja', 'perfil', 'tickets', 'ranking', 'admin'];
 
 // Telas/recursos escondidos POR ENQUANTO. O código continua TODO no lugar — só
 // não aparecem na navegação/UI. Pra reativar: tira do set / vira HIDE_CC = false.
@@ -3417,6 +3417,13 @@ function App() {
                 isNaturalMod={isNaturalMod} modDisabled={modDisabled} onToggleMod={toggleModView}
               />
             )}
+            {view === 'estatisticas' && (
+              <EstatisticasView
+                nick={session.nick} users={users} cs={cs} bets={bets}
+                teamPlayers={teamPlayers || {}} worldcup={worldcup}
+                mkDraw={mkDraw} mkScores={mkScores} interests={interests || {}}
+              />
+            )}
             {view === 'tickets' && (
               <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} onCancel={cancelBet} onGoApostas={() => setView('apostas')} />
             )}
@@ -3501,6 +3508,7 @@ function TopBar({ nick, pc, cc, isAdmin, onLogout, weeklyReady, weeklyIn, onClai
         <button className={'pnav ' + (view === 'apostas' ? 'active' : '')} onClick={() => onView && onView('apostas')}>APOSTAS</button>
         <button className={'pnav ' + (view === 'campeonatos' ? 'active' : '')} onClick={() => onView && onView('campeonatos')}>CAMPEONATOS</button>
         <button className={'pnav ' + (view === 'copa' ? 'active' : '')} onClick={() => onView && onView('copa')}>COPA DO MUNDO</button>
+        <button className={'pnav ' + (view === 'estatisticas' ? 'active' : '')} onClick={() => onView && onView('estatisticas')}>ESTATÍSTICAS</button>
         {!HIDDEN_VIEWS.has('hall') && <button className={'pnav ' + (view === 'hall' ? 'active' : '')} onClick={() => onView && onView('hall')}>VITRINE</button>}
         {!HIDDEN_VIEWS.has('inicio') && <button className={'pnav ' + (view === 'inicio' ? 'active' : '')} onClick={() => onView && onView('inicio')}>NEWS</button>}
         {!HIDDEN_VIEWS.has('loja') && <button className={'pnav ' + (view === 'loja' ? 'active' : '')} onClick={() => onView && onView('loja')}>MERCADINHO</button>}
@@ -3790,6 +3798,7 @@ function getTabItems(isAdmin, mkInscrito, isMod) {
     { id: 'apostas',     label: 'APOSTAS',       icon: 'ticket' },
     { id: 'campeonatos', label: 'CAMPEONATOS',   icon: 'chart' },
     { id: 'copa',        label: 'COPA DO MUNDO', icon: 'globe' },
+    { id: 'estatisticas',label: 'ESTATÍSTICAS',  icon: 'medal' },
     { id: 'hall',        label: 'VITRINE',       icon: 'trophy' },
     { id: 'inicio',      label: 'NEWS',          icon: 'newspaper' },
     { id: 'loja',        label: 'MERCADINHO',    icon: 'coin' },
@@ -8172,6 +8181,196 @@ function TrocarSenhaCard({ nick }) {
   );
 }
 
+// ─── ESTATÍSTICAS ───────────────────────────────────────────────────────────
+// Hub de comparação: escolhe um jogador (seletor visual de avatares) e mostra o
+// perfil dele (troféus/títulos), uma comparação VOCÊ × ELE e TODOS os confrontos
+// diretos (H2H) em todos os jogos com fixtures (FIFA = 1 jogo/par, MK = ida+volta).
+function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw, mkScores, interests }) {
+  const [sel, setSel] = useState(null);
+  const ctx = { users: users || {}, bets: bets || [], teamPlayers: teamPlayers || {}, cs, worldcup, interests: interests || {} };
+
+  // universo de jogadores (todos menos você e o admin)
+  const allNicks = Object.keys(users || {}).filter(n => n && n !== nick && n !== ADMIN_NICK).sort((a, b) => a.localeCompare(b));
+
+  // posições
+  // FIFA guarda fixtures por TEAM ID (não nick); teamPlayers mapeia teamId->nick.
+  // reverseTeamMap dá nick->teamId. Identidade na maioria, menos ex.: juca->jucamelero.
+  const fifaStand = computeStandings(cs ? cs.rounds : []);
+  const nick2team = reverseTeamMap(teamPlayers || {});
+  const teamOf = (n) => nick2team[n] || n;        // nick -> teamId (fallback: o próprio)
+  const nickOf = (tid) => (teamPlayers || {})[tid] || tid; // teamId -> nick (fallback: o próprio)
+  const fifaPos = (n) => { const i = fifaStand.findIndex(s => s.id === teamOf(n)); return i < 0 ? null : i + 1; };
+  const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const mkPlayers = Object.keys((interests && interests.mk) || {});
+  const mkMatchesAll = (mkDraw || []).flatMap(r => r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: (mkScores || {})[gKey(r, gi)] || {} })));
+  const mkStand = computeMkStandings(mkPlayers, mkMatchesAll);
+  const mkPos = (n) => { const i = mkStand.findIndex(s => s.nick === n); return i < 0 ? null : i + 1; };
+
+  const trophyCount = (n) => trophiesForNick(n, cs, teamPlayers || {}).length;
+  const titleCount = (n) => titlesForNick(n, ctx).length;
+  const pcOf = (n) => Math.round(((users || {})[n] || {}).pc || 0);
+
+  // confrontos diretos VOCÊ × them em todos os jogos
+  const h2hOf = (them) => {
+    const out = [];
+    // FIFA: compara por TEAM ID; mostra/conta pelo nick (home/away = teamId p/ escudo).
+    const myTeam = teamOf(nick), themTeam = teamOf(them);
+    (cs ? cs.rounds : []).forEach((r, ri) => (r || []).forEach(m => {
+      if (!((m.home === myTeam && m.away === themTeam) || (m.home === themTeam && m.away === myTeam))) return;
+      const gh = parseInt(m.gh, 10), ga = parseInt(m.ga, 10);
+      if (Number.isNaN(gh) || Number.isNaN(ga)) return;
+      const wT = gh > ga ? m.home : gh < ga ? m.away : null;
+      out.push({ game: 'fifa', label: 'FIFA · R' + String(ri + 1).padStart(2, '0'), home: m.home, away: m.away, homeLabel: nickOf(m.home), awayLabel: nickOf(m.away), sh: gh, sa: ga, winner: wT ? nickOf(wT) : 'D' });
+    }));
+    // MK: home/away já são nicks (computeMkStandings usa os inscritos).
+    (mkDraw || []).forEach(r => r.games.forEach((g, gi) => {
+      if (!((g.home === nick && g.away === them) || (g.home === them && g.away === nick))) return;
+      const o = mkMatchOutcome((mkScores || {})[gKey(r, gi)]);
+      if (!o) return;
+      out.push({ game: 'mk', label: 'MK · ' + (r.phase === 'IDA' ? 'IDA' : 'VOLTA') + ' R' + String(r.n).padStart(2, '0'), home: g.home, away: g.away, homeLabel: g.home, awayLabel: g.away, sh: o.confH, sa: o.confA, winner: o.winner === 'H' ? g.home : o.winner === 'A' ? g.away : 'D' });
+    }));
+    return out;
+  };
+
+  const playerIc = (n, game) => game === 'fifa'
+    ? <ClubCrest nick={n} size={30} />
+    : <Avatar nick={n} teamPlayers={teamPlayers} size={28} noBadge />;
+
+  return (
+    <div className="stats-view">
+      <div className="card">
+        <div className="card-head">
+          <div className="title"><Icon name="medal" size={16} /> ESTATÍSTICAS</div>
+          <div className="sub">PERFIL · COMPARAÇÃO · H2H</div>
+        </div>
+        <div className="card-body">
+          <p className="stats-intro">Escolha um jogador pra ver o perfil dele e o seu histórico de <strong>confrontos diretos</strong> em todos os jogos.</p>
+          {allNicks.length === 0 ? (
+            <div className="empty"><div className="e1">SEM JOGADORES</div></div>
+          ) : (
+            <div className="stats-picker">
+              {allNicks.map(n => (
+                <button key={n} type="button" className={'stats-pick' + (sel === n ? ' on' : '')} onClick={() => setSel(s => s === n ? null : n)}>
+                  <Avatar nick={n} teamPlayers={teamPlayers} size={46} />
+                  <span className="stats-pick-nick">@{n}</span>
+                  <span className="stats-pick-meta"><Icon name="trophy" size={9} /> {trophyCount(n)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {sel && (() => {
+        const list = h2hOf(sel);
+        let w = 0, d = 0, l = 0;
+        list.forEach(x => { if (x.winner === 'D') d++; else if (x.winner === nick) w++; else l++; });
+        const cmpRows = [
+          { label: 'TROFÉUS', me: trophyCount(nick), them: trophyCount(sel), dir: 'more' },
+          { label: 'TÍTULOS', me: titleCount(nick), them: titleCount(sel), dir: 'more' },
+          { label: 'PRIMITIVO COINS', me: pcOf(nick), them: pcOf(sel), dir: 'more' },
+          { label: 'POSIÇÃO FIFA', me: fifaPos(nick), them: fifaPos(sel), dir: 'less' },
+          { label: 'POSIÇÃO MK', me: mkPos(nick), them: mkPos(sel), dir: 'less' },
+        ];
+        const better = (a, b, dir) => {
+          if (a == null && b == null) return 0;
+          if (a == null) return 1; if (b == null) return -1;
+          if (a === b) return 0;
+          return dir === 'more' ? (a > b ? -1 : 1) : (a < b ? -1 : 1);
+        };
+        const themTrophies = trophiesForNick(sel, cs, teamPlayers || {});
+        const themTitles = titlesForNick(sel, ctx);
+        return (
+          <>
+            <div className="card">
+              <div className="stats-vs">
+                <div className="stats-vs-side">
+                  <Avatar nick={nick} teamPlayers={teamPlayers} size={56} />
+                  <span className="stats-vs-nick">@{nick}</span><small>VOCÊ</small>
+                </div>
+                <div className="stats-vs-mid">
+                  <span className="stats-vs-score"><b className={w > l ? 'hi' : ''}>{w}</b><i>-</i><b className={l > w ? 'hi' : ''}>{l}</b></span>
+                  <span className="stats-vs-d">{d} empate{d === 1 ? '' : 's'}</span>
+                </div>
+                <div className="stats-vs-side">
+                  <Avatar nick={sel} teamPlayers={teamPlayers} size={56} />
+                  <span className="stats-vs-nick">@{sel}</span><small>{CLUB_NAME[sel] || 'RIVAL'}</small>
+                </div>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card-head"><div className="title">COMPARAÇÃO</div></div>
+              <div className="card-body" style={{ overflowX: 'auto' }}>
+                <table className="stats-cmp">
+                  <thead><tr><th></th><th>@{nick}</th><th>@{sel}</th></tr></thead>
+                  <tbody>
+                    {cmpRows.map(r => {
+                      const c = better(r.me, r.them, r.dir);
+                      const fmt = (v) => v == null ? '—' : (r.label.indexOf('POSIÇÃO') === 0 ? v + 'º' : v);
+                      return (
+                        <tr key={r.label}>
+                          <td className="stats-cmp-l">{r.label}</td>
+                          <td className={c < 0 ? 'win' : ''}>{fmt(r.me)}</td>
+                          <td className={c > 0 ? 'win' : ''}>{fmt(r.them)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="card mk-card">
+              <div className="card-head"><div className="title"><Icon name="sword" size={15} /> CONFRONTOS DIRETOS</div><div className="sub">{list.length} JOGO{list.length === 1 ? '' : 'S'}</div></div>
+              <div className="card-body">
+                {list.length === 0 ? (
+                  <div className="empty"><div className="e1">SEM CONFRONTOS</div><div className="e2">Vocês ainda não se enfrentaram em nenhum jogo lançado.</div></div>
+                ) : (
+                  <div className="mk-fixtures">
+                    {list.map((x, i) => {
+                      const meWon = x.winner === nick, draw = x.winner === 'D';
+                      return (
+                        <div key={i} className={'mk-fx done' + (meWon ? ' mine' : '')}>
+                          <div className="mk-fx-top">
+                            <span className="mk-fx-jogo">{x.label}</span>
+                            <span className={'h2h-res ' + (draw ? 'd' : meWon ? 'w' : 'l')}>{draw ? 'EMPATE' : meWon ? 'VOCÊ VENCEU' : 'DERROTA'}</span>
+                          </div>
+                          <div className="mk-fx-body">
+                            <div className="mk-fx-side home">{playerIc(x.home, x.game)}<div className="mk-fx-id"><div className="mk-fx-nick">@{x.homeLabel}</div></div></div>
+                            <div className="fifa-fx-score"><span className="fifa-fx-sc">{x.sh} × {x.sa}</span></div>
+                            <div className="mk-fx-side away">{playerIc(x.away, x.game)}<div className="mk-fx-id"><div className="mk-fx-nick">@{x.awayLabel}</div></div></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card-head"><div className="title">TROFÉUS E TÍTULOS · @{sel}</div></div>
+              <div className="card-body">
+                <div className="stats-tro-h">TROFÉUS · {themTrophies.length}</div>
+                {themTrophies.length === 0 ? <div className="stats-none">Sem troféus ainda.</div> : (
+                  <div className="stats-tro">
+                    {themTrophies.map((t, i) => { const c = CHAMP_BY_ID[t.champId]; return <span key={i} className="stats-tro-chip"><Icon name={'tr-' + t.kind} size={18} /> {c ? c.tag : t.champId}</span>; })}
+                  </div>
+                )}
+                <div className="stats-tro-h" style={{ marginTop: 14 }}>TÍTULOS · {themTitles.length}</div>
+                {themTitles.length === 0 ? <div className="stats-none">Sem títulos ainda.</div> : (
+                  <div className="stats-tro">{themTitles.map(t => <TitleBadge key={t.id} titleId={t.id} />)}</div>
+                )}
+              </div>
+            </div>
+          </>
+        );
+      })()}
+    </div>
+  );
+}
+
 function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest, mkDraw, mkScores, isNaturalMod, modDisabled, onToggleMod }) {
   const [inscBusy, setInscBusy] = useState(null);
   const [ptab, setPtab] = useState('resumo'); // sub-aba: resumo / time / trofeus / titulos / colecao
@@ -9342,7 +9541,10 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
   });
   const doneRounds = roundsMeta.filter(rm => rm.st === 'done').length;
   // confronto do usuário logado: destaca e joga pro topo da rodada.
-  const isMine = (m) => !!(myNick && (m.home === myNick || m.away === myNick));
+  // FIFA guarda fixtures por TEAM ID; o nick do logado pode diferir do teamId
+  // (ex.: juca->jucamelero), então resolve nick->teamId antes de comparar.
+  const myTeam = reverseTeamMap(teamPlayers || {})[myNick] || myNick;
+  const isMine = (m) => !!(myTeam && (m.home === myTeam || m.away === myTeam));
 
   const patchMatch = (gi, patch) => {
     setCs(prev => {
@@ -9368,14 +9570,15 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
                 {standings.map((s, i) => {
                   const sg = s.gp - s.gc;
                   const cls = i < 2 ? 'glory' : i >= standings.length - 2 ? 'releg' : '';
-                  const playerTitle = (users || {})[s.id]?.title;
+                  const pNick = (teamPlayers || {})[s.id] || s.id; // teamId -> nick do jogador
+                  const playerTitle = (users || {})[pNick]?.title;
                   return (
                     <tr key={s.id} className={cls}>
                       <td className="std-pos">{String(i + 1).padStart(2, '0')}</td>
                       <td>
                         <div className="tnm" style={{ flexWrap: 'wrap' }}>
                           <ClubCrest nick={s.id} size={24} />
-                          <span>@{s.id}</span>
+                          <span>@{pNick}</span>
                           {playerTitle && <TitleBadge titleId={playerTitle} />}
                         </div>
                       </td>
@@ -9456,7 +9659,7 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
                           <div className="mk-fx-id">
                             {isAdmin
                               ? <select className="cteam-sel" value={m.home} onChange={e => patchMatch(gi, { home: e.target.value })}>{TEAMS.map(t => <option key={t.id} value={t.id}>{t.id}</option>)}</select>
-                              : <div className="mk-fx-nick">@{m.home}</div>}
+                              : <div className="mk-fx-nick">@{(teamPlayers || {})[m.home] || m.home}</div>}
                             <div className="mk-fx-role mandante">MANDANTE</div>
                           </div>
                         </div>
@@ -9476,7 +9679,7 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
                           <div className="mk-fx-id">
                             {isAdmin
                               ? <select className="cteam-sel" value={m.away} onChange={e => patchMatch(gi, { away: e.target.value })}>{TEAMS.map(t => <option key={t.id} value={t.id}>{t.id}</option>)}</select>
-                              : <div className="mk-fx-nick">@{m.away}</div>}
+                              : <div className="mk-fx-nick">@{(teamPlayers || {})[m.away] || m.away}</div>}
                             <div className="mk-fx-role visitante">VISITANTE</div>
                           </div>
                         </div>

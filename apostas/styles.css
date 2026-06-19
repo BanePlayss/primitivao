@@ -4000,6 +4000,40 @@
     .fifa-fx-x { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 12px; color: rgba(28,22,18,0.38); }
     .mk-fx-meta { font-size: 8px; font-weight: 700; letter-spacing: 0.04em; color: rgba(28,22,18,0.42); }
     .club-crest { object-fit: contain; }
+
+    /* ESTATÍSTICAS — seletor visual de jogadores + comparação + H2H */
+    .stats-view { display: flex; flex-direction: column; gap: 16px; }
+    .stats-intro { font-size: 13px; line-height: 1.5; color: var(--pv-charcoal); margin: 0 0 14px; }
+    .stats-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 8px; }
+    .stats-pick { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 6px; background: var(--pv-bone-2); border: 1.5px solid rgba(28,22,18,0.14); cursor: pointer; transition: transform .08s ease, border-color .1s ease, box-shadow .1s ease, background .1s ease; font: inherit; color: var(--pv-charcoal); }
+    .stats-pick:hover { transform: translateY(-2px); box-shadow: 0 3px 0 rgba(28,22,18,0.18); border-color: var(--pv-charcoal); }
+    .stats-pick.on { border-color: var(--pv-orange); box-shadow: 0 0 0 2px var(--pv-orange); background: rgba(215,100,20,0.06); }
+    .stats-pick-nick { font-weight: 800; font-size: 11px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .stats-pick-meta { display: inline-flex; align-items: center; gap: 3px; font-size: 9.5px; font-weight: 700; color: rgba(28,22,18,0.55); font-variant-numeric: tabular-nums; }
+    .stats-vs { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; padding: 16px; }
+    .stats-vs-side { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+    .stats-vs-nick { font-weight: 800; font-size: 13px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .stats-vs-side small { font-size: 8.5px; letter-spacing: 0.16em; font-weight: 800; color: var(--pv-orange); }
+    .stats-vs-mid { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .stats-vs-score { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 30px; line-height: 1; display: inline-flex; align-items: baseline; gap: 6px; }
+    .stats-vs-score b { color: rgba(28,22,18,0.5); font-weight: 400; }
+    .stats-vs-score b.hi { color: var(--pv-orange); }
+    .stats-vs-score i { font-style: normal; font-size: 18px; color: rgba(28,22,18,0.3); }
+    .stats-vs-d { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; color: rgba(28,22,18,0.5); }
+    .stats-cmp { width: 100%; border-collapse: collapse; }
+    .stats-cmp th { font-size: 10px; letter-spacing: 0.08em; font-weight: 800; color: rgba(28,22,18,0.5); padding: 6px 8px; text-align: center; border-bottom: 2px solid rgba(28,22,18,0.12); }
+    .stats-cmp th:first-child { text-align: left; }
+    .stats-cmp td { padding: 8px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; border-bottom: 1px solid rgba(28,22,18,0.08); }
+    .stats-cmp .stats-cmp-l { text-align: left; font-size: 10.5px; letter-spacing: 0.05em; font-weight: 800; color: rgba(28,22,18,0.55); }
+    .stats-cmp td.win { color: var(--pv-orange); background: rgba(215,100,20,0.08); }
+    .h2h-res { display: inline-flex; align-items: center; gap: 3px; font-size: 8px; font-weight: 800; letter-spacing: 0.08em; padding: 1px 6px; }
+    .h2h-res.w { background: var(--pv-green, #4d6a2e); color: #fff; }
+    .h2h-res.l { background: var(--pv-red, #a52a2a); color: #fff; }
+    .h2h-res.d { background: rgba(28,22,18,0.2); color: var(--pv-charcoal); }
+    .stats-tro-h { font-size: 10px; letter-spacing: 0.14em; font-weight: 800; color: rgba(28,22,18,0.5); margin-bottom: 8px; }
+    .stats-tro { display: flex; flex-wrap: wrap; gap: 7px; }
+    .stats-tro-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; background: var(--pv-bone-2); border: 1.5px solid rgba(28,22,18,0.14); font-size: 11px; font-weight: 800; }
+    .stats-none { font-size: 12px; color: rgba(28,22,18,0.45); font-style: italic; }
     .mk-fx-body { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; }
     .mk-fx-side { display: flex; align-items: center; gap: 6px; min-width: 0; }
     .mk-fx-side.away { flex-direction: row-reverse; }
