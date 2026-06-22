@@ -121,7 +121,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260622-idavolta ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260619-stats5 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1133,9 +1133,7 @@ function legLabel(leg) {
 }
 
 // ─── CLASSIFICAÇÃO: geração de tabela ────────────────────────────────────────
-// 8 jogadores: returno simples (IDA) = 7 rodadas; com o RETURNO (VOLTA,
-// mando invertido) = 14. defaultRounds() gera as 14 de uma vez.
-const TOTAL_ROUNDS = 14;
+const TOTAL_ROUNDS = 7;
 const DAYS = ['SEG','TER','QUA','QUI','SEX','SÁB','DOM'];
 function generateSchedule(teamIds) {
   const ids = teamIds.slice();
@@ -1157,11 +1155,7 @@ function generateSchedule(teamIds) {
   return rounds;
 }
 function defaultRounds() {
-  // IDA (returno simples) + VOLTA (mesmas partidas, mando invertido). As datas
-  // seguem semanais (ri*7) continuando direto da IDA pra VOLTA.
-  const ida   = generateSchedule(TEAMS.map(t => t.id));
-  const volta = ida.map(round => round.map(g => ({ home: g.away, away: g.home })));
-  const sched = [...ida, ...volta];
+  const sched = generateSchedule(TEAMS.map(t => t.id));
   const startDate = new Date(2026, 4, 4);
   return sched.map((games, ri) => {
     const base = new Date(startDate);
@@ -1172,27 +1166,6 @@ function defaultRounds() {
       const day = DAYS[d.getDay() === 0 ? 6 : d.getDay() - 1];
       const date = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
       return { home: g.home, away: g.away, day, date, time: gi % 2 === 0 ? '21:00' : '21:30', gh: '', ga: '' };
-    });
-  });
-}
-// VOLTA (returno) a partir de uma IDA CONCRETA: inverte o mando de cada jogo,
-// zera o placar e redata semanalmente continuando depois da ida. Usado na
-// migração 7->14 pra que o returno seja o espelho EXATO da ida que já rolou
-// (mando de verdade invertido), e não de um schedule regenerado — o schedule
-// gravado no doc pode diferir do generateSchedule atual.
-function mirrorVolta(idaRounds) {
-  const startDate = new Date(2026, 4, 4);
-  const nIda = idaRounds.length;
-  return idaRounds.map((round, k) => {
-    const ri = nIda + k; // índice absoluto na temporada (ex.: 7..13)
-    const base = new Date(startDate);
-    base.setDate(base.getDate() + ri * 7);
-    return round.map((g, gi) => {
-      const d = new Date(base);
-      d.setDate(d.getDate() + gi);
-      const day = DAYS[d.getDay() === 0 ? 6 : d.getDay() - 1];
-      const date = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
-      return { home: g.away, away: g.home, day, date, time: gi % 2 === 0 ? '21:00' : '21:30', gh: '', ga: '' };
     });
   });
 }
@@ -1262,6 +1235,12 @@ function bettableGames(rounds) {
   }));
   return out;
 }
+// Rodadas usadas pra recalcular odds: só rodadas com TODOS os jogos finalizados.
+// (Escolha do dono: "recalcula só quando a rodada termina".)
+function oddsBaselineRounds(rounds) {
+  return (rounds || []).filter(round => (round || []).every(isGamePlayed));
+}
+
 function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
 function poissonPmf(lambda, k) {
   if (lambda <= 0) return k === 0 ? 1 : 0;
@@ -1272,10 +1251,8 @@ function poissonPmf(lambda, k) {
 const DEFAULT_LAMBDA = 1.3; // gols esperados por time quando não há histórico
 
 function computeTeamMetrics(rounds) {
-  // Odds vivas: conta TODO jogo que já tem placar (computeStandings ignora os
-  // não-jogados, jogo a jogo). Assim a odd recalcula a cada resultado lançado,
-  // não só quando a rodada inteira fecha. Aposta já feita mantém a odd congelada.
-  const standings = computeStandings(rounds);
+  const base = oddsBaselineRounds(rounds);
+  const standings = computeStandings(base);
   const out = {};
   for (const t of standings) {
     out[t.id] = {
@@ -2309,17 +2286,10 @@ function App() {
         const obj = d && typeof d === 'object' ? d : {};
         let rounds = Array.isArray(obj.rounds) ? obj.rounds : [];
         if (rounds.length !== TOTAL_ROUNDS) {
-          const HALF = TOTAL_ROUNDS / 2;
-          if (rounds.length === HALF) {
-            // Migração IDA -> IDA+VOLTA: o returno é o espelho EXATO da ida
-            // gravada (mando invertido), preservando os placares da ida intactos.
-            rounds = [...rounds, ...mirrorVolta(rounds)];
-          } else {
-            const defs = defaultRounds();
-            rounds = rounds.length < TOTAL_ROUNDS
-              ? [...rounds, ...defs.slice(rounds.length)]
-              : rounds.slice(0, TOTAL_ROUNDS);
-          }
+          const defs = defaultRounds();
+          rounds = rounds.length < TOTAL_ROUNDS
+            ? [...rounds, ...defs.slice(rounds.length)]
+            : rounds.slice(0, TOTAL_ROUNDS);
         }
         const currentRound = Number.isInteger(obj.currentRound) ? obj.currentRound : 0;
         csApplyingRef.current = true;
@@ -4824,15 +4794,15 @@ const NEWS = [
       <>
         <p>
           A primeira temporada oficial do Primitivão tá no ar. 8 jogadores,
-          ida e volta: 14 rodadas, 56 jogos. O turno inteiro já fica
-          disponível pra apostar — não precisa esperar a rodada chegar.
+          7 rodadas, 28 jogos. Apostas abertas em cada partida até o admin
+          travar (geralmente quando a bola vai rolar).
         </p>
         <p>
           As <strong>odds são calculadas em tempo real</strong> a partir da
           classificação: quanto mais forte um time (pontos + saldo de gol),
-          menor a odd dele vencer. A cada resultado lançado as odds de todos
-          os jogos em aberto são recalculadas na hora — mas a aposta que você
-          já fez mantém a odd congelada do momento da aposta.
+          menor a odd dele vencer. Quando uma rodada inteira termina, as
+          odds da próxima rodada são recalculadas automaticamente pra todo
+          mundo no app.
         </p>
         <p>
           Vá em <strong>CAMPEONATOS <Icon name="arrow-right" size={11} className="inl-arrow" /> FIFA <Icon name="arrow-right" size={11} className="inl-arrow" /> JOGOS</strong> pra apostar.
@@ -9644,13 +9614,12 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
   const isPlayed = (m) => { const h = parseInt(m.gh, 10), a = parseInt(m.ga, 10); return !Number.isNaN(h) && !Number.isNaN(a); };
   const pendIdx = rounds.findIndex(r => r.some(m => !isPlayed(m)));
   const liveIdx = pendIdx === -1 ? TOTAL_ROUNDS - 1 : pendIdx;
-  const HALF = TOTAL_ROUNDS / 2; // rodadas da IDA (returno simples)
   const roundsMeta = rounds.map((r, idx) => {
     const total = r.length;
     const doneN = r.reduce((acc, m) => acc + (isPlayed(m) ? 1 : 0), 0);
     const allDone = total > 0 && doneN >= total;
     const st = allDone ? 'done' : ((idx === pendIdx || doneN > 0) ? 'live' : 'future');
-    return { idx, n: idx + 1, total, doneN, st, phase: idx < HALF ? 'IDA' : 'VOLTA' };
+    return { idx, n: idx + 1, total, doneN, st };
   });
   const doneRounds = roundsMeta.filter(rm => rm.st === 'done').length;
   // confronto do usuário logado: destaca e joga pro topo da rodada.
@@ -9671,7 +9640,7 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
       <div className="card mk-card">
         <div className="card-head">
           <div className="title"><Icon name="football" size={16} /> CLASSIFICAÇÃO · FIFA</div>
-          <div className="sub">{standings.length} JOGADORES · IDA E VOLTA</div>
+          <div className="sub">{standings.length} JOGADORES · IDA</div>
         </div>
         <div className="card-body">
           <div style={{ overflowX: 'auto' }}>
@@ -9721,31 +9690,25 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
             <div className="mk-rnav">
               <button className="mk-rnav-btn" onClick={() => setViewRound(Math.max(0, viewRound - 1))} disabled={viewRound === 0} aria-label="Rodada anterior"><Icon name="chevron-left" size={18} /></button>
               <div className="mk-rnav-mid">
-                <div className="mk-rnav-phase">PRIMITIVÃO · {viewRound < TOTAL_ROUNDS / 2 ? 'IDA' : 'VOLTA'}</div>
+                <div className="mk-rnav-phase">PRIMITIVÃO · IDA</div>
                 <div className="mk-rnav-count">{viewRound + 1} <span>/ {TOTAL_ROUNDS}</span></div>
               </div>
               <button className="mk-rnav-btn" onClick={() => setViewRound(Math.min(TOTAL_ROUNDS - 1, viewRound + 1))} disabled={viewRound === TOTAL_ROUNDS - 1} aria-label="Próxima rodada"><Icon name="chevron-right" size={18} /></button>
             </div>
             <div className="mk-rstrip" role="tablist" aria-label="Todas as rodadas">
-              {['IDA', 'VOLTA'].map(phase => {
-                const list = roundsMeta.filter(rm => rm.phase === phase);
-                if (!list.length) return null;
-                return (
-                  <div className="mk-rstrip-grp" key={phase}>
-                    <span className="mk-rstrip-lab">{phase === 'IDA' ? 'TURNO' : 'RETURNO'}</span>
-                    <div className="mk-rstrip-chips">
-                      {list.map(rm => (
-                        <button key={rm.idx} type="button" role="tab" aria-selected={rm.idx === viewRound}
-                                className={'mk-rchip mk-rchip-' + rm.st + (rm.idx === viewRound ? ' sel' : '')}
-                                onClick={() => setViewRound(rm.idx)}
-                                title={'Rodada ' + String(rm.n).padStart(2, '0') + ' · ' + (phase === 'IDA' ? 'ida' : 'volta') + ' · ' + rm.doneN + '/' + rm.total + ' jogos'}>
-                          <span className="mk-rchip-n">{String(rm.n).padStart(2, '0')}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+              <div className="mk-rstrip-grp">
+                <span className="mk-rstrip-lab">RODADAS</span>
+                <div className="mk-rstrip-chips">
+                  {roundsMeta.map(rm => (
+                    <button key={rm.idx} type="button" role="tab" aria-selected={rm.idx === viewRound}
+                            className={'mk-rchip mk-rchip-' + rm.st + (rm.idx === viewRound ? ' sel' : '')}
+                            onClick={() => setViewRound(rm.idx)}
+                            title={'Rodada ' + String(rm.n).padStart(2, '0') + ' · ' + rm.doneN + '/' + rm.total + ' jogos'}>
+                      <span className="mk-rchip-n">{String(rm.n).padStart(2, '0')}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="mk-rstrip-leg">
               <span><i className="mk-lg-dot done" /> encerrada</span>
