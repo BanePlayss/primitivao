@@ -123,7 +123,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260624-conquistas4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260624-aparencia ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -752,29 +752,39 @@ function saveSession(val) {
   } catch(e) {}
 }
 
-// ─── TEMA (cor do site por usuário) ─────────────────────────────────────────
-// Personalização: cada jogador escolhe a cor de destaque do site. Persiste em
-// users[nick].theme (Firestore, sincroniza entre dispositivos) + mirror em
-// localStorage (aplica instantâneo no boot, antes do snapshot, sem "flash").
-const THEME_KEY = 'pv-theme-accent';
-const DEFAULT_ACCENT = '#d76414'; // --pv-orange padrão
-// Paleta de presets oferecida no personalizador (a 1ª é o padrão laranja).
-const THEME_PRESETS = [
-  { name: 'Laranja',  accent: '#d76414' },
-  { name: 'Vermelho', accent: '#c0392b' },
-  { name: 'Rosa',     accent: '#c2185b' },
-  { name: 'Roxo',     accent: '#7a4dc9' },
-  { name: 'Azul',     accent: '#2f6fb0' },
-  { name: 'Ciano',    accent: '#1c8f86' },
-  { name: 'Verde',    accent: '#2a8f3f' },
-  { name: 'Dourado',  accent: '#c9a227' },
-  { name: 'Grafite',  accent: '#5a5048' },
+// ─── TEMAS PRÉ-MADE (aparência por jogador) ─────────────────────────────────
+// Cada jogador escolhe um tema (cor de destaque + fundo + claro/escuro). Persiste
+// em users[nick].theme (Firestore, sincroniza entre dispositivos) como um ID +
+// mirror em localStorage (aplica instantâneo no boot, antes do snapshot, sem
+// "flash"). Dark é por CLASSE (html.pv-dark), independente do SO.
+// 7 claros + 5 escuros. O 1º (classico) é o padrão laranja/papel.
+const THEME_KEY = 'pv-theme';
+const DEFAULT_THEME = 'classico';   // claro padrão
+const DEFAULT_DARK_THEME = 'breu';  // usado só se o SO pede dark e ninguém escolheu
+const DEFAULT_ACCENT = '#d76414';
+const BONE_BG = 'radial-gradient(circle at 18% 12%, rgba(215,100,20,0.10), transparent 42%), radial-gradient(circle at 82% 88%, rgba(215,100,20,0.06), transparent 42%), #f4ead7';
+const PV_THEMES = [
+  // ── CLAROS (papel) ──
+  { id: 'classico',  name: 'Clássico', accent: '#d76414', dark: false, bg: BONE_BG },
+  { id: 'sangue',    name: 'Sangue',   accent: '#c0392b', dark: false, bg: 'radial-gradient(circle at 18% 12%, rgba(192,57,43,0.10), transparent 42%), radial-gradient(circle at 82% 88%, rgba(192,57,43,0.06), transparent 42%), #f4ead7' },
+  { id: 'chiclete',  name: 'Chiclete', accent: '#c2185b', dark: false, bg: 'radial-gradient(circle at 18% 12%, rgba(194,24,91,0.09), transparent 42%), radial-gradient(circle at 82% 88%, rgba(194,24,91,0.05), transparent 42%), #f4ead7' },
+  { id: 'oceano',    name: 'Oceano',   accent: '#2f6fb0', dark: false, bg: 'radial-gradient(circle at 18% 12%, rgba(47,111,176,0.09), transparent 42%), radial-gradient(circle at 82% 88%, rgba(47,111,176,0.05), transparent 42%), #f4ead7' },
+  { id: 'hortela',   name: 'Hortelã',  accent: '#1c8f86', dark: false, bg: 'radial-gradient(circle at 18% 12%, rgba(28,143,134,0.09), transparent 42%), radial-gradient(circle at 82% 88%, rgba(28,143,134,0.05), transparent 42%), #f4ead7' },
+  { id: 'campo',     name: 'Campo',    accent: '#2a8f3f', dark: false, bg: 'radial-gradient(circle at 18% 12%, rgba(42,143,63,0.09), transparent 42%), radial-gradient(circle at 82% 88%, rgba(42,143,63,0.05), transparent 42%), #f4ead7' },
+  { id: 'ouro',      name: 'Ouro',     accent: '#c9a227', dark: false, bg: 'radial-gradient(circle at 18% 12%, rgba(201,162,39,0.11), transparent 42%), radial-gradient(circle at 82% 88%, rgba(201,162,39,0.06), transparent 42%), #f4ead7' },
+  // ── ESCUROS (mesa escura, cards continuam papel) ──
+  { id: 'breu',       name: 'Breu',       accent: '#d76414', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(215,100,20,0.07), transparent 42%), radial-gradient(circle at 82% 88%, rgba(215,100,20,0.04), transparent 42%), #16100b' },
+  { id: 'meia-noite', name: 'Meia-Noite', accent: '#2f6fb0', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(47,111,176,0.10), transparent 42%), radial-gradient(circle at 82% 88%, rgba(47,111,176,0.05), transparent 42%), #0c1119' },
+  { id: 'ametista',   name: 'Ametista',   accent: '#7a4dc9', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(122,77,201,0.11), transparent 42%), radial-gradient(circle at 82% 88%, rgba(122,77,201,0.06), transparent 42%), #120d1c' },
+  { id: 'neon',       name: 'Neon',       accent: '#1c8f86', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(28,143,134,0.12), transparent 42%), radial-gradient(circle at 82% 88%, rgba(28,143,134,0.06), transparent 42%), #0a1413' },
+  { id: 'grafite',    name: 'Grafite',    accent: '#5a5048', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(90,80,72,0.10), transparent 42%), radial-gradient(circle at 82% 88%, rgba(90,80,72,0.05), transparent 42%), #14110e' },
 ];
+const pvThemeById = (id) => PV_THEMES.find(t => t.id === id) || null;
 function loadThemeLS() {
   try { return localStorage.getItem(THEME_KEY) || null; } catch (e) { return null; }
 }
-function saveThemeLS(accent) {
-  try { if (accent) localStorage.setItem(THEME_KEY, accent); else localStorage.removeItem(THEME_KEY); } catch (e) {}
+function saveThemeLS(id) {
+  try { if (id) localStorage.setItem(THEME_KEY, id); else localStorage.removeItem(THEME_KEY); } catch (e) {}
 }
 // Escurece um hex multiplicando os canais por f (0-1). Usado pro --pv-orange-2.
 function darkenHex(hex, f) {
@@ -785,23 +795,116 @@ function darkenHex(hex, f) {
     .map(x => Math.max(0, Math.min(255, Math.round(x * f))).toString(16).padStart(2, '0'));
   return '#' + ch.join('');
 }
-// Aplica (ou limpa, se accent falsy) a cor de destaque nas CSS vars do :root.
-function applyTheme(accent) {
+// Aplica um tema (id) OU, por retrocompat, uma cor accent hex legada (formato
+// usado antes do sistema de temas: vira accent custom sobre o claro padrão).
+function applyThemeValue(val) {
   const root = document.documentElement;
   if (!root) return;
-  if (accent && accent.toLowerCase() !== DEFAULT_ACCENT) {
+  // Legado: hex accent salvo antes dos temas pré-made.
+  if (typeof val === 'string' && /^#?[0-9a-fA-F]{6}$/.test(val)) {
+    const accent = val[0] === '#' ? val : '#' + val;
     root.style.setProperty('--pv-orange', accent);
-    root.style.setProperty('--pv-orange-2', darkenHex(accent, 0.72));
-  } else {
-    root.style.removeProperty('--pv-orange');
-    root.style.removeProperty('--pv-orange-2');
+    root.style.setProperty('--pv-orange-2', darkenHex(accent, 0.78));
+    root.style.removeProperty('--pv-bg');
+    root.classList.remove('pv-dark');
+    root.setAttribute('data-pv-theme', '_legacy');
+    return;
   }
+  const t = pvThemeById(val) || pvThemeById(DEFAULT_THEME);
+  root.style.setProperty('--pv-orange', t.accent);
+  root.style.setProperty('--pv-orange-2', darkenHex(t.accent, 0.78));
+  if (t.bg) root.style.setProperty('--pv-bg', t.bg); else root.style.removeProperty('--pv-bg');
+  root.classList.toggle('pv-dark', !!t.dark);
+  root.setAttribute('data-pv-theme', t.id);
 }
-// Boot: aplica o tema salvo localmente já no load (antes do React montar).
-applyTheme(loadThemeLS());
+// Tema padrão pra quem NÃO escolheu: segue o claro/escuro do SO.
+function osDefaultThemeId() {
+  try { return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? DEFAULT_DARK_THEME : DEFAULT_THEME; }
+  catch (e) { return DEFAULT_THEME; }
+}
+// Boot: aplica o tema salvo no localStorage já no load (antes do React). Se
+// ninguém escolheu, segue o SO (claro/escuro) SEM persistir.
+(function bootTheme() {
+  const saved = loadThemeLS();
+  applyThemeValue(saved || osDefaultThemeId());
+})();
+// matchMedia: só reage pra quem NÃO fixou tema (mirror vazio). Assim que escolhe, vira no-op.
+(function bindOsTheme() {
+  try {
+    if (!window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = () => { if (loadThemeLS()) return; applyThemeValue(osDefaultThemeId()); };
+    if (mq.addEventListener) mq.addEventListener('change', handler);
+    else if (mq.addListener) mq.addListener(handler);
+  } catch (e) {}
+})();
 
 const BET_DOC      = () => window.db.doc('primitivao/apostas');
 const CLASSIF_DOC  = () => window.db.doc('primitivao/state');
+const AVATARS_DOC  = () => window.db.doc('primitivao/avatars');
+
+// ─── AVATARES CUSTOM (upload do jogador) ────────────────────────────────────
+// Guardados num doc SEPARADO (primitivao/avatars), shape { nickLower: dataUrl },
+// pra NÃO inchar o doc crítico primitivao/apostas. Mapa de módulo lido pelo
+// <Avatar> por nick; o App tem um listener (guardas iguais aos de apostas) que
+// atualiza AVATAR_MAP + bumpa um contador pra re-render. O thumbnail é comprimido
+// no cliente (canvas) pra caber em ~20KB — "vai ter gente mandando arquivo grande".
+let AVATAR_MAP = {};
+const avatarFor = (nick) => (nick ? (AVATAR_MAP[String(nick).toLowerCase()] || null) : null);
+
+// Comprime uma imagem (dataURL) num quadrado pequeno (cover, centralizado) e
+// baixa qualidade/resolução até caber em maxKB. Retorna dataURL JPEG. Rejeita
+// se não conseguir (raríssimo: ainda assim oferecemos erro amigável na UI).
+function compressAvatarImage(srcDataUrl, maxKB) {
+  const cap = maxKB || 20;
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const render = (q, dim) => {
+        const c = document.createElement('canvas');
+        c.width = dim; c.height = dim;
+        const ctx = c.getContext('2d');
+        const s = Math.min(img.width, img.height) || 1;
+        const sx = (img.width - s) / 2, sy = (img.height - s) / 2;
+        ctx.drawImage(img, sx, sy, s, s, 0, 0, dim, dim);
+        return c.toDataURL('image/jpeg', q);
+      };
+      let size = 256, q = 0.82;
+      let out = render(q, size);
+      while (out.length / 1024 > cap && (q > 0.4 || size > 96)) {
+        if (q > 0.42) q -= 0.08; else { size = Math.max(96, size - 32); q = 0.7; }
+        out = render(q, size);
+      }
+      if (out.length / 1024 > cap) { reject(new Error('imagem grande demais')); return; }
+      resolve(out);
+    };
+    img.onerror = () => reject(new Error('imagem inválida'));
+    img.src = srcDataUrl;
+  });
+}
+// Grava (comprimido) o avatar do nick. merge:true — não toca nos outros.
+async function setAvatarImage(nick, srcDataUrl) {
+  if (!nick) return { err: 'sem nick' };
+  const key = String(nick).toLowerCase();
+  try {
+    const data = await compressAvatarImage(srcDataUrl, 20);
+    await AVATARS_DOC().set({ [key]: data }, { merge: true });
+    AVATAR_MAP = { ...AVATAR_MAP, [key]: data };
+    return { ok: true };
+  } catch (e) {
+    console.warn('setAvatarImage failed', e);
+    return { err: (e && e.message) || 'falha ao enviar' };
+  }
+}
+// Remove o avatar do nick (volta pro escudo do time).
+async function clearAvatarImage(nick) {
+  if (!nick) return;
+  const key = String(nick).toLowerCase();
+  try {
+    await AVATARS_DOC().set({ [key]: firebase.firestore.FieldValue.delete() }, { merge: true });
+    const next = { ...AVATAR_MAP }; delete next[key]; AVATAR_MAP = next;
+  } catch (e) { console.warn('clearAvatarImage failed', e); }
+}
 
 // ─── BACKUP ─────────────────────────────────────────────────────────────────
 // Dispara download de um JSON com TODOS os dados do site (apostas + classificação).
@@ -952,12 +1055,14 @@ function mergeBetsById(remote, local) {
 
 async function downloadFullBackup() {
   try {
-    const [betSnap, classifSnap] = await Promise.all([
+    const [betSnap, classifSnap, avatarSnap] = await Promise.all([
       BET_DOC().get(),
       CLASSIF_DOC().get(),
+      AVATARS_DOC().get(),
     ]);
     const apostas       = parseDocJsonSafe(betSnap);
     const classificacao = parseDocJsonSafe(classifSnap);
+    const avatars       = avatarSnap.exists ? (avatarSnap.data() || {}) : {};
     // interests agora vive em campo top-level do doc (sibling de `json`),
     // pra não competir com outras escritas. Fallback ao formato antigo
     // (interests dentro de json) pra retrocompat.
@@ -987,10 +1092,11 @@ async function downloadFullBackup() {
     const wcResults = Object.keys(apostasData?.worldcup?.results || {}).length;
     const payload = {
       exportedAt: new Date().toISOString(),
-      version: 6,
+      version: 7,
       source: 'browser-admin',
       apostas:       apostasData,
       classificacao: classificacao.data,
+      avatars,   // doc separado primitivao/avatars { nick: dataUrl }
       _raw: { apostas, classificacao, topLevelInterests, topLevelComments, topLevelWorldcup, topLevelNews, topLevelWebhook },
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -1015,6 +1121,7 @@ async function downloadFullBackup() {
       cosmetics: withCosmetics,
       inventory: withInventory,
       titles:    withTitle,
+      avatars:   Object.keys(avatars).length,
     };
   } catch (e) {
     console.error('Backup failed', e);
@@ -1081,6 +1188,11 @@ async function restoreFromBackup(payload) {
         updatedAt: Date.now(),
       }));
     }
+    // Avatares: só escreve se o backup TEM avatares (merge:true). Backup antigo
+    // (sem o campo) NÃO apaga os avatares atuais.
+    if (payload.avatars && typeof payload.avatars === 'object' && Object.keys(payload.avatars).length > 0) {
+      writes.push(AVATARS_DOC().set(payload.avatars, { merge: true }));
+    }
     await Promise.all(writes);
     const wcPicksRestored = Object.values(apostas?.worldcup?.picks || {})
                                   .reduce((s, perUser) => s + Object.keys(perUser || {}).length, 0);
@@ -1099,6 +1211,7 @@ async function restoreFromBackup(payload) {
         wcResults: wcResultsRestored,
         news:      Array.isArray(apostas?.news) ? apostas.news.length : 0,
         rounds:    (classificacao?.rounds || []).length,
+        avatars:   Object.keys(payload.avatars || {}).length,
       },
     };
   } catch (e) {
@@ -1133,6 +1246,8 @@ async function wipeAllData() {
         json: JSON.stringify({ currentRound: 0, rounds: defaultRounds() }),
         updatedAt: Date.now(),
       }, { merge: true }),
+      // Avatares custom: zera o doc inteiro (não há config a preservar aqui).
+      AVATARS_DOC().set({}),
     ]);
     return { ok: true, backedUp: backup };
   } catch (e) {
@@ -1677,6 +1792,32 @@ function Avatar({ teamId, nick, teamPlayers, cosmetics, size = 32, fullBody = fa
     );
   };
 
+  // AVATAR CUSTOM (upload do jogador): tem prioridade sobre o escudo do time e
+  // funciona até sem time. Mantém letra de fallback, badge e moldura.
+  const customAv = avatarFor(nick);
+  if (customAv) {
+    const onErr = (e) => { e.target.style.display = 'none'; e.target.parentNode.classList.add('avatar-fallback'); };
+    const lc = (nick || '?').charAt(0).toUpperCase();
+    const lbg = tid ? TEAM(tid).color : nickColor(nick);
+    if (fullBody) {
+      return (
+        <div className={'avatar avatar-full ' + className + frameClass} style={{ width: size, height: size }}>
+          <img className="avatar-custom-img" src={customAv} alt={nick || ''} onError={onErr} />
+          <span className="avatar-fallback-letter" style={{ background: lbg }}>{lc}</span>
+          {renderBadge()}
+        </div>
+      );
+    }
+    const iconElC = (
+      <div className={'avatar avatar-icon ' + (frameItem ? 'avatar-icon-inner' : className)} style={frameItem ? undefined : { width: size, height: size }}>
+        <img className="avatar-custom-img" src={customAv} alt={nick || ''} onError={onErr} />
+        <span className="avatar-fallback-letter" style={{ background: lbg, fontSize: size * 0.5 }}>{lc}</span>
+        {!frameItem && renderBadge()}
+      </div>
+    );
+    return wrapWithFrameDeco(iconElC);
+  }
+
   if (tid) {
     const t = TEAM(tid);
     const src = `avatars/${tid}.png`;
@@ -2045,6 +2186,9 @@ function App() {
   const [cs, setCs] = useState(null);
   const csLoadedRef   = useRef(false);
   const csApplyingRef = useRef(false);
+  // Avatares custom: contador que força re-render quando AVATAR_MAP (módulo) muda.
+  const [avatarsRev, setAvatarsRev] = useState(0);
+  const avLoadedRef = useRef(false);
 
   const [session, _setSession] = useState(loadSession);
   const setSession = (s) => { saveSession(s); _setSession(s); };
@@ -2352,6 +2496,26 @@ function App() {
         csLoadedRef.current = true;
       } catch (e) { console.warn('Classif parse failed', e); }
     }, err => console.warn('Classif subscription failed', err));
+    return () => unsub();
+  }, []);
+
+  // ── Firestore: avatares custom (primitivao/avatars) ───────────────────────
+  // Doc separado pra não inchar apostas. Mesmas guardas de !snap.exists (um
+  // exists=false transiente NÃO pode zerar os avatares). Atualiza o mapa de
+  // módulo AVATAR_MAP + bumpa avatarsRev pra re-render. CLAUDE.md §2.3.
+  useEffect(() => {
+    const ref = AVATARS_DOC();
+    const unsub = ref.onSnapshot(snap => {
+      if (!snap.exists) {
+        if (avLoadedRef.current) { console.warn('Avatars: exists=false IGNORADO (transiente).'); return; }
+        if (snap.metadata && snap.metadata.fromCache) return;
+        AVATAR_MAP = {}; avLoadedRef.current = true; setAvatarsRev(r => r + 1);
+        return;
+      }
+      AVATAR_MAP = snap.data() || {};
+      avLoadedRef.current = true;
+      setAvatarsRev(r => r + 1);
+    }, err => console.warn('Avatars subscription failed', err));
     return () => unsub();
   }, []);
 
@@ -3091,12 +3255,12 @@ function App() {
     } catch (e) { console.warn('setSelectedTitle failed', e); }
   };
 
-  // PERSONALIZAÇÃO: salva a cor de destaque escolhida pelo jogador. Aplica na
-  // hora (otimista) + mirror no localStorage (boot sem flash) e persiste em
-  // users[nick].theme. accent null/padrão => volta pro laranja.
-  const setUserTheme = async (accent) => {
-    const clean = accent && /^#?[0-9a-fA-F]{6}$/.test(accent) ? (accent[0] === '#' ? accent : '#' + accent) : null;
-    applyTheme(clean);
+  // PERSONALIZAÇÃO: salva o TEMA (id) escolhido pelo jogador. Aplica na hora
+  // (otimista) + mirror no localStorage (boot sem flash) e persiste em
+  // users[nick].theme. id inválido => volta pro padrão.
+  const setUserTheme = async (themeId) => {
+    const clean = pvThemeById(themeId) ? themeId : DEFAULT_THEME;
+    applyThemeValue(clean);
     saveThemeLS(clean);
     if (!session || !session.nick) return;
     const nick = session.nick;
@@ -3104,17 +3268,34 @@ function App() {
       await commitBetDocUpdate(remote => {
         const u = (remote.users || {})[nick];
         if (!u) return null;
-        return { ...remote, users: { ...remote.users, [nick]: { ...u, theme: clean || null } } };
+        return { ...remote, users: { ...remote.users, [nick]: { ...u, theme: clean } } };
       });
     } catch (e) { console.warn('setUserTheme failed', e); }
   };
 
+  // Avatar custom: upload (comprime + grava) e remover. Bumpa avatarsRev pro
+  // re-render imediato (além do listener). Só pro próprio user logado.
+  const uploadAvatar = async (srcDataUrl) => {
+    if (!session || !session.nick) return { err: 'precisa logar' };
+    const r = await setAvatarImage(session.nick, srcDataUrl);
+    setAvatarsRev(x => x + 1);
+    return r;
+  };
+  const removeAvatar = async () => {
+    if (!session || !session.nick) return;
+    await clearAvatarImage(session.nick);
+    setAvatarsRev(x => x + 1);
+  };
+
   // Aplica o tema do PRÓPRIO user quando o registro carrega/muda (sincroniza
-  // entre dispositivos). Mantém o localStorage alinhado pro próximo boot.
+  // entre dispositivos). Tolera valor legado (hex accent) via applyThemeValue.
+  // Mantém o localStorage alinhado pro próximo boot. Se o user NÃO tem tema,
+  // RESETA pro padrão do SO e limpa o mirror — senão o tema do usuário anterior
+  // "vaza" pro próximo no mesmo navegador (logout/login sem reload).
   useEffect(() => {
-    if (!me) return;
-    applyTheme(me.theme || null);
-    saveThemeLS(me.theme || null);
+    if (!me) return; // deslogado: deixa o tema do boot/SO como está
+    if (me.theme) { applyThemeValue(me.theme); saveThemeLS(me.theme); }
+    else { applyThemeValue(osDefaultThemeId()); saveThemeLS(null); }
   }, [me && me.theme]);
 
   // Contexto ÚNICO das conquistas (score/CC/drops/latch). Inclui TUDO que algum
@@ -3530,6 +3711,9 @@ function App() {
                 onSeeRanking={seeRanking}
                 theme={me?.theme || null}
                 onSetTheme={setUserTheme}
+                currentAvatar={avatarFor(session.nick)}
+                onUploadAvatar={uploadAvatar}
+                onRemoveAvatar={removeAvatar}
                 isNaturalMod={isNaturalMod} modDisabled={modDisabled} onToggleMod={toggleModView}
               />
             )}
@@ -7037,6 +7221,35 @@ const ACH_CATS = [
 const ACH_POINTS = { comum: 50, rara: 120, epica: 250, lendaria: 500 };
 const achPoints = (a) => (a && ACH_POINTS[a.rarity]) || 0;
 const RARITY_LABEL = { comum: 'COMUM', rara: 'RARA', epica: 'ÉPICA', lendaria: 'LENDÁRIA' };
+// ── SKILL TREE: ordem de progressão dentro de cada lane (categoria) ──────────
+// Conquistas da mesma trilha ficam ADJACENTES (esq→dir) pra ler como "caminho"
+// (ex: 50→100→200 apostas; high→mega→ultra roller). Fora de trilha cai no fim
+// da lane, ordenado por raridade asc. IDs aqui têm que bater com ACHIEVEMENTS
+// (um id errado só cai no fallback de raridade — não quebra).
+const ACH_PATHS = [
+  // campeonato
+  ['terceiro', 'vice', 'campeao'], ['podio'], ['fifa_invicto'], ['penultimo', 'lanterna'],
+  // mk
+  ['mk_bronze', 'mk_vice', 'mk_campeao'], ['mk_flawless'], ['mk_lanterna'],
+  // apostas: volume / valor / skill
+  ['estreante', 'apostador_plantao', 'viciado', 'centuriao'], ['sorte_novato'], ['madrugador'],
+  ['high_roller', 'mega_roller', 'ultra_roller'], ['high_roller_win', 'high_roller_loss'],
+  ['bolada', 'meio_jackpot', 'jackpot'], ['milionario', 'multimilionario'], ['tubarao', 'mega_tubarao'],
+  ['mao_quente', 'invencivel'], ['pe_frio', 'amaldicoado'],
+  ['minimalista', 'azarao', 'profeta', 'odd_insana'], ['casadinha', 'tudo_ou_nada'], ['falido'],
+  ['rei_apostas', 'vice_apostas', 'mico_apostas'],
+  // copa
+  ['copa_player', 'maratonista_copa'], ['vidente_copa', 'tika_taka', 'oraculo_copa'],
+];
+const RARITY_ORD = { comum: 0, rara: 1, epica: 2, lendaria: 3 };
+const ACH_ORDER = (() => { const m = {}; ACH_PATHS.forEach((p, pi) => p.forEach((id, si) => { m[id] = pi * 100 + si; })); return m; })();
+const achLaneSort = (a, b) => {
+  const oa = ACH_ORDER[a.id], ob = ACH_ORDER[b.id];
+  if (oa != null && ob != null) return oa - ob;
+  if (oa != null) return -1;
+  if (ob != null) return 1;
+  return (RARITY_ORD[a.rarity] - RARITY_ORD[b.rarity]) || (achPoints(a) - achPoints(b));
+};
 // Alias retrocompat: muito código ainda referencia TITLE_DEFS / "título".
 const TITLE_DEFS = ACHIEVEMENTS;
 // ─── ITEMS COSMÉTICOS (LOJA) ────────────────────────────────────────────────
@@ -8771,7 +8984,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   );
 }
 
-function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest, mkDraw, mkScores, ctx, onSeeRanking, theme, onSetTheme, isNaturalMod, modDisabled, onToggleMod }) {
+function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest, mkDraw, mkScores, ctx, onSeeRanking, theme, onSetTheme, currentAvatar, onUploadAvatar, onRemoveAvatar, isNaturalMod, modDisabled, onToggleMod }) {
   const [inscBusy, setInscBusy] = useState(null);
   const [ptab, setPtab] = useState('resumo'); // sub-aba: resumo / time / trofeus / titulos / colecao
   const champLabel = (cid) => cid === 'copa'
@@ -9174,7 +9387,9 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
 
       {/* ===== APARÊNCIA (tema) ===== */}
       {ptab === 'aparencia' && (
-        <AparenciaCard theme={theme} onSetTheme={onSetTheme} />
+        <AparenciaCard theme={theme} onSetTheme={onSetTheme}
+          nick={nick} teamPlayers={teamPlayers} cosmetics={me?.cosmetics}
+          currentAvatar={currentAvatar} onUploadAvatar={onUploadAvatar} onRemoveAvatar={onRemoveAvatar} />
       )}
       </div>{/* /.perfil-main */}
     </div>
@@ -9424,7 +9639,7 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle, onSeeRanking }) 
   const ranking = useMemo(() => computeHunterRanking(ctx || {}), [ctx]);
   const earned = TITLE_DEFS.filter(t => earnedIds.has(t.id));
   const locked = TITLE_DEFS.filter(t => !earnedIds.has(t.id));
-  const [showLocked, setShowLocked] = useState(false);
+  const [showLocked, setShowLocked] = useState(true); // árvore completa por padrão
 
   const score = earned.reduce((s, t) => s + achPoints(t), 0);
   const maxScore = TITLE_DEFS.reduce((s, t) => s + achPoints(t), 0);
@@ -9436,25 +9651,28 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle, onSeeRanking }) 
     onSelectTitle(selectedTitle === id ? null : id);
   };
 
-  // Chip compacto: ícone + nome + pontos. Hover mostra tooltip (desc + raridade + quem tem).
-  const renderChip = (t, isLocked) => {
-    const isSelected = !isLocked && selectedTitle === t.id;
+  // Nó da skill tree: disco (aceso/bloqueado/equipado) + pontos + nome + tooltip.
+  // prevLitRef.v guarda se o nó ANTERIOR da lane está aceso (acende o trecho do
+  // "galho" só quando este E o anterior estão conquistados).
+  const renderNode = (t, prevLitRef) => {
+    const isLocked = !earnedIds.has(t.id);
+    const isLit = !isLocked;
+    const isEquipped = isLit && selectedTitle === t.id;
+    const afterLit = isLit && prevLitRef.v;
+    prevLitRef.v = isLit;
     const titleOwners = owners[t.id] || [];
     return (
-      <div key={t.id} className="titulo-chip-wrap">
-        <button
-          className={'titulo-chip rarity-' + t.rarity + (isSelected ? ' selected' : '') + (isLocked ? ' locked' : '')}
+      <div key={t.id} role="listitem"
+        className={'sknode rarity-' + t.rarity + (isLit ? ' lit' : ' locked') + (afterLit ? ' after-lit' : '') + (isEquipped ? ' equipped' : '') + (isLocked && !showLocked ? ' is-hidden' : '')}>
+        <button type="button" className="sknode-btn"
           onClick={() => handleClick(t.id, isLocked)}
-          style={!isLocked ? { '--tc': t.color } : undefined}
-          aria-pressed={isSelected}
-        >
-          <span className="titulo-chip-ic">
-            {isLocked ? <Icon name="lock" size={15} /> : <Icon name={t.icon} size={17} />}
-          </span>
-          <span className="titulo-chip-name">{t.name}</span>
-          <span className="titulo-chip-pts">{achPoints(t)}</span>
-          {isSelected && <span className="titulo-chip-check"><Icon name="check" size={12} /></span>}
+          style={isLit ? { '--tc': t.color } : undefined}
+          aria-pressed={isEquipped} aria-label={t.name + (isLocked ? ' (bloqueada)' : '')}>
+          {isLocked ? <Icon name="lock" size={20} /> : <Icon name={t.icon} size={24} />}
+          {isEquipped && <span className="sknode-check"><Icon name="check" size={11} /></span>}
         </button>
+        <span className="sknode-pts">{achPoints(t)}</span>
+        <span className="sknode-name">{t.name}</span>
         <div className="titulo-tooltip">
           <div className="titulo-tooltip-head">{t.name} · {RARITY_LABEL[t.rarity]} · {achPoints(t)} PTS</div>
           <div className="titulo-tooltip-desc">{t.desc}</div>
@@ -9468,17 +9686,12 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle, onSeeRanking }) 
     );
   };
 
-  // Renderiza uma lista de conquistas agrupada por categoria (ACH_CATS).
-  const renderGrouped = (list, isLocked) => ACH_CATS.map(cat => {
-    const items = list.filter(t => t.cat === cat.id);
-    if (items.length === 0) return null;
-    return (
-      <div key={cat.id} className="titulos-cat">
-        <div className="titulos-cat-label">{cat.label} <span className="titulos-cat-n">{items.length}</span></div>
-        <div className="titulos-chips">{items.map(t => renderChip(t, isLocked))}</div>
-      </div>
-    );
-  });
+  // Uma lane por categoria, conquistas ordenadas pela trilha de progressão.
+  const lanes = ACH_CATS.map(cat => {
+    const items = TITLE_DEFS.filter(t => t.cat === cat.id).sort(achLaneSort);
+    const got = items.filter(t => earnedIds.has(t.id)).length;
+    return { cat, items, got, total: items.length };
+  }).filter(l => l.total > 0);
 
   return (
     <div className="card" style={{ marginBottom: 14 }}>
@@ -9504,27 +9717,32 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle, onSeeRanking }) 
             )}
           </div>
         </div>
-        <p style={{ marginTop: 10, marginBottom: 10, fontSize: 11, color: 'rgba(28,22,18,0.6)', lineHeight: 1.4 }}>
-          Clica numa conquista pra exibir no seu nome. Quanto mais rara, mais pontos (e mais CC). Toca (ou passa o mouse) pra ver o que é e quem tem.
+        <p style={{ marginTop: 10, marginBottom: 12, fontSize: 11, color: 'rgba(28,22,18,0.6)', lineHeight: 1.4 }}>
+          Sua árvore de conquistas: cada categoria é um trilho. Toca numa conquista DESBLOQUEADA pra exibir
+          no seu nome. Quanto mais rara, mais pontos (e mais CC). Passa o mouse (ou toca) pra ver o que é.
         </p>
 
-        {earned.length > 0 ? (
-          <>
-            <div className="small-label" style={{ marginTop: 0, marginBottom: 6 }}>SUAS CONQUISTAS · {score}/{maxScore} PTS</div>
-            {renderGrouped(earned, false)}
-          </>
-        ) : (
-          <div className="titulos-vazio">Você ainda não tem nenhuma conquista. Olha as bloqueadas pra ver como desbloquear.</div>
-        )}
+        <div className="sktree">
+          {lanes.map(({ cat, items, got, total }) => {
+            const prevLitRef = { v: false };
+            return (
+              <section key={cat.id} className="skln" aria-label={cat.label}>
+                <div className="skln-head">
+                  <span className="skln-label">{cat.label}</span>
+                  <span className="skln-bar" style={{ '--pct': (total ? (got / total) * 100 : 0) + '%' }} />
+                  <span className="skln-count">{got}/{total}</span>
+                </div>
+                <div className="skln-rail" role="list">{items.map(t => renderNode(t, prevLitRef))}</div>
+              </section>
+            );
+          })}
+        </div>
 
         {locked.length > 0 && (
-          <>
-            <button className="titulos-toggle" onClick={() => setShowLocked(s => !s)}>
-              <Icon name={showLocked ? 'caret-up' : 'caret-down'} size={12} />
-              {showLocked ? 'ESCONDER' : 'VER'} {locked.length} BLOQUEADA{locked.length === 1 ? '' : 'S'}
-            </button>
-            {showLocked && <div style={{ marginTop: 8 }}>{renderGrouped(locked, true)}</div>}
-          </>
+          <button className="titulos-toggle" onClick={() => setShowLocked(s => !s)}>
+            <Icon name={showLocked ? 'eye-off' : 'eye'} size={12} />
+            {showLocked ? 'ESCONDER BLOQUEADAS' : 'MOSTRAR BLOQUEADAS'} ({locked.length})
+          </button>
         )}
       </div>
     </div>
@@ -9534,68 +9752,92 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle, onSeeRanking }) 
 // APARÊNCIA — personalização da cor de destaque do site (por jogador).
 // Presets + cor livre (color picker) + voltar ao padrão. Aplica na hora via
 // onSetTheme (que mexe nas CSS vars + persiste). Prévia ao vivo no próprio card.
-function AparenciaCard({ theme, onSetTheme }) {
-  // Estado local OTIMISTA: reflete a escolha na hora (a persistência em
-  // me.theme pode demorar o round-trip do Firestore — ou nem existir, no admin).
-  // Fallback pro localStorage quando não há theme no registro (ex: admin).
-  const resolve = () => ((theme && theme.toLowerCase()) || loadThemeLS() || DEFAULT_ACCENT).toLowerCase();
-  const [accent, setAccent] = useState(resolve);
-  useEffect(() => { setAccent(resolve()); }, [theme]);
-  const pick = (a) => { setAccent((a && a.toLowerCase()) || DEFAULT_ACCENT); onSetTheme(a); };
-  const current = accent;
-  const isPreset = THEME_PRESETS.some(p => p.accent.toLowerCase() === current);
+function AparenciaCard({ theme, onSetTheme, nick, teamPlayers, cosmetics, currentAvatar, onUploadAvatar, onRemoveAvatar }) {
+  // Tema atual (id) — otimista: reflete a escolha na hora; tolera valor legado
+  // (hex) e cai pro localStorage/padrão quando não há id no registro.
+  const resolveTheme = () => {
+    if (theme && pvThemeById(theme)) return theme;
+    const ls = loadThemeLS();
+    if (ls && pvThemeById(ls)) return ls;
+    return DEFAULT_THEME;
+  };
+  const [themeId, setThemeId] = useState(resolveTheme);
+  useEffect(() => { setThemeId(resolveTheme()); }, [theme]);
+  const pickTheme = (id) => { setThemeId(id); onSetTheme(id); };
+
+  // Upload de foto
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const fileRef = useRef(null);
+  const onFile = (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    if (!/^image\//.test(f.type || '')) { setErr('Manda uma imagem (jpg, png...).'); return; }
+    setErr(''); setBusy(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const r = await onUploadAvatar(String(reader.result));
+      setBusy(false);
+      if (r && r.err) setErr(r.err === 'imagem grande demais' ? 'Imagem pesada demais mesmo comprimindo — tenta uma menor/mais simples.' : ('Falha: ' + r.err));
+    };
+    reader.onerror = () => { setBusy(false); setErr('Não consegui ler o arquivo.'); };
+    reader.readAsDataURL(f);
+  };
+  const onRemove = async () => { setBusy(true); setErr(''); await onRemoveAvatar(); setBusy(false); };
+
   return (
     <div className="card" style={{ marginBottom: 14 }}>
       <div className="card-head">
         <div className="title"><Icon name="sparkle" size={16} /> APARÊNCIA</div>
-        <div className="sub">SUA COR DO PRIMITIVÃO</div>
+        <div className="sub">SUA FOTO + TEMA</div>
       </div>
       <div className="card-body">
-        <p style={{ marginTop: 0, marginBottom: 12, fontSize: 12, color: 'rgba(28,22,18,0.65)', lineHeight: 1.5 }}>
-          Escolha a cor de destaque do site — vale só pra você e segue em todos os seus
-          dispositivos. Clica num preset ou escolhe uma cor livre.
-        </p>
-        <div className="aparencia-swatches">
-          {THEME_PRESETS.map(p => {
-            const sel = p.accent.toLowerCase() === current;
+        {/* ── FOTO (avatar custom) ── */}
+        <div className="small-label" style={{ marginTop: 0, marginBottom: 8 }}>SUA FOTO</div>
+        <div className="aparencia-avatar">
+          <Avatar nick={nick} teamPlayers={teamPlayers} cosmetics={cosmetics} size={88} />
+          <div className="aparencia-avatar-side">
+            <p className="aparencia-avatar-hint">
+              Sua foto aparece no lugar do escudo do time em todo o site (topo, ranking, perfil).
+              É cortada num quadrado e comprimida automaticamente.
+            </p>
+            <div className="aparencia-avatar-btns">
+              <button type="button" className="aparencia-up-btn" disabled={busy} onClick={() => fileRef.current && fileRef.current.click()}>
+                <Icon name="user" size={13} /> {busy ? 'ENVIANDO…' : (currentAvatar ? 'TROCAR FOTO' : 'ENVIAR FOTO')}
+              </button>
+              {currentAvatar && (
+                <button type="button" className="aparencia-rm-btn" disabled={busy} onClick={onRemove}>
+                  <Icon name="trash" size={12} /> REMOVER
+                </button>
+              )}
+            </div>
+            {err && <div className="aparencia-err">{err}</div>}
+            <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />
+          </div>
+        </div>
+
+        {/* ── TEMA do site ── */}
+        <div className="small-label" style={{ marginTop: 18, marginBottom: 8 }}>TEMA DO SITE</div>
+        <div className="aparencia-themes">
+          {PV_THEMES.map(t => {
+            const sel = t.id === themeId;
             return (
-              <button
-                key={p.accent}
-                type="button"
-                className={'aparencia-swatch' + (sel ? ' sel' : '')}
-                style={{ '--sw': p.accent }}
-                onClick={() => pick(p.accent)}
-                title={p.name}
-                aria-label={'Cor ' + p.name}
-                aria-pressed={sel}
-              >
-                {sel && <Icon name="check" size={16} />}
+              <button key={t.id} type="button" className={'aparencia-theme' + (sel ? ' sel' : '')} onClick={() => pickTheme(t.id)} aria-pressed={sel} title={t.name}>
+                <span className="aparencia-theme-pv" style={{ background: t.bg }}>
+                  <span className="aparencia-theme-dot" style={{ background: t.accent }} />
+                  {sel && <span className="aparencia-theme-check"><Icon name="check" size={13} /></span>}
+                </span>
+                <span className="aparencia-theme-name">{t.name}</span>
+                {t.dark && <span className="aparencia-theme-tag">ESCURO</span>}
               </button>
             );
           })}
         </div>
-        <div className="aparencia-row">
-          <label className="aparencia-custom">
-            <span className="aparencia-custom-sw" style={{ background: current }} />
-            <span className="aparencia-custom-lbl">COR LIVRE</span>
-            <input type="color" value={current} onChange={e => pick(e.target.value)} />
-          </label>
-          <span className="aparencia-code">{current.toUpperCase()}{!isPreset ? ' · custom' : ''}</span>
-          {current !== DEFAULT_ACCENT && (
-            <button type="button" className="aparencia-reset" onClick={() => pick(null)}>
-              <Icon name="refresh" size={12} /> VOLTAR AO PADRÃO
-            </button>
-          )}
-        </div>
-        {/* Prévia ao vivo: botões/realces na cor escolhida */}
-        <div className="aparencia-preview">
-          <div className="small-label" style={{ marginBottom: 8 }}>PRÉVIA</div>
-          <div className="aparencia-preview-row">
-            <span className="aparencia-pv-chip">DESTAQUE</span>
-            <button type="button" className="aparencia-pv-btn">BOTÃO</button>
-            <span className="aparencia-pv-link">LINK</span>
-          </div>
-        </div>
+        <p style={{ marginTop: 10, fontSize: 11, color: 'rgba(28,22,18,0.55)', lineHeight: 1.4 }}>
+          O tema vale só pra você e segue em todos os seus dispositivos. Os escuros deixam a "mesa"
+          preta; os cards continuam de papel.
+        </p>
       </div>
     </div>
   );
@@ -12191,7 +12433,7 @@ function BackupPanel() {
         </button>
         {status && status !== 'running' && status.ok && (
           <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Icon name="check" size={14} /> Backup baixado: {status.users} usuários, {status.bets} apostas, {status.wcPicks || 0} palpites da Copa ({status.wcResults || 0} resultados), {status.news || 0} news, {status.titles || 0} c/ título, {status.cosmetics || 0} c/ cosmético equipado, {status.inventory || 0} c/ inventário.
+            <Icon name="check" size={14} /> Backup baixado: {status.users} usuários, {status.bets} apostas, {status.wcPicks || 0} palpites da Copa ({status.wcResults || 0} resultados), {status.news || 0} news, {status.titles || 0} c/ título, {status.cosmetics || 0} c/ cosmético equipado, {status.inventory || 0} c/ inventário, {status.avatars || 0} c/ foto.
           </p>
         )}
         {status && status !== 'running' && !status.ok && (

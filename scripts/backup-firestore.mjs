@@ -22,9 +22,10 @@ try {
 admin.initializeApp({ credential: admin.credential.cert(sa) });
 const db = admin.firestore();
 
-const [betSnap, classifSnap] = await Promise.all([
+const [betSnap, classifSnap, avatarSnap] = await Promise.all([
   db.doc('primitivao/apostas').get(),
   db.doc('primitivao/state').get(),
+  db.doc('primitivao/avatars').get(),
 ]);
 
 const parseJsonField = (snap) => {
@@ -69,12 +70,17 @@ if (apostasData && typeof apostasData === 'object') {
   if (typeof topDiscordWebhook === 'string') apostasData.discord_webhook = topDiscordWebhook;
 }
 
+// Avatares custom: doc SEPARADO primitivao/avatars { nick: dataUrl } (fora do
+// doc de apostas pra não inchar). Backup tem que cobrir — senão restore perde.
+const avatars = avatarSnap.exists ? (avatarSnap.data() || {}) : {};
+
 const payload = {
   exportedAt: new Date().toISOString(),
-  version: 4,
+  version: 5,
   source: 'github-action',
   apostas:       apostasData,
   classificacao: parseJsonField(classifSnap),
+  avatars,
 };
 
 const date = new Date().toISOString().slice(0, 10);
@@ -92,6 +98,7 @@ const wcResultsTotal = Object.keys(payload.apostas?.worldcup?.results || {}).len
 const commentsTotal  = Object.values(payload.apostas?.comments || {})
                               .reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
 const newsCount      = Array.isArray(payload.apostas?.news) ? payload.apostas.news.length : 0;
+const avatarsCount   = Object.keys(payload.avatars || {}).length;
 
 console.log(`Wrote ${file}`);
 console.log(`  users:        ${users}`);
@@ -101,6 +108,7 @@ console.log(`  copa picks:   ${wcPicksTotal} (${Object.keys(payload.apostas?.wor
 console.log(`  copa results: ${wcResultsTotal} jogos`);
 console.log(`  comments:     ${commentsTotal}`);
 console.log(`  news:         ${newsCount}`);
+console.log(`  avatars:      ${avatarsCount}`);
 
 // Verificação dura: se tem usuarios com palpites na Copa, garantir que o
 // backup contém. Se o número saiu zero quando antes tinha, falha o job

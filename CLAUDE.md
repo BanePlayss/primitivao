@@ -114,8 +114,14 @@ Campos **top-level** (siblings do `json` stringificado), NÃO entram no
 reducer/json: `interests`, `comments`, `worldcup`, `news`,
 `discord_webhook`. São lidos/escritos direto via `BET_DOC().set(..., {merge:true})`.
 
+Doc **separado** `primitivao/avatars` (`{ nickLower: dataUrl }`): fotos custom
+dos jogadores. Fica FORA do doc de apostas de propósito (data URLs são grandes
+e estourariam o teto de ~1MB do doc). Helper `AVATARS_DOC()`, listener próprio
+(mesmas guardas de `!snap.exists`), thumbnails comprimidos no cliente (~20KB).
+
 Backup completo (botão admin + GitHub Action) tem que cobrir json +
-TODOS os top-level. Ver `downloadFullBackup` e `scripts/backup-firestore.mjs`.
+TODOS os top-level + o doc `avatars`. Ver `downloadFullBackup`,
+`restoreFromBackup`, `wipeAllData` e `scripts/backup-firestore.mjs`.
 
 ## 2.3 `onSnapshot` + `!snap.exists` (NÃO QUEBRAR — já causou "reset")
 

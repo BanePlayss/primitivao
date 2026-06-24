@@ -21,11 +21,13 @@
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; min-height: 100%; }
+    /* O fundo vem do tema via --pv-bg (setado por applyThemeValue no boot).
+       O fallback é o gradiente claro padrão — vale antes do JS rodar (sem flash). */
     body {
-      background:
+      background: var(--pv-bg,
         radial-gradient(circle at 18% 12%, rgba(215,100,20,0.10), transparent 42%),
         radial-gradient(circle at 82% 88%, rgba(215,100,20,0.06), transparent 42%),
-        var(--pv-bone);
+        var(--pv-bone));
       font-family: "Space Grotesk", system-ui, sans-serif;
       color: var(--pv-charcoal);
     }
@@ -3008,6 +3010,68 @@
       cursor: pointer; padding: 4px 0;
     }
     .titulos-toggle:hover { color: var(--pv-charcoal); }
+    /* ════ SKILL TREE de conquistas (trilhos por categoria) ════ */
+    .sktree { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+    .skln { border: 2px solid rgba(28,22,18,0.14); background: color-mix(in srgb, var(--pv-bone) 70%, #fff); }
+    .skln-head { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 2px solid rgba(28,22,18,0.1); }
+    .skln-label { font-family: inherit; font-weight: 800; font-size: 10px; letter-spacing: 0.18em; color: rgba(28,22,18,0.7); }
+    .skln-count { font-family: "JetBrains Mono", monospace; font-size: 10px; color: rgba(28,22,18,0.55); }
+    .skln-bar { flex: 1; height: 4px; background: rgba(28,22,18,0.12); position: relative; overflow: hidden; }
+    .skln-bar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--pct, 0%); background: var(--pv-orange); transition: width var(--dur) var(--ease); }
+    .skln-rail {
+      position: relative; display: flex; align-items: flex-start; gap: 0;
+      padding: 16px 14px 18px; overflow-x: auto; overflow-y: visible;
+      scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+      mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+      -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+    }
+    /* espinha tracejada da lane */
+    .skln-rail::before {
+      content: ''; position: absolute; left: 14px; right: 14px; top: 46px; height: 3px; transform: translateY(-50%);
+      background: repeating-linear-gradient(90deg, rgba(28,22,18,0.18) 0 6px, transparent 6px 11px); z-index: 0;
+    }
+    .sknode { position: relative; z-index: 1; flex: 0 0 auto; width: 74px; display: flex; flex-direction: column; align-items: center; scroll-snap-align: start; }
+    .sknode::before { content: ''; position: absolute; right: 50%; left: -37px; top: 30px; height: 3px; background: rgba(28,22,18,0.18); z-index: -1; }
+    .sknode:first-child::before { display: none; }
+    .sknode.lit.after-lit::before { background: var(--pv-orange); }
+    .sknode.is-hidden { display: none; }
+    .sknode-btn {
+      width: 60px; height: 60px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+      border: 3px solid var(--tc, var(--pv-charcoal)); background: color-mix(in srgb, var(--tc, #888) 12%, var(--pv-bone));
+      color: var(--tc, var(--pv-charcoal)); cursor: pointer; position: relative;
+      transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+    }
+    .sknode.lit .sknode-btn:hover { transform: translateY(-3px); box-shadow: var(--sh-sm); }
+    .sknode.locked .sknode-btn { border-color: rgba(28,22,18,0.22); background: rgba(28,22,18,0.05); color: rgba(28,22,18,0.4); filter: grayscale(1); cursor: not-allowed; }
+    .sknode.equipped .sknode-btn { box-shadow: 0 0 0 3px var(--pv-bone), 0 0 0 6px var(--pv-orange); }
+    .sknode-check { position: absolute; right: -4px; top: -4px; width: 18px; height: 18px; border-radius: 50%; background: var(--pv-orange); color: var(--pv-bone); display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--pv-bone); }
+    .sknode-pts { margin-top: 6px; font-family: "JetBrains Mono", monospace; font-size: 9px; font-weight: 700; padding: 1px 5px; background: var(--tc, #888); color: var(--pv-bone); line-height: 1.4; white-space: nowrap; }
+    .sknode.locked .sknode-pts { background: rgba(28,22,18,0.3); }
+    .sknode-name { margin-top: 4px; max-width: 72px; text-align: center; font-family: inherit; font-weight: 800; font-size: 8.5px; letter-spacing: 0.06em; line-height: 1.15; color: rgba(28,22,18,0.7); }
+    .sknode.locked .sknode-name { color: rgba(28,22,18,0.4); }
+    /* raridade — TODAS as 4 (disco maior + glow conforme sobe) */
+    .sknode.rarity-comum .sknode-btn { width: 52px; height: 52px; }
+    .sknode.rarity-rara.lit .sknode-btn { box-shadow: 0 0 0 1px color-mix(in srgb, var(--tc) 30%, transparent); }
+    .sknode.rarity-epica.lit .sknode-btn { box-shadow: 0 0 10px -1px color-mix(in srgb, var(--tc) 55%, transparent); }
+    .sknode.rarity-lendaria .sknode-btn { width: 66px; height: 66px; border-width: 4px; }
+    .sknode.rarity-lendaria.lit .sknode-btn { box-shadow: 0 0 0 2px color-mix(in srgb, var(--tc) 40%, transparent), 0 0 14px -1px color-mix(in srgb, var(--tc) 70%, transparent); }
+    .sknode.rarity-lendaria.equipped .sknode-btn { box-shadow: 0 0 0 3px var(--pv-bone), 0 0 0 6px var(--pv-orange); }
+    /* tooltip do nó reusa .titulo-tooltip; só re-ancora pro topo do disco */
+    .sknode .titulo-tooltip { bottom: calc(100% + 6px); }
+    .sknode:hover .titulo-tooltip, .sknode:focus-within .titulo-tooltip { opacity: 1; }
+    @media (max-width: 720px) {
+      .skln-rail { padding: 14px 12px 16px; scroll-snap-type: x mandatory; }
+      .sknode { width: 66px; }
+      .sknode::before { left: -33px; }
+      .sknode-btn { width: 54px; height: 54px; }
+      .sknode.rarity-lendaria .sknode-btn { width: 60px; height: 60px; }
+      .sknode.rarity-comum .sknode-btn { width: 48px; height: 48px; }
+      /* mobile: tooltip inline (igual aos chips) em vez de flutuante */
+      .sknode .titulo-tooltip { position: static; transform: none; left: auto; bottom: auto; min-width: 0; max-width: none; width: 100%; display: none; opacity: 1; pointer-events: auto; margin-top: 6px; box-shadow: none; }
+      .sknode .titulo-tooltip::after { display: none; }
+      .sknode:focus-within .titulo-tooltip { display: block; }
+    }
+    @media (pointer: coarse) { .sknode-btn { min-width: 44px; min-height: 44px; } }
     /* ── Conquistas: pontos no chip ── */
     .titulo-chip-pts {
       font-family: "JetBrains Mono", monospace;
@@ -3055,45 +3119,51 @@
       padding: 2px 0;
     }
     .cacador-banner-see:hover { color: var(--pv-bone); text-decoration: underline; }
-    /* ── APARÊNCIA (personalizar cor) ── */
-    .aparencia-swatches { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
-    .aparencia-swatch {
-      width: 44px; height: 44px; border: 3px solid var(--pv-charcoal);
-      background: var(--sw); cursor: pointer; position: relative;
-      display: flex; align-items: center; justify-content: center;
-      color: #fff; box-shadow: var(--sh-sm);
-      transition: transform var(--dur) var(--ease);
+    /* ── APARÊNCIA: foto (avatar custom) ── */
+    .aparencia-avatar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .aparencia-avatar-side { flex: 1; min-width: 200px; }
+    .aparencia-avatar-hint { margin: 0 0 8px; font-size: 11px; color: rgba(28,22,18,0.6); line-height: 1.45; }
+    .aparencia-avatar-btns { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .aparencia-up-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--pv-charcoal); color: var(--pv-bone); border: 2px solid var(--pv-orange);
+      font-family: inherit; font-weight: 800; font-size: 11px; letter-spacing: 0.1em;
+      padding: 8px 14px; cursor: pointer;
     }
-    .aparencia-swatch:hover { transform: translateY(-2px); }
-    .aparencia-swatch.sel { outline: 3px solid var(--pv-charcoal); outline-offset: 3px; }
-    .aparencia-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
-    .aparencia-custom {
-      display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
-      border: 2px solid var(--pv-charcoal); padding: 6px 10px; background: var(--pv-bone);
-    }
-    .aparencia-custom-sw { width: 22px; height: 22px; border: 2px solid var(--pv-charcoal); }
-    .aparencia-custom-lbl { font-weight: 800; font-size: 11px; letter-spacing: 0.12em; }
-    .aparencia-custom input[type="color"] { width: 28px; height: 28px; border: none; background: none; cursor: pointer; padding: 0; }
-    .aparencia-code { font-family: "JetBrains Mono", monospace; font-size: 12px; color: rgba(28,22,18,0.7); }
-    .aparencia-reset {
+    .aparencia-up-btn:disabled { opacity: 0.6; cursor: default; }
+    .aparencia-rm-btn {
       display: inline-flex; align-items: center; gap: 5px;
       background: transparent; border: none; cursor: pointer;
-      font-family: inherit; font-weight: 800; font-size: 10px;
-      letter-spacing: 0.14em; color: var(--pv-orange); padding: 4px 0;
+      font-family: inherit; font-weight: 800; font-size: 10px; letter-spacing: 0.12em;
+      color: var(--pv-red-bright); padding: 4px 0;
     }
-    .aparencia-reset:hover { color: var(--pv-charcoal); }
-    .aparencia-preview { border-top: 2px dashed rgba(28,22,18,0.2); padding-top: 12px; }
-    .aparencia-preview-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .aparencia-pv-chip {
-      background: var(--pv-orange); color: var(--pv-bone);
-      font-weight: 800; font-size: 11px; letter-spacing: 0.12em; padding: 5px 10px;
+    .aparencia-rm-btn:disabled { opacity: 0.5; cursor: default; }
+    .aparencia-err { margin-top: 8px; font-size: 11px; color: var(--pv-red-bright); font-weight: 700; line-height: 1.4; }
+    /* ── APARÊNCIA: grid de temas ── */
+    .aparencia-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+    .aparencia-theme {
+      display: flex; flex-direction: column; align-items: stretch; gap: 5px;
+      background: transparent; border: 2px solid rgba(28,22,18,0.18); padding: 6px;
+      font-family: inherit; cursor: pointer; position: relative;
+      transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease);
     }
-    .aparencia-pv-btn {
-      background: var(--pv-charcoal); color: var(--pv-bone);
-      border: 2px solid var(--pv-orange); cursor: default;
-      font-family: inherit; font-weight: 800; font-size: 11px; letter-spacing: 0.12em; padding: 6px 12px;
+    .aparencia-theme:hover { transform: translateY(-2px); }
+    .aparencia-theme.sel { border-color: var(--pv-orange); box-shadow: var(--sh-sm); }
+    .aparencia-theme-pv {
+      position: relative; height: 46px; border: 1px solid rgba(28,22,18,0.2);
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
     }
-    .aparencia-pv-link { color: var(--pv-orange); font-weight: 800; font-size: 12px; letter-spacing: 0.06em; }
+    .aparencia-theme-dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.85); box-shadow: 0 0 0 1px rgba(0,0,0,0.25); }
+    .aparencia-theme-check {
+      position: absolute; top: 3px; right: 3px; width: 18px; height: 18px;
+      background: var(--pv-orange); color: var(--pv-bone); border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .aparencia-theme-name { font-weight: 800; font-size: 10px; letter-spacing: 0.06em; text-align: center; color: var(--pv-charcoal); }
+    .aparencia-theme-tag {
+      font-family: "JetBrains Mono", monospace; font-size: 8px; letter-spacing: 0.1em;
+      color: rgba(28,22,18,0.55); text-align: center;
+    }
     /* ── Ranking de Caçadores (HALL) ── */
     .cacador-podium {
       display: grid; grid-template-columns: repeat(3, 1fr);
@@ -3253,6 +3323,10 @@
       /* mostra o terço superior do PNG → a cabeça do personagem */
       object-position: 50% 0%;
     }
+    /* Foto enviada pelo jogador: já é quadrada (cover centralizado), centraliza
+       em vez de cortar o topo (que serve pros PNGs de corpo inteiro do time). */
+    .avatar-icon img.avatar-custom-img { object-position: 50% 50%; }
+    .avatar-full img.avatar-custom-img { object-fit: cover; object-position: 50% 50%; }
     .avatar-full {
       border-radius: 8px;
       border: 2px solid var(--pv-charcoal);
@@ -4611,36 +4685,24 @@
     /* Abordagem conservadora: o FUNDO da página escurece (a "mesa") e os
        cards continuam de papel bone — coerente com a estética de jornal e
        não exige repintar as ~480 cores internas. Só o texto que fica DIRETO
-       no fundo (fora de card/caixa escura) clareia. */
-    @media (prefers-color-scheme: dark) {
-      body {
-        background:
-          radial-gradient(circle at 18% 12%, rgba(215,100,20,0.07), transparent 42%),
-          radial-gradient(circle at 82% 88%, rgba(215,100,20,0.04), transparent 42%),
-          #16100b;
-      }
-      /* rodapé do feed de notícias (texto solto no fundo) */
-      .inicio-foot { color: rgba(244,234,215,0.5); }
-      /* variante "bare" do header de campeonato (sem caixa escura) */
-      .champ-header--bare { color: var(--pv-bone); border-bottom-color: rgba(244,234,215,0.4); }
-      .champ-header--bare .champ-header-id { color: var(--pv-bone); }
-      .champ-header--bare .champ-trocar { color: var(--pv-bone); border-color: rgba(244,234,215,0.45); }
-      /* abas soltas no fundo (admin/perfil): texto e trilho clareiam */
-      .tabs { border-bottom-color: rgba(244,234,215,0.35); }
-      .tab { color: rgba(244,234,215,0.55); }
-      .tab.active { color: var(--pv-bone); background: rgba(215,100,20,0.16); }
-      /* a sombra dura charcoal some no fundo escuro — clareia o contorno */
-      .card { box-shadow: 6px 6px 0 rgba(0,0,0,0.55); border-color: #0d0a07; }
-      .card:hover { box-shadow: 8px 8px 0 rgba(0,0,0,0.6); }
-      /* subtabs da COPA e do HALL ficam direto no fundo (fora de card) —
-         mesmo tratamento das .tabs acima, senão o texto charcoal some */
-      .copa-subtabs, .hall-subtabs { border-bottom-color: rgba(244,234,215,0.35); }
-      .copa-subtab, .hall-subtab { color: rgba(244,234,215,0.55); }
-      .copa-subtab.active { color: var(--pv-bone); background: rgba(215,100,20,0.16); }
-      .hall-subtab.fame.active { color: #e3c14d; border-bottom-color: #e3c14d; }
-      .hall-subtab.shame.active { color: #e07a7a; border-bottom-color: #e07a7a; }
-      .hall-subtab.hunt.active { color: #f08a3c; border-bottom-color: #f08a3c; }
-      .hall-subtab:hover:not(.active) { color: var(--pv-bone); }
-      /* legenda dos grupos da Copa: <p> solto na página, herda texto do body */
-      .copa-grupos-legenda { background: rgba(244,234,215,0.08); color: var(--pv-bone); }
-    }
+       no fundo (fora de card/caixa escura) clareia.
+       AGORA por CLASSE (html.pv-dark), controlada pelo TEMA escolhido — não
+       mais pelo @media do SO. O fundo (a "mesa") vem do --pv-bg de cada tema
+       escuro, então aqui NÃO setamos body background (cada tema tem o seu). */
+    html.pv-dark .inicio-foot { color: rgba(244,234,215,0.5); }
+    html.pv-dark .champ-header--bare { color: var(--pv-bone); border-bottom-color: rgba(244,234,215,0.4); }
+    html.pv-dark .champ-header--bare .champ-header-id { color: var(--pv-bone); }
+    html.pv-dark .champ-header--bare .champ-trocar { color: var(--pv-bone); border-color: rgba(244,234,215,0.45); }
+    html.pv-dark .tabs { border-bottom-color: rgba(244,234,215,0.35); }
+    html.pv-dark .tab { color: rgba(244,234,215,0.55); }
+    html.pv-dark .tab.active { color: var(--pv-bone); background: rgba(215,100,20,0.16); }
+    html.pv-dark .card { box-shadow: 6px 6px 0 rgba(0,0,0,0.55); border-color: #0d0a07; }
+    html.pv-dark .card:hover { box-shadow: 8px 8px 0 rgba(0,0,0,0.6); }
+    html.pv-dark .copa-subtabs, html.pv-dark .hall-subtabs { border-bottom-color: rgba(244,234,215,0.35); }
+    html.pv-dark .copa-subtab, html.pv-dark .hall-subtab { color: rgba(244,234,215,0.55); }
+    html.pv-dark .copa-subtab.active { color: var(--pv-bone); background: rgba(215,100,20,0.16); }
+    html.pv-dark .hall-subtab.fame.active { color: #e3c14d; border-bottom-color: #e3c14d; }
+    html.pv-dark .hall-subtab.shame.active { color: #e07a7a; border-bottom-color: #e07a7a; }
+    html.pv-dark .hall-subtab.hunt.active { color: #f08a3c; border-bottom-color: #f08a3c; }
+    html.pv-dark .hall-subtab:hover:not(.active) { color: var(--pv-bone); }
+    html.pv-dark .copa-grupos-legenda { background: rgba(244,234,215,0.08); color: var(--pv-bone); }

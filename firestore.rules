@@ -60,6 +60,17 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Avatares custom (fotos dos jogadores) — doc SEPARADO { nickLower: dataUrl }.
+    // Fica fora do doc de apostas pra não inchá-lo. Mesma postura defensiva dos
+    // outros docs (app ainda não usa Auth): leitura pública, escrita estrutural.
+    // O cliente comprime cada foto (~20KB) antes de gravar; o Firestore já barra
+    // doc > 1MB sozinho. Aqui só limitamos o nº de chaves (nicks) como safety net.
+    match /primitivao/avatars {
+      allow read: if true;
+      allow create, update: if request.resource.data.size() <= 100;
+      allow delete: if false;
+    }
+
     // Tudo mais é negado por padrão (defensivo contra futuras coleções).
     match /{document=**} {
       allow read, write: if false;
