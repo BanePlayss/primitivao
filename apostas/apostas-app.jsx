@@ -123,7 +123,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260624-conquistas ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260624-conquistas2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6676,10 +6676,12 @@ function mkStatsFor(nick, ctx) {
   const draw = Array.isArray(mk.draw) ? mk.draw : [];
   const scores = mk.scores || {};
   const players = mkInscritos((ctx && ctx.interests) || {});
-  if (!players.includes(nick)) return { won: 0, flawless: false, champion: false };
+  const empty = { won: 0, flawless: false, champion: false, pos: 0, total: 0, isLast: false, beat: [] };
+  if (!players.includes(nick)) return empty;
   const key = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const concluded = [];
   let won = 0, flawless = false;
+  const beat = [];
   draw.forEach(r => (r.games || []).forEach((g, gi) => {
     if (mkGameVoid(g)) return;
     const o = mkMatchOutcome(scores[key(r, gi)]);
@@ -6690,18 +6692,52 @@ function mkStatsFor(nick, ctx) {
     const iWon = (meHome && o.winner === 'H') || (meAway && o.winner === 'A');
     if (iWon) {
       won++;
+      if (beat.indexOf(meHome ? g.away : g.home) < 0) beat.push(meHome ? g.away : g.home);
       const conceded = meHome ? o.roundsA : o.roundsH;
       if (conceded === 0) flawless = true;
     }
   }));
   const allDone = draw.length > 0 && draw.every(r => (r.games || []).every((g, gi) =>
     mkGameVoid(g) || !!mkMatchOutcome(scores[key(r, gi)])));
-  let champion = false;
+  let champion = false, pos = 0, total = 0, isLast = false;
   if (allDone && players.length >= 2) {
     const stand = computeMkStandings(players, concluded);
-    champion = stand.length > 0 && stand[0].nick === nick && stand[0].j > 0;
+    const idx = stand.findIndex(s => s.nick === nick);
+    if (idx >= 0 && stand[idx].j > 0) {
+      pos = idx + 1; total = stand.length;
+      champion = pos === 1;
+      isLast = pos === total;
+    }
   }
-  return { won, flawless, champion };
+  return { won, flawless, champion, pos, total, isLast, beat };
+}
+
+// Venceu um JOGO da FIFA contra o time `oppTeamId`? Resolve o time do nick via
+// teamPlayers e varre cs.rounds (placares gh/ga por teamId). false se for o
+// próprio time ou se nunca venceu esse adversário.
+function fifaBeat(nick, oppTeamId, ctx) {
+  const cs = ctx && ctx.cs; if (!cs) return false;
+  const myTeam = reverseTeamMap((ctx && ctx.teamPlayers) || {})[nick];
+  if (!myTeam || myTeam === oppTeamId) return false;
+  for (const r of (cs.rounds || [])) for (const m of (r || [])) {
+    const gh = parseInt(m.gh, 10), ga = parseInt(m.ga, 10);
+    if (Number.isNaN(gh) || Number.isNaN(ga)) continue;
+    if (m.home === myTeam && m.away === oppTeamId && gh > ga) return true;
+    if (m.away === myTeam && m.home === oppTeamId && ga > gh) return true;
+  }
+  return false;
+}
+
+// Terminou a temporada da FIFA INVICTO (jogou tudo e não perdeu nenhum jogo).
+function fifaUnbeaten(nick, ctx) {
+  const cs = ctx && ctx.cs; if (!cs) return false;
+  const rounds = cs.rounds || [];
+  const allDone = rounds.length > 0 && rounds.every(r => Array.isArray(r) && r.length > 0 && r.every(g => g.gh !== '' && g.ga !== ''));
+  if (!allDone) return false;
+  const myTeam = reverseTeamMap((ctx && ctx.teamPlayers) || {})[nick];
+  if (!myTeam) return false;
+  const st = computeStandings(rounds).find(s => s.id === myTeam);
+  return !!st && st.j > 0 && st.d === 0;
 }
 
 // Hora local (0-23) em que um cupom foi criado, ou null.
@@ -6761,7 +6797,21 @@ const ACH = {
   veteran:     ({ nick, interests }) => participationCount(nick, interests) >= 3,
   mkChamp:     (ctx) => mkStatsFor(ctx.nick, ctx).champion,
   mkFlawless:  (ctx) => mkStatsFor(ctx.nick, ctx).flawless,
-  commenter:   ({ nick, comments }) => commentsCountFor(nick, comments) >= 10,
+  mkVice:      (ctx) => { const s = mkStatsFor(ctx.nick, ctx); return s.pos === 2 && s.total >= 3; },
+  mkBronze:    (ctx) => { const s = mkStatsFor(ctx.nick, ctx); return s.pos === 3 && s.total >= 4; },
+  mkLast:      (ctx) => { const s = mkStatsFor(ctx.nick, ctx); return s.isLast && s.total >= 3; },
+  fifaUnbeaten:(ctx) => fifaUnbeaten(ctx.nick, ctx),
+  // ── Apostas de VALOR ALTO ──
+  megaRoller:  ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 500000),
+  ultraRoller: ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 1000000),
+  halfMilWin:  ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Number(b.payout) >= 500000),
+  jackpot:     ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Number(b.payout) >= 1000000),
+  megaWhale:   ({ nick, bets }) => totalWagered(bets, nick) >= 5000000,
+  multiMil:    ({ nick, users }) => ((users || {})[nick]?.pc || 0) >= 1000000,
+  // ── RIVAIS (zoeira interna do grupo) ──
+  beatMohamedMk: (ctx) => mkStatsFor(ctx.nick, ctx).beat.indexOf('mohamed') >= 0,
+  beatJucaFifa:  (ctx) => fifaBeat(ctx.nick, 'juca', ctx),
+  beatBaneLol:   () => false, // LoL ainda é "em breve" — dispara quando o campeonato abrir
 };
 
 // ─── CONQUISTAS (ACHIEVEMENTS) ──────────────────────────────────────────────
@@ -6782,8 +6832,10 @@ const ACHIEVEMENTS = [
   { id: 'veterano', name: 'VETERANO', icon: 'shield', color: '#6b4423', cat: 'participacao', rarity: 'rara',
     desc: 'Se inscreveu em 3 campeonatos ou mais. Já é da casa.', check: ACH.veteran },
   // ── CAMPEONATO (FIFA) ──
-  { id: 'campeao', name: 'CAMPEÃO', icon: 'trophy', color: '#d4af37', cat: 'campeonato', rarity: 'lendaria',
+  { id: 'campeao', name: 'CAMPEÃO DA FIFA', icon: 'trophy', color: '#d4af37', cat: 'campeonato', rarity: 'lendaria',
     desc: 'Terminou uma temporada da FIFA em PRIMEIRO lugar. Leva o troféu pra casa.', check: ACH.champion, rewards: { badge: 'badge-campeao', frame: 'frame-gold' } },
+  { id: 'fifa_invicto', name: 'INVICTO NA FIFA', icon: 'shield', color: '#2a8f3f', cat: 'campeonato', rarity: 'lendaria',
+    desc: 'Terminou a temporada da FIFA SEM PERDER nenhum jogo. Muralha.', check: ACH.fifaUnbeaten },
   { id: 'vice', name: 'VICE-CAMPEÃO', icon: 'medal', color: '#9a9a9a', cat: 'campeonato', rarity: 'epica',
     desc: 'Terminou em SEGUNDO. A medalha de prata — tão perto, tão longe.', check: ACH.vice, rewards: { badge: 'badge-vice' } },
   { id: 'terceiro', name: 'TERCEIRO LUGAR', icon: 'medal', color: '#b06a2c', cat: 'campeonato', rarity: 'rara',
@@ -6799,6 +6851,12 @@ const ACHIEVEMENTS = [
     desc: 'Terminou uma temporada de Mortal Kombat em PRIMEIRO. FINISH HIM.', check: ACH.mkChamp, rewards: { badge: 'badge-fatality', frame: 'frame-fatality' } },
   { id: 'mk_flawless', name: 'FLAWLESS VICTORY', icon: 'fist', color: '#8a1f1f', cat: 'mk', rarity: 'epica',
     desc: 'Venceu um confronto de MK sem ceder NENHUM round. Perfeito.', check: ACH.mkFlawless },
+  { id: 'mk_vice', name: 'VICE DO MK', icon: 'medal', color: '#9a9a9a', cat: 'mk', rarity: 'epica',
+    desc: 'Terminou uma temporada de Mortal Kombat em SEGUNDO. Quase o cinturão.', check: ACH.mkVice },
+  { id: 'mk_bronze', name: 'BRONZE DO MK', icon: 'medal', color: '#b06a2c', cat: 'mk', rarity: 'rara',
+    desc: 'Terminou uma temporada de Mortal Kombat em TERCEIRO. No pódio das porradas.', check: ACH.mkBronze },
+  { id: 'mk_lanterna', name: 'SACO DE PANCADA', icon: 'fist', color: '#7a2222', cat: 'mk', rarity: 'rara',
+    desc: 'Terminou a temporada de MK em ÚLTIMO. Apanhou a season inteira.', check: ACH.mkLast },
   // ── APOSTAS: valor ──
   { id: 'high_roller', name: 'HIGH ROLLER', icon: 'coin', color: '#c9a227', cat: 'apostas', rarity: 'rara',
     desc: 'Apostou 100.000 PC ou mais num único cupom. Coragem (ou loucura).', check: ACH.highRoller, rewards: { badge: 'badge-high-roller' } },
@@ -6812,6 +6870,19 @@ const ACHIEVEMENTS = [
     desc: 'Acumulou 100.000 PC ou mais no saldo. Banca gorda.', check: ACH.millionaire, rewards: { badge: 'badge-milionario' } },
   { id: 'tubarao', name: 'TUBARÃO', icon: 'coin-stack', color: '#2a6f8f', cat: 'apostas', rarity: 'lendaria',
     desc: 'Movimentou 1.000.000 PC somando todos os cupons. Peixe grande do mercado.', check: ACH.whale, rewards: { badge: 'badge-tubarao' } },
+  // ── APOSTAS: valores ALTÍSSIMOS ──
+  { id: 'mega_roller', name: 'MEGA ROLLER', icon: 'coin-fire', color: '#c9a227', cat: 'apostas', rarity: 'epica',
+    desc: 'Apostou 500.000 PC ou mais num único cupom. Sangue nos olhos.', check: ACH.megaRoller },
+  { id: 'ultra_roller', name: 'ULTRA ROLLER', icon: 'coin-fire', color: '#d4af37', cat: 'apostas', rarity: 'lendaria',
+    desc: 'Apostou 1.000.000 PC ou mais num único cupom. Lenda do cassino.', check: ACH.ultraRoller },
+  { id: 'meio_jackpot', name: 'MEIO MILHÃO', icon: 'coin-stack', color: '#2a8f3f', cat: 'apostas', rarity: 'epica',
+    desc: 'Embolsou 500.000 PC ou mais num único cupom vencedor.', check: ACH.halfMilWin },
+  { id: 'jackpot', name: 'JACKPOT', icon: 'coin-stack', color: '#d4af37', cat: 'apostas', rarity: 'lendaria',
+    desc: 'Embolsou 1.000.000 PC ou mais num único cupom vencedor. A casa quebrou.', check: ACH.jackpot },
+  { id: 'mega_tubarao', name: 'BALEIA', icon: 'coin-stack', color: '#2a6f8f', cat: 'apostas', rarity: 'lendaria',
+    desc: 'Movimentou 5.000.000 PC somando todos os cupons. O maior fluxo do mercado.', check: ACH.megaWhale },
+  { id: 'multimilionario', name: 'MULTIMILIONÁRIO', icon: 'coin', color: '#d4af37', cat: 'apostas', rarity: 'lendaria',
+    desc: 'Acumulou 1.000.000 PC ou mais no saldo. Cofre transbordando.', check: ACH.multiMil },
   { id: 'falido', name: 'FALIDO', icon: 'coin-fire', color: '#7a2222', cat: 'apostas', rarity: 'comum',
     desc: 'Zerou o saldo. Já apostou de tudo, hoje só resta o bônus de domingo.', check: ACH.broke },
   // ── APOSTAS: volume ──
@@ -6866,24 +6937,29 @@ const ACHIEVEMENTS = [
     desc: 'Acertou 3 placares EXATOS no bolão da Copa. Tá lendo o jogo.', check: ACH.copaTrio },
   { id: 'oraculo_copa', name: 'ORÁCULO DA COPA', icon: 'eye', color: '#1c7a6e', cat: 'copa', rarity: 'lendaria',
     desc: 'Acertou 5 placares EXATOS no bolão da Copa. Não é palpite, é dom.', check: ACH.copaOracle, rewards: { badge: 'badge-oraculo' } },
-  // ── COLEÇÃO / SOCIAL ──
+  // ── RIVAIS (zoeira interna do grupo) ──
+  { id: 'vs_mohamed_mk', name: 'DETONOU O MOHAMED', icon: 'sword', color: '#8a1f1f', cat: 'rivais', rarity: 'rara',
+    desc: 'Venceu o Mohamed num confronto de Mortal Kombat. Pode subir a treta.', check: ACH.beatMohamedMk },
+  { id: 'vs_juca_fifa', name: 'PASSOU O JUCA', icon: 'football', color: '#d76414', cat: 'rivais', rarity: 'rara',
+    desc: 'Venceu o Juca num jogo da FIFA. Joga na cara dele.', check: ACH.beatJucaFifa },
+  { id: 'vs_bane_lol', name: 'DERRUBOU O BANE', icon: 'crosshair', color: '#3a78c2', cat: 'rivais', rarity: 'rara',
+    desc: 'Venceu o Bane no League of Legends. (Dispara quando o LoL abrir.)', check: ACH.beatBaneLol },
+  // ── COLEÇÃO ──
   { id: 'colecionador', name: 'COLECIONADOR', icon: 'gift', color: '#7a4dc9', cat: 'colecao', rarity: 'rara',
     desc: 'Desbloqueou 5 itens cosméticos ou mais. Vaidoso assumido.', check: ACH.collector },
   { id: 'colecionador_elite', name: 'COLECIONADOR DE ELITE', icon: 'gift', color: '#7a4dc9', cat: 'colecao', rarity: 'epica',
     desc: 'Desbloqueou 10 itens cosméticos ou mais. Vaidade nível lendário.', check: ACH.collector10 },
   { id: 'estiloso', name: 'ESTILOSO', icon: 'star', color: '#d4af37', cat: 'colecao', rarity: 'comum',
     desc: 'Equipou uma moldura E um distintivo ao mesmo tempo. Visual completo.', check: ACH.stylish },
-  { id: 'comentarista', name: 'COMENTARISTA', icon: 'chat', color: '#3a78c2', cat: 'social', rarity: 'comum',
-    desc: 'Postou 10 comentários ou mais no Primitivão. Voz ativa na liga.', check: ACH.commenter },
 ];
 // Categorias de conquista (ordem + rótulo na UI).
 const ACH_CATS = [
   { id: 'campeonato',   label: 'CAMPEONATO' },
   { id: 'mk',           label: 'MORTAL KOMBAT' },
+  { id: 'rivais',       label: 'RIVAIS' },
   { id: 'apostas',      label: 'APOSTAS' },
   { id: 'copa',         label: 'COPA DO MUNDO' },
   { id: 'colecao',      label: 'COLEÇÃO' },
-  { id: 'social',       label: 'SOCIAL' },
   { id: 'participacao', label: 'PARTICIPAÇÃO' },
 ];
 // Pontos por raridade — base do score de caçador E do CC (ver ccEarnedFor).
