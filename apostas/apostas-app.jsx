@@ -123,7 +123,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260624-conquistas3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260624-conquistas4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6856,7 +6856,6 @@ const ACH = {
   luckyStart:  ({ nick, bets }) => firstSettledStatus(bets, nick) === 'won',
   whale:       ({ nick, bets }) => totalWagered(bets, nick) >= 1000000,
   allIn:       ({ nick, bets }) => betsOf(bets, nick).some(b => Array.isArray(b.legs) && b.legs.length >= 8),
-  collector:   (ctx) => effectiveInventory(ctx.nick, (ctx.users || {})[ctx.nick], ctx).length >= 5,
   ironStreak:  ({ nick, bets }) => maxBetStreak(bets, nick, 'won') >= 10,
   cursed:      ({ nick, bets }) => maxBetStreak(bets, nick, 'lost') >= 10,
   // Apostas por SEASON encerrada: rei (1º), vice (2º), mico (último no vermelho).
@@ -6874,8 +6873,6 @@ const ACH = {
   podium:      ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.pos <= 3; },
   copaMarathon:({ nick, worldcup }) => Object.keys((worldcup && worldcup.picks && worldcup.picks[nick]) || {}).length >= 10,
   copaTrio:    ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 3,
-  stylish:     ({ nick, users }) => { const c = ((users || {})[nick] || {}).cosmetics || {}; return !!c.frame && !!c.badge; },
-  collector10: (ctx) => effectiveInventory(ctx.nick, (ctx.users || {})[ctx.nick], ctx).length >= 10,
   veteran:     ({ nick, interests }) => participationCount(nick, interests) >= 3,
   mkChamp:     (ctx) => mkStatsFor(ctx.nick, ctx).champion,
   mkFlawless:  (ctx) => mkStatsFor(ctx.nick, ctx).flawless,
@@ -7026,13 +7023,6 @@ const ACHIEVEMENTS = [
     desc: 'Venceu o Juca num jogo da FIFA. Joga na cara dele.', check: ACH.beatJucaFifa },
   { id: 'vs_bane_lol', name: 'DERRUBOU O BANE', icon: 'crosshair', color: '#3a78c2', cat: 'rivais', rarity: 'rara',
     desc: 'Venceu o Bane no League of Legends. (Dispara quando o LoL abrir.)', check: ACH.beatBaneLol },
-  // ── COLEÇÃO ──
-  { id: 'colecionador', name: 'COLECIONADOR', icon: 'gift', color: '#7a4dc9', cat: 'colecao', rarity: 'rara',
-    desc: 'Desbloqueou 5 itens cosméticos ou mais. Vaidoso assumido.', check: ACH.collector },
-  { id: 'colecionador_elite', name: 'COLECIONADOR DE ELITE', icon: 'gift', color: '#7a4dc9', cat: 'colecao', rarity: 'epica',
-    desc: 'Desbloqueou 10 itens cosméticos ou mais. Vaidade nível lendário.', check: ACH.collector10 },
-  { id: 'estiloso', name: 'ESTILOSO', icon: 'star', color: '#d4af37', cat: 'colecao', rarity: 'comum',
-    desc: 'Equipou uma moldura E um distintivo ao mesmo tempo. Visual completo.', check: ACH.stylish },
 ];
 // Categorias de conquista (ordem + rótulo na UI).
 const ACH_CATS = [
@@ -7041,7 +7031,6 @@ const ACH_CATS = [
   { id: 'rivais',       label: 'RIVAIS' },
   { id: 'apostas',      label: 'APOSTAS' },
   { id: 'copa',         label: 'COPA DO MUNDO' },
-  { id: 'colecao',      label: 'COLEÇÃO' },
   { id: 'participacao', label: 'PARTICIPAÇÃO' },
 ];
 // Pontos por raridade — base do score de caçador E do CC (ver ccEarnedFor).
@@ -7209,8 +7198,8 @@ const ITEM_SLOTS = [
 // Items que a conquista DROPA pra esse nick. FONTE: ACHIEVEMENTS[].rewards.
 // Uma conquista entrega seu badge/frame quando está desbloqueada (latched em
 // earnedTitles OU válida ao vivo). Só varremos conquistas COM rewards — isso
-// evita recursão (collector/stylish dependem de effectiveInventory e NÃO têm
-// reward, então nunca entram aqui). Todos os items de reward são drops (sem price).
+// evita recursão caso alguma conquista dependa de effectiveInventory (uma com
+// reward nunca pode). Todos os items de reward são drops (sem price).
 function itemsDroppedFor(nick, ctx) {
   const u = (((ctx && ctx.users) || {})[nick]) || {};
   const persisted = new Set(Array.isArray(u.earnedTitles) ? u.earnedTitles : []);
