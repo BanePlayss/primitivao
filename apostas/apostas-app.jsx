@@ -123,7 +123,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260624-conquistas2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260624-conquistas3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -751,6 +751,55 @@ function saveSession(val) {
     else localStorage.removeItem(SESSION_KEY);
   } catch(e) {}
 }
+
+// ─── TEMA (cor do site por usuário) ─────────────────────────────────────────
+// Personalização: cada jogador escolhe a cor de destaque do site. Persiste em
+// users[nick].theme (Firestore, sincroniza entre dispositivos) + mirror em
+// localStorage (aplica instantâneo no boot, antes do snapshot, sem "flash").
+const THEME_KEY = 'pv-theme-accent';
+const DEFAULT_ACCENT = '#d76414'; // --pv-orange padrão
+// Paleta de presets oferecida no personalizador (a 1ª é o padrão laranja).
+const THEME_PRESETS = [
+  { name: 'Laranja',  accent: '#d76414' },
+  { name: 'Vermelho', accent: '#c0392b' },
+  { name: 'Rosa',     accent: '#c2185b' },
+  { name: 'Roxo',     accent: '#7a4dc9' },
+  { name: 'Azul',     accent: '#2f6fb0' },
+  { name: 'Ciano',    accent: '#1c8f86' },
+  { name: 'Verde',    accent: '#2a8f3f' },
+  { name: 'Dourado',  accent: '#c9a227' },
+  { name: 'Grafite',  accent: '#5a5048' },
+];
+function loadThemeLS() {
+  try { return localStorage.getItem(THEME_KEY) || null; } catch (e) { return null; }
+}
+function saveThemeLS(accent) {
+  try { if (accent) localStorage.setItem(THEME_KEY, accent); else localStorage.removeItem(THEME_KEY); } catch (e) {}
+}
+// Escurece um hex multiplicando os canais por f (0-1). Usado pro --pv-orange-2.
+function darkenHex(hex, f) {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(String(hex || ''));
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+    .map(x => Math.max(0, Math.min(255, Math.round(x * f))).toString(16).padStart(2, '0'));
+  return '#' + ch.join('');
+}
+// Aplica (ou limpa, se accent falsy) a cor de destaque nas CSS vars do :root.
+function applyTheme(accent) {
+  const root = document.documentElement;
+  if (!root) return;
+  if (accent && accent.toLowerCase() !== DEFAULT_ACCENT) {
+    root.style.setProperty('--pv-orange', accent);
+    root.style.setProperty('--pv-orange-2', darkenHex(accent, 0.72));
+  } else {
+    root.style.removeProperty('--pv-orange');
+    root.style.removeProperty('--pv-orange-2');
+  }
+}
+// Boot: aplica o tema salvo localmente já no load (antes do React montar).
+applyTheme(loadThemeLS());
+
 const BET_DOC      = () => window.db.doc('primitivao/apostas');
 const CLASSIF_DOC  = () => window.db.doc('primitivao/state');
 
@@ -2061,6 +2110,10 @@ function App() {
   // navega entre views. Hash inválido cai em 'apostas'; 'admin' tem guard
   // próprio (useEffect mais abaixo derruba não-mod pra 'apostas').
   const [view, _setViewRaw] = useState(viewFromHash);
+  // Sub-aba do HALL elevada pro App: deixa o link "VER RANKING" (no card de
+  // conquistas) cair direto no ranking de caçadores.
+  const [hallTab, setHallTab] = useState('fama');
+  const seeRanking = () => { setHallTab('cacadores'); setView('hall'); };
   const setView = (id) => {
     _setViewRaw(id);
     const want = '#/' + id;
@@ -3038,6 +3091,32 @@ function App() {
     } catch (e) { console.warn('setSelectedTitle failed', e); }
   };
 
+  // PERSONALIZAÇÃO: salva a cor de destaque escolhida pelo jogador. Aplica na
+  // hora (otimista) + mirror no localStorage (boot sem flash) e persiste em
+  // users[nick].theme. accent null/padrão => volta pro laranja.
+  const setUserTheme = async (accent) => {
+    const clean = accent && /^#?[0-9a-fA-F]{6}$/.test(accent) ? (accent[0] === '#' ? accent : '#' + accent) : null;
+    applyTheme(clean);
+    saveThemeLS(clean);
+    if (!session || !session.nick) return;
+    const nick = session.nick;
+    try {
+      await commitBetDocUpdate(remote => {
+        const u = (remote.users || {})[nick];
+        if (!u) return null;
+        return { ...remote, users: { ...remote.users, [nick]: { ...u, theme: clean || null } } };
+      });
+    } catch (e) { console.warn('setUserTheme failed', e); }
+  };
+
+  // Aplica o tema do PRÓPRIO user quando o registro carrega/muda (sincroniza
+  // entre dispositivos). Mantém o localStorage alinhado pro próximo boot.
+  useEffect(() => {
+    if (!me) return;
+    applyTheme(me.theme || null);
+    saveThemeLS(me.theme || null);
+  }, [me && me.theme]);
+
   // Contexto ÚNICO das conquistas (score/CC/drops/latch). Inclui TUDO que algum
   // predicado ACH pode olhar: bets/users/teamPlayers/cs/worldcup/interests +
   // comments (comentarista) + mk { draw, scores } (campeão/flawless do MK).
@@ -3326,7 +3405,7 @@ function App() {
               />
             )}
             {view === 'hall' && (
-              <HallView cs={cs} users={users} teamPlayers={teamPlayers || {}} worldcup={worldcup} wcFixtures={wcData.matches} myNick={session.nick} bets={bets} ctx={ccCtx} />
+              <HallView cs={cs} users={users} teamPlayers={teamPlayers || {}} worldcup={worldcup} wcFixtures={wcData.matches} myNick={session.nick} bets={bets} ctx={ccCtx} subTab={hallTab} setSubTab={setHallTab} />
             )}
             {/* APOSTAS — só apostar. SEMPRE num campeonato ATIVO (apostasChampId);
                 se o selecionado for "em breve", cai pro ativo sem perder a
@@ -3448,6 +3527,9 @@ function App() {
                 onCancelInterest={toggleInterest}
                 mkDraw={mkDraw} mkScores={mkScores}
                 ctx={ccCtx}
+                onSeeRanking={seeRanking}
+                theme={me?.theme || null}
+                onSetTheme={setUserTheme}
                 isNaturalMod={isNaturalMod} modDisabled={modDisabled} onToggleMod={toggleModView}
               />
             )}
@@ -8700,7 +8782,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   );
 }
 
-function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest, mkDraw, mkScores, ctx, isNaturalMod, modDisabled, onToggleMod }) {
+function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest, mkDraw, mkScores, ctx, onSeeRanking, theme, onSetTheme, isNaturalMod, modDisabled, onToggleMod }) {
   const [inscBusy, setInscBusy] = useState(null);
   const [ptab, setPtab] = useState('resumo'); // sub-aba: resumo / time / trofeus / titulos / colecao
   const champLabel = (cid) => cid === 'copa'
@@ -8869,6 +8951,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
         {(myTeam || mkInscrito) && <button className={'perfil-navi ' + (ptab === 'time' ? 'active' : '')} onClick={() => setPtab('time')}><Icon name="shield" size={14} /> MEU TIME</button>}
         <button className={'perfil-navi ' + (ptab === 'titulos' ? 'active' : '')} onClick={() => setPtab('titulos')}><Icon name="trophy" size={14} /> CONQUISTAS</button>
         {!isAdmin && <button className={'perfil-navi ' + (ptab === 'colecao' ? 'active' : '')} onClick={() => setPtab('colecao')}><Icon name="star" size={14} /> COLEÇÃO</button>}
+        <button className={'perfil-navi ' + (ptab === 'aparencia' ? 'active' : '')} onClick={() => setPtab('aparencia')}><Icon name="sparkle" size={14} /> APARÊNCIA</button>
       </nav>
       </aside>
       {/* CONTEÚDO da aba selecionada */}
@@ -9085,6 +9168,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
           ctx={ctx}
           selectedTitle={me?.title || null}
           onSelectTitle={onSelectTitle}
+          onSeeRanking={onSeeRanking}
         />
       )}
 
@@ -9097,6 +9181,11 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
           ctx={ctx}
           onEquip={onEquip}
         />
+      )}
+
+      {/* ===== APARÊNCIA (tema) ===== */}
+      {ptab === 'aparencia' && (
+        <AparenciaCard theme={theme} onSetTheme={onSetTheme} />
       )}
       </div>{/* /.perfil-main */}
     </div>
@@ -9340,7 +9429,7 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
   );
 }
 
-function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
+function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle, onSeeRanking }) {
   const earnedIds = useMemo(() => new Set(titlesForNick(nick, ctx || {}).map(t => t.id)), [nick, ctx]);
   const owners = useMemo(() => computeTitleOwners(ctx || {}), [ctx]);
   const ranking = useMemo(() => computeHunterRanking(ctx || {}), [ctx]);
@@ -9415,8 +9504,15 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
             <span className="cacador-banner-score">{score}</span>
             <span className="cacador-banner-lbl">PONTOS DE CAÇADOR</span>
           </div>
-          <div className="cacador-banner-rank">
-            {myRank ? <><Icon name="crosshair" size={13} /> {myRank}º de {ranking.length} caçadores</> : 'sem ranking ainda'}
+          <div className="cacador-banner-rankcol">
+            <div className="cacador-banner-rank">
+              {myRank ? <><Icon name="crosshair" size={13} /> {myRank}º de {ranking.length} caçadores</> : 'sem ranking ainda'}
+            </div>
+            {onSeeRanking && (
+              <button type="button" className="cacador-banner-see" onClick={onSeeRanking}>
+                VER RANKING <Icon name="arrow-right" size={11} />
+              </button>
+            )}
           </div>
         </div>
         <p style={{ marginTop: 10, marginBottom: 10, fontSize: 11, color: 'rgba(28,22,18,0.6)', lineHeight: 1.4 }}>
@@ -9441,6 +9537,76 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
             {showLocked && <div style={{ marginTop: 8 }}>{renderGrouped(locked, true)}</div>}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+// APARÊNCIA — personalização da cor de destaque do site (por jogador).
+// Presets + cor livre (color picker) + voltar ao padrão. Aplica na hora via
+// onSetTheme (que mexe nas CSS vars + persiste). Prévia ao vivo no próprio card.
+function AparenciaCard({ theme, onSetTheme }) {
+  // Estado local OTIMISTA: reflete a escolha na hora (a persistência em
+  // me.theme pode demorar o round-trip do Firestore — ou nem existir, no admin).
+  // Fallback pro localStorage quando não há theme no registro (ex: admin).
+  const resolve = () => ((theme && theme.toLowerCase()) || loadThemeLS() || DEFAULT_ACCENT).toLowerCase();
+  const [accent, setAccent] = useState(resolve);
+  useEffect(() => { setAccent(resolve()); }, [theme]);
+  const pick = (a) => { setAccent((a && a.toLowerCase()) || DEFAULT_ACCENT); onSetTheme(a); };
+  const current = accent;
+  const isPreset = THEME_PRESETS.some(p => p.accent.toLowerCase() === current);
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <div className="card-head">
+        <div className="title"><Icon name="sparkle" size={16} /> APARÊNCIA</div>
+        <div className="sub">SUA COR DO PRIMITIVÃO</div>
+      </div>
+      <div className="card-body">
+        <p style={{ marginTop: 0, marginBottom: 12, fontSize: 12, color: 'rgba(28,22,18,0.65)', lineHeight: 1.5 }}>
+          Escolha a cor de destaque do site — vale só pra você e segue em todos os seus
+          dispositivos. Clica num preset ou escolhe uma cor livre.
+        </p>
+        <div className="aparencia-swatches">
+          {THEME_PRESETS.map(p => {
+            const sel = p.accent.toLowerCase() === current;
+            return (
+              <button
+                key={p.accent}
+                type="button"
+                className={'aparencia-swatch' + (sel ? ' sel' : '')}
+                style={{ '--sw': p.accent }}
+                onClick={() => pick(p.accent)}
+                title={p.name}
+                aria-label={'Cor ' + p.name}
+                aria-pressed={sel}
+              >
+                {sel && <Icon name="check" size={16} />}
+              </button>
+            );
+          })}
+        </div>
+        <div className="aparencia-row">
+          <label className="aparencia-custom">
+            <span className="aparencia-custom-sw" style={{ background: current }} />
+            <span className="aparencia-custom-lbl">COR LIVRE</span>
+            <input type="color" value={current} onChange={e => pick(e.target.value)} />
+          </label>
+          <span className="aparencia-code">{current.toUpperCase()}{!isPreset ? ' · custom' : ''}</span>
+          {current !== DEFAULT_ACCENT && (
+            <button type="button" className="aparencia-reset" onClick={() => pick(null)}>
+              <Icon name="refresh" size={12} /> VOLTAR AO PADRÃO
+            </button>
+          )}
+        </div>
+        {/* Prévia ao vivo: botões/realces na cor escolhida */}
+        <div className="aparencia-preview">
+          <div className="small-label" style={{ marginBottom: 8 }}>PRÉVIA</div>
+          <div className="aparencia-preview-row">
+            <span className="aparencia-pv-chip">DESTAQUE</span>
+            <button type="button" className="aparencia-pv-btn">BOTÃO</button>
+            <span className="aparencia-pv-link">LINK</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -9843,8 +10009,12 @@ function HallDaVergonhaView({ cs, users, teamPlayers, worldcup, wcFixtures, myNi
 }
 
 // HallView — vitrine de troféus (Fama + Vergonha) com subTabs.
-function HallView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick, bets, ctx }) {
-  const [subTab, setSubTab] = useState('fama'); // 'fama' | 'vergonha' | 'cacadores'
+function HallView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick, bets, ctx, subTab: subTabProp, setSubTab: setSubTabProp }) {
+  // subTab pode ser controlado pelo App (pro link "VER RANKING" cair no CAÇADORES)
+  // ou local (fallback) quando os props não vierem.
+  const [subTabLocal, setSubTabLocal] = useState('fama'); // 'fama' | 'vergonha' | 'cacadores'
+  const subTab = subTabProp != null ? subTabProp : subTabLocal;
+  const setSubTab = setSubTabProp || setSubTabLocal;
   const season = (CHAMPIONSHIPS.find(c => c.id === 'fifa') || {}).season || '';
   const hero = {
     fama:      { tag: `PRIMITIVÃO · MORADA DOS DEUSES · ${season}`, title: 'OLIMPO PRIMITIVÃO', sub: 'Os deuses de cada temporada. Imortalizados em ouro e prata no alto do Olimpo.' },
