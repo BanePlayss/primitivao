@@ -50,9 +50,11 @@
 //
 // 6. CONQUISTAS & COSMÉTICOS
 //    - helpers (champStandingPos, maxBetStreak, wcExactCount, betsOf)
-//    - ACH (critérios de conquista — FONTE ÚNICA p/ títulos E distintivos)
-//    - TITLE_DEFS (22 títulos — label de texto) + titlesForNick/TitleBadge
-//    - ITEMS (molduras + 30 distintivos) + effectiveInventory/itemsDroppedFor
+//    - ACH (critérios de conquista — FONTE ÚNICA dos predicados)
+//    - ACHIEVEMENTS (registro unificado: cat/rarity/points/rewards) + TITLE_DEFS
+//      alias + titlesForNick/achievementScore/computeHunterRanking/TitleBadge
+//    - ITEMS (molduras + distintivos) + effectiveInventory/itemsDroppedFor
+//      (drops derivam de ACHIEVEMENTS[].rewards)
 //
 // 7. VIEWS DE CONTEÚDO
 //    - INÍCIO (feed de notícias + comentários)
@@ -121,7 +123,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260619-stats5 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260624-conquistas ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3017,14 +3019,16 @@ function App() {
       await commitBetDocUpdate(remote => {
         const u = (remote.users || {})[nick];
         if (!u) return null;
-        // Valida que o titulo eh elegivel pra esse user (anti-burlar)
+        // Valida que a conquista eh elegivel pra esse user (anti-burlar).
+        // cs/worldcup/interests/comments/mk vem do closure (top-level, fora do json).
         if (titleId) {
           const earned = titlesForNick(nick, {
             bets: remote.bets || [],
             users: remote.users || {},
             teamPlayers: remote.teamPlayers || {},
-            cs,
-            worldcup, // closure do app state (top-level, fora do json do remote)
+            cs, worldcup, interests,
+            comments: comments || {},
+            mk: { draw: mkDraw, scores: mkScores },
           });
           if (!earned.some(t => t.id === titleId)) return null;
         }
@@ -3034,8 +3038,14 @@ function App() {
     } catch (e) { console.warn('setSelectedTitle failed', e); }
   };
 
-  // Contexto pra calcular CC (saldo derivado de títulos + participação).
-  const ccCtx = useMemo(() => ({ bets, users, teamPlayers, cs, worldcup, interests }), [bets, users, teamPlayers, cs, worldcup, interests]);
+  // Contexto ÚNICO das conquistas (score/CC/drops/latch). Inclui TUDO que algum
+  // predicado ACH pode olhar: bets/users/teamPlayers/cs/worldcup/interests +
+  // comments (comentarista) + mk { draw, scores } (campeão/flawless do MK).
+  const ccCtx = useMemo(() => ({
+    bets, users, teamPlayers, cs, worldcup, interests,
+    comments: comments || {},
+    mk: { draw: mkDraw, scores: mkScores },
+  }), [bets, users, teamPlayers, cs, worldcup, interests, comments, mkDraw, mkScores]);
 
   const adjustPc = async (nick, delta) => {
     try {
@@ -3161,7 +3171,11 @@ function App() {
         if (itemId) {
           const item = ITEM_BY_ID[itemId];
           if (!item || item.slot !== slot) return null;
-          const ctx = { bets: remote.bets || [], teamPlayers: remote.teamPlayers || {}, cs, worldcup };
+          const ctx = {
+            bets: remote.bets || [], users: remote.users || {},
+            teamPlayers: remote.teamPlayers || {}, cs, worldcup, interests,
+            comments: comments || {}, mk: { draw: mkDraw, scores: mkScores },
+          };
           const inv = effectiveInventory(userNick, u, ctx);
           if (!inv.includes(itemId)) return null;
         }
@@ -3180,8 +3194,7 @@ function App() {
   // o equipado vira null.
   useEffect(() => {
     if (!session?.nick || !me || !me.cosmetics) return;
-    const ctx = { bets, teamPlayers: teamPlayers || {}, cs, worldcup };
-    const inv = effectiveInventory(session.nick, me, ctx);
+    const inv = effectiveInventory(session.nick, me, ccCtx);
     ['frame', 'badge'].forEach(slot => {
       const eq = me.cosmetics[slot];
       if (eq && !inv.includes(eq)) {
@@ -3189,7 +3202,7 @@ function App() {
         equipItem(slot, null);
       }
     });
-  }, [me, bets, cs, teamPlayers, worldcup, session]);
+  }, [me, ccCtx, session]);
 
   // LATCH DE CONQUISTAS (#3): títulos e badges de drop são PERMANENTES. Quando
   // uma conquista passa a valer ao vivo pro user logado, gravamos o id em
@@ -3201,7 +3214,7 @@ function App() {
   useEffect(() => {
     if (!session?.nick || !me) return;
     const nick = session.nick;
-    const ctx = { bets, users, teamPlayers: teamPlayers || {}, cs, worldcup, interests };
+    const ctx = ccCtx;
     const liveTitleIds = TITLE_DEFS
       .filter(t => { try { return !!t.check({ nick, ...ctx }); } catch (_) { return false; } })
       .map(t => t.id);
@@ -3221,7 +3234,7 @@ function App() {
       if (nt.length === pt.length && nd.length === pd.length) return null;
       return { ...remote, users: { ...remote.users, [nick]: { ...u, earnedTitles: nt, earnedDrops: nd } } };
     }).catch(e => console.warn('latchAchievements failed', e));
-  }, [me, bets, users, cs, teamPlayers, worldcup, interests, session]);
+  }, [me, ccCtx, session]);
 
   if (!synced || cs === null) {
     return (
@@ -3313,7 +3326,7 @@ function App() {
               />
             )}
             {view === 'hall' && (
-              <HallView cs={cs} users={users} teamPlayers={teamPlayers || {}} worldcup={worldcup} wcFixtures={wcData.matches} myNick={session.nick} bets={bets} />
+              <HallView cs={cs} users={users} teamPlayers={teamPlayers || {}} worldcup={worldcup} wcFixtures={wcData.matches} myNick={session.nick} bets={bets} ctx={ccCtx} />
             )}
             {/* APOSTAS — só apostar. SEMPRE num campeonato ATIVO (apostasChampId);
                 se o selecionado for "em breve", cai pro ativo sem perder a
@@ -3434,6 +3447,7 @@ function App() {
                 interests={interests || {}}
                 onCancelInterest={toggleInterest}
                 mkDraw={mkDraw} mkScores={mkScores}
+                ctx={ccCtx}
                 isNaturalMod={isNaturalMod} modDisabled={modDisabled} onToggleMod={toggleModView}
               />
             )}
@@ -3442,6 +3456,7 @@ function App() {
                 nick={session.nick} users={users} cs={cs} bets={bets}
                 teamPlayers={teamPlayers || {}} worldcup={worldcup}
                 mkDraw={mkDraw} mkScores={mkScores} interests={interests || {}}
+                comments={comments || {}}
               />
             )}
             {view === 'tickets' && (
@@ -3461,7 +3476,7 @@ function App() {
               <LojaView
                 nick={session.nick}
                 me={me}
-                ctx={{ bets, users, teamPlayers: teamPlayers || {}, cs, worldcup, interests }}
+                ctx={ccCtx}
                 onBuy={buyItem}
                 onEquip={equipItem}
               />
@@ -3934,7 +3949,7 @@ function ProfileSidebar({ nick, me, cs, bets, users, teamPlayers, worldcup, inte
           {myTeamId ? <Avatar teamId={myTeamId} cosmetics={me?.cosmetics} size={94} /> : <div className="ap-avatar-fb">{String(nick).slice(0, 2).toUpperCase()}</div>}
         </div>
         <div className="ap-nick">@{nick}</div>
-        <div className="ap-title">{titleDef ? <><Icon name={titleDef.icon} size={11} /> {titleDef.name}</> : (isAdmin ? 'ADMIN' : 'sem título')}</div>
+        <div className="ap-title">{titleDef ? <><Icon name={titleDef.icon} size={11} /> {titleDef.name}</> : (isAdmin ? 'ADMIN' : 'sem conquista')}</div>
       </button>
       <div className="ap-stats">
         <div className="ap-stat"><Icon name="trophy" size={15} /><span className="ap-stat-v">{trophyCount}</span><span className="ap-stat-l">TROFÉUS</span></div>
@@ -6638,6 +6653,63 @@ function firstSettledStatus(bets, nick) {
   return m.length > 0 ? m[0].status : null;
 }
 
+// Quantos comentários o nick já postou. comments[newsId] = [{ id, nick, text, at }].
+function commentsCountFor(nick, comments) {
+  let n = 0;
+  for (const arr of Object.values(comments || {})) {
+    if (Array.isArray(arr)) for (const c of arr) if (c && c.nick === nick) n++;
+  }
+  return n;
+}
+
+// Em quantos campeonatos o nick se inscreveu (interests[champId][nick] = true).
+function participationCount(nick, interests) {
+  return Object.values(interests || {}).filter(m => m && m[nick]).length;
+}
+
+// Estatísticas do MK pro nick a partir do ctx.mk { draw, scores } + ctx.interests.
+//   won      = nº de confrontos vencidos (concluídos)
+//   flawless = venceu ALGUM confronto sem ceder nenhum round (2×0 / 2×0)
+//   champion = terminou em 1º numa season de MK 100% concluída
+function mkStatsFor(nick, ctx) {
+  const mk = (ctx && ctx.mk) || {};
+  const draw = Array.isArray(mk.draw) ? mk.draw : [];
+  const scores = mk.scores || {};
+  const players = mkInscritos((ctx && ctx.interests) || {});
+  if (!players.includes(nick)) return { won: 0, flawless: false, champion: false };
+  const key = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const concluded = [];
+  let won = 0, flawless = false;
+  draw.forEach(r => (r.games || []).forEach((g, gi) => {
+    if (mkGameVoid(g)) return;
+    const o = mkMatchOutcome(scores[key(r, gi)]);
+    if (!o) return;
+    concluded.push({ home: g.home, away: g.away, sc: scores[key(r, gi)] });
+    const meHome = g.home === nick, meAway = g.away === nick;
+    if (!meHome && !meAway) return;
+    const iWon = (meHome && o.winner === 'H') || (meAway && o.winner === 'A');
+    if (iWon) {
+      won++;
+      const conceded = meHome ? o.roundsA : o.roundsH;
+      if (conceded === 0) flawless = true;
+    }
+  }));
+  const allDone = draw.length > 0 && draw.every(r => (r.games || []).every((g, gi) =>
+    mkGameVoid(g) || !!mkMatchOutcome(scores[key(r, gi)])));
+  let champion = false;
+  if (allDone && players.length >= 2) {
+    const stand = computeMkStandings(players, concluded);
+    champion = stand.length > 0 && stand[0].nick === nick && stand[0].j > 0;
+  }
+  return { won, flawless, champion };
+}
+
+// Hora local (0-23) em que um cupom foi criado, ou null.
+function betHour(b) {
+  if (!b || !b.createdAt) return null;
+  try { return new Date(b.createdAt).getHours(); } catch (_) { return null; }
+}
+
 // ─── CRITÉRIOS DE CONQUISTA (fonte única) ───────────────────────────────────
 // Cada predicado recebe ctx { nick, bets, users, teamPlayers, cs, worldcup }.
 // Títulos E distintivos referenciam DAQUI — assim o critério vive num só
@@ -6673,74 +6745,153 @@ const ACH = {
   betKing:     ({ nick, cs, bets }) => bettingSeasonRanks(nick, cs, bets).some(r => r.pos === 1),
   betVice:     ({ nick, cs, bets }) => bettingSeasonRanks(nick, cs, bets).some(r => r.pos === 2 && r.total >= 3),
   betMico:     ({ nick, cs, bets }) => bettingSeasonRanks(nick, cs, bets).some(r => r.pos === r.total && r.total >= 3 && r.lucro < 0 && r.apostas >= 5),
+  // ── NOVAS (gamificação 2026-06) ──
+  rookie:      ({ nick, bets }) => betsOf(bets, nick).length >= 1,
+  centurion:   ({ nick, bets }) => betsOf(bets, nick).length >= 200,
+  nightOwl:    ({ nick, bets }) => betsOf(bets, nick).some(b => { const h = betHour(b); return h !== null && h >= 0 && h < 5; }),
+  oddInsane:   ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Number(b.combinedOdds) >= 50),
+  bigPayout:   ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Number(b.payout) >= 50000),
+  minimalist:  ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Array.isArray(b.legs) && b.legs.length === 1),
+  bronze:      ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.pos === 3; },
+  podium:      ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.pos <= 3; },
+  copaMarathon:({ nick, worldcup }) => Object.keys((worldcup && worldcup.picks && worldcup.picks[nick]) || {}).length >= 10,
+  copaTrio:    ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 3,
+  stylish:     ({ nick, users }) => { const c = ((users || {})[nick] || {}).cosmetics || {}; return !!c.frame && !!c.badge; },
+  collector10: (ctx) => effectiveInventory(ctx.nick, (ctx.users || {})[ctx.nick], ctx).length >= 10,
+  veteran:     ({ nick, interests }) => participationCount(nick, interests) >= 3,
+  mkChamp:     (ctx) => mkStatsFor(ctx.nick, ctx).champion,
+  mkFlawless:  (ctx) => mkStatsFor(ctx.nick, ctx).flawless,
+  commenter:   ({ nick, comments }) => commentsCountFor(nick, comments) >= 10,
 };
 
-// ─── TÍTULOS DO USUÁRIO ─────────────────────────────────────────────────────
-// Título = LABEL DE TEXTO ao lado do nick (o user escolhe 1 pra exibir).
-// Cada um tem check(ctx) com ctx = { nick, bets, users, teamPlayers, cs, worldcup }.
-const TITLE_DEFS = [
-  // ── Participação / campeonato ──
-  { id: 'beta_tester', name: 'BETA TESTER', icon: 'flask', color: '#7a4dc9',
-    desc: 'Jogou a primeira temporada do Primitivão (FIFA 2026 Season 1).', check: ACH.betaTester },
-  { id: 'campeao', name: 'CAMPEÃO', icon: 'trophy', color: '#d4af37',
-    desc: 'Terminou uma temporada da FIFA em PRIMEIRO lugar. Leva o troféu pra casa.', check: ACH.champion },
-  { id: 'vice', name: 'VICE-CAMPEÃO', icon: 'medal', color: '#9a9a9a',
-    desc: 'Terminou em SEGUNDO. A medalha de prata — tão perto, tão longe.', check: ACH.vice },
-  { id: 'penultimo', name: 'PENÚLTIMO', icon: 'toothbrush', color: '#6b4423',
-    desc: 'Terminou em PENÚLTIMO. Escapou da lanterna por um fio — mas o gostinho é quase o mesmo.', check: ACH.penultimo },
-  { id: 'lanterna', name: 'LANTERNA', icon: 'toilet', color: '#7a2222',
-    desc: 'Terminou a temporada em ÚLTIMO. Vexame carimbado.', check: ACH.lanterna },
-  // ── Apostas: valor ──
-  { id: 'high_roller', name: 'HIGH ROLLER', icon: 'coin', color: '#c9a227',
-    desc: 'Apostou 100.000 PC ou mais num único cupom. Coragem (ou loucura).', check: ACH.highRoller },
-  { id: 'high_roller_win', name: 'QUEBROU A BANCA', icon: 'coin-stack', color: '#2a8f3f',
-    desc: 'Apostou 100k+ PC E venceu. A casa chorou.', check: ACH.brokeBank },
-  { id: 'high_roller_loss', name: 'QUEIMOU 100K', icon: 'coin-fire', color: '#c33',
+// ─── CONQUISTAS (ACHIEVEMENTS) ──────────────────────────────────────────────
+// FONTE ÚNICA do sistema de conquistas. Cada conquista:
+//   - id        : estável (NÃO mudar — persiste em users[].title/.earnedTitles)
+//   - name/desc : copy PT-BR
+//   - icon/color: visual (Icon SVG + cor)
+//   - cat       : categoria (ver ACH_CATS) — agrupa na UI
+//   - rarity    : comum|rara|epica|lendaria → vira PONTOS via ACH_POINTS
+//   - check     : predicado (de ACH) — ctx { nick, bets, users, teamPlayers, cs, worldcup, interests, comments, mk }
+//   - rewards   : { badge?, frame? } — itens cosméticos (ITEMS) que a conquista DROPA
+// O jogador escolhe 1 conquista pra exibir como LABEL ao lado do nick (equipar).
+// Os pontos somados dão o "score de caçador" (ranking) e a base do CC.
+const ACHIEVEMENTS = [
+  // ── PARTICIPAÇÃO ──
+  { id: 'beta_tester', name: 'BETA TESTER', icon: 'flask', color: '#7a4dc9', cat: 'participacao', rarity: 'rara',
+    desc: 'Jogou a primeira temporada do Primitivão (FIFA 2026 Season 1).', check: ACH.betaTester, rewards: { badge: 'badge-beta' } },
+  { id: 'veterano', name: 'VETERANO', icon: 'shield', color: '#6b4423', cat: 'participacao', rarity: 'rara',
+    desc: 'Se inscreveu em 3 campeonatos ou mais. Já é da casa.', check: ACH.veteran },
+  // ── CAMPEONATO (FIFA) ──
+  { id: 'campeao', name: 'CAMPEÃO', icon: 'trophy', color: '#d4af37', cat: 'campeonato', rarity: 'lendaria',
+    desc: 'Terminou uma temporada da FIFA em PRIMEIRO lugar. Leva o troféu pra casa.', check: ACH.champion, rewards: { badge: 'badge-campeao', frame: 'frame-gold' } },
+  { id: 'vice', name: 'VICE-CAMPEÃO', icon: 'medal', color: '#9a9a9a', cat: 'campeonato', rarity: 'epica',
+    desc: 'Terminou em SEGUNDO. A medalha de prata — tão perto, tão longe.', check: ACH.vice, rewards: { badge: 'badge-vice' } },
+  { id: 'terceiro', name: 'TERCEIRO LUGAR', icon: 'medal', color: '#b06a2c', cat: 'campeonato', rarity: 'rara',
+    desc: 'Terminou a temporada da FIFA em TERCEIRO. Pódio é pódio.', check: ACH.bronze },
+  { id: 'podio', name: 'PÓDIO', icon: 'trophy', color: '#c9a227', cat: 'campeonato', rarity: 'epica',
+    desc: 'Terminou uma temporada da FIFA no TOP 3. Entre os grandes.', check: ACH.podium },
+  { id: 'penultimo', name: 'PENÚLTIMO', icon: 'toothbrush', color: '#6b4423', cat: 'campeonato', rarity: 'rara',
+    desc: 'Terminou em PENÚLTIMO. Escapou da lanterna por um fio — mas o gostinho é quase o mesmo.', check: ACH.penultimo, rewards: { badge: 'badge-penultimo' } },
+  { id: 'lanterna', name: 'LANTERNA', icon: 'toilet', color: '#7a2222', cat: 'campeonato', rarity: 'rara',
+    desc: 'Terminou a temporada em ÚLTIMO. Vexame carimbado.', check: ACH.lanterna, rewards: { badge: 'badge-lanterna' } },
+  // ── MORTAL KOMBAT ──
+  { id: 'mk_campeao', name: 'CAMPEÃO DO MK', icon: 'sword', color: '#8a1f1f', cat: 'mk', rarity: 'lendaria',
+    desc: 'Terminou uma temporada de Mortal Kombat em PRIMEIRO. FINISH HIM.', check: ACH.mkChamp, rewards: { badge: 'badge-fatality', frame: 'frame-fatality' } },
+  { id: 'mk_flawless', name: 'FLAWLESS VICTORY', icon: 'fist', color: '#8a1f1f', cat: 'mk', rarity: 'epica',
+    desc: 'Venceu um confronto de MK sem ceder NENHUM round. Perfeito.', check: ACH.mkFlawless },
+  // ── APOSTAS: valor ──
+  { id: 'high_roller', name: 'HIGH ROLLER', icon: 'coin', color: '#c9a227', cat: 'apostas', rarity: 'rara',
+    desc: 'Apostou 100.000 PC ou mais num único cupom. Coragem (ou loucura).', check: ACH.highRoller, rewards: { badge: 'badge-high-roller' } },
+  { id: 'high_roller_win', name: 'QUEBROU A BANCA', icon: 'coin-stack', color: '#2a8f3f', cat: 'apostas', rarity: 'lendaria',
+    desc: 'Apostou 100k+ PC E venceu. A casa chorou.', check: ACH.brokeBank, rewards: { badge: 'badge-quebrou' } },
+  { id: 'high_roller_loss', name: 'QUEIMOU 100K', icon: 'coin-fire', color: '#c33', cat: 'apostas', rarity: 'rara',
     desc: 'Apostou 100k+ PC E perdeu. Adeus, dinheirinho.', check: ACH.burned100k },
-  { id: 'milionario', name: 'MILIONÁRIO', icon: 'coin', color: '#d4af37',
-    desc: 'Acumulou 100.000 PC ou mais no saldo. Banca gorda.', check: ACH.millionaire },
-  { id: 'falido', name: 'FALIDO', icon: 'coin-fire', color: '#7a2222',
+  { id: 'bolada', name: 'BOLADA', icon: 'coin-stack', color: '#2a8f3f', cat: 'apostas', rarity: 'epica',
+    desc: 'Embolsou 50.000 PC ou mais num único cupom vencedor.', check: ACH.bigPayout },
+  { id: 'milionario', name: 'MILIONÁRIO', icon: 'coin', color: '#d4af37', cat: 'apostas', rarity: 'epica',
+    desc: 'Acumulou 100.000 PC ou mais no saldo. Banca gorda.', check: ACH.millionaire, rewards: { badge: 'badge-milionario' } },
+  { id: 'tubarao', name: 'TUBARÃO', icon: 'coin-stack', color: '#2a6f8f', cat: 'apostas', rarity: 'lendaria',
+    desc: 'Movimentou 1.000.000 PC somando todos os cupons. Peixe grande do mercado.', check: ACH.whale, rewards: { badge: 'badge-tubarao' } },
+  { id: 'falido', name: 'FALIDO', icon: 'coin-fire', color: '#7a2222', cat: 'apostas', rarity: 'comum',
     desc: 'Zerou o saldo. Já apostou de tudo, hoje só resta o bônus de domingo.', check: ACH.broke },
-  // ── Apostas: volume / skill ──
-  { id: 'apostador_plantao', name: 'APOSTADOR DE PLANTÃO', icon: 'ticket', color: '#d76414',
+  // ── APOSTAS: volume ──
+  { id: 'sorte_novato', name: 'SORTE DE NOVATO', icon: 'sparkle', color: '#c9a227', cat: 'apostas', rarity: 'comum',
+    desc: 'Venceu a PRIMEIRA aposta da vida no Primitivão. Começou voando.', check: ACH.luckyStart, rewards: { badge: 'badge-novato' } },
+  { id: 'estreante', name: 'ESTREANTE', icon: 'ticket', color: '#d76414', cat: 'apostas', rarity: 'comum',
+    desc: 'Fez a primeira aposta no Primitivão. Bem-vindo ao balcão.', check: ACH.rookie },
+  { id: 'apostador_plantao', name: 'APOSTADOR DE PLANTÃO', icon: 'ticket', color: '#d76414', cat: 'apostas', rarity: 'comum',
     desc: 'Fez 50 apostas ou mais. Não perde uma rodada.', check: ACH.grinder50 },
-  { id: 'viciado', name: 'VICIADO EM PC', icon: 'dice', color: '#a8324f',
+  { id: 'viciado', name: 'VICIADO EM PC', icon: 'dice', color: '#a8324f', cat: 'apostas', rarity: 'rara',
     desc: 'Fez 100 apostas ou mais. Procura ajuda (depois da próxima).', check: ACH.addict100 },
-  { id: 'profeta', name: 'PROFETA DAS ODDS', icon: 'target', color: '#3a78c2',
-    desc: 'Venceu uma aposta com odd combinada de 20x ou mais. Vidência pura.', check: ACH.prophet },
-  { id: 'casadinha', name: 'REI DA CASADINHA', icon: 'chart', color: '#2a8f3f',
+  { id: 'centuriao', name: 'CENTURIÃO', icon: 'dice', color: '#a8324f', cat: 'apostas', rarity: 'epica',
+    desc: 'Fez 200 apostas ou mais. Lenda viva do balcão.', check: ACH.centurion },
+  { id: 'madrugador', name: 'MADRUGADOR', icon: 'eye', color: '#3a78c2', cat: 'apostas', rarity: 'rara',
+    desc: 'Fez uma aposta de madrugada (entre 0h e 5h). Sono é pra fracos.', check: ACH.nightOwl },
+  // ── APOSTAS: skill ──
+  { id: 'minimalista', name: 'MINIMALISTA', icon: 'check', color: '#2a8f3f', cat: 'apostas', rarity: 'comum',
+    desc: 'Venceu uma aposta simples (1 palpite). Direto ao ponto.', check: ACH.minimalist },
+  { id: 'profeta', name: 'PROFETA DAS ODDS', icon: 'target', color: '#3a78c2', cat: 'apostas', rarity: 'rara',
+    desc: 'Venceu uma aposta com odd combinada de 20x ou mais. Vidência pura.', check: ACH.prophet, rewards: { badge: 'badge-profeta' } },
+  { id: 'odd_insana', name: 'ODD INSANA', icon: 'target', color: '#7a4dc9', cat: 'apostas', rarity: 'epica',
+    desc: 'Venceu uma aposta com odd combinada de 50x ou mais. Surreal.', check: ACH.oddInsane },
+  { id: 'casadinha', name: 'REI DA CASADINHA', icon: 'chart', color: '#2a8f3f', cat: 'apostas', rarity: 'rara',
     desc: 'Venceu uma aposta casada com 5 palpites ou mais. Tudo ou nada.', check: ACH.parlayKing },
-  { id: 'mao_quente', name: 'MÃO QUENTE', icon: 'fire', color: '#d76414',
-    desc: 'Venceu 5 apostas seguidas. Tá pegando fogo, bicho.', check: ACH.hotHand },
-  { id: 'invencivel', name: 'INVENCÍVEL', icon: 'bolt', color: '#c9a227',
+  { id: 'azarao', name: 'AZARÃO', icon: 'arrow-up-right', color: '#2a8f3f', cat: 'apostas', rarity: 'rara',
+    desc: 'Venceu uma aposta simples com odd 5x ou mais. Ninguém dava nada por ele.', check: ACH.underdog, rewards: { badge: 'badge-azarao' } },
+  { id: 'mao_quente', name: 'MÃO QUENTE', icon: 'fire', color: '#d76414', cat: 'apostas', rarity: 'rara',
+    desc: 'Venceu 5 apostas seguidas. Tá pegando fogo, bicho.', check: ACH.hotHand, rewards: { badge: 'badge-mao-quente' } },
+  { id: 'invencivel', name: 'INVENCÍVEL', icon: 'bolt', color: '#c9a227', cat: 'apostas', rarity: 'epica',
     desc: 'Venceu 10 apostas SEGUIDAS. Intocável — ninguém segura.', check: ACH.ironStreak },
-  { id: 'pe_frio', name: 'PÉ FRIO', icon: 'skull', color: '#5a5a5a',
+  { id: 'tudo_ou_nada', name: 'TUDO OU NADA', icon: 'bolt', color: '#a8324f', cat: 'apostas', rarity: 'rara',
+    desc: 'Montou uma casada com 8 palpites ou mais. Coragem (ou teimosia) de sobra.', check: ACH.allIn, rewards: { badge: 'badge-tudo-ou-nada' } },
+  { id: 'pe_frio', name: 'PÉ FRIO', icon: 'skull', color: '#5a5a5a', cat: 'apostas', rarity: 'comum',
     desc: 'Perdeu 5 apostas seguidas. O VARIMITIVÃO tá de olho.', check: ACH.coldFoot },
-  { id: 'amaldicoado', name: 'AMALDIÇOADO', icon: 'skull', color: '#3e0f0f',
+  { id: 'amaldicoado', name: 'AMALDIÇOADO', icon: 'skull', color: '#3e0f0f', cat: 'apostas', rarity: 'rara',
     desc: 'Perdeu 10 apostas SEGUIDAS. O VARIMITIVÃO lavou as mãos.', check: ACH.cursed },
-  { id: 'azarao', name: 'AZARÃO', icon: 'arrow-up-right', color: '#2a8f3f',
-    desc: 'Venceu uma aposta simples com odd 5x ou mais. Ninguém dava nada por ele.', check: ACH.underdog },
-  { id: 'sorte_novato', name: 'SORTE DE NOVATO', icon: 'sparkle', color: '#c9a227',
-    desc: 'Venceu a PRIMEIRA aposta da vida no Primitivão. Começou voando.', check: ACH.luckyStart },
-  { id: 'tubarao', name: 'TUBARÃO', icon: 'coin-stack', color: '#2a6f8f',
-    desc: 'Movimentou 1.000.000 PC somando todos os cupons. Peixe grande do mercado.', check: ACH.whale },
-  { id: 'tudo_ou_nada', name: 'TUDO OU NADA', icon: 'bolt', color: '#a8324f',
-    desc: 'Montou uma casada com 8 palpites ou mais. Coragem (ou teimosia) de sobra.', check: ACH.allIn },
-  { id: 'colecionador', name: 'COLECIONADOR', icon: 'gift', color: '#7a4dc9',
-    desc: 'Desbloqueou 5 itens cosméticos ou mais. Vaidoso assumido.', check: ACH.collector },
-  // ── Apostas: campeonato encerrado (uma season) ──
-  { id: 'rei_apostas', name: 'REI DAS APOSTAS', icon: 'crown', color: '#d4af37',
+  // ── APOSTAS: season encerrada ──
+  { id: 'rei_apostas', name: 'REI DAS APOSTAS', icon: 'crown', color: '#d4af37', cat: 'apostas', rarity: 'lendaria',
     desc: 'Terminou uma season no TOPO do ranking de apostas — o maior lucro da temporada. A coroa é sua.', check: ACH.betKing },
-  { id: 'vice_apostas', name: 'VICE DAS APOSTAS', icon: 'coin-stack', color: '#9a9a9a',
+  { id: 'vice_apostas', name: 'VICE DAS APOSTAS', icon: 'coin-stack', color: '#9a9a9a', cat: 'apostas', rarity: 'epica',
     desc: 'Terminou em SEGUNDO no ranking de apostas de uma season. Faltou pouco pra coroa.', check: ACH.betVice },
-  { id: 'mico_apostas', name: 'MICO DAS APOSTAS', icon: 'coin-fire', color: '#7a2222',
+  { id: 'mico_apostas', name: 'MICO DAS APOSTAS', icon: 'coin-fire', color: '#7a2222', cat: 'apostas', rarity: 'rara',
     desc: 'Terminou em ÚLTIMO no ranking de apostas de uma season, no vermelho. A casa agradece a preferência.', check: ACH.betMico },
-  // ── Copa do Mundo ──
-  { id: 'vidente_copa', name: 'VIDENTE DA COPA', icon: 'globe', color: '#1c7a6e',
-    desc: 'Acertou um placar EXATO no bolão da Copa do Mundo (3 pts).', check: ACH.copaSeer },
-  { id: 'oraculo_copa', name: 'ORÁCULO DA COPA', icon: 'eye', color: '#1c7a6e',
-    desc: 'Acertou 5 placares EXATOS no bolão da Copa. Não é palpite, é dom.', check: ACH.copaOracle },
+  // ── COPA DO MUNDO ──
+  { id: 'copa_player', name: 'BOLÃO DA COPA', icon: 'globe', color: '#1c7a6e', cat: 'copa', rarity: 'comum',
+    desc: 'Palpitou em pelo menos um jogo da Copa do Mundo.', check: ACH.copaPlayer, rewards: { badge: 'badge-copa' } },
+  { id: 'maratonista_copa', name: 'MARATONISTA DA COPA', icon: 'globe', color: '#1c7a6e', cat: 'copa', rarity: 'rara',
+    desc: 'Palpitou em 10 jogos ou mais da Copa. Não perde uma.', check: ACH.copaMarathon },
+  { id: 'vidente_copa', name: 'VIDENTE DA COPA', icon: 'target', color: '#3a78c2', cat: 'copa', rarity: 'rara',
+    desc: 'Acertou um placar EXATO no bolão da Copa do Mundo (3 pts).', check: ACH.copaSeer, rewards: { badge: 'badge-vidente' } },
+  { id: 'tika_taka', name: 'TIKA-TAKA', icon: 'target', color: '#1c7a6e', cat: 'copa', rarity: 'epica',
+    desc: 'Acertou 3 placares EXATOS no bolão da Copa. Tá lendo o jogo.', check: ACH.copaTrio },
+  { id: 'oraculo_copa', name: 'ORÁCULO DA COPA', icon: 'eye', color: '#1c7a6e', cat: 'copa', rarity: 'lendaria',
+    desc: 'Acertou 5 placares EXATOS no bolão da Copa. Não é palpite, é dom.', check: ACH.copaOracle, rewards: { badge: 'badge-oraculo' } },
+  // ── COLEÇÃO / SOCIAL ──
+  { id: 'colecionador', name: 'COLECIONADOR', icon: 'gift', color: '#7a4dc9', cat: 'colecao', rarity: 'rara',
+    desc: 'Desbloqueou 5 itens cosméticos ou mais. Vaidoso assumido.', check: ACH.collector },
+  { id: 'colecionador_elite', name: 'COLECIONADOR DE ELITE', icon: 'gift', color: '#7a4dc9', cat: 'colecao', rarity: 'epica',
+    desc: 'Desbloqueou 10 itens cosméticos ou mais. Vaidade nível lendário.', check: ACH.collector10 },
+  { id: 'estiloso', name: 'ESTILOSO', icon: 'star', color: '#d4af37', cat: 'colecao', rarity: 'comum',
+    desc: 'Equipou uma moldura E um distintivo ao mesmo tempo. Visual completo.', check: ACH.stylish },
+  { id: 'comentarista', name: 'COMENTARISTA', icon: 'chat', color: '#3a78c2', cat: 'social', rarity: 'comum',
+    desc: 'Postou 10 comentários ou mais no Primitivão. Voz ativa na liga.', check: ACH.commenter },
 ];
+// Categorias de conquista (ordem + rótulo na UI).
+const ACH_CATS = [
+  { id: 'campeonato',   label: 'CAMPEONATO' },
+  { id: 'mk',           label: 'MORTAL KOMBAT' },
+  { id: 'apostas',      label: 'APOSTAS' },
+  { id: 'copa',         label: 'COPA DO MUNDO' },
+  { id: 'colecao',      label: 'COLEÇÃO' },
+  { id: 'social',       label: 'SOCIAL' },
+  { id: 'participacao', label: 'PARTICIPAÇÃO' },
+];
+// Pontos por raridade — base do score de caçador E do CC (ver ccEarnedFor).
+const ACH_POINTS = { comum: 50, rara: 120, epica: 250, lendaria: 500 };
+const achPoints = (a) => (a && ACH_POINTS[a.rarity]) || 0;
+const RARITY_LABEL = { comum: 'COMUM', rara: 'RARA', epica: 'ÉPICA', lendaria: 'LENDÁRIA' };
+// Alias retrocompat: muito código ainda referencia TITLE_DEFS / "título".
+const TITLE_DEFS = ACHIEVEMENTS;
 // ─── ITEMS COSMÉTICOS (LOJA) ────────────────────────────────────────────────
 // MVP: 2 slots (frame + badge). Cada item tem 1 dos modos:
 //   - price (number)  → comprável com PC na loja
@@ -6897,11 +7048,24 @@ const ITEM_SLOTS = [
   { id: 'badge',  label: 'DISTINTIVO', short: 'badge' },
 ];
 
-// Retorna items dropados automaticamente pra esse nick (excluindo os com price).
+// Items que a conquista DROPA pra esse nick. FONTE: ACHIEVEMENTS[].rewards.
+// Uma conquista entrega seu badge/frame quando está desbloqueada (latched em
+// earnedTitles OU válida ao vivo). Só varremos conquistas COM rewards — isso
+// evita recursão (collector/stylish dependem de effectiveInventory e NÃO têm
+// reward, então nunca entram aqui). Todos os items de reward são drops (sem price).
 function itemsDroppedFor(nick, ctx) {
-  return ITEMS.filter(i => i.drop && (() => {
-    try { return !!i.drop({ nick, ...ctx }); } catch (_) { return false; }
-  })());
+  const u = (((ctx && ctx.users) || {})[nick]) || {};
+  const persisted = new Set(Array.isArray(u.earnedTitles) ? u.earnedTitles : []);
+  const ids = new Set();
+  for (const a of ACHIEVEMENTS) {
+    if (!a.rewards) continue;
+    let ok = persisted.has(a.id);
+    if (!ok) { try { ok = !!a.check({ nick, ...ctx }); } catch (_) { ok = false; } }
+    if (!ok) continue;
+    if (a.rewards.badge) ids.add(a.rewards.badge);
+    if (a.rewards.frame) ids.add(a.rewards.frame);
+  }
+  return ITEMS.filter(i => ids.has(i.id));
 }
 
 // Inventário efetivo = comprados (inventory) ∪ drops LATCHED (earnedDrops) ∪
@@ -6933,17 +7097,24 @@ function getTitleDef(id) {
   return TITLE_DEFS.find(t => t.id === id) || null;
 }
 
+// Score de caçador = soma dos PONTOS (por raridade) das conquistas desbloqueadas.
+function achievementScore(nick, ctx) {
+  let s = 0;
+  try { for (const a of titlesForNick(nick, ctx || {})) s += achPoints(a); } catch (_) {}
+  return s;
+}
+
 // ── CAMPEÃO COINS (CC) — moeda da loja, RARA e de mérito ────────────────────
 // Saldo DERIVADO (não some ao gastar): saldo = ganho + bônus_admin - gasto.
-// GANHO vem de mérito: cada TÍTULO conquistado + cada CAMPEONATO em que o cara
-// participou (inscrição). Valores propositalmente altos vs preços da loja —
-// CC é pra ser raro. Ajuste as 2 constantes abaixo pra calibrar a economia.
-const CC_PER_TITLE = 100;          // por título conquistado
+// GANHO vem de mérito: os PONTOS das conquistas (raridade vale mais) + cada
+// CAMPEONATO em que o cara participou (inscrição). Como o CC = score de
+// conquista, conquista rara/épica/lendária rende muito mais que comum.
+// Ajuste ACH_POINTS (raridade) e CC_PER_PARTICIPATION pra calibrar a economia.
 const CC_PER_PARTICIPATION = 25;   // por campeonato em que participou (inscrito)
 function ccEarnedFor(nick, ctx) {
   if (!nick) return 0;
   let earned = 0;
-  try { earned += titlesForNick(nick, ctx || {}).length * CC_PER_TITLE; } catch (_) {}
+  try { earned += achievementScore(nick, ctx || {}); } catch (_) {}  // 1 CC por ponto de conquista
   const interests = (ctx && ctx.interests) || {};
   for (const cid of Object.keys(interests)) {
     const m = interests[cid];
@@ -8207,8 +8378,8 @@ function TrocarSenhaCard({ nick }) {
 // Hub de comparação: escolhe um jogador (seletor visual de avatares) e mostra o
 // perfil dele (troféus/títulos), uma comparação VOCÊ × ELE e TODOS os confrontos
 // diretos (H2H) em todos os jogos com fixtures (FIFA = 1 jogo/par, MK = ida+volta).
-function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw, mkScores, interests }) {
-  const ctx = { users: users || {}, bets: bets || [], teamPlayers: teamPlayers || {}, cs, worldcup, interests: interests || {} };
+function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw, mkScores, interests, comments }) {
+  const ctx = { users: users || {}, bets: bets || [], teamPlayers: teamPlayers || {}, cs, worldcup, interests: interests || {}, comments: comments || {}, mk: { draw: mkDraw, scores: mkScores } };
 
   // universo de jogadores (menos o admin e quem se retirou), em ordem alfabética
   const players = Object.keys(users || {}).filter(n => n && n !== ADMIN_NICK && !mkIsWithdrawn(n)).sort((a, b) => a.localeCompare(b));
@@ -8276,7 +8447,8 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   list.forEach(x => { if (x.winner === 'D') draws++; else if (x.winner === left) aWins++; else if (x.winner === right) bWins++; });
   const cmpRows = [
     { label: 'TROFÉUS', a: troTotal(left), b: troTotal(right), dir: 'more' },
-    { label: 'TÍTULOS', a: titlesOf(left).length, b: titlesOf(right).length, dir: 'more' },
+    { label: 'CONQUISTAS', a: titlesOf(left).length, b: titlesOf(right).length, dir: 'more' },
+    { label: 'PONTOS', a: achievementScore(left, ctx), b: achievementScore(right, ctx), dir: 'more' },
     { label: 'PRIMITIVO COINS', a: pcOf(left), b: pcOf(right), dir: 'more' },
     { label: 'POSIÇÃO FIFA', a: fifaPos(left), b: fifaPos(right), dir: 'less' },
     { label: 'POSIÇÃO MK', a: mkPos(left), b: mkPos(right), dir: 'less' },
@@ -8391,7 +8563,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
         )}
 
         <div className="card">
-          <div className="card-head"><div className="title">TROFÉUS E TÍTULOS</div></div>
+          <div className="card-head"><div className="title">TROFÉUS E CONQUISTAS</div></div>
           <div className="card-body">
             <div className={'stats-tro-cols' + (right ? '' : ' single')}>
               {[left, right].filter(Boolean).map((p, pi) => {
@@ -8424,8 +8596,8 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
                         )}
                       </>
                     )}
-                    <div className="stats-tro-h" style={{ marginTop: 16 }}>TÍTULOS · {tit.length}</div>
-                    {tit.length === 0 ? <div className="stats-none">Sem títulos ainda.</div> : (
+                    <div className="stats-tro-h" style={{ marginTop: 16 }}>CONQUISTAS · {tit.length} · {achievementScore(p, ctx)} PTS</div>
+                    {tit.length === 0 ? <div className="stats-none">Sem conquistas ainda.</div> : (
                       <div className="stats-tro">{tit.map(t => <TitleBadge key={t.id} titleId={t.id} />)}</div>
                     )}
                   </div>
@@ -8452,7 +8624,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   );
 }
 
-function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest, mkDraw, mkScores, isNaturalMod, modDisabled, onToggleMod }) {
+function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest, mkDraw, mkScores, ctx, isNaturalMod, modDisabled, onToggleMod }) {
   const [inscBusy, setInscBusy] = useState(null);
   const [ptab, setPtab] = useState('resumo'); // sub-aba: resumo / time / trofeus / titulos / colecao
   const champLabel = (cid) => cid === 'copa'
@@ -8550,8 +8722,8 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
   const lucro = totalReturn - totalStake;
   const resolved = wonBets.length + lostBets.length;
   const aproveit = resolved ? Math.round((wonBets.length / resolved) * 100) : 0;
-  const earnedTitleCount = titlesForNick(nick, { bets, users, teamPlayers, cs, worldcup }).length;
-  const collectionCount = isAdmin ? 0 : effectiveInventory(nick, me, { bets, teamPlayers, cs, worldcup }).length;
+  const earnedTitleCount = titlesForNick(nick, ctx || {}).length;
+  const collectionCount = isAdmin ? 0 : effectiveInventory(nick, me, ctx || {}).length;
   const trophyCount = myTrophies.length + (showBetKing ? betKingSeasons.length : 0);
 
   // MORTAL KOMBAT (rolando agora): é por JOGADOR, não por time. Calcula a
@@ -8608,7 +8780,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
             </div>
             {!HIDE_CC && (
               <div className="perfil-id-coin cc" title="Caco Coins">
-                <span className="perfil-id-coin-v">{compactPC(ccBalanceFor(nick, me, { bets, users, teamPlayers, cs, worldcup, interests }))}</span><span className="perfil-id-coin-l">CC</span>
+                <span className="perfil-id-coin-v">{compactPC(ccBalanceFor(nick, me, ctx || {}))}</span><span className="perfil-id-coin-l">CC</span>
               </div>
             )}
           </div>
@@ -8830,11 +9002,11 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
         </>
       )}
 
-      {/* ===== TÍTULOS ===== */}
+      {/* ===== CONQUISTAS ===== */}
       {ptab === 'titulos' && (
         <TitulosCard
           nick={nick}
-          ctx={{ bets, users, teamPlayers, cs, worldcup }}
+          ctx={ctx}
           selectedTitle={me?.title || null}
           onSelectTitle={onSelectTitle}
         />
@@ -8846,7 +9018,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
           nick={nick}
           me={me}
           previewTeamId={myTeamId}
-          ctx={{ bets, teamPlayers, cs, worldcup }}
+          ctx={ctx}
           onEquip={onEquip}
         />
       )}
@@ -8905,6 +9077,21 @@ function computeTitleOwners(ctx) {
   return result;
 }
 
+// Ranking de CAÇADORES DE CONQUISTAS: ordena todos os jogadores por pontos de
+// conquista (desempate: nº de conquistas -> nome). Exclui o admin (sem time/jogo).
+// Retorna [{ nick, score, count }].
+function computeHunterRanking(ctx) {
+  const users = (ctx && ctx.users) || {};
+  return Object.keys(users)
+    .filter(n => n !== ADMIN_NICK)
+    .map(nick => {
+      const earned = titlesForNick(nick, ctx || {});
+      const score = earned.reduce((s, a) => s + achPoints(a), 0);
+      return { nick, score, count: earned.length };
+    })
+    .sort((a, b) => b.score - a.score || b.count - a.count || a.nick.localeCompare(b.nick));
+}
+
 // ─── LOJA (items cosméticos) ────────────────────────────────────────────────
 function LojaView({ nick, me, ctx, onBuy, onEquip }) {
   const [busy, setBusy] = useState({}); // { itemId: 'buy' | 'equip' }
@@ -8959,7 +9146,7 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
         <div className="card-body">
           <p style={{ marginTop: 0, lineHeight: 1.5, fontSize: 13 }}>
             A loja roda em <strong>Campeão Coins (CC)</strong> — o PC agora é só pra apostas.
-            <strong> CC é raro: você ganha conquistando títulos (+{CC_PER_TITLE} cada) e
+            <strong> CC é raro: você ganha os PONTOS das suas conquistas (quanto mais rara, mais CC) e
             participando de campeonatos (+{CC_PER_PARTICIPATION} cada).</strong> Compra molduras
             com CC e equipa distintivos desbloqueados por conquista. Items equipados aparecem no
             seu avatar em todo o site (TopBar, Ranking, Perfil, Vitrine).
@@ -9080,23 +9267,29 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
 function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
   const earnedIds = useMemo(() => new Set(titlesForNick(nick, ctx || {}).map(t => t.id)), [nick, ctx]);
   const owners = useMemo(() => computeTitleOwners(ctx || {}), [ctx]);
+  const ranking = useMemo(() => computeHunterRanking(ctx || {}), [ctx]);
   const earned = TITLE_DEFS.filter(t => earnedIds.has(t.id));
   const locked = TITLE_DEFS.filter(t => !earnedIds.has(t.id));
   const [showLocked, setShowLocked] = useState(false);
+
+  const score = earned.reduce((s, t) => s + achPoints(t), 0);
+  const maxScore = TITLE_DEFS.reduce((s, t) => s + achPoints(t), 0);
+  const myRankIdx = ranking.findIndex(r => r.nick === nick);
+  const myRank = myRankIdx >= 0 ? myRankIdx + 1 : null;
 
   const handleClick = (id, isLocked) => {
     if (isLocked || !onSelectTitle) return;
     onSelectTitle(selectedTitle === id ? null : id);
   };
 
-  // Chip compacto: ícone + nome. Hover mostra tooltip (desc + quem tem).
+  // Chip compacto: ícone + nome + pontos. Hover mostra tooltip (desc + raridade + quem tem).
   const renderChip = (t, isLocked) => {
     const isSelected = !isLocked && selectedTitle === t.id;
     const titleOwners = owners[t.id] || [];
     return (
       <div key={t.id} className="titulo-chip-wrap">
         <button
-          className={'titulo-chip' + (isSelected ? ' selected' : '') + (isLocked ? ' locked' : '')}
+          className={'titulo-chip rarity-' + t.rarity + (isSelected ? ' selected' : '') + (isLocked ? ' locked' : '')}
           onClick={() => handleClick(t.id, isLocked)}
           style={!isLocked ? { '--tc': t.color } : undefined}
           aria-pressed={isSelected}
@@ -9105,10 +9298,11 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
             {isLocked ? <Icon name="lock" size={15} /> : <Icon name={t.icon} size={17} />}
           </span>
           <span className="titulo-chip-name">{t.name}</span>
+          <span className="titulo-chip-pts">{achPoints(t)}</span>
           {isSelected && <span className="titulo-chip-check"><Icon name="check" size={12} /></span>}
         </button>
         <div className="titulo-tooltip">
-          <div className="titulo-tooltip-head">{t.name}</div>
+          <div className="titulo-tooltip-head">{t.name} · {RARITY_LABEL[t.rarity]} · {achPoints(t)} PTS</div>
           <div className="titulo-tooltip-desc">{t.desc}</div>
           <div className="titulo-tooltip-owners">
             {titleOwners.length === 0
@@ -9120,21 +9314,43 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
     );
   };
 
+  // Renderiza uma lista de conquistas agrupada por categoria (ACH_CATS).
+  const renderGrouped = (list, isLocked) => ACH_CATS.map(cat => {
+    const items = list.filter(t => t.cat === cat.id);
+    if (items.length === 0) return null;
+    return (
+      <div key={cat.id} className="titulos-cat">
+        <div className="titulos-cat-label">{cat.label} <span className="titulos-cat-n">{items.length}</span></div>
+        <div className="titulos-chips">{items.map(t => renderChip(t, isLocked))}</div>
+      </div>
+    );
+  });
+
   return (
     <div className="card" style={{ marginBottom: 14 }}>
       <div className="card-head">
-        <div className="title"><Icon name="tag" size={16} /> CONQUISTAS</div>
-        <div className="sub">{earned.length}/{TITLE_DEFS.length} CONQUISTADAS</div>
+        <div className="title"><Icon name="trophy" size={16} /> CONQUISTAS</div>
+        <div className="sub">{earned.length}/{TITLE_DEFS.length} · {score} PTS</div>
       </div>
       <div className="card-body">
-        <p style={{ marginTop: 0, marginBottom: 10, fontSize: 11, color: 'rgba(28,22,18,0.6)', lineHeight: 1.4 }}>
-          Clica numa conquista pra exibir no seu nome. Toca (ou passa o mouse) pra ver o que é e quem tem.
+        {/* Faixa de score do caçador */}
+        <div className="cacador-banner">
+          <div className="cacador-banner-main">
+            <span className="cacador-banner-score">{score}</span>
+            <span className="cacador-banner-lbl">PONTOS DE CAÇADOR</span>
+          </div>
+          <div className="cacador-banner-rank">
+            {myRank ? <><Icon name="crosshair" size={13} /> {myRank}º de {ranking.length} caçadores</> : 'sem ranking ainda'}
+          </div>
+        </div>
+        <p style={{ marginTop: 10, marginBottom: 10, fontSize: 11, color: 'rgba(28,22,18,0.6)', lineHeight: 1.4 }}>
+          Clica numa conquista pra exibir no seu nome. Quanto mais rara, mais pontos (e mais CC). Toca (ou passa o mouse) pra ver o que é e quem tem.
         </p>
 
         {earned.length > 0 ? (
           <>
-            <div className="small-label" style={{ marginTop: 0, marginBottom: 6 }}>SUAS CONQUISTAS</div>
-            <div className="titulos-chips">{earned.map(t => renderChip(t, false))}</div>
+            <div className="small-label" style={{ marginTop: 0, marginBottom: 6 }}>SUAS CONQUISTAS · {score}/{maxScore} PTS</div>
+            {renderGrouped(earned, false)}
           </>
         ) : (
           <div className="titulos-vazio">Você ainda não tem nenhuma conquista. Olha as bloqueadas pra ver como desbloquear.</div>
@@ -9146,7 +9362,7 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle }) {
               <Icon name={showLocked ? 'caret-up' : 'caret-down'} size={12} />
               {showLocked ? 'ESCONDER' : 'VER'} {locked.length} BLOQUEADA{locked.length === 1 ? '' : 'S'}
             </button>
-            {showLocked && <div className="titulos-chips" style={{ marginTop: 8 }}>{locked.map(t => renderChip(t, true))}</div>}
+            {showLocked && <div style={{ marginTop: 8 }}>{renderGrouped(locked, true)}</div>}
           </>
         )}
       </div>
@@ -9551,26 +9767,23 @@ function HallDaVergonhaView({ cs, users, teamPlayers, worldcup, wcFixtures, myNi
 }
 
 // HallView — vitrine de troféus (Fama + Vergonha) com subTabs.
-function HallView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick, bets }) {
-  const [subTab, setSubTab] = useState('fama'); // 'fama' | 'vergonha'
+function HallView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick, bets, ctx }) {
+  const [subTab, setSubTab] = useState('fama'); // 'fama' | 'vergonha' | 'cacadores'
   const season = (CHAMPIONSHIPS.find(c => c.id === 'fifa') || {}).season || '';
+  const hero = {
+    fama:      { tag: `PRIMITIVÃO · MORADA DOS DEUSES · ${season}`, title: 'OLIMPO PRIMITIVÃO', sub: 'Os deuses de cada temporada. Imortalizados em ouro e prata no alto do Olimpo.' },
+    vergonha:  { tag: `PRIMITIVÃO · ABISMO DOS CONDENADOS · ${season}`, title: 'TÁRTARO', sub: 'O abismo onde os condenados penam. Privada, escova e o fundo do poço pra eternidade.' },
+    cacadores: { tag: `PRIMITIVÃO · CAÇADORES DE CONQUISTAS · ${season}`, title: 'CAÇADORES', sub: 'Quem mais desbloqueou conquistas. Cada raridade vale mais pontos — a caça é eterna.' },
+  }[subTab];
   return (
     <div>
       <div className={'hall-hero ' + subTab}>
         <div className="hall-hero-ornament" aria-hidden="true">
           <Icon name="star" size={12} /><span /><Icon name="trophy" size={16} /><span /><Icon name="star" size={12} />
         </div>
-        <div className="hall-hero-tag">
-          {subTab === 'fama'
-            ? `PRIMITIVÃO · MORADA DOS DEUSES · ${season}`
-            : `PRIMITIVÃO · ABISMO DOS CONDENADOS · ${season}`}
-        </div>
-        <div className="hall-hero-title">{subTab === 'fama' ? 'OLIMPO PRIMITIVÃO' : 'TÁRTARO'}</div>
-        <div className="hall-hero-sub">
-          {subTab === 'fama'
-            ? 'Os deuses de cada temporada. Imortalizados em ouro e prata no alto do Olimpo.'
-            : 'O abismo onde os condenados penam. Privada, escova e o fundo do poço pra eternidade.'}
-        </div>
+        <div className="hall-hero-tag">{hero.tag}</div>
+        <div className="hall-hero-title">{hero.title}</div>
+        <div className="hall-hero-sub">{hero.sub}</div>
       </div>
       <div className="hall-subtabs">
         <button className={'hall-subtab fame ' + (subTab === 'fama' ? 'active' : '')} onClick={() => setSubTab('fama')}>
@@ -9579,9 +9792,72 @@ function HallView({ cs, users, teamPlayers, worldcup, wcFixtures, myNick, bets }
         <button className={'hall-subtab shame ' + (subTab === 'vergonha' ? 'active' : '')} onClick={() => setSubTab('vergonha')}>
           <Icon name="toilet" size={14} /> TÁRTARO
         </button>
+        <button className={'hall-subtab hunt ' + (subTab === 'cacadores' ? 'active' : '')} onClick={() => setSubTab('cacadores')}>
+          <Icon name="crosshair" size={14} /> CAÇADORES
+        </button>
       </div>
-      {subTab === 'fama'     && <HallDaFamaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} myNick={myNick} bets={bets} />}
-      {subTab === 'vergonha' && <HallDaVergonhaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} myNick={myNick} bets={bets} />}
+      {subTab === 'fama'      && <HallDaFamaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} myNick={myNick} bets={bets} />}
+      {subTab === 'vergonha'  && <HallDaVergonhaView cs={cs} users={users} teamPlayers={teamPlayers} worldcup={worldcup} wcFixtures={wcFixtures} myNick={myNick} bets={bets} />}
+      {subTab === 'cacadores' && <CacadoresView ctx={ctx} teamPlayers={teamPlayers} myNick={myNick} />}
+    </div>
+  );
+}
+
+// Ranking de CAÇADORES DE CONQUISTAS — leaderboard por pontos de conquista.
+// Pódio dos 3 primeiros + lista completa, com a sua linha destacada.
+function CacadoresView({ ctx, teamPlayers, myNick }) {
+  const ranking = useMemo(() => computeHunterRanking(ctx || {}), [ctx]);
+  const maxScore = useMemo(() => TITLE_DEFS.reduce((s, t) => s + achPoints(t), 0), []);
+  const users = (ctx && ctx.users) || {};
+  const cosmOf = (n) => (users[n] || {}).cosmetics || {};
+  const top3 = ranking.slice(0, 3);
+  const podiumOrder = [top3[1], top3[0], top3[2]]; // prata, ouro, bronze
+  const medalColor = ['#d4af37', '#9a9a9a', '#b06a2c'];
+  if (ranking.length === 0) {
+    return <div className="card"><div className="card-body"><div className="empty"><div className="e1">SEM CAÇADORES AINDA</div><div className="e2">Desbloqueie conquistas pra entrar no ranking.</div></div></div></div>;
+  }
+  return (
+    <div>
+      {/* Pódio */}
+      <div className="cacador-podium">
+        {podiumOrder.map((r, i) => {
+          if (!r) return <div key={'e' + i} className="cacador-pod-slot empty" />;
+          const rank = ranking.findIndex(x => x.nick === r.nick) + 1;
+          return (
+            <div key={r.nick} className={'cacador-pod-slot pos' + rank + (r.nick === myNick ? ' me' : '')}>
+              <div className="cacador-pod-medal" style={{ color: medalColor[rank - 1] }}><Icon name="medal" size={20} /> {rank}º</div>
+              <Avatar nick={r.nick} teamPlayers={teamPlayers} cosmetics={cosmOf(r.nick)} size={54} />
+              <div className="cacador-pod-nick">@{r.nick}</div>
+              <div className="cacador-pod-score">{r.score} <span>PTS</span></div>
+              <div className="cacador-pod-count">{r.count} conquistas</div>
+            </div>
+          );
+        })}
+      </div>
+      {/* Lista completa */}
+      <div className="card">
+        <div className="card-head">
+          <div className="title"><Icon name="crosshair" size={16} /> RANKING DE CAÇADORES</div>
+          <div className="sub">{ranking.length} JOGADORES</div>
+        </div>
+        <div className="card-body">
+          <div className="cacador-list">
+            {ranking.map((r, i) => {
+              const pct = maxScore ? Math.round((r.score / maxScore) * 100) : 0;
+              return (
+                <div key={r.nick} className={'cacador-row' + (r.nick === myNick ? ' me' : '')}>
+                  <span className="cacador-row-pos">{String(i + 1).padStart(2, '0')}</span>
+                  <Avatar nick={r.nick} teamPlayers={teamPlayers} cosmetics={cosmOf(r.nick)} size={30} noBadge />
+                  <span className="cacador-row-nick">@{r.nick}{r.nick === myNick ? ' (você)' : ''}</span>
+                  <span className="cacador-row-bar"><span className="cacador-row-fill" style={{ width: pct + '%' }} /></span>
+                  <span className="cacador-row-count">{r.count}</span>
+                  <span className="cacador-row-score">{r.score} PTS</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -11192,21 +11468,22 @@ function CatalogoAdminPanel({ cs, teamPlayers }) {
         </div>
       </div>
 
-      {/* TÍTULOS */}
+      {/* CONQUISTAS */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-head">
-          <div className="title">TÍTULOS</div>
-          <div className="sub">{TITLE_DEFS.length} NO CATÁLOGO</div>
+          <div className="title">CONQUISTAS</div>
+          <div className="sub">{TITLE_DEFS.length} NO CATÁLOGO · {TITLE_DEFS.reduce((s, t) => s + achPoints(t), 0)} PTS TOTAIS</div>
         </div>
         <div className="card-body">
           <div className="catalogo-grid">
             {TITLE_DEFS.map(t => (
-              <div key={t.id} className="catalogo-card" style={{ borderLeftColor: t.color }}>
+              <div key={t.id} className={'catalogo-card rarity-' + t.rarity} style={{ borderLeftColor: t.color }}>
                 <div className="catalogo-card-head">
                   <span style={{ color: t.color, display: 'inline-flex' }}><Icon name={t.icon} size={22} /></span>
                   <span className="catalogo-card-name" style={{ color: t.color }}>{t.name}</span>
                 </div>
                 <div className="catalogo-card-desc">{t.desc}</div>
+                <div className="catalogo-card-meta">{(ACH_CATS.find(c => c.id === t.cat) || {}).label || t.cat} · {RARITY_LABEL[t.rarity]} · {achPoints(t)} PTS{t.rewards ? ' · dropa ' + [t.rewards.badge, t.rewards.frame].filter(Boolean).join(' + ') : ''}</div>
                 <div className="catalogo-card-id">id: {t.id}</div>
               </div>
             ))}
