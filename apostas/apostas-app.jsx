@@ -123,7 +123,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260624-aparencia ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260624-conqcards ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -9651,42 +9651,41 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle, onSeeRanking }) 
     onSelectTitle(selectedTitle === id ? null : id);
   };
 
-  // Nó da skill tree: disco (aceso/bloqueado/equipado) + pontos + nome + tooltip.
-  // prevLitRef.v guarda se o nó ANTERIOR da lane está aceso (acende o trecho do
-  // "galho" só quando este E o anterior estão conquistados).
-  const renderNode = (t, prevLitRef) => {
+  // Card de conquista: ícone + nome + raridade/pontos + REQUISITO (sempre
+  // visível) + estado (bloqueada / exibir no nome). O requisito é a própria
+  // descrição — o ponto principal: dá pra ver o que falta SEM hover.
+  const renderCard = (t) => {
     const isLocked = !earnedIds.has(t.id);
-    const isLit = !isLocked;
-    const isEquipped = isLit && selectedTitle === t.id;
-    const afterLit = isLit && prevLitRef.v;
-    prevLitRef.v = isLit;
-    const titleOwners = owners[t.id] || [];
+    const isEquipped = !isLocked && selectedTitle === t.id;
+    const own = owners[t.id] || [];
     return (
-      <div key={t.id} role="listitem"
-        className={'sknode rarity-' + t.rarity + (isLit ? ' lit' : ' locked') + (afterLit ? ' after-lit' : '') + (isEquipped ? ' equipped' : '') + (isLocked && !showLocked ? ' is-hidden' : '')}>
-        <button type="button" className="sknode-btn"
-          onClick={() => handleClick(t.id, isLocked)}
-          style={isLit ? { '--tc': t.color } : undefined}
-          aria-pressed={isEquipped} aria-label={t.name + (isLocked ? ' (bloqueada)' : '')}>
-          {isLocked ? <Icon name="lock" size={20} /> : <Icon name={t.icon} size={24} />}
-          {isEquipped && <span className="sknode-check"><Icon name="check" size={11} /></span>}
-        </button>
-        <span className="sknode-pts">{achPoints(t)}</span>
-        <span className="sknode-name">{t.name}</span>
-        <div className="titulo-tooltip">
-          <div className="titulo-tooltip-head">{t.name} · {RARITY_LABEL[t.rarity]} · {achPoints(t)} PTS</div>
-          <div className="titulo-tooltip-desc">{t.desc}</div>
-          <div className="titulo-tooltip-owners">
-            {titleOwners.length === 0
-              ? 'Ninguém conquistou ainda.'
-              : `Têm: ${titleOwners.map(n => '@' + n + (n === nick ? ' (você)' : '')).join(', ')}`}
+      <div key={t.id}
+        className={'achv-card rarity-' + t.rarity + (isLocked ? ' locked' : ' unlocked') + (isEquipped ? ' equipped' : '')}
+        style={!isLocked ? { '--tc': t.color } : undefined}>
+        <div className="achv-ic">{isLocked ? <Icon name="lock" size={22} /> : <Icon name={t.icon} size={26} />}</div>
+        <div className="achv-body">
+          <div className="achv-top">
+            <span className="achv-name">{t.name}</span>
+            <span className="achv-pts">{achPoints(t)} PTS</span>
+          </div>
+          <div className="achv-rarity">{RARITY_LABEL[t.rarity]}{isLocked ? ' · BLOQUEADA' : ' · CONQUISTADA'}</div>
+          <div className="achv-desc">{t.desc}</div>
+          <div className="achv-foot">
+            {isLocked ? (
+              <span className="achv-owners">{own.length ? (own.length + (own.length === 1 ? ' já tem' : ' já têm')) : 'ninguém tem ainda'}</span>
+            ) : (
+              <button type="button" className={'achv-equip' + (isEquipped ? ' on' : '')}
+                onClick={() => handleClick(t.id, false)} aria-pressed={isEquipped}>
+                {isEquipped ? <><Icon name="check" size={12} /> EXIBINDO NO NOME</> : 'EXIBIR NO NOME'}
+              </button>
+            )}
           </div>
         </div>
       </div>
     );
   };
 
-  // Uma lane por categoria, conquistas ordenadas pela trilha de progressão.
+  // Uma seção por categoria, conquistas ordenadas pela trilha de progressão.
   const lanes = ACH_CATS.map(cat => {
     const items = TITLE_DEFS.filter(t => t.cat === cat.id).sort(achLaneSort);
     const got = items.filter(t => earnedIds.has(t.id)).length;
@@ -9718,21 +9717,22 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle, onSeeRanking }) 
           </div>
         </div>
         <p style={{ marginTop: 10, marginBottom: 12, fontSize: 11, color: 'rgba(28,22,18,0.6)', lineHeight: 1.4 }}>
-          Sua árvore de conquistas: cada categoria é um trilho. Toca numa conquista DESBLOQUEADA pra exibir
-          no seu nome. Quanto mais rara, mais pontos (e mais CC). Passa o mouse (ou toca) pra ver o que é.
+          Cada conquista mostra o que você precisa fazer pra desbloquear. Nas que você já tem,
+          toca em <strong>EXIBIR NO NOME</strong> pra mostrar do lado do seu nick (quanto mais rara, mais pontos e CC).
         </p>
 
-        <div className="sktree">
+        <div className="achv-list">
           {lanes.map(({ cat, items, got, total }) => {
-            const prevLitRef = { v: false };
+            const visible = items.filter(t => showLocked || earnedIds.has(t.id));
+            if (visible.length === 0) return null;
             return (
-              <section key={cat.id} className="skln" aria-label={cat.label}>
-                <div className="skln-head">
-                  <span className="skln-label">{cat.label}</span>
-                  <span className="skln-bar" style={{ '--pct': (total ? (got / total) * 100 : 0) + '%' }} />
-                  <span className="skln-count">{got}/{total}</span>
+              <section key={cat.id} className="achv-cat">
+                <div className="achv-cat-head">
+                  <span className="achv-cat-label">{cat.label}</span>
+                  <span className="achv-cat-bar" style={{ '--pct': (total ? (got / total) * 100 : 0) + '%' }} />
+                  <span className="achv-cat-count">{got}/{total}</span>
                 </div>
-                <div className="skln-rail" role="list">{items.map(t => renderNode(t, prevLitRef))}</div>
+                <div className="achv-grid">{visible.map(renderCard)}</div>
               </section>
             );
           })}
