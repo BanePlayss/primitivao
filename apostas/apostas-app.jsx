@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-m5b ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-ui2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3721,6 +3721,10 @@ function App() {
                 {/* ESQUERDA: onde apostar + MEUS TICKETS resuminho. */}
                 <div className="apostas-leftcol">
                   <ChampSidebar value={apostasChampId} onChange={setChampionship} cs={cs} interests={interests || {}} mode="apostas" />
+                  {/* MEUS TICKETS sobem; MEU JOGO desce (ordem pedida). */}
+                  {!isAdmin && (
+                    <TicketsMini bets={(bets || []).filter(b => b.user === session.nick && (b.champId || 'fifa') === apostasChampId)} limit={6} onOpen={() => setView('tickets')} />
+                  )}
                   {/* MEU JOGO (mini): escalar abre só ao clicar VER MEUS JOGOS (M3). */}
                   {apostasChampId === 'mk' && mkInscrito && (
                     <MeuJogoMini
@@ -3728,9 +3732,6 @@ function App() {
                       draw={mkDraw} scores={mkScores} lineups={mkLineups} teamPlayers={teamPlayers || {}}
                       onOpen={() => setMeuJogoOpen(true)}
                     />
-                  )}
-                  {!isAdmin && (
-                    <TicketsMini bets={(bets || []).filter(b => b.user === session.nick && (b.champId || 'fifa') === apostasChampId)} limit={6} onOpen={() => setView('tickets')} />
                   )}
                 </div>
                 {/* CENTRO: a box de apostar grande (grid com todos os confrontos). */}
