@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-noteams ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-fifaclubs ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1576,17 +1576,32 @@ function TeamMini({ team, size = 36 }) {
 // ─── ESCUDOS DOS CLUBES (FIFA S1) ───────────────────────────────────────────
 // Cada jogador da FIFA S1 "é" um clube real. PNGs em apostas/clubs/<nick>.png
 // (recorte transparente, ~160px). Nick sem clube cai no escudo genérico TeamMini.
+// Clube real que cada jogador usa na FIFA (chave = @nick do jogador). PNGs em
+// apostas/clubs/<nick>.png. 'juca'/'jucamelero' são o mesmo jogador (Barcelona).
 const CLUB_NAME = {
-  juca: 'Barcelona', potato: 'Arsenal', celin: 'Liverpool', magreza: 'Real Madrid',
+  jucamelero: 'Barcelona', juca: 'Barcelona', potato: 'Arsenal', celin: 'Liverpool', magreza: 'Real Madrid',
   caco: 'Newcastle', vitinho: 'Bayern', bane: 'PSG', mohamed: 'Man City',
 };
-// Sem mais "clubes"/times: ClubCrest agora é um wrapper fino do Avatar do
-// USUÁRIO. Resolve a chave recebida (teamId antigo OU nick) pro nick real via
-// fifaUserOf e mostra a foto custom (ou a inicial). Mantido como componente pra
-// minimizar edição nos call sites; passe teamPlayers quando tiver em escopo.
+// ClubCrest = escudo do CLUBE que o jogador usa na FIFA (pedido do Lucas: nas
+// partidas da FIFA o ícone é o time, ex.: bane=PSG, caco=Newcastle). Resolve a
+// chave (teamId antigo OU nick) pro @nick via fifaUserOf, acha o clube e mostra
+// clubs/<nick>.png. Sem clube cadastrado, cai no avatar do usuário.
 function ClubCrest({ nick, teamPlayers, size = 30, className = '' }) {
   const u = fifaUserOf(nick, teamPlayers);
-  return <Avatar nick={u} teamPlayers={teamPlayers} size={size} className={className} noBadge />;
+  const club = CLUB_NAME[u];
+  if (!club) return <Avatar nick={u} teamPlayers={teamPlayers} size={size} className={className} noBadge />;
+  return (
+    <img
+      src={'clubs/' + u + '.png'}
+      alt={club}
+      title={club}
+      width={size}
+      height={size}
+      className={'club-crest ' + className}
+      style={{ display: 'block', objectFit: 'contain', flexShrink: 0 }}
+      loading="lazy"
+    />
+  );
 }
 
 // ─── ÍCONES DOS CAMPEONATOS ─────────────────────────────────────────────────
@@ -6464,12 +6479,12 @@ function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock, teamP
         </div>
         <div className="fixture-match">
           <div className="fixture-team">
-            <Avatar nick={homeNick} teamPlayers={teamPlayers} size={42} noBadge />
+            <ClubCrest nick={game.home} teamPlayers={teamPlayers} size={42} />
             <div className="team-info"><div className="nm">@{homeNick}</div><div className="sh">MANDANTE</div></div>
           </div>
           <div className="vs"><span style={{ color: 'var(--pv-orange)' }}>×</span></div>
           <div className="fixture-team away">
-            <Avatar nick={awayNick} teamPlayers={teamPlayers} size={42} noBadge />
+            <ClubCrest nick={game.away} teamPlayers={teamPlayers} size={42} />
             <div className="team-info"><div className="nm">@{awayNick}</div><div className="sh">VISITANTE</div></div>
           </div>
         </div>
@@ -9367,7 +9382,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
               </div>
               <div className="card-body">
                 <div className="perfil-team-hero">
-                  <Avatar nick={nick} teamPlayers={teamPlayers} size={72} noBadge />
+                  <ClubCrest nick={nick} teamPlayers={teamPlayers} size={72} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 28, lineHeight: 1 }}>@{nick}</div>
                     {myResult && (
@@ -9514,7 +9529,7 @@ function MatchRow({ g, myTeamId, teamPlayers }) {
     <div className={'mh-row ' + cls}>
       <span className="mh-round">R{String(g.round).padStart(2, '0')}</span>
       <span className="mh-res" title={resLabel}>{outcome || '·'}</span>
-      <Avatar nick={oppNick} teamPlayers={teamPlayers} size={20} noBadge />
+      <ClubCrest nick={oppNick} teamPlayers={teamPlayers} size={20} />
       <span className="mh-opp">@{oppNick}</span>
       {played
         ? <span className="mh-score">{myG}<i>×</i>{oppG}</span>
