@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-fifaclubs ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-m1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -806,7 +806,7 @@ function saveSession(val) {
 // em users[nick].theme (Firestore, sincroniza entre dispositivos) como um ID +
 // mirror em localStorage (aplica instantâneo no boot, antes do snapshot, sem
 // "flash"). Dark é por CLASSE (html.pv-dark), independente do SO.
-// 7 claros + 5 escuros. O 1º (classico) é o padrão laranja/papel.
+// 10 claros + 8 escuros. O 1º (classico) é o padrão laranja/papel.
 const THEME_KEY = 'pv-theme';
 const DEFAULT_THEME = 'classico';   // claro padrão
 const DEFAULT_DARK_THEME = 'breu';  // usado só se o SO pede dark e ninguém escolheu
@@ -821,12 +821,18 @@ const PV_THEMES = [
   { id: 'hortela',   name: 'Hortelã',  accent: '#1c8f86', dark: false, bg: 'radial-gradient(circle at 18% 12%, rgba(28,143,134,0.09), transparent 42%), radial-gradient(circle at 82% 88%, rgba(28,143,134,0.05), transparent 42%), #f4ead7' },
   { id: 'campo',     name: 'Campo',    accent: '#2a8f3f', dark: false, bg: 'radial-gradient(circle at 18% 12%, rgba(42,143,63,0.09), transparent 42%), radial-gradient(circle at 82% 88%, rgba(42,143,63,0.05), transparent 42%), #f4ead7' },
   { id: 'ouro',      name: 'Ouro',     accent: '#c9a227', dark: false, bg: 'radial-gradient(circle at 18% 12%, rgba(201,162,39,0.11), transparent 42%), radial-gradient(circle at 82% 88%, rgba(201,162,39,0.06), transparent 42%), #f4ead7' },
+  { id: 'petroleo',  name: 'Petróleo', accent: '#1b4965', dark: false, bg: 'radial-gradient(circle at 18% 12%, rgba(27,73,101,0.10), transparent 42%), radial-gradient(circle at 82% 88%, rgba(27,73,101,0.05), transparent 42%), #f4ead7' },
+  { id: 'vinho',     name: 'Vinho',    accent: '#8a2846', dark: false, bg: 'radial-gradient(circle at 18% 12%, rgba(138,40,70,0.10), transparent 42%), radial-gradient(circle at 82% 88%, rgba(138,40,70,0.05), transparent 42%), #f4ead7' },
+  { id: 'musgo',     name: 'Musgo',    accent: '#4f5a28', dark: false, bg: 'radial-gradient(circle at 18% 12%, rgba(79,90,40,0.10), transparent 42%), radial-gradient(circle at 82% 88%, rgba(79,90,40,0.05), transparent 42%), #f4ead7' },
   // ── ESCUROS (mesa escura, cards continuam papel) ──
   { id: 'breu',       name: 'Breu',       accent: '#d76414', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(215,100,20,0.07), transparent 42%), radial-gradient(circle at 82% 88%, rgba(215,100,20,0.04), transparent 42%), #16100b' },
   { id: 'meia-noite', name: 'Meia-Noite', accent: '#2f6fb0', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(47,111,176,0.10), transparent 42%), radial-gradient(circle at 82% 88%, rgba(47,111,176,0.05), transparent 42%), #0c1119' },
   { id: 'ametista',   name: 'Ametista',   accent: '#7a4dc9', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(122,77,201,0.11), transparent 42%), radial-gradient(circle at 82% 88%, rgba(122,77,201,0.06), transparent 42%), #120d1c' },
   { id: 'neon',       name: 'Neon',       accent: '#1c8f86', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(28,143,134,0.12), transparent 42%), radial-gradient(circle at 82% 88%, rgba(28,143,134,0.06), transparent 42%), #0a1413' },
   { id: 'grafite',    name: 'Grafite',    accent: '#5a5048', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(90,80,72,0.10), transparent 42%), radial-gradient(circle at 82% 88%, rgba(90,80,72,0.05), transparent 42%), #14110e' },
+  { id: 'petroleo-noite', name: 'Petróleo Escuro', accent: '#2e8ba0', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(46,139,160,0.12), transparent 42%), radial-gradient(circle at 82% 88%, rgba(46,139,160,0.06), transparent 42%), #08161a' },
+  { id: 'borgonha',   name: 'Borgonha',   accent: '#b5476a', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(181,71,106,0.12), transparent 42%), radial-gradient(circle at 82% 88%, rgba(181,71,106,0.06), transparent 42%), #1a0d12' },
+  { id: 'floresta',   name: 'Floresta',   accent: '#4a9d5a', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(74,157,90,0.12), transparent 42%), radial-gradient(circle at 82% 88%, rgba(74,157,90,0.06), transparent 42%), #0a140c' },
 ];
 const pvThemeById = (id) => PV_THEMES.find(t => t.id === id) || null;
 function loadThemeLS() {
@@ -1566,7 +1572,7 @@ function TeamMini({ team, size = 36 }) {
     <svg viewBox="0 0 100 120" width={size} height={size * 1.2} style={{ display: 'block', flexShrink: 0 }}>
       <path d="M10 12 L 90 12 L 90 62 C 90 90 82 104 50 118 C 18 104 10 90 10 62 Z"
             fill={t.color} stroke="#1c1612" strokeWidth="5" />
-      <text x="50" y="76" textAnchor="middle" fontFamily="Bagel Fat One, Impact" fontSize="38" fill="#f4ead7">
+      <text x="50" y="76" textAnchor="middle" fontFamily="Anton, Impact" fontSize="38" fill="#f4ead7">
         {t.short.charAt(0)}
       </text>
     </svg>
@@ -4108,7 +4114,7 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
       </div>
       <div className="card-body" style={{ textAlign: 'center', padding: '40px 20px' }}>
         <div style={{
-          fontFamily: 'Bagel Fat One, Impact', fontSize: 48,
+          fontFamily: 'Anton, Impact', fontSize: 48,
           color: 'var(--pv-orange)', letterSpacing: '0.04em', lineHeight: 1,
         }}>
           EM BREVE
@@ -5708,7 +5714,7 @@ function CopaGrupos({ fixtures, results }) {
                           <td>{t.E}</td>
                           <td style={{ color: 'rgba(28,22,18,0.45)' }}>{t.D}</td>
                           <td>{sg > 0 ? '+' + sg : sg}</td>
-                          <td style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 16 }}>{t.P}</td>
+                          <td style={{ fontFamily: 'Anton, Impact', fontSize: 16 }}>{t.P}</td>
                         </tr>
                       );
                     })}
@@ -8171,7 +8177,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                         <td>{s.j}</td><td style={{ fontWeight: 800 }}>{s.v}</td><td>{s.e}</td>
                         <td style={{ color: 'rgba(28,22,18,0.45)' }}>{s.d}</td>
                         <td>{sr > 0 ? '+' + sr : sr}</td>
-                        <td style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 16 }}>{s.p}</td>
+                        <td style={{ fontFamily: 'Anton, Impact', fontSize: 16 }}>{s.p}</td>
                       </tr>
                     );
                   })}
@@ -9384,7 +9390,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
                 <div className="perfil-team-hero">
                   <ClubCrest nick={nick} teamPlayers={teamPlayers} size={72} />
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 28, lineHeight: 1 }}>@{nick}</div>
+                    <div style={{ fontFamily: 'Anton, Impact', fontSize: 28, lineHeight: 1 }}>@{nick}</div>
                     {myResult && (
                       <div className="perfil-team-result" style={{ color: myResult.color }}>
                         <Icon name={myResult.icon} size={15} /> {myPos}º de {totalTeams} · {myResult.label}
@@ -9420,7 +9426,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
                 <div className="perfil-team-hero">
                   <div className="perfil-mk-badge"><Icon name="fist" size={34} /></div>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 24, lineHeight: 1 }}>@{nick}</div>
+                    <div style={{ fontFamily: 'Anton, Impact', fontSize: 24, lineHeight: 1 }}>@{nick}</div>
                     <div className="perfil-team-result" style={{ color: mkResult ? mkResult.color : 'var(--pv-orange)' }}>
                       <Icon name={mkResult ? mkResult.icon : 'fist'} size={15} /> {myMkPos ? `${myMkPos}º de ${mkStand.length}` : '—'}{mkResult ? ` · ${mkResult.label}` : ''}
                     </div>
@@ -10040,7 +10046,7 @@ function Stat({ label, value, accent }) {
     <div style={{ padding: 10, background: 'rgba(0,0,0,0.03)' }}>
       <div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, color: 'rgba(28,22,18,0.55)' }}>{label}</div>
       <div style={{
-        marginTop: 4, fontFamily: 'Bagel Fat One, Impact', fontSize: 22,
+        marginTop: 4, fontFamily: 'Anton, Impact', fontSize: 22,
         color: accent ? 'var(--pv-orange)' : 'inherit', lineHeight: 1.1,
       }}>
         {value}
@@ -10582,7 +10588,7 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
                       <td>{s.j}</td><td style={{ fontWeight: 800 }}>{s.v}</td><td>{s.e}</td>
                       <td style={{ color: 'rgba(28,22,18,0.45)' }}>{s.d}</td>
                       <td>{sg > 0 ? '+' + sg : sg}</td>
-                      <td style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 16 }}>{s.p}</td>
+                      <td style={{ fontFamily: 'Anton, Impact', fontSize: 16 }}>{s.p}</td>
                     </tr>
                   );
                 })}
