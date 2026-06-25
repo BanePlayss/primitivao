@@ -102,6 +102,19 @@ const TEAMS = [
 ];
 const TEAM = (id) => TEAMS.find(t => t.id === id) || TEAMS[0];
 
+// Chaves DEFAULT da FIFA (só pro seed de um doc novo via defaultRounds). Os
+// nicks REAIS dos jogadores vivem no teamPlayers (teamId->nick) e a migração
+// (ADMIN -> MIGRAR FIFA) deriva a identidade dos VALORES desse mapa, NÃO daqui
+// (na vida real teamId != nick: potato->ivansf, caco->spider, vitinho->ricle).
+const NICKS_FOR_FIFA = ['bane', 'mohamed', 'potato', 'magreza', 'celin', 'juca', 'caco', 'vitinho'];
+
+// Resolve uma chave de fixture FIFA pro @nick do usuário. Tolerante aos DOIS
+// formatos: teamId (ANTES da migração) -> nick via teamPlayers; nick (DEPOIS) ->
+// identidade. Chave desconhecida cai no próprio valor (nunca quebra/crasha).
+function fifaUserOf(key, teamPlayers) {
+  return (teamPlayers && teamPlayers[key]) || key;
+}
+
 const ADMIN_NICK = 'admin';
 // MODERADORES: contas de jogador com poderes de gestão da liga — lançar placar e
 // travar apostas — e acesso à aba ADMIN. NÃO têm as operações destrutivas/de
@@ -123,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-historico ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-noteams ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1318,20 +1331,21 @@ function ticketStatusFromLegs(legs) {
   if (legs.length && legs.every(l => l.result === 'win')) return 'won';
   return 'pending';
 }
-function legLabel(leg) {
+function legLabel(leg, teamPlayers) {
   const fx = leg._fix;
   if (!fx) return '—';
-  const h = TEAM(fx.home), a = TEAM(fx.away);
+  const h = '@' + fifaUserOf(fx.home, teamPlayers);
+  const a = '@' + fifaUserOf(fx.away, teamPlayers);
   const sn = leg.pick === 'Y' ? 'SIM' : 'NÃO';
   switch (leg.market) {
-    case 'BTTS': return `${h.short}×${a.short} · AMBOS MARCAM: ${sn}`;
-    case 'NM':   return `${h.short}×${a.short} · NINGUÉM MARCA: ${sn}`;
-    case 'O3H':  return `${h.short}×${a.short} · +3 GOLS DO ${h.short}: ${sn}`;
-    case 'O3A':  return `${h.short}×${a.short} · +3 GOLS DO ${a.short}: ${sn}`;
+    case 'BTTS': return `${h}×${a} · AMBOS MARCAM: ${sn}`;
+    case 'NM':   return `${h}×${a} · NINGUÉM MARCA: ${sn}`;
+    case 'O3H':  return `${h}×${a} · +3 GOLS DE ${h}: ${sn}`;
+    case 'O3A':  return `${h}×${a} · +3 GOLS DE ${a}: ${sn}`;
     case '1X2':
     default: {
-      const who = leg.pick === 'H' ? h.name : leg.pick === 'A' ? a.name : 'EMPATE';
-      return `${h.short}×${a.short} · ${who}`;
+      const who = leg.pick === 'H' ? h : leg.pick === 'A' ? a : 'EMPATE';
+      return `${h}×${a} · ${who}`;
     }
   }
 }
@@ -1359,7 +1373,7 @@ function generateSchedule(teamIds) {
   return rounds;
 }
 function defaultRounds() {
-  const sched = generateSchedule(TEAMS.map(t => t.id));
+  const sched = generateSchedule(NICKS_FOR_FIFA);
   const startDate = new Date(2026, 4, 4);
   return sched.map((games, ri) => {
     const base = new Date(startDate);
@@ -1374,15 +1388,21 @@ function defaultRounds() {
   });
 }
 function computeStandings(rounds) {
+  // Dinâmico: cria o registro a partir das CHAVES dos jogos (home/away). Assim
+  // funciona tanto pra chaves teamId (antes da migração) quanto nick (depois).
+  // `id` é a chave; name/short/color são placeholders — a exibição usa fifaUserOf.
   const rec = {};
-  TEAMS.forEach(t => rec[t.id] = { ...t, j:0, v:0, e:0, d:0, gp:0, gc:0, p:0 });
+  const ensure = (id) => {
+    if (!rec[id]) rec[id] = { id, name: String(id), short: String(id).slice(0, 3).toUpperCase(), color: '#1c1612', j:0, v:0, e:0, d:0, gp:0, gc:0, p:0 };
+    return rec[id];
+  };
   (rounds || []).forEach(round => {
-    round.forEach(m => {
+    (round || []).forEach(m => {
+      if (!m || m.home == null || m.away == null) return;
+      const H = ensure(m.home), A = ensure(m.away); // garante presença mesmo sem placar
       const gh = parseInt(m.gh, 10);
       const ga = parseInt(m.ga, 10);
       if (Number.isNaN(gh) || Number.isNaN(ga)) return;
-      const H = rec[m.home], A = rec[m.away];
-      if (!H || !A) return;
       H.j++; A.j++;
       H.gp += gh; H.gc += ga;
       A.gp += ga; A.gc += gh;
@@ -1397,7 +1417,7 @@ function computeStandings(rounds) {
     if (sgB !== sgA) return sgB - sgA;
     if (b.v !== a.v) return b.v - a.v;
     if (b.gp !== a.gp) return b.gp - a.gp;
-    return a.name.localeCompare(b.name);
+    return String(a.name).localeCompare(String(b.name));
   });
 }
 
@@ -1560,21 +1580,13 @@ const CLUB_NAME = {
   juca: 'Barcelona', potato: 'Arsenal', celin: 'Liverpool', magreza: 'Real Madrid',
   caco: 'Newcastle', vitinho: 'Bayern', bane: 'PSG', mohamed: 'Man City',
 };
-function ClubCrest({ nick, size = 30, className = '' }) {
-  const name = CLUB_NAME[nick];
-  if (!name) return <TeamMini team={nick} size={size} />;
-  return (
-    <img
-      src={'clubs/' + nick + '.png'}
-      alt={name}
-      title={name}
-      width={size}
-      height={size}
-      className={'club-crest ' + className}
-      style={{ display: 'block', objectFit: 'contain', flexShrink: 0 }}
-      loading="lazy"
-    />
-  );
+// Sem mais "clubes"/times: ClubCrest agora é um wrapper fino do Avatar do
+// USUÁRIO. Resolve a chave recebida (teamId antigo OU nick) pro nick real via
+// fifaUserOf e mostra a foto custom (ou a inicial). Mantido como componente pra
+// minimizar edição nos call sites; passe teamPlayers quando tiver em escopo.
+function ClubCrest({ nick, teamPlayers, size = 30, className = '' }) {
+  const u = fifaUserOf(nick, teamPlayers);
+  return <Avatar nick={u} teamPlayers={teamPlayers} size={size} className={className} noBadge />;
 }
 
 // ─── ÍCONES DOS CAMPEONATOS ─────────────────────────────────────────────────
@@ -1836,7 +1848,7 @@ function Avatar({ teamId, nick, teamPlayers, cosmetics, size = 32, fullBody = fa
   if (customAv) {
     const onErr = (e) => { e.target.style.display = 'none'; e.target.parentNode.classList.add('avatar-fallback'); };
     const lc = (nick || '?').charAt(0).toUpperCase();
-    const lbg = tid ? TEAM(tid).color : nickColor(nick);
+    const lbg = nickColor(nick || tid);
     if (fullBody) {
       return (
         <div className={'avatar avatar-full ' + className + frameClass} style={{ width: size, height: size }}>
@@ -1857,13 +1869,18 @@ function Avatar({ teamId, nick, teamPlayers, cosmetics, size = 32, fullBody = fa
   }
 
   if (tid) {
-    const t = TEAM(tid);
+    // Fallback (sem foto custom): cor/letra derivam do NICK, não do TEAM — assim
+    // 'jucamelero' não cai na cor/letra do Bane. O PNG avatars/{tid}.png segue
+    // valendo pros slots cujo teamId == nick; quem não tiver cai na letra.
+    const dispNick = nick || tid;
+    const fbBg = nickColor(dispNick);
+    const fbLetter = String(dispNick).charAt(0).toUpperCase();
     const src = `avatars/${tid}.png`;
     if (fullBody) {
       return (
         <div className={'avatar avatar-full ' + className + frameClass} style={{ width: size, height: size }}>
-          <img src={src} alt={t.name} onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.classList.add('avatar-fallback'); }} />
-          <span className="avatar-fallback-letter" style={{ background: t.color }}>{t.short.charAt(0)}</span>
+          <img src={src} alt={dispNick} onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.classList.add('avatar-fallback'); }} />
+          <span className="avatar-fallback-letter" style={{ background: fbBg }}>{fbLetter}</span>
           {renderBadge()}
         </div>
       );
@@ -1873,8 +1890,8 @@ function Avatar({ teamId, nick, teamPlayers, cosmetics, size = 32, fullBody = fa
     // da moldura desenha o anel + ornamentos por cima.
     const iconEl = (
       <div className={'avatar avatar-icon ' + (frameItem ? 'avatar-icon-inner' : className)} style={frameItem ? undefined : { width: size, height: size }}>
-        <img src={src} alt={t.name} onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.classList.add('avatar-fallback'); }} />
-        <span className="avatar-fallback-letter" style={{ background: t.color, fontSize: size * 0.5 }}>{t.short.charAt(0)}</span>
+        <img src={src} alt={dispNick} onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.classList.add('avatar-fallback'); }} />
+        <span className="avatar-fallback-letter" style={{ background: fbBg, fontSize: size * 0.5 }}>{fbLetter}</span>
         {!frameItem && renderBadge()}
       </div>
     );
@@ -1897,7 +1914,7 @@ function Avatar({ teamId, nick, teamPlayers, cosmetics, size = 32, fullBody = fa
 // ─── APP ────────────────────────────────────────────────────────────────────
 // Modal de preview de cupom compartilhado (chega via ?cupom=...).
 // Mostra as legs e oferece "USAR" pra jogar tudo no slip atual.
-function SharedSlipModal({ slip, gamesById, onUse, onClose }) {
+function SharedSlipModal({ slip, gamesById, teamPlayers, onUse, onClose }) {
   if (!slip || slip.length === 0) return null;
   const legs = slip.map(s => ({ ...s, _fix: gamesById ? gamesById[s.fixtureId] : null }));
   const combined = slip.reduce((p, l) => p + l.odds, 0);
@@ -1921,7 +1938,7 @@ function SharedSlipModal({ slip, gamesById, onUse, onClose }) {
             <div key={i} className="cupom-leg" style={{ opacity: l._fix ? 1 : 0.5 }}>
               <div className="cupom-leg-txt">
                 <div className="cupom-leg-mkt">{MARKET_TITLE[l.market] || l.market}</div>
-                {l._fix ? legLabel(l) : <em style={{ color: 'rgba(28,22,18,0.55)' }}>jogo não está mais disponível</em>}
+                {l._fix ? legLabel(l, teamPlayers) : <em style={{ color: 'rgba(28,22,18,0.55)' }}>jogo não está mais disponível</em>}
               </div>
               <div className="cupom-leg-odd mono">{l.odds.toFixed(2)}</div>
             </div>
@@ -3693,6 +3710,7 @@ function App() {
                   onToggleLock={toggleGameLock}
                   championship={apostasChampId} setChampionship={setChampionship}
                   interests={interests || {}}
+                  teamPlayers={teamPlayers || {}}
                 />
                   )}
                 </div>
@@ -3786,7 +3804,7 @@ function App() {
               />
             )}
             {view === 'tickets' && (
-              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} onCancel={cancelBet} onGoApostas={() => setView('apostas')} />
+              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} teamPlayers={teamPlayers || {}} onCancel={cancelBet} onGoApostas={() => setView('apostas')} />
             )}
             {view === 'ranking' && (
               <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} cs={cs} />
@@ -3827,6 +3845,7 @@ function App() {
         <SharedSlipModal
           slip={sharedSlip}
           gamesById={gamesById}
+          teamPlayers={teamPlayers || {}}
           onClose={() => setSharedSlip(null)}
           onUse={(legs) => {
             setSlip(legs);
@@ -6176,7 +6195,7 @@ function formatCommentTime(ts) {
 
 function ApostarView({ games, gamesById, bets, me, session, users,
                         slip, onToggleLeg, onRemoveLeg, onClearSlip, onPlaceBet, isAdmin, canLock, slipPruneMsg,
-                        onToggleLock, championship, setChampionship, interests }) {
+                        onToggleLock, championship, setChampionship, interests, teamPlayers }) {
   // Quem trava (admin/mod) vê todos os jogos abertos (inclusive travados, pra
   // poder destravar); jogador comum só vê os destravados. (Jogo travado não é
   // apostável por ninguém — vide GameRow.)
@@ -6345,7 +6364,7 @@ function ApostarView({ games, gamesById, bets, me, session, users,
                   <div className="card-body">
                     {byRound[rn].map(g => (
                       <GameRow key={g.id} game={g} slip={slip} onToggleLeg={onToggleLeg} canBet={!isAdmin}
-                               canLock={canLock} onToggleLock={() => onToggleLock(g.ri, g.gi)} />
+                               canLock={canLock} onToggleLock={() => onToggleLock(g.ri, g.gi)} teamPlayers={teamPlayers} />
                     ))}
                   </div>
                 )}
@@ -6364,7 +6383,7 @@ function ApostarView({ games, gamesById, bets, me, session, users,
               <span className="cupom-sheet-handle-label">FECHAR CUPOM</span>
               <Icon name="caret-down" size={14} />
             </button>
-            <Cupom slip={slip} gamesById={gamesById} balance={me ? me.pc : 0} pruneMsg={slipPruneMsg}
+            <Cupom slip={slip} gamesById={gamesById} balance={me ? me.pc : 0} pruneMsg={slipPruneMsg} teamPlayers={teamPlayers}
                    onRemoveLeg={onRemoveLeg} onClearSlip={onClearSlip}
                    onPlaceBet={async (amt) => {
                      const r = await onPlaceBet(amt);
@@ -6402,8 +6421,10 @@ function OddBtn({ lab, val, selected, disabled, onClick }) {
   );
 }
 
-function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock }) {
-  const h = TEAM(game.home), a = TEAM(game.away);
+function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock, teamPlayers }) {
+  const homeNick = fifaUserOf(game.home, teamPlayers);
+  const awayNick = fifaUserOf(game.away, teamPlayers);
+  const hU = homeNick.toUpperCase(), aU = awayNick.toUpperCase();
   const sel = (market, pick) => slip.some(s => s.fixtureId === game.id && s.market === market && s.pick === pick);
   const isLocked = !!game.locked;
   // Desabilita odds se: não pode apostar (admin), ou jogo travado.
@@ -6443,13 +6464,13 @@ function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock }) {
         </div>
         <div className="fixture-match">
           <div className="fixture-team">
-            <TeamMini team={h} size={42} />
-            <div className="team-info"><div className="nm">{h.name}</div><div className="sh">{h.short} · MANDANTE</div></div>
+            <Avatar nick={homeNick} teamPlayers={teamPlayers} size={42} noBadge />
+            <div className="team-info"><div className="nm">@{homeNick}</div><div className="sh">MANDANTE</div></div>
           </div>
           <div className="vs"><span style={{ color: 'var(--pv-orange)' }}>×</span></div>
           <div className="fixture-team away">
-            <TeamMini team={a} size={42} />
-            <div className="team-info"><div className="nm">{a.name}</div><div className="sh">VISITANTE · {a.short}</div></div>
+            <Avatar nick={awayNick} teamPlayers={teamPlayers} size={42} noBadge />
+            <div className="team-info"><div className="nm">@{awayNick}</div><div className="sh">VISITANTE</div></div>
           </div>
         </div>
         <div style={{
@@ -6483,9 +6504,9 @@ function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock }) {
         <>
           <div className="mkt-label">RESULTADO</div>
           <div className="odds-row">
-            <OddBtn lab={`${h.short} VENCE`} val={o['1X2']?.H} selected={sel('1X2','H')} disabled={dis} onClick={() => onToggleLeg(game, '1X2', 'H')} />
-            <OddBtn lab="EMPATE"             val={o['1X2']?.D} selected={sel('1X2','D')} disabled={dis} onClick={() => onToggleLeg(game, '1X2', 'D')} />
-            <OddBtn lab={`${a.short} VENCE`} val={o['1X2']?.A} selected={sel('1X2','A')} disabled={dis} onClick={() => onToggleLeg(game, '1X2', 'A')} />
+            <OddBtn lab={`${hU} VENCE`} val={o['1X2']?.H} selected={sel('1X2','H')} disabled={dis} onClick={() => onToggleLeg(game, '1X2', 'H')} />
+            <OddBtn lab="EMPATE"        val={o['1X2']?.D} selected={sel('1X2','D')} disabled={dis} onClick={() => onToggleLeg(game, '1X2', 'D')} />
+            <OddBtn lab={`${aU} VENCE`} val={o['1X2']?.A} selected={sel('1X2','A')} disabled={dis} onClick={() => onToggleLeg(game, '1X2', 'A')} />
           </div>
 
           <div className="mkt-label">AMBOS MARCAM</div>
@@ -6500,13 +6521,13 @@ function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock }) {
             <OddBtn lab="NÃO" val={o['NM']?.N} selected={sel('NM','N')} disabled={dis} onClick={() => onToggleLeg(game, 'NM', 'N')} />
           </div>
 
-          <div className="mkt-label">+3 GOLS · {h.short}</div>
+          <div className="mkt-label">+3 GOLS · {hU}</div>
           <div className="odds-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
             <OddBtn lab="SIM" val={o['O3H']?.Y} selected={sel('O3H','Y')} disabled={dis} onClick={() => onToggleLeg(game, 'O3H', 'Y')} />
             <OddBtn lab="NÃO" val={o['O3H']?.N} selected={sel('O3H','N')} disabled={dis} onClick={() => onToggleLeg(game, 'O3H', 'N')} />
           </div>
 
-          <div className="mkt-label">+3 GOLS · {a.short}</div>
+          <div className="mkt-label">+3 GOLS · {aU}</div>
           <div className="odds-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
             <OddBtn lab="SIM" val={o['O3A']?.Y} selected={sel('O3A','Y')} disabled={dis} onClick={() => onToggleLeg(game, 'O3A', 'Y')} />
             <OddBtn lab="NÃO" val={o['O3A']?.N} selected={sel('O3A','N')} disabled={dis} onClick={() => onToggleLeg(game, 'O3A', 'N')} />
@@ -6518,7 +6539,7 @@ function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock }) {
 }
 
 // ─── CUPOM (bet slip) ───────────────────────────────────────────────────────
-function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet, pruneMsg }) {
+function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet, pruneMsg, teamPlayers }) {
   const [amt, setAmt] = useState(50);
   const [busy, setBusy] = useState(false);
   const legs = slip.map(s => ({ ...s, _fix: gamesById ? gamesById[s.fixtureId] : null }));
@@ -6564,7 +6585,7 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
           <div key={l.fixtureId + l.market + l.pick} className="cupom-leg">
             <div className="cupom-leg-txt">
               <div className="cupom-leg-mkt">{MARKET_TITLE[l.market] || l.market}</div>
-              {legLabel(l)}
+              {legLabel(l, teamPlayers)}
             </div>
             <div className="cupom-leg-odd mono">{l.odds.toFixed(2)}</div>
             <button className="cupom-leg-x" title="Tirar este palpite" onClick={() => onRemoveLeg(l.fixtureId, l.market, l.pick)}><Icon name="x" size={12} /></button>
@@ -6712,7 +6733,7 @@ function TicketsMini({ bets, limit = 6, onOpen }) {
   );
 }
 
-function TicketsView({ bets, gamesById, cs, mkScores, onCancel, limit, title, onGoApostas }) {
+function TicketsView({ bets, gamesById, cs, mkScores, teamPlayers, onCancel, limit, title, onGoApostas }) {
   if (bets.length === 0) {
     return <div className="card"><div className="card-head"><div className="title">{title || 'MEUS TICKETS'}</div></div><div className="card-body"><div className="empty">
       <div className="e1">SEM TICKETS</div><div className="e2">Você ainda não apostou aqui.</div>
@@ -6774,7 +6795,7 @@ function TicketsView({ bets, gamesById, cs, mkScores, onCancel, limit, title, on
                     const iconColor = l.result === 'win' ? '#3a7d2a' : l.result === 'lose' ? '#c33' : 'rgba(28,22,18,0.5)';
                     const label = isMk
                       ? 'MK · @' + l.home + '×@' + l.away + ': ' + (MK_MARKET_TITLE[l.market] || l.market) + ' ' + mkPickLabel(l.market, l.pick)
-                      : (f ? legLabel(lg) : '(jogo removido)');
+                      : (f ? legLabel(lg, teamPlayers) : '(jogo removido)');
                     return <div key={i} style={{ fontWeight: 700, fontSize: 13, marginTop: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
                       {iconName ? <span style={{ color: iconColor, display: 'inline-flex' }}><Icon name={iconName} size={12} /></span> : <span style={{ color: iconColor }}>•</span>}
                       <span>{label} <span style={{ color: 'var(--pv-orange)' }}>@{l.odds.toFixed(2)}</span></span>
@@ -6825,21 +6846,22 @@ function reverseTeamMap(teamPlayers) {
 
 // Retorna [{ champId, kind: 'champion'|'vice'|'terceiro'|'participou'|'penultimo'|'lanterna' }] pro nick dado.
 function trophiesForNick(nick, cs, teamPlayers) {
-  const playerTeam = reverseTeamMap(teamPlayers);
-  const myTeam = playerTeam[nick];
-  if (!myTeam) return [];
+  if (!nick) return [];
+  // Casa em "espaço de @nick": resolve a chave de cada standing pro nick e
+  // compara. Funciona com cs por teamId (antes) ou por nick (depois da migração).
+  const mine = (s) => !!s && fifaUserOf(s.id, teamPlayers) === nick;
   const trophies = [];
   for (const c of CHAMPIONSHIPS) {
     const { status, standings } = computeChampStandings(c.id, cs);
     if (status !== 'closed' || !standings || standings.length < 2) continue;
-    if (!standings.some(s => s.id === myTeam)) continue; // não jogou esta edição
+    if (!standings.some(mine)) continue; // não jogou esta edição
     const last = standings.length - 1;
-    if (standings[0].id === myTeam)        trophies.push({ champId: c.id, kind: 'champion' });
-    else if (standings[1].id === myTeam)   trophies.push({ champId: c.id, kind: 'vice' });
+    if (mine(standings[0]))        trophies.push({ champId: c.id, kind: 'champion' });
+    else if (mine(standings[1]))   trophies.push({ champId: c.id, kind: 'vice' });
     // 3º lugar (bronze) só conta se o pódio não encostar na lanterna/penúltimo (5+ times)
-    else if (last > 3 && standings[2].id === myTeam) trophies.push({ champId: c.id, kind: 'terceiro' });
-    else if (standings[last].id === myTeam)   trophies.push({ champId: c.id, kind: 'lanterna' });
-    else if (standings[last - 1].id === myTeam) trophies.push({ champId: c.id, kind: 'penultimo' });
+    else if (last > 3 && mine(standings[2])) trophies.push({ champId: c.id, kind: 'terceiro' });
+    else if (mine(standings[last]))   trophies.push({ champId: c.id, kind: 'lanterna' });
+    else if (mine(standings[last - 1])) trophies.push({ champId: c.id, kind: 'penultimo' });
     else trophies.push({ champId: c.id, kind: 'participou' }); // jogou e ficou no meio
   }
   return trophies;
@@ -6910,13 +6932,9 @@ function champStandingPos(nick, cs, teamPlayers) {
   const rounds = cs.rounds || [];
   const allDone = rounds.length > 0 && rounds.every(r => Array.isArray(r) && r.length > 0 && r.every(g => g.gh !== '' && g.ga !== ''));
   if (!allDone) return null;
-  let tid = null;
-  for (const [t, n] of Object.entries(teamPlayers || {})) {
-    if (n && String(n).toLowerCase() === String(nick).toLowerCase()) { tid = t; break; }
-  }
-  if (!tid) return null;
   const st = computeStandings(rounds).slice().sort((a, b) => b.p - a.p || (b.gp - b.gc) - (a.gp - a.gc) || b.gp - a.gp);
-  const idx = st.findIndex(s => s.id === tid);
+  // Casa em "espaço de @nick" (resolve a chave do standing pro nick).
+  const idx = st.findIndex(s => fifaUserOf(s.id, teamPlayers) === nick);
   if (idx < 0) return null;
   return { pos: idx + 1, total: st.length, isLast: idx === st.length - 1, isPenult: idx === st.length - 2 };
 }
@@ -7020,15 +7038,18 @@ function mkStatsFor(nick, ctx) {
 // Venceu um JOGO da FIFA contra o time `oppTeamId`? Resolve o time do nick via
 // teamPlayers e varre cs.rounds (placares gh/ga por teamId). false se for o
 // próprio time ou se nunca venceu esse adversário.
-function fifaBeat(nick, oppTeamId, ctx) {
+function fifaBeat(nick, oppNick, ctx) {
+  // Compara tudo em "espaço de @nick" via fifaUserOf, então funciona tanto com
+  // cs.rounds em teamId (antes da migração) quanto em nick (depois).
   const cs = ctx && ctx.cs; if (!cs) return false;
-  const myTeam = reverseTeamMap((ctx && ctx.teamPlayers) || {})[nick];
-  if (!myTeam || myTeam === oppTeamId) return false;
+  const tp = (ctx && ctx.teamPlayers) || {};
+  if (!nick || nick === oppNick) return false;
   for (const r of (cs.rounds || [])) for (const m of (r || [])) {
     const gh = parseInt(m.gh, 10), ga = parseInt(m.ga, 10);
     if (Number.isNaN(gh) || Number.isNaN(ga)) continue;
-    if (m.home === myTeam && m.away === oppTeamId && gh > ga) return true;
-    if (m.away === myTeam && m.home === oppTeamId && ga > gh) return true;
+    const hN = fifaUserOf(m.home, tp), aN = fifaUserOf(m.away, tp);
+    if (hN === nick && aN === oppNick && gh > ga) return true;
+    if (aN === nick && hN === oppNick && ga > gh) return true;
   }
   return false;
 }
@@ -7039,9 +7060,8 @@ function fifaUnbeaten(nick, ctx) {
   const rounds = cs.rounds || [];
   const allDone = rounds.length > 0 && rounds.every(r => Array.isArray(r) && r.length > 0 && r.every(g => g.gh !== '' && g.ga !== ''));
   if (!allDone) return false;
-  const myTeam = reverseTeamMap((ctx && ctx.teamPlayers) || {})[nick];
-  if (!myTeam) return false;
-  const st = computeStandings(rounds).find(s => s.id === myTeam);
+  const tp = (ctx && ctx.teamPlayers) || {};
+  const st = computeStandings(rounds).find(s => fifaUserOf(s.id, tp) === nick);
   return !!st && st.j > 0 && st.d === 0;
 }
 
@@ -7112,7 +7132,7 @@ const ACH = {
   multiMil:    ({ nick, users }) => ((users || {})[nick]?.pc || 0) >= 1000000,
   // ── RIVAIS (zoeira interna do grupo) ──
   beatMohamedMk: (ctx) => mkStatsFor(ctx.nick, ctx).beat.indexOf('mohamed') >= 0,
-  beatJucaFifa:  (ctx) => fifaBeat(ctx.nick, 'juca', ctx),
+  beatJucaFifa:  (ctx) => fifaBeat(ctx.nick, 'jucamelero', ctx),
   beatBaneLol:   () => false, // LoL ainda é "em breve" — dispara quando o campeonato abrir
 };
 
@@ -8839,9 +8859,9 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   };
 
   const playerIc = (n, game) => game === 'fifa'
-    ? <ClubCrest nick={n} size={30} />
+    ? <ClubCrest nick={n} teamPlayers={teamPlayers} size={30} />
     : <Avatar nick={n} teamPlayers={teamPlayers} size={28} noBadge />;
-  const sideLabel = (n) => n === nick ? 'VOCÊ' : (CLUB_NAME[teamOf(n)] || 'JOGADOR');
+  const sideLabel = (n) => n === nick ? 'VOCÊ' : '@' + n;
   const better = (a, b, dir) => {
     if (a == null && b == null) return 0;
     if (a == null) return 1; if (b == null) return -1;
@@ -9087,7 +9107,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
   };
   const playerTeam = reverseTeamMap(teamPlayers);
   const myTeamId = playerTeam[nick];
-  const myTeam = myTeamId ? TEAM(myTeamId) : null;
+  const myTeam = !!myTeamId; // participa da FIFA? (sem mais "times")
   const rounds = cs?.rounds || [];
 
   // Jogos do meu time (todos, jogados ou não), com round/index.
@@ -9201,8 +9221,8 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
         {me?.title && <TitleBadge titleId={me.title} size="lg" />}
         <div className="perfil-id-meta">
           {myTeam
-            ? <span className="perfil-id-team">{myTeam.name}</span>
-            : <span className="perfil-id-team none">{isAdmin ? 'ADMIN' : 'sem time'}</span>}
+            ? <span className="perfil-id-team">FIFA</span>
+            : <span className="perfil-id-team none">{isAdmin ? 'ADMIN' : 'FORA DA FIFA'}</span>}
           {myResult && (
             <span className="perfil-pos" style={{ color: myResult.color, borderColor: myResult.color }}>
               <Icon name={myResult.icon} size={11} /> {myPos}º · {myResult.label}
@@ -9342,14 +9362,14 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
           {myTeam && (
             <div className="card" style={{ marginBottom: 14 }}>
               <div className="card-head">
-                <div className="title">MEU TIME · FIFA</div>
-                <div className="sub">{myTeam.name.toUpperCase()} · {myTeam.short}</div>
+                <div className="title">FIFA</div>
+                <div className="sub">@{nick}</div>
               </div>
               <div className="card-body">
                 <div className="perfil-team-hero">
-                  <TeamMini team={myTeam} size={72} />
+                  <Avatar nick={nick} teamPlayers={teamPlayers} size={72} noBadge />
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 28, lineHeight: 1 }}>{myTeam.name}</div>
+                    <div style={{ fontFamily: 'Bagel Fat One, Impact', fontSize: 28, lineHeight: 1 }}>@{nick}</div>
                     {myResult && (
                       <div className="perfil-team-result" style={{ color: myResult.color }}>
                         <Icon name={myResult.icon} size={15} /> {myPos}º de {totalTeams} · {myResult.label}
@@ -10539,7 +10559,7 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
                       <td className="std-pos">{String(i + 1).padStart(2, '0')}</td>
                       <td>
                         <div className="tnm" style={{ flexWrap: 'wrap' }}>
-                          <ClubCrest nick={s.id} size={24} />
+                          <ClubCrest nick={s.id} teamPlayers={teamPlayers} size={24} />
                           <span>@{pNick}</span>
                           {playerTitle && <TitleBadge titleId={playerTitle} />}
                         </div>
@@ -10617,11 +10637,11 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
                       </div>
                       <div className="mk-fx-body">
                         <div className="mk-fx-side home">
-                          <ClubCrest nick={m.home} size={32} />
+                          <ClubCrest nick={m.home} teamPlayers={teamPlayers} size={32} />
                           <div className="mk-fx-id">
                             {isAdmin
-                              ? <select className="cteam-sel" value={m.home} onChange={e => patchMatch(gi, { home: e.target.value })}>{TEAMS.map(t => <option key={t.id} value={t.id}>{t.id}</option>)}</select>
-                              : <div className="mk-fx-nick">@{(teamPlayers || {})[m.home] || m.home}</div>}
+                              ? <select className="cteam-sel" value={m.home} onChange={e => patchMatch(gi, { home: e.target.value })}>{Object.keys(teamPlayers || {}).map(k => <option key={k} value={k}>@{fifaUserOf(k, teamPlayers)}</option>)}</select>
+                              : <div className="mk-fx-nick">@{fifaUserOf(m.home, teamPlayers)}</div>}
                             <div className="mk-fx-role mandante">MANDANTE</div>
                           </div>
                         </div>
@@ -10637,11 +10657,11 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
                           )}
                         </div>
                         <div className="mk-fx-side away">
-                          <ClubCrest nick={m.away} size={32} />
+                          <ClubCrest nick={m.away} teamPlayers={teamPlayers} size={32} />
                           <div className="mk-fx-id">
                             {isAdmin
-                              ? <select className="cteam-sel" value={m.away} onChange={e => patchMatch(gi, { away: e.target.value })}>{TEAMS.map(t => <option key={t.id} value={t.id}>{t.id}</option>)}</select>
-                              : <div className="mk-fx-nick">@{(teamPlayers || {})[m.away] || m.away}</div>}
+                              ? <select className="cteam-sel" value={m.away} onChange={e => patchMatch(gi, { away: e.target.value })}>{Object.keys(teamPlayers || {}).map(k => <option key={k} value={k}>@{fifaUserOf(k, teamPlayers)}</option>)}</select>
+                              : <div className="mk-fx-nick">@{fifaUserOf(m.away, teamPlayers)}</div>}
                             <div className="mk-fx-role visitante">VISITANTE</div>
                           </div>
                         </div>
@@ -10683,17 +10703,19 @@ function parseGameTimestamp(game, year) {
 
 // Calcula sequencias de vitorias/derrotas (em jogos consecutivos do time)
 function computeStreaks(rounds) {
+  // Dinâmico: cria o histórico a partir das chaves dos jogos (teamId ou nick).
   const teamHistory = {};
-  TEAMS.forEach(t => { teamHistory[t.id] = []; });
+  const ensure = (id) => { if (!teamHistory[id]) teamHistory[id] = []; return teamHistory[id]; };
   (rounds || []).forEach(round => {
-    round.forEach(m => {
+    (round || []).forEach(m => {
+      if (!m || m.home == null || m.away == null) return;
       const gh = parseInt(m.gh, 10);
       const ga = parseInt(m.ga, 10);
       if (Number.isNaN(gh) || Number.isNaN(ga)) return;
       const wH = gh > ga ? 'W' : gh < ga ? 'L' : 'D';
       const wA = wH === 'W' ? 'L' : wH === 'L' ? 'W' : 'D';
-      if (teamHistory[m.home]) teamHistory[m.home].push(wH);
-      if (teamHistory[m.away]) teamHistory[m.away].push(wA);
+      ensure(m.home).push(wH);
+      ensure(m.away).push(wA);
     });
   });
   const streaks = [];
@@ -10713,9 +10735,10 @@ function computeStreaks(rounds) {
 
 // Detecta todos os eventos noticiaveis no estado atual.
 // Retorna array tipado pra o prompt builder formatar.
-function detectJournalistEvents({ cs, bets, users }) {
+function detectJournalistEvents({ cs, bets, users, teamPlayers }) {
   const events = [];
   const rounds = (cs && cs.rounds) || [];
+  const nm = (id) => '@' + fifaUserOf(id, teamPlayers); // nome p/ texto: @nick (sem times)
   const now = new Date();
 
   // 1. Proximos jogos (proximas 24h)
@@ -10731,8 +10754,8 @@ function detectJournalistEvents({ cs, bets, users }) {
           type: 'upcoming_match',
           id: `up-r${ri}g${gi}`,
           round: ri + 1,
-          home: TEAM(m.home).name,
-          away: TEAM(m.away).name,
+          home: nm(m.home),
+          away: nm(m.away),
           date: m.date, time: m.time, day: m.day,
           hoursAway: Math.round(hoursAway),
           isToday: ts.toDateString() === now.toDateString(),
@@ -10756,7 +10779,7 @@ function detectJournalistEvents({ cs, bets, users }) {
       id: `rc-${lastCompleteIdx}`,
       roundNum: lastCompleteIdx + 1,
       games: round.map(m => ({
-        home: TEAM(m.home).name, away: TEAM(m.away).name,
+        home: nm(m.home), away: nm(m.away),
         gh: parseInt(m.gh, 10), ga: parseInt(m.ga, 10),
       })),
     });
@@ -10769,8 +10792,8 @@ function detectJournalistEvents({ cs, bets, users }) {
         events.push({
           type: 'rout',
           id: `rout-r${lastCompleteIdx}g${gi}`,
-          winner: gh > ga ? TEAM(m.home).name : TEAM(m.away).name,
-          loser:  gh > ga ? TEAM(m.away).name : TEAM(m.home).name,
+          winner: gh > ga ? nm(m.home) : nm(m.away),
+          loser:  gh > ga ? nm(m.away) : nm(m.home),
           gh, ga, diff,
         });
       }
@@ -10797,11 +10820,10 @@ function detectJournalistEvents({ cs, bets, users }) {
   // 5. Sequencias
   const streaks = computeStreaks(rounds);
   streaks.filter(s => s.count >= 3).forEach(s => {
-    const teamObj = TEAMS.find(t => t.id === s.team);
     events.push({
       type: 'streak',
       id: `streak-${s.team}-${s.kind}`,
-      team: teamObj ? teamObj.name : s.team,
+      team: nm(s.team),
       kind: s.kind, // 'win' | 'loss'
       count: s.count,
     });
@@ -10815,11 +10837,11 @@ function detectJournalistEvents({ cs, bets, users }) {
       events.push({
         type: 'season_end',
         id: 'season-end',
-        champion: st[0].name,
-        vice:     st[1].name,
-        lanterna: st[st.length - 1].name,
-        penultimo: st[st.length - 2].name,
-        topScorerTeam: st[0].name,
+        champion: nm(st[0].id),
+        vice:     nm(st[1].id),
+        lanterna: nm(st[st.length - 1].id),
+        penultimo: nm(st[st.length - 2].id),
+        topScorerTeam: nm(st[0].id),
         topScorerGoals: st[0].gp,
       });
     }
@@ -10955,11 +10977,13 @@ function TpField({ label, value, onChange, placeholder }) {
     </label>
   );
 }
-function TpTeamSelect({ value, onChange }) {
+function TpTeamSelect({ value, onChange, teamPlayers }) {
+  const tp = teamPlayers || {};
+  const keys = Object.keys(tp);
   return (
     <select value={value || ''} onChange={e => onChange(e.target.value)} className="tp-input tp-select">
-      <option value="">— sem time —</option>
-      {TEAMS.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+      <option value="">— sem jogador —</option>
+      {keys.map(k => <option key={k} value={k}>@{fifaUserOf(k, tp)}</option>)}
     </select>
   );
 }
@@ -11016,6 +11040,7 @@ function currentRoundMatchups(cs) {
 function tabloidStories(ctx) {
   const { standings = [], cs = null, teamPlayers = {} } = ctx || {};
   const nickOf = (teamId) => (teamPlayers || {})[teamId] || '';
+  const nm = (id) => nickOf(id) || id; // nome p/ texto: nick do jogador (sem mais times)
   const out = [];
   const push = (id, teamId, nick, kicker, text, icon, tone) =>
     out.push({ id, teamId: teamId || '', nick: nick || '', kicker, text, icon, tone: tone || 'spice' });
@@ -11076,7 +11101,7 @@ function tabloidStories(ctx) {
     }));
     if (big)
       push('goleada', big.winId, nickOf(big.winId), 'MASSACRE',
-        `${TEAM(big.winId).name} ${big.hi}x${big.lo} ${TEAM(big.loseId).name}. Foi covardia, chama o SAMU.`, 'skull', 'spice');
+        `${nm(big.winId)} ${big.hi}x${big.lo} ${nm(big.loseId)}. Foi covardia, chama o SAMU.`, 'skull', 'spice');
     // Confronto da semana (primeiro jogo aberto da rodada atual).
     const open = bettableGames(rounds);
     if (open.length) {
@@ -11084,7 +11109,7 @@ function tabloidStories(ctx) {
       const next = open.filter(g => g.ri === minRi)[0];
       if (next)
         push('proximo', next.home, nickOf(next.home), 'JOGO DA SEMANA',
-          `Olho nesse: ${TEAM(next.home).name} × ${TEAM(next.away).name}. Vai pegar fogo.`, 'fire', 'spice');
+          `Olho nesse: ${nm(next.home)} × ${nm(next.away)}. Vai pegar fogo.`, 'fire', 'spice');
     }
     // Resultados da ÚLTIMA rodada jogada — espalha a zoeira entre vários membros
     // (cada jogo envolve 2 jogadores), não só os extremos da tabela.
@@ -11098,10 +11123,10 @@ function tabloidStories(ctx) {
         if (Number.isNaN(gh) || Number.isNaN(ga)) return;
         if (gh === ga) {
           push('res' + lastRi + '-' + gi, g.home, nickOf(g.home), 'FICOU NO EMPATE',
-            `${TEAM(g.home).name} ${gh}x${ga} ${TEAM(g.away).name}. Ninguém quis ganhar.`, 'football', 'spice');
+            `${nm(g.home)} ${gh}x${ga} ${nm(g.away)}. Ninguém quis ganhar.`, 'football', 'spice');
         } else {
           const winId = gh > ga ? g.home : g.away, loseId = gh > ga ? g.away : g.home;
-          const W = TEAM(winId).name, L = TEAM(loseId).name, hi = Math.max(gh, ga), lo = Math.min(gh, ga);
+          const W = nm(winId), L = nm(loseId), hi = Math.max(gh, ga), lo = Math.min(gh, ga);
           const KICK = ['TOMOU FEIO', 'DANÇOU', 'AMASSADO', 'APANHOU'];
           const PHRASE = [
             `${L} levou ${hi}x${lo} do ${W}. Senta e chora.`,
@@ -11299,7 +11324,7 @@ function TabloidPoster({ data, teamPlayers }) {
   const champTheme = tabloidTheme(d.championship) || {};
   const champIcon = champTheme.icon || 'star';
   const champColor = champTheme.color || '#b3401a';
-  const teamName = (id) => (id ? TEAM(id).name : '');
+  const teamName = (id) => (id ? '@' + fifaUserOf(id, teamPlayers) : '');
   const matchups = (d.matchups || []).filter(m => m && (m.homeId || m.awayId));
   return (
     <div className={'tp tp-type-' + t} style={{ '--tp-accent': champColor }}>
@@ -11670,7 +11695,7 @@ function TabloidBuilderPanel({ cs, bets, users, teamPlayers, worldcup, wcFixture
 
           {type === 'rodada' && (<>
           <div className="tp-form-sec">CAMPEÃO (destaque)</div>
-          <label className="tp-fld"><span className="tp-fld-label">Time</span><TpTeamSelect value={data.champion.teamId} onChange={v => patchChamp({ teamId: v })} /></label>
+          <label className="tp-fld"><span className="tp-fld-label">Jogador</span><TpTeamSelect value={data.champion.teamId} onChange={v => patchChamp({ teamId: v })} teamPlayers={teamPlayers} /></label>
           <TpField label="Título" value={data.champion.title} onChange={v => patchChamp({ title: v })} />
           <TpField label="Frase de apoio" value={data.champion.note} onChange={v => patchChamp({ note: v })} placeholder="ex: NÃO TEM MAIS JEITO: TÍTULO É DELE!" />
           <label className="tp-chk"><input type="checkbox" checked={!!data.champion.crown} onChange={e => patchChamp({ crown: e.target.checked })} /> Mostrar coroa</label>
@@ -11685,7 +11710,7 @@ function TabloidBuilderPanel({ cs, bets, users, teamPlayers, worldcup, wcFixture
           {data.sideBlocks.map((b, i) => (
             <div key={i}>
               <div className="tp-form-sec">{i === 0 ? 'BLOCO 1 (boa notícia)' : 'BLOCO 2 (vexame)'}</div>
-              <label className="tp-fld"><span className="tp-fld-label">Time</span><TpTeamSelect value={b.teamId} onChange={v => patchBlock(i, { teamId: v })} /></label>
+              <label className="tp-fld"><span className="tp-fld-label">Jogador</span><TpTeamSelect value={b.teamId} onChange={v => patchBlock(i, { teamId: v })} teamPlayers={teamPlayers} /></label>
               <div className="tp-form-row">
                 <TpField label="Etiqueta" value={b.kicker} onChange={v => patchBlock(i, { kicker: v })} />
                 <TpField label="Título" value={b.title} onChange={v => patchBlock(i, { title: v })} />
@@ -11698,7 +11723,7 @@ function TabloidBuilderPanel({ cs, bets, users, teamPlayers, worldcup, wcFixture
           <TpField label="Título da faixa" value={data.midStrip.title} onChange={v => patchStrip({ title: v })} />
           {players.map((p, i) => (
             <div key={i} className="tp-form-row">
-              <label className="tp-fld" style={{ flex: 2 }}><span className="tp-fld-label">{`Jogador ${i + 1}`}</span><TpTeamSelect value={p.teamId} onChange={v => patchStripPlayer(i, { teamId: v })} /></label>
+              <label className="tp-fld" style={{ flex: 2 }}><span className="tp-fld-label">{`Jogador ${i + 1}`}</span><TpTeamSelect value={p.teamId} onChange={v => patchStripPlayer(i, { teamId: v })} teamPlayers={teamPlayers} /></label>
               <TpField label="Etiqueta" value={p.label} onChange={v => patchStripPlayer(i, { label: v })} />
             </div>
           ))}
@@ -11720,7 +11745,7 @@ function TabloidBuilderPanel({ cs, bets, users, teamPlayers, worldcup, wcFixture
             {(data.stories || []).map((s, i) => (
               <div key={i} className="tp-story-edit">
                 <div className="tp-form-row">
-                  <label className="tp-fld" style={{ flex: 2 }}><span className="tp-fld-label">Quem</span><TpTeamSelect value={s.teamId} onChange={v => patchStory(i, { teamId: v })} /></label>
+                  <label className="tp-fld" style={{ flex: 2 }}><span className="tp-fld-label">Quem</span><TpTeamSelect value={s.teamId} onChange={v => patchStory(i, { teamId: v })} teamPlayers={teamPlayers} /></label>
                   <TpField label="Etiqueta" value={s.kicker} onChange={v => patchStory(i, { kicker: v })} />
                 </div>
                 <TpField label="Alfinetada" value={s.text} onChange={v => patchStory(i, { text: v })} />
@@ -11740,11 +11765,11 @@ function TabloidBuilderPanel({ cs, bets, users, teamPlayers, worldcup, wcFixture
           </button>
           {matchups.map((m, i) => (
             <div key={i} className="tp-match-edit">
-              <TpTeamSelect value={m.homeId} onChange={v => patchMatch(i, { homeId: v })} />
+              <TpTeamSelect value={m.homeId} onChange={v => patchMatch(i, { homeId: v })} teamPlayers={teamPlayers} />
               <input type="text" value={m.oddHome} onChange={e => patchMatch(i, { oddHome: e.target.value })} className="tp-input tp-odd" placeholder="1.45" />
               <input type="text" value={m.oddDraw} onChange={e => patchMatch(i, { oddDraw: e.target.value })} className="tp-input tp-odd" placeholder="X" />
               <input type="text" value={m.oddAway} onChange={e => patchMatch(i, { oddAway: e.target.value })} className="tp-input tp-odd" placeholder="2.10" />
-              <TpTeamSelect value={m.awayId} onChange={v => patchMatch(i, { awayId: v })} />
+              <TpTeamSelect value={m.awayId} onChange={v => patchMatch(i, { awayId: v })} teamPlayers={teamPlayers} />
             </div>
           ))}
           </>)}
@@ -12290,6 +12315,44 @@ function CoinAdjuster({ label, value, accent, onApply }) {
   );
 }
 
+// ── MIGRAÇÃO: REMOVER TIMES (FIFA por @nick) ────────────────────────────────
+// Reducer do doc apostas (json): zera teamPlayers pra um mapa IDENTIDADE
+// {nick:nick} dos 8 jogadores. Idempotente. Mantém os ~164 sites que resolvem
+// via teamPlayers/reverseTeamMap funcionando (agora identidade nick->nick).
+function fifaMigrateTeamsToNicks(cur) {
+  const tp = (cur && cur.teamPlayers) || {};
+  // IDENTIDADE = os NICKS REAIS (valores do mapa) -> eles mesmos. NÃO usar os
+  // teamIds: na vida real teamId != nick (ex.: potato->ivansf, caco->spider).
+  const isIdentity = Object.keys(tp).length > 0 && Object.entries(tp).every(([k, v]) => k === v);
+  if (isIdentity) return { __abort: true, result: { ok: true, alreadyDone: true } };
+  const next = {};
+  Object.values(tp).forEach(n => { if (n) next[n] = n; });
+  return { next: { ...cur, teamPlayers: next } };
+}
+// Reescreve cs.rounds (doc state) trocando home/away de teamId->nick via o mapa
+// ORIGINAL (teamId->nick). Idempotente (chave já-nick resolve pra si mesma).
+// Honra a guarda transiente de !exists (NUNCA cria/seed aqui) e {merge:true}.
+async function migrateStateRoundsTeamsToNicks(origTeamPlayers) {
+  const ref = CLASSIF_DOC();
+  return await window.db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return { err: 'doc state não existe (abortado, não cria)' };
+    const data = snap.data();
+    let state = {};
+    if (typeof data.json === 'string') {
+      try { state = JSON.parse(data.json); } catch (_) { return { err: 'json da classificação inválido' }; }
+    }
+    const rounds = Array.isArray(state.rounds) ? state.rounds : [];
+    const nextRounds = rounds.map(r => (r || []).map(g => ({
+      ...g,
+      home: fifaUserOf(g.home, origTeamPlayers),
+      away: fifaUserOf(g.away, origTeamPlayers),
+    })));
+    tx.set(ref, { json: JSON.stringify({ ...state, rounds: nextRounds }), updatedAt: Date.now() }, { merge: true });
+    return { ok: true };
+  });
+}
+
 function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, splitCurrency, ccCtx, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, worldcup, wcFixtures, onVoidBet }) {
   const [splitting, setSplitting] = useState(false);
   const handleSplit = async () => {
@@ -12323,6 +12386,32 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, s
       else showToast('+1000 PC creditados pra todos os ' + n + ' jogadores!', 'success');
     } finally { setGranting(false); }
   };
+  // REMOVER TIMES (migrar FIFA pra @nick). Deliberado (botão), idempotente.
+  // Ordem: 1) reescreve cs.rounds com o mapa ORIGINAL (teamId->nick); 2) zera
+  // teamPlayers pra identidade {nick:nick}. Faça backup antes (aba BACKUP).
+  const [fifaMigrating, setFifaMigrating] = useState(false);
+  const handleFifaMigration = async () => {
+    if (fifaMigrating) return;
+    const origTP = teamPlayers || {};
+    const already = Object.keys(origTP).length > 0 && Object.entries(origTP).every(([k, v]) => k === v);
+    if (!(await confirmModal({
+      title: 'REMOVER TIMES — MIGRAR FIFA PRA @NICK?',
+      body: already
+        ? 'Parece que já está migrado (o mapa de times já é identidade). Rodar de novo é seguro (idempotente), mas não deve mudar nada.'
+        : 'Reescreve os jogos da FIFA (classificação) trocando o time pelo @nick do jogador e zera o mapa de times pra identidade. Idempotente. FAÇA UM BACKUP ANTES na aba BACKUP e rode num momento calmo (sem ninguém lançando placar).',
+      confirmLabel: 'MIGRAR FIFA', danger: true,
+    }))) return;
+    setFifaMigrating(true);
+    try {
+      const r1 = await migrateStateRoundsTeamsToNicks(origTP);
+      if (!r1 || r1.err) { showToast('Falha na classificação: ' + ((r1 && r1.err) || 'desconhecida'), 'error'); return; }
+      const r2 = await commitBetDocUpdate(fifaMigrateTeamsToNicks);
+      if (r2 && r2.err) { showToast('Falha no doc de apostas: ' + r2.err, 'error'); return; }
+      showToast('FIFA migrada pra @nick! Recarregue (Ctrl+Shift+R) pra confirmar.', 'success');
+    } catch (e) {
+      showToast('Erro na migração: ' + (e.message || e), 'error');
+    } finally { setFifaMigrating(false); }
+  };
   // Reset de senha: gera temporária de 6 chars, grava o hash e mostra a temp
   // pro admin repassar (a antiga para de valer na hora). O usuário troca
   // depois em MEU PERFIL → TROCAR SENHA.
@@ -12352,7 +12441,7 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, s
     }
   };
 
-  // Tabs do admin. Moderador vê: APOSTAS (anular), TIMES e BACKUP (restrito).
+  // Tabs do admin. Moderador vê: APOSTAS (anular) e BACKUP (restrito).
   // NEWS/JORNALISTA/USUÁRIOS/CATÁLOGO/DISCORD/PERIGO são só do admin full.
   // PERIGO ficou em aba separada pra não ser clicado por engano.
   const [tab, setTab] = useState(isFullAdmin ? 'usuarios' : 'apostas');
@@ -12366,7 +12455,6 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, s
       <div className="tabs" style={{ marginBottom: 14 }}>
         <button className={'tab ' + (tab === 'apostas' ? 'active' : '')} onClick={() => setTab('apostas')}>APOSTAS</button>
         {isFullAdmin && <button className={'tab ' + (tab === 'usuarios' ? 'active' : '')} onClick={() => setTab('usuarios')}>USUÁRIOS</button>}
-        <button className={'tab ' + (tab === 'times' ? 'active' : '')} onClick={() => setTab('times')}>TIMES</button>
         {isFullAdmin && <button className={'tab ' + (tab === 'news' ? 'active' : '')} onClick={() => setTab('news')}>NEWS</button>}
         {isFullAdmin && <button className={'tab ' + (tab === 'jornalista' ? 'active' : '')} onClick={() => setTab('jornalista')}>JORNALISTA</button>}
         {isFullAdmin && <button className={'tab ' + (tab === 'catalogo' ? 'active' : '')} onClick={() => setTab('catalogo')}>CATÁLOGO</button>}
@@ -12405,18 +12493,20 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, s
                 {splitting ? 'RODANDO…' : 'RODAR MIGRAÇÃO'}
               </button>
             </div>
+            <div style={{ marginBottom: 14, padding: 12, border: '2px solid var(--pv-orange)', background: 'rgba(215,100,20,0.08)' }}>
+              <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: '0.06em' }}>REMOVER TIMES — FIFA POR @NICK</div>
+              <div style={{ fontSize: 11, color: 'rgba(28,22,18,0.7)', lineHeight: 1.4, margin: '6px 0 10px' }}>
+                Reescreve os jogos da FIFA trocando o time pelo @nick do jogador e zera o mapa de times pra identidade. Idempotente. FAÇA UM BACKUP ANTES (aba BACKUP) e rode num momento calmo.
+              </div>
+              <button onClick={handleFifaMigration} disabled={fifaMigrating} style={{ background: 'var(--pv-orange)', color: 'var(--pv-bone)', border: 'none', padding: '8px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.12em', cursor: fifaMigrating ? 'wait' : 'pointer' }}>
+                {fifaMigrating ? 'MIGRANDO…' : 'MIGRAR FIFA'}
+              </button>
+            </div>
             {Object.entries(users).map(([nick, u]) => {
-              const tid = playerTeam[nick];
-              const team = tid ? TEAM(tid) : null;
               return (
                 <div key={nick} className="lb-row" style={{ gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center' }}>
                   <div>
                     <div className="lb-nick">@{nick}</div>
-                    {team && (
-                      <div style={{ fontSize: 10, letterSpacing: '0.18em', fontWeight: 800, color: 'var(--pv-orange)', marginTop: 2 }}>
-                        TIME: {team.name.toUpperCase()}
-                      </div>
-                    )}
                     <button type="button" className="admin-reset-pass" onClick={() => resetPassword(nick)}>
                       <Icon name="lock" size={11} /> RESETAR SENHA
                     </button>
@@ -12428,40 +12518,6 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, s
                 </div>
               );
             })}
-          </div>
-        </div>
-      )}
-
-      {tab === 'times' && (
-        <div className="card">
-          <div className="card-head">
-            <div className="title">TIMES DO CAMPEONATO</div>
-            <div className="sub">VINCULE CADA TIME A UM USUÁRIO</div>
-          </div>
-          <div className="card-body">
-            <p style={{ marginTop: 0, fontSize: 12, lineHeight: 1.5, color: 'rgba(28,22,18,0.7)' }}>
-              Aqui você define quem é cada time. O usuário vinculado vai ver "MEU TIME" no perfil
-              dele, com jogos passados, próximos e troféus dos campeonatos que esse time vencer.
-            </p>
-            {TEAMS.map(t => (
-              <div key={t.id} className="lb-row" style={{ gridTemplateColumns: 'auto 1fr auto', gap: 12, alignItems: 'center' }}>
-                <TeamMini team={t} size={36} />
-                <div>
-                  <div style={{ fontWeight: 800 }}>{t.name}</div>
-                  <div style={{ fontSize: 10, letterSpacing: '0.18em', color: 'rgba(28,22,18,0.5)', fontWeight: 800 }}>{t.short}</div>
-                </div>
-                <select
-                  value={teamPlayers[t.id] || ''}
-                  onChange={e => setTeamPlayer(t.id, e.target.value)}
-                  style={{ padding: '6px 10px', fontWeight: 700, minWidth: 140 }}
-                >
-                  <option value="">— sem vínculo —</option>
-                  {Object.keys(users).sort().map(nick => (
-                    <option key={nick} value={nick}>@{nick}</option>
-                  ))}
-                </select>
-              </div>
-            ))}
           </div>
         </div>
       )}
