@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-m8a ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-m8a2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -9505,8 +9505,9 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   };
 
   const list = right ? h2hBetween(left, right) : [];
-  // Mesmo perfil escolhido nos 2 lados -> mostra DETALHAMENTO a fundo (não comparação).
-  const sameProfile = !!right && right === left;
+  // DETALHAMENTO a fundo quando há UM perfil em foco: só a esquerda (sem direita
+  // escolhida) OU o mesmo nos dois lados. Dois perfis diferentes -> comparação.
+  const sameProfile = !right || right === left;
   const profiles = sameProfile ? [left] : [left, right].filter(Boolean);
   let aWins = 0, bWins = 0, draws = 0;
   list.forEach(x => { if (x.winner === 'D') draws++; else if (x.winner === left) aWins++; else if (x.winner === right) bWins++; });
