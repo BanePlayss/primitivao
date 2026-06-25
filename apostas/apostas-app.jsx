@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-m67 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-m34 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3332,6 +3332,15 @@ function App() {
       return { ...prev, rounds };
     });
   };
+  // M4: lança placar da FIFA direto de JOGOS (mesmo caminho do patchMatch da
+  // classificação) — setCs dispara write-back + auto-settle. ri/gi do jogo.
+  const setFifaScore = (ri, gi, patch) => {
+    setCs(prev => {
+      if (!prev || !Array.isArray(prev.rounds)) return prev;
+      const rounds = prev.rounds.map((r, rIdx) => rIdx !== ri ? r : r.map((m, mIdx) => mIdx === gi ? { ...m, ...patch } : m));
+      return { ...prev, rounds };
+    });
+  };
 
   // Ajuste de PC pelo admin via transação (lê PC remoto, soma delta atomicamente).
   // Seleciona qual titulo o user quer exibir publicamente (na classificacao
@@ -3720,6 +3729,14 @@ function App() {
                     // APOSTAS do MK (valendo PC). MK é ativo — todo mundo aposta aqui.
                     <>
                       <ChampHeader value={apostasChampId} onChange={setChampionship} interests={interests || {}} bare activeOnly />
+                  {/* ESCALAR ELENCO movido pra cá (M3): o mandante monta o card de luta aqui em JOGOS. */}
+                  {mkInscrito && (
+                    <MeuJogoView
+                      nick={session.nick} isAdmin={isAdmin} users={users} interests={interests || {}} onSave={setMkChars}
+                      draw={mkDraw} scores={mkScores} lineups={mkLineups} onSlot={setMkLineupSlot}
+                      teamPlayers={teamPlayers || {}}
+                    />
+                  )}
                   <MkBettingView
                     players={mkInscritos(interests)}
                     users={users}
@@ -3742,7 +3759,7 @@ function App() {
                   slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
                   onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin} canLock={isMod}
                   slipPruneMsg={slipPruneMsg}
-                  onToggleLock={toggleGameLock}
+                  onToggleLock={toggleGameLock} onSetScore={setFifaScore}
                   championship={apostasChampId} setChampionship={setChampionship}
                   interests={interests || {}}
                   teamPlayers={teamPlayers || {}}
@@ -6242,7 +6259,7 @@ function formatCommentTime(ts) {
 
 function ApostarView({ games, gamesById, bets, me, session, users,
                         slip, onToggleLeg, onRemoveLeg, onClearSlip, onPlaceBet, isAdmin, canLock, slipPruneMsg,
-                        onToggleLock, championship, setChampionship, interests, teamPlayers }) {
+                        onToggleLock, onSetScore, championship, setChampionship, interests, teamPlayers }) {
   // Quem trava (admin/mod) vê todos os jogos abertos (inclusive travados, pra
   // poder destravar); jogador comum só vê os destravados. (Jogo travado não é
   // apostável por ninguém — vide GameRow.)
@@ -6411,7 +6428,8 @@ function ApostarView({ games, gamesById, bets, me, session, users,
                   <div className="card-body">
                     {byRound[rn].map(g => (
                       <GameRow key={g.id} game={g} slip={slip} onToggleLeg={onToggleLeg} canBet={!isAdmin}
-                               canLock={canLock} onToggleLock={() => onToggleLock(g.ri, g.gi)} teamPlayers={teamPlayers} />
+                               canLock={canLock} onToggleLock={() => onToggleLock(g.ri, g.gi)}
+                               onSetScore={onSetScore ? (patch) => onSetScore(g.ri, g.gi, patch) : null} teamPlayers={teamPlayers} />
                     ))}
                   </div>
                 )}
@@ -6468,7 +6486,7 @@ function OddBtn({ lab, val, selected, disabled, onClick }) {
   );
 }
 
-function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock, teamPlayers }) {
+function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock, onSetScore, teamPlayers }) {
   const homeNick = fifaUserOf(game.home, teamPlayers);
   const awayNick = fifaUserOf(game.away, teamPlayers);
   const hU = homeNick.toUpperCase(), aU = awayNick.toUpperCase();
@@ -6544,6 +6562,17 @@ function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock, teamP
           >
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name={isLocked ? 'unlock' : 'lock'} size={11} /> {isLocked ? 'DESTRAVAR APOSTAS' : 'TRAVAR APOSTAS'}</span>
           </button>
+        </div>
+      )}
+      {/* M4: travou? aparecem as 2 caixinhas de placar (grava direto na classificação). */}
+      {canLock && isLocked && onSetScore && (
+        <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 10, padding: '8px 10px', border: '1.5px solid var(--pv-orange)', background: 'rgba(215,100,20,0.06)' }}>
+          <span style={{ fontWeight: 800, fontSize: 10, letterSpacing: '0.14em', color: 'var(--pv-orange)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="football" size={12} /> LANÇAR PLACAR</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <input className="cscore-in" value={game.gh ?? ''} placeholder="–" inputMode="numeric" onChange={e => onSetScore({ gh: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
+            <i style={{ fontStyle: 'normal', color: 'rgba(28,22,18,0.4)' }}>×</i>
+            <input className="cscore-in" value={game.ga ?? ''} placeholder="–" inputMode="numeric" onChange={e => onSetScore({ ga: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
+          </span>
         </div>
       )}
 
@@ -8647,6 +8676,18 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             )}
                           </div>
                         )}
+                        {/* M4: lançar placar aqui em JOGOS quando travado (mod). Grava direto no mkScores -> liquida. */}
+                        {isMod && gameLocked && onSetGameLock && (() => {
+                          const sc = scores[key] || {};
+                          const inp = (field) => <input className="cscore-in" value={sc[field] || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => onSetGameLock(key, { [field]: e.target.value.replace(/\D/g, '').slice(0, 1) })} />;
+                          return (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, margin: '8px 0', padding: '8px 10px', border: '1.5px solid var(--pv-orange)', background: 'rgba(215,100,20,0.06)' }}>
+                              <span style={{ fontWeight: 800, fontSize: 10, letterSpacing: '0.14em', color: 'var(--pv-orange)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="skull" size={11} /> LANÇAR PLACAR</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><b style={{ fontSize: 10 }}>P1</b> {inp('p1h')}<i style={{ fontStyle: 'normal' }}>×</i>{inp('p1a')}</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><b style={{ fontSize: 10 }}>P2</b> {inp('p2h')}<i style={{ fontStyle: 'normal' }}>×</i>{inp('p2a')}</span>
+                            </div>
+                          );
+                        })()}
                         {visibleMarkets.map(mkt => (
                           <div key={mkt} className="mk-bet-mkt">
                             <div className="mk-bet-mkt-h">{MK_MARKET_TITLE[mkt]}</div>
