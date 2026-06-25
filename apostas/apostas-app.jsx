@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-m3b ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-m5 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3796,7 +3796,7 @@ function App() {
                       teamPlayers={teamPlayers || {}}
                       draw={mkDraw} onPublishDraw={publishMkDraw}
                       scores={mkScores} onScore={setMkScoreField} lineups={mkLineups}
-                      isAdmin={isAdmin} isMod={isMod} locked={mkLocked} myNick={session.nick}
+                      isAdmin={false} isMod={false} locked={mkLocked} myNick={session.nick}
                     />
                   ) : showPlaceholder ? (
                 <ChampionshipPlaceholder
@@ -3809,7 +3809,7 @@ function App() {
                   onToggleInterest={() => toggleInterest(active.id)}
                 />
                   ) : (
-                    <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isMod}
+                    <ClassificacaoView cs={cs} setCs={setCs} isAdmin={false}
                                        users={users} teamPlayers={teamPlayers || {}} myNick={session.nick} />
                   )}
                   {/* Mobile-only: MEU JOGO mini (no desktop ele vai embaixo do MEU PERFIL). */}
@@ -3895,7 +3895,21 @@ function App() {
               />
             )}
             {view === 'mod' && isMod && (
-              <ModView officialDay={officialDay} onSetOfficialDay={setOfficialDay} myNick={session.nick} />
+              <>
+                <ModView officialDay={officialDay} onSetOfficialDay={setOfficialDay} myNick={session.nick} />
+                {/* LANÇAR / CORRIGIR PLACAR — campeonatos é view-only; a edição (incl. correção
+                    de jogos já lançados) vive aqui. Reusa os mesmos editores, agora editáveis. */}
+                <div className="mk-admin-note" style={{ margin: '18px 0 10px' }}><Icon name="football" size={12} /> LANÇAR / CORRIGIR PLACAR — o dia-a-dia é em JOGOS (trava + caixinhas); aqui dá pra editar qualquer jogo, inclusive corrigir os já lançados.</div>
+                <MkChampionshipView
+                  players={mkInscritos(interests)} users={users} teamPlayers={teamPlayers || {}}
+                  draw={mkDraw} onPublishDraw={publishMkDraw}
+                  scores={mkScores} onScore={setMkScoreField} lineups={mkLineups}
+                  isAdmin={isAdmin} isMod={isMod} locked={mkLocked} myNick={session.nick}
+                />
+                <div style={{ height: 18 }} />
+                <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isMod}
+                                   users={users} teamPlayers={teamPlayers || {}} myNick={session.nick} />
+              </>
             )}
             </ViewBoundary>
           </div>
