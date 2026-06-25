@@ -4687,3 +4687,9 @@
     html.pv-dark .hall-subtab.hunt.active { color: #f08a3c; border-bottom-color: #f08a3c; }
     html.pv-dark .hall-subtab:hover:not(.active) { color: var(--pv-bone); }
     html.pv-dark .copa-grupos-legenda { background: rgba(244,234,215,0.08); color: var(--pv-bone); }
+    /* Rail de perfil (.app-profile): os STATS e o botão ADMIN ficam soltos no
+       fundo (fora do cartão escuro) e usavam texto charcoal — somem no escuro. */
+    html.pv-dark .ap-stat { background: rgba(244,234,215,0.06); border-color: rgba(244,234,215,0.16); }
+    html.pv-dark .ap-stat-v { color: var(--pv-bone); }
+    html.pv-dark .ap-stat-l { color: rgba(244,234,215,0.6); }
+    html.pv-dark .ap-admin { color: var(--pv-bone); border-color: rgba(244,234,215,0.4); }
