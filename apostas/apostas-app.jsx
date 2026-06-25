@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-m34 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-m3b ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3719,6 +3719,14 @@ function App() {
                 {/* ESQUERDA: onde apostar + MEUS TICKETS resuminho. */}
                 <div className="apostas-leftcol">
                   <ChampSidebar value={apostasChampId} onChange={setChampionship} cs={cs} interests={interests || {}} mode="apostas" />
+                  {/* MEU JOGO (mini): escalar abre só ao clicar VER MEUS JOGOS (M3). */}
+                  {apostasChampId === 'mk' && mkInscrito && (
+                    <MeuJogoMini
+                      nick={session.nick} users={users} interests={interests || {}}
+                      draw={mkDraw} scores={mkScores} lineups={mkLineups} teamPlayers={teamPlayers || {}}
+                      onOpen={() => setView('meujogo')}
+                    />
+                  )}
                   {!isAdmin && (
                     <TicketsMini bets={(bets || []).filter(b => b.user === session.nick && (b.champId || 'fifa') === apostasChampId)} limit={6} onOpen={() => setView('tickets')} />
                   )}
@@ -3729,14 +3737,6 @@ function App() {
                     // APOSTAS do MK (valendo PC). MK é ativo — todo mundo aposta aqui.
                     <>
                       <ChampHeader value={apostasChampId} onChange={setChampionship} interests={interests || {}} bare activeOnly />
-                  {/* ESCALAR ELENCO movido pra cá (M3): o mandante monta o card de luta aqui em JOGOS. */}
-                  {mkInscrito && (
-                    <MeuJogoView
-                      nick={session.nick} isAdmin={isAdmin} users={users} interests={interests || {}} onSave={setMkChars}
-                      draw={mkDraw} scores={mkScores} lineups={mkLineups} onSlot={setMkLineupSlot}
-                      teamPlayers={teamPlayers || {}}
-                    />
-                  )}
                   <MkBettingView
                     players={mkInscritos(interests)}
                     users={users}
@@ -7822,7 +7822,8 @@ function MeuJogoMini({ nick, users, interests, draw, scores, lineups, teamPlayer
   return (
     <div className="mj-mini">
       <button type="button" className="mj-mini-h" onClick={onOpen}>
-        <span><Icon name="fist" size={12} /> MEU JOGO</span><Icon name="chevron-right" size={12} />
+        <span><Icon name="fist" size={12} /> MEU JOGO</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: 'var(--pv-orange)' }}>VER MEUS JOGOS <Icon name="arrow-right" size={11} /></span>
       </button>
       {!isInscrito ? (
         <div className="mj-mini-empty">Você não está no MK.</div>
