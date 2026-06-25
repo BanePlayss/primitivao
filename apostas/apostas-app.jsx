@@ -123,7 +123,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260624-conqcards ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260624-fixinsc ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -893,6 +893,8 @@ async function setAvatarImage(nick, srcDataUrl) {
     return { ok: true };
   } catch (e) {
     console.warn('setAvatarImage failed', e);
+    const code = String((e && (e.code || e.message)) || '');
+    if (/permission|insufficient/i.test(code)) return { err: 'rules' };
     return { err: (e && e.message) || 'falha ao enviar' };
   }
 }
@@ -3046,11 +3048,18 @@ function App() {
         }
         const map = { ...cur };
         const champ = { ...(map[champId] || {}) };
-        if (champ[nick]) delete champ[nick];
+        const removing = !!champ[nick];
+        if (removing) delete champ[nick];
         else champ[nick] = { at: Date.now() };
         map[champId] = champ;
         newMap = map;
-        tx.set(ref, { interests: map, updatedAt: Date.now() }, { merge: true });
+        // IMPORTANTE: merge:true NÃO apaga chave aninhada que sumiu do objeto —
+        // só adiciona/atualiza. Pra DESINSCREVER, tem que usar FieldValue.delete
+        // no path específico; pra inscrever, grava a chave. (bug: cancelar não saía)
+        const fieldPatch = removing
+          ? { [nick]: firebase.firestore.FieldValue.delete() }
+          : { [nick]: { at: Date.now() } };
+        tx.set(ref, { interests: { [champId]: fieldPatch }, updatedAt: Date.now() }, { merge: true });
       });
       // Optimistic update local: a UI atualiza imediatamente sem esperar o
       // subscription do Firestore. Vai bater com o snapshot quando chegar.
@@ -9779,7 +9788,11 @@ function AparenciaCard({ theme, onSetTheme, nick, teamPlayers, cosmetics, curren
     reader.onload = async () => {
       const r = await onUploadAvatar(String(reader.result));
       setBusy(false);
-      if (r && r.err) setErr(r.err === 'imagem grande demais' ? 'Imagem pesada demais mesmo comprimindo — tenta uma menor/mais simples.' : ('Falha: ' + r.err));
+      if (r && r.err) {
+        if (r.err === 'rules') setErr('Fotos ainda não liberadas no servidor — o admin precisa publicar as regras do Firestore (firestore.rules). Temas e conquistas funcionam normal.');
+        else if (r.err === 'imagem grande demais') setErr('Imagem pesada demais mesmo comprimindo — tenta uma menor/mais simples.');
+        else setErr('Falha: ' + r.err);
+      }
     };
     reader.onerror = () => { setBusy(false); setErr('Não consegui ler o arquivo.'); };
     reader.readAsDataURL(f);
