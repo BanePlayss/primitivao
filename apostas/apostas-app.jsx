@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-modadm ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-m9 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -778,6 +778,29 @@ const START_PC = 50;
 const ROUND_BONUS_PC = 1000;
 // DIA OFICIAL: admin liga e toda aposta vencedora paga +25% de PC enquanto ativo.
 const OFFICIAL_DAY_MULT = 1.25;
+
+// ── TICKETS ABERTOS / REPUTAÇÃO (M9 — "Mesa dos Cartolas") ──────────────────
+// Quem copia um ticket aberto paga o stake e recebe 10% de cashback NA HORA (da
+// casa, não do bolso do dono). O dono ganha/perde reputação conforme os
+// seguidores que copiaram ganham/perdem (assimétrico: perde mais que ganha).
+const CASHBACK_RATE = 0.10;
+const MAX_OPEN_TICKETS = 3; // tickets abertos simultâneos por dono (anti-flood)
+const REP_LEVELS = [
+  { min: 0,    name: 'NOVATO',       icon: 'ticket' },
+  { min: 50,   name: 'PALPITEIRO',   icon: 'target' },
+  { min: 150,  name: 'CARTOLA',      icon: 'crown' },
+  { min: 400,  name: 'CARTOLA OURO', icon: 'trophy' },
+  { min: 1000, name: 'ORÁCULO',      icon: 'sparkle' },
+];
+function repLevel(score) { let lv = REP_LEVELS[0]; for (const l of REP_LEVELS) if ((score || 0) >= l.min) lv = l; return lv; }
+function repScoreOf(user) { return Math.max(0, Math.round(((user && user.rep && user.rep.score) || 0))); }
+// Delta de reputação do DONO por cópia resolvida. Peso pelo stake do seguidor
+// (cap em 100 PC pra não dar pra inflar) + assimetria (perda pesa 1.3x).
+function repDeltaForCopy(copy, won) {
+  const weight = Math.max(0.3, Math.min(1, (copy.amount || 0) / 100));
+  const base = 10;
+  return won ? Math.round(base * weight) : -Math.round(base * 1.3 * weight);
+}
 
 const DEF_BY = 1.8; // ambos marcam: SIM
 const DEF_BN = 2.0; // ambos marcam: NÃO
@@ -2687,6 +2710,23 @@ function App() {
             // settledAt marca QUANDO o ticket liquidou (Jornalista ordena por isso)
             const settledAt = newStatus === 'pending' ? undefined
               : (oldStatus !== newStatus ? Date.now() : b.settledAt);
+            // M9: cópia de ticket aberto resolvida -> credita/debita reputação do DONO (1x, via graded).
+            if (b.copyOf && b.copyOwner && (newStatus === 'won' || newStatus === 'lost')) {
+              const ow = newUsers[b.copyOwner];
+              if (ow) {
+                const rep = ow.rep || {};
+                if (!(rep.graded && rep.graded[b.id])) {
+                  const repWon = newStatus === 'won';
+                  const delta = repDeltaForCopy(b, repWon);
+                  newUsers[b.copyOwner] = { ...ow, rep: {
+                    score: Math.max(0, (rep.score || 0) + delta),
+                    followersWon: (rep.followersWon || 0) + (repWon ? 1 : 0),
+                    followersLost: (rep.followersLost || 0) + (repWon ? 0 : 1),
+                    graded: { ...(rep.graded || {}), [b.id]: 1 },
+                  } };
+                }
+              }
+            }
             return { ...b, legs, status: newStatus, payout: newPayout, settledAt, officialBonus: newStatus === 'won' ? offOn : false };
           });
           if (!dirty) return null;
@@ -2748,6 +2788,23 @@ function App() {
             // settledAt marca QUANDO o ticket liquidou (Jornalista ordena por isso)
             const settledAt = newStatus === 'pending' ? undefined
               : (oldStatus !== newStatus ? Date.now() : b.settledAt);
+            // M9: cópia de ticket aberto resolvida -> credita/debita reputação do DONO (1x, via graded).
+            if (b.copyOf && b.copyOwner && (newStatus === 'won' || newStatus === 'lost')) {
+              const ow = newUsers[b.copyOwner];
+              if (ow) {
+                const rep = ow.rep || {};
+                if (!(rep.graded && rep.graded[b.id])) {
+                  const repWon = newStatus === 'won';
+                  const delta = repDeltaForCopy(b, repWon);
+                  newUsers[b.copyOwner] = { ...ow, rep: {
+                    score: Math.max(0, (rep.score || 0) + delta),
+                    followersWon: (rep.followersWon || 0) + (repWon ? 1 : 0),
+                    followersLost: (rep.followersLost || 0) + (repWon ? 0 : 1),
+                    graded: { ...(rep.graded || {}), [b.id]: 1 },
+                  } };
+                }
+              }
+            }
             return { ...b, legs, status: newStatus, payout: newPayout, settledAt, officialBonus: newStatus === 'won' ? offOn : false };
           });
           if (!dirty) return null;
@@ -3031,6 +3088,79 @@ function App() {
     } catch (e) {
       console.warn('cancelBet failed', e);
     }
+  };
+
+  // ── TICKETS ABERTOS (M9) ──────────────────────────────────────────────────
+  // True se alguma perna já resolveu ou o jogo travou/jogou (não dá pra abrir/copiar).
+  const legBusy = (legs, remote) => (legs || []).some(l => {
+    if (l.result) return true;
+    if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) {
+      return mkGameClosed(((remote.mk && remote.mk.scores) || {})[l.fixtureId.slice(3)]);
+    }
+    const p = parseGameId(l.fixtureId); if (!p) return false;
+    const g = cs && cs.rounds && cs.rounds[p.ri] && cs.rounds[p.ri][p.gi];
+    return !!(g && (g.locked || isGamePlayed(g)));
+  });
+  const publishTicket = async (ticketId) => {
+    try {
+      const r = await commitBetDocUpdate(remote => {
+        const t = (remote.bets || []).find(b => b.id === ticketId);
+        if (!t) return null;
+        if (t.user !== session.nick) return { __abort: true, result: { err: 'Só o dono publica.' } };
+        if (t.copyOf) return { __abort: true, result: { err: 'Cópia não pode ir pra mesa.' } };
+        if (t.status !== 'pending') return { __abort: true, result: { err: 'Só cupom pendente vai pra mesa.' } };
+        if (legBusy(t.legs, remote)) return { __abort: true, result: { err: 'Algum jogo do cupom já travou/jogou.' } };
+        if (!t.open) {
+          const openCount = (remote.bets || []).filter(b => b.user === session.nick && b.open && b.status === 'pending').length;
+          if (openCount >= MAX_OPEN_TICKETS) return { __abort: true, result: { err: 'Máximo de ' + MAX_OPEN_TICKETS + ' tickets na mesa ao mesmo tempo.' } };
+        }
+        const bets = (remote.bets || []).map(b => b.id !== ticketId ? b : ({ ...b, open: true, openMeta: { publishedAt: Date.now(), copies: (b.openMeta && b.openMeta.copies) || 0, stakeCopied: (b.openMeta && b.openMeta.stakeCopied) || 0 } }));
+        return { ...remote, bets };
+      });
+      if (r && r.err) showToast(r.err, 'error'); else showToast('Ticket na MESA DOS CARTOLAS — os outros já podem copiar!', 'success');
+    } catch (e) { console.warn('publishTicket failed', e); }
+  };
+  const unpublishTicket = async (ticketId) => {
+    try {
+      await commitBetDocUpdate(remote => {
+        const t = (remote.bets || []).find(b => b.id === ticketId);
+        if (!t || t.user !== session.nick) return null;
+        return { ...remote, bets: (remote.bets || []).map(b => b.id !== ticketId ? b : ({ ...b, open: false })) };
+      });
+      showToast('Ticket tirado da mesa.', 'success');
+    } catch (e) { console.warn('unpublishTicket failed', e); }
+  };
+  // Copia um ticket aberto: paga stake, ganha 10% de cashback NA HORA (da casa).
+  const copyOpenTicket = async (sourceId, amount) => {
+    const amt = Math.round(Number(amount) || 0);
+    if (amt <= 0) return { err: 'valor inválido' };
+    const cashback = Math.round(amt * CASHBACK_RATE);
+    const copyId = 'c' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    try {
+      const result = await commitBetDocUpdate(remote => {
+        const src = (remote.bets || []).find(b => b.id === sourceId);
+        if (!src || !src.open || src.status !== 'pending') return { __abort: true, result: { err: 'Esse ticket não está mais aberto.' } };
+        if (src.user === session.nick) return { __abort: true, result: { err: 'Não dá pra copiar o próprio ticket.' } };
+        if (legBusy(src.legs, remote)) return { __abort: true, result: { err: 'Esse ticket já começou — não dá mais pra copiar.' } };
+        if ((remote.bets || []).some(b => b.copyOf === sourceId && b.user === session.nick)) return { __abort: true, result: { err: 'Você já copiou esse ticket.' } };
+        const u = (remote.users || {})[session.nick];
+        if (!u) return { __abort: true, result: { err: 'Conta não sincronizada.' } };
+        if (u.pc < amt) return { __abort: true, result: { err: 'Saldo insuficiente (tem ' + u.pc + ' PC).' } };
+        if ((remote.bets || []).some(b => b.id === copyId)) return null;
+        const copy = {
+          id: copyId, user: session.nick, amount: amt, status: 'pending', createdAt: Date.now(),
+          champId: src.champId, combinedOdds: src.combinedOdds, casada: src.casada,
+          legs: (src.legs || []).map(l => ({ ...l })),
+          copyOf: sourceId, copyOwner: src.user, cashback,
+        };
+        const users = { ...remote.users, [session.nick]: { ...u, pc: u.pc - amt + cashback } };
+        const bets = (remote.bets || []).map(b => b.id !== sourceId ? b : ({ ...b, openMeta: { ...(b.openMeta || {}), copies: ((b.openMeta && b.openMeta.copies) || 0) + 1, stakeCopied: ((b.openMeta && b.openMeta.stakeCopied) || 0) + amt } }));
+        return { ...remote, users, bets: [copy, ...bets] };
+      });
+      if (result && result.err) { showToast(result.err, 'error'); return result; }
+      showToast('Copiado! Cashback +' + cashback + ' PC já creditado.', 'success');
+      return { ok: true, cashback };
+    } catch (e) { console.warn('copyOpenTicket failed', e); return { err: 'falha' }; }
   };
 
   // ── APOSTAS DO MK (valendo PC) ────────────────────────────────────────────
@@ -3717,6 +3847,12 @@ function App() {
                 seleção do CAMPEONATOS. Inscrição em "em breve" é na aba
                 CAMPEONATOS (e o cancelamento no MEU PERFIL). */}
             {view === 'apostas' && (
+              <>
+              {/* MESA DOS CARTOLAS (M9): tickets abertos pra copiar com cashback. */}
+              {!isAdmin && (
+                <OpenTicketsFeed bets={bets} users={users} teamPlayers={teamPlayers || {}}
+                  myNick={session.nick} champId={apostasChampId} balance={me ? me.pc : 0} onCopy={copyOpenTicket} />
+              )}
               <div className="champ-layout champ-layout--apostas">
                 {/* ESQUERDA: onde apostar + MEUS TICKETS resuminho. */}
                 <div className="apostas-leftcol">
@@ -3776,6 +3912,7 @@ function App() {
                     teamPlayers={teamPlayers || {}} cs={cs} lockChamp={apostasChampId} compact />
                 </aside>
               </div>
+              </>
             )}
 
             {/* CAMPEONATOS — classificação do campeonato selecionado. */}
@@ -3864,7 +4001,7 @@ function App() {
               />
             )}
             {view === 'tickets' && (
-              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} teamPlayers={teamPlayers || {}} onCancel={cancelBet} onGoApostas={() => setView('apostas')} />
+              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} teamPlayers={teamPlayers || {}} onCancel={cancelBet} onPublish={publishTicket} onUnpublish={unpublishTicket} onGoApostas={() => setView('apostas')} />
             )}
             {view === 'ranking' && (
               <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} cs={cs} />
@@ -6798,6 +6935,78 @@ function ChampStandingsCard({ champId, cs, users, teamPlayers, mkDraw, mkScores,
   );
 }
 
+// ── MESA DOS CARTOLAS (M9): tickets abertos pra copiar + reputação ──────────
+function RepBadge({ user, sm }) {
+  const score = repScoreOf(user);
+  const lv = repLevel(score);
+  return (
+    <span className={'rep-badge' + (sm ? ' sm' : '')} title={'Reputação de cartola: ' + score}>
+      <Icon name={lv.icon} size={sm ? 10 : 12} /> {lv.name} <b>{score}</b>
+    </span>
+  );
+}
+function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwner, balance, onCopy }) {
+  const [amt, setAmt] = useState(50);
+  const [busy, setBusy] = useState(false);
+  const copies = (t.openMeta && t.openMeta.copies) || 0;
+  const cashback = Math.round((amt || 0) * CASHBACK_RATE);
+  const cost = (amt || 0) - cashback;
+  const nLegs = (t.legs || []).length;
+  const doCopy = async () => { if (busy) return; setBusy(true); try { await onCopy(t.id, amt); } finally { setBusy(false); } };
+  return (
+    <div className="mesa-card">
+      <div className="mesa-card-h">
+        <Avatar nick={owner} teamPlayers={teamPlayers} size={34} noBadge />
+        <div className="mesa-card-who">
+          <div className="mesa-card-nick">@{owner}</div>
+          <RepBadge user={ownerUser} sm />
+        </div>
+      </div>
+      <div className="mesa-card-meta">
+        <span className="mesa-card-legs">{nLegs} palpite{nLegs === 1 ? '' : 's'}{t.casada ? ' · casada' : ''}</span>
+        <span className="mesa-card-odds">{Number(t.combinedOdds || 0).toFixed(2)}x</span>
+        <span className="mesa-card-copies" title="cópias"><Icon name="user" size={10} /> {copies}</span>
+      </div>
+      {isOwner ? (
+        <div className="mesa-card-tag own"><Icon name="star" size={11} /> SEU TICKET · {copies} seguidor{copies === 1 ? '' : 'es'}</div>
+      ) : alreadyCopied ? (
+        <div className="mesa-card-tag done"><Icon name="check" size={11} /> JÁ NA SUA BANCA</div>
+      ) : (
+        <>
+          <div className="mesa-cashback"><Icon name="coin-fire" size={12} /> CASHBACK 10% — paga <b>{cost}</b>, volta <b>+{cashback}</b> na hora</div>
+          <div className="mesa-copyrow">
+            <input className="mesa-stake" value={amt} inputMode="numeric" onChange={e => setAmt(Math.max(0, parseInt(e.target.value.replace(/\D/g, ''), 10) || 0))} />
+            <button type="button" className="mesa-copybtn" disabled={busy || !amt || amt > balance} onClick={doCopy}>
+              {busy ? '...' : (amt > balance ? 'SEM SALDO' : 'COPIAR')}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+function OpenTicketsFeed({ bets, users, teamPlayers, myNick, champId, balance, onCopy }) {
+  const all = bets || [];
+  const open = all.filter(b => b.open && b.status === 'pending' && (b.champId || 'fifa') === champId)
+    .sort((a, b) => repScoreOf((users || {})[b.user]) - repScoreOf((users || {})[a.user]) || (b.openMeta?.publishedAt || 0) - (a.openMeta?.publishedAt || 0));
+  if (!open.length) return null;
+  return (
+    <div className="card mesa-card-wrap">
+      <div className="card-head"><div className="title"><Icon name="cards" size={16} /> MESA DOS CARTOLAS</div><div className="sub">{open.length} TICKET{open.length === 1 ? '' : 'S'} ABERTO{open.length === 1 ? '' : 'S'} · COPIE COM 10% DE CASHBACK</div></div>
+      <div className="card-body">
+        <div className="mesa-grid">
+          {open.map(t => (
+            <OpenTicketCard key={t.id} t={t} owner={t.user} ownerUser={(users || {})[t.user]}
+              teamPlayers={teamPlayers} isOwner={t.user === myNick}
+              alreadyCopied={all.some(b => b.copyOf === t.id && b.user === myNick)}
+              balance={balance} onCopy={onCopy} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Versao MINI dos tickets pro trilho esquerdo (embaixo do ONDE APOSTAR): uma
 // linha por ticket — bolinha de status + tipo/odd + valor. Bem resumido.
 function TicketsMini({ bets, limit = 6, onOpen }) {
@@ -6836,7 +7045,7 @@ function TicketsMini({ bets, limit = 6, onOpen }) {
   );
 }
 
-function TicketsView({ bets, gamesById, cs, mkScores, teamPlayers, onCancel, limit, title, onGoApostas }) {
+function TicketsView({ bets, gamesById, cs, mkScores, teamPlayers, onCancel, onPublish, onUnpublish, limit, title, onGoApostas }) {
   if (bets.length === 0) {
     return <div className="card"><div className="card-head"><div className="title">{title || 'MEUS TICKETS'}</div></div><div className="card-body"><div className="empty">
       <div className="e1">SEM TICKETS</div><div className="e2">Você ainda não apostou aqui.</div>
@@ -6908,6 +7117,16 @@ function TicketsView({ bets, gamesById, cs, mkScores, teamPlayers, onCancel, lim
                 <div className={'status ' + t.status}>
                   {t.status === 'pending' ? 'EM ABERTO' : t.status === 'won' ? `VENCEU · +${t.payout} PC` : 'PERDEU'}
                 </div>
+                {t.copyOf && (
+                  <div style={{ marginTop: 4, fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--pv-orange)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Icon name="cards" size={11} /> CÓPIA DE @{t.copyOwner}{t.cashback ? ' · cashback +' + t.cashback : ''}
+                  </div>
+                )}
+                {t.open && !t.copyOf && (
+                  <div style={{ marginTop: 4, fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--pv-orange)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Icon name="cards" size={11} /> NA MESA · {(t.openMeta && t.openMeta.copies) || 0} cópia{((t.openMeta && t.openMeta.copies) || 0) === 1 ? '' : 's'}
+                  </div>
+                )}
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div className="stake">{t.amount} <span style={{ fontSize: 10, fontFamily: 'Space Grotesk', letterSpacing: '0.2em' }}>PC</span></div>
@@ -6916,6 +7135,13 @@ function TicketsView({ bets, gamesById, cs, mkScores, teamPlayers, onCancel, lim
                     marginTop: 8, padding: '6px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.18em',
                     background: 'transparent', border: '1.5px solid var(--pv-charcoal)',
                   }}>CANCELAR</button>
+                )}
+                {t.status === 'pending' && !blocked && !t.copyOf && (onPublish || onUnpublish) && (
+                  <button onClick={() => t.open ? (onUnpublish && onUnpublish(t.id)) : (onPublish && onPublish(t.id))} style={{
+                    marginTop: 8, marginLeft: 6, padding: '6px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
+                    background: t.open ? 'transparent' : 'var(--pv-orange)', color: t.open ? 'var(--pv-charcoal)' : 'var(--pv-bone)',
+                    border: '1.5px solid var(--pv-orange)', cursor: 'pointer',
+                  }}>{t.open ? 'TIRAR DA MESA' : 'TORNAR PÚBLICO'}</button>
                 )}
                 {t.status === 'pending' && hasLocked && !hasSettled && (
                   <div style={{

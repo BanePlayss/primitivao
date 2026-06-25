@@ -4145,6 +4145,31 @@
     .mj-mini-tbd { width: 56px; height: 56px; border-radius: 8px; background: rgba(244,234,215,0.08); display: inline-flex; align-items: center; justify-content: center; color: rgba(244,234,215,0.4); font-weight: 800; flex-shrink: 0; font-size: 18px; }
     .mj-mini-cta { width: 100%; margin-top: 10px; padding: 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--pv-orange); color: var(--pv-bone); border: none; font-family: inherit; font-weight: 800; font-size: 11px; letter-spacing: 0.1em; cursor: pointer; transition: background 0.12s, color 0.12s; }
     .mj-mini-cta:hover { background: var(--pv-bone); color: var(--pv-charcoal); }
+    /* MESA DOS CARTOLAS (M9) */
+    .mesa-card-wrap { margin-bottom: 16px; }
+    .mesa-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+    .mesa-card { border: 1.5px solid rgba(28,22,18,0.14); background: rgba(28,22,18,0.025); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .mesa-card-h { display: flex; align-items: center; gap: 9px; }
+    .mesa-card-who { min-width: 0; }
+    .mesa-card-nick { font-weight: 800; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rep-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; letter-spacing: 0.06em; color: var(--pv-orange); }
+    .rep-badge.sm { font-size: 9px; }
+    .rep-badge b { color: var(--pv-charcoal); }
+    html.pv-dark .rep-badge b { color: var(--pv-bone); }
+    .mesa-card-meta { display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: rgba(28,22,18,0.6); }
+    .mesa-card-odds { font-family: "Anton", Impact, sans-serif; font-size: 16px; color: var(--pv-orange); }
+    .mesa-card-copies { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; }
+    html.pv-dark .mesa-card-meta { color: rgba(244,234,215,0.65); }
+    .mesa-cashback { font-size: 10.5px; font-weight: 700; color: var(--pv-charcoal); background: rgba(215,100,20,0.1); border: 1px dashed var(--pv-orange); padding: 6px 8px; display: flex; align-items: center; gap: 5px; }
+    .mesa-cashback b { color: var(--pv-orange); }
+    html.pv-dark .mesa-cashback { color: var(--pv-bone); }
+    .mesa-copyrow { display: flex; gap: 6px; }
+    .mesa-stake { flex: 1; min-width: 0; padding: 8px; font-family: "JetBrains Mono", monospace; font-weight: 700; text-align: center; border: 1.5px solid rgba(28,22,18,0.2); background: var(--pv-bone); color: var(--pv-charcoal); }
+    .mesa-copybtn { flex-shrink: 0; padding: 8px 14px; font-weight: 800; font-size: 11px; letter-spacing: 0.1em; background: var(--pv-orange); color: var(--pv-bone); border: none; cursor: pointer; }
+    .mesa-copybtn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .mesa-card-tag { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px; }
+    .mesa-card-tag.own { color: var(--pv-orange); background: rgba(215,100,20,0.08); }
+    .mesa-card-tag.done { color: var(--pv-green, #2a8f3f); background: rgba(42,143,63,0.08); }
     /* RODADAS ganham mais largura no desktop (classificação ~1fr, rodadas ~1.35fr,
        mín. 360px) — em tela larga a coluna cresce e cabem 2 jogos lado a lado. */
     .champ-main .mk-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, 1.35fr); }
