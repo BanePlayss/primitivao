@@ -4334,6 +4334,22 @@
     .h2h-res.n { background: rgba(28,22,18,0.14); color: var(--pv-charcoal); }
     .stats-tro-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
     .stats-tro-cols.single { grid-template-columns: 1fr; }
+    /* DETALHAMENTO (M10) — grade de métricas + personagens */
+    .dstats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+    .dstat { background: rgba(28,22,18,0.04); border: 1px solid rgba(28,22,18,0.1); padding: 10px 8px; text-align: center; }
+    .dstat.hl { background: rgba(215,100,20,0.1); border-color: var(--pv-orange); }
+    .dstat-v { font-family: "Anton", Impact, sans-serif; font-size: 26px; line-height: 1; color: var(--pv-charcoal); }
+    .dstat.hl .dstat-v { color: var(--pv-orange); }
+    .dstat-l { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; color: rgba(28,22,18,0.55); margin-top: 5px; }
+    html.pv-dark .dstat-v { color: var(--pv-bone); }
+    html.pv-dark .dstat-l { color: rgba(244,234,215,0.6); }
+    .dstats-sub { font-size: 11px; font-weight: 800; letter-spacing: 0.12em; color: var(--pv-orange); margin: 16px 0 8px; }
+    .dstats-chars { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+    .dchar { display: flex; align-items: center; gap: 8px; background: rgba(28,22,18,0.04); border: 1px solid rgba(28,22,18,0.1); padding: 6px 8px; }
+    .dchar-info { min-width: 0; }
+    .dchar-n { font-size: 12px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dchar-s { font-size: 10px; font-weight: 700; color: rgba(28,22,18,0.6); }
+    html.pv-dark .dchar-s { color: rgba(244,234,215,0.6); }
     .stats-prof { min-width: 0; }
     .stats-tro-big { display: flex; flex-wrap: wrap; gap: 12px; }
     .stats-tro-name { font-weight: 800; font-size: 13px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid rgba(28,22,18,0.1); }

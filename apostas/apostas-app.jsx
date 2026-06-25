@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-ui2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-m10 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -8914,6 +8914,163 @@ function TrocarSenhaCard({ nick }) {
 // Hub de comparação: escolhe um jogador (seletor visual de avatares) e mostra o
 // perfil dele (troféus/títulos), uma comparação VOCÊ × ELE e TODOS os confrontos
 // diretos (H2H) em todos os jogos com fixtures (FIFA = 1 jogo/par, MK = ida+volta).
+// ── STATS DETALHADOS (M10) ──────────────────────────────────────────────────
+// Métricas FIFA de um jogador a partir de cs.rounds (resolve teamId/nick via fifaUserOf).
+function fifaPlayerDetailedStats(nick, teamPlayers, rounds) {
+  const games = [];
+  (rounds || []).forEach((r, ri) => (r || []).forEach((g) => {
+    const hN = fifaUserOf(g.home, teamPlayers), aN = fifaUserOf(g.away, teamPlayers);
+    const iAmHome = hN === nick, iAmAway = aN === nick;
+    if (!iAmHome && !iAmAway) return;
+    const gh = parseInt(g.gh, 10), ga = parseInt(g.ga, 10);
+    if (Number.isNaN(gh) || Number.isNaN(ga)) return; // só jogados
+    const myG = iAmHome ? gh : ga, opG = iAmHome ? ga : gh;
+    games.push({ round: ri + 1, opp: iAmHome ? aN : hN, myG, opG, res: myG > opG ? 'V' : myG < opG ? 'D' : 'E' });
+  }));
+  const ordered = games.sort((a, b) => a.round - b.round);
+  const n = ordered.length;
+  const wins = ordered.filter(g => g.res === 'V').length;
+  const draws = ordered.filter(g => g.res === 'E').length;
+  const losses = ordered.filter(g => g.res === 'D').length;
+  const gf = ordered.reduce((s, g) => s + g.myG, 0);
+  const ga = ordered.reduce((s, g) => s + g.opG, 0);
+  const points = wins * 3 + draws;
+  let curW = 0, bestW = 0, curUnb = 0, bestUnb = 0;
+  ordered.forEach(g => {
+    if (g.res === 'V') { curW++; curUnb++; } else if (g.res === 'E') { curW = 0; curUnb++; } else { curW = 0; curUnb = 0; }
+    if (curW > bestW) bestW = curW; if (curUnb > bestUnb) bestUnb = curUnb;
+  });
+  let endW = 0; for (let i = ordered.length - 1; i >= 0; i--) { if (ordered[i].res === 'V') endW++; else break; }
+  return {
+    n, wins, draws, losses, gf, ga, sg: gf - ga, points,
+    ppg: n ? points / n : 0, winRate: n ? wins / n * 100 : 0,
+    cleanSheets: ordered.filter(g => g.opG === 0).length,
+    failToScore: ordered.filter(g => g.myG === 0).length,
+    goleadas: ordered.filter(g => g.res === 'V' && (g.myG - g.opG) >= 3).length,
+    biggestWin: ordered.filter(g => g.res === 'V').reduce((b, g) => Math.max(b, g.myG - g.opG), 0),
+    biggestLoss: ordered.filter(g => g.res === 'D').reduce((b, g) => Math.max(b, g.opG - g.myG), 0),
+    bestWinStreak: bestW, bestUnbeaten: bestUnb, curWinStreak: endW,
+  };
+}
+// Métricas MK de um jogador (draw + mkScores + mkLineups). 2x0/2x1/shutout + personagens.
+function mkPlayerDetailedStats(nick, draw, scores, lineups) {
+  const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const out = [];
+  (draw || []).forEach(r => (r.games || []).forEach((g, gi) => {
+    if (g.home !== nick && g.away !== nick) return;
+    if (mkGameVoid(g)) return;
+    const o = mkMatchOutcome((scores || {})[gk(r, gi)]); if (!o) return;
+    const meHome = g.home === nick;
+    const myConf = meHome ? o.confH : o.confA, opConf = meHome ? o.confA : o.confH;
+    const myRounds = meHome ? o.roundsH : o.roundsA, opRounds = meHome ? o.roundsA : o.roundsH;
+    const res = myConf > opConf ? 'V' : myConf < opConf ? 'D' : 'E';
+    const ln = (lineups || {})[gk(r, gi)] || {};
+    const ch = (part, side) => (ln[part] && ln[part][side]) || null;
+    const chars = [ch('p1', meHome ? 'home' : 'away'), ch('p2', meHome ? 'home' : 'away')].filter(Boolean);
+    out.push({ res, myConf, opConf, myRounds, opRounds, twoZero: myConf === 2 && opConf === 0, twoOne: myConf === 2 && opConf === 1, shutout: myConf > opConf && opRounds === 0, chars });
+  }));
+  const n = out.length;
+  const wins = out.filter(m => m.res === 'V').length;
+  const draws = out.filter(m => m.res === 'E').length;
+  const losses = out.filter(m => m.res === 'D').length;
+  const rf = out.reduce((s, m) => s + (m.myRounds || 0), 0);
+  const ra = out.reduce((s, m) => s + (m.opRounds || 0), 0);
+  const shutouts = out.filter(m => m.shutout).length;
+  const charMap = {};
+  out.forEach(m => m.chars.forEach(c => { if (!charMap[c]) charMap[c] = { char: c, apps: 0, wins: 0 }; charMap[c].apps++; if (m.res === 'V') charMap[c].wins++; }));
+  const characters = Object.values(charMap).sort((a, b) => b.apps - a.apps || b.wins - a.wins);
+  let curW = 0, bestW = 0; out.forEach(m => { if (m.res === 'V') curW++; else curW = 0; if (curW > bestW) bestW = curW; });
+  let endW = 0; for (let i = out.length - 1; i >= 0; i--) { if (out[i].res === 'V') endW++; else break; }
+  const points = wins * 3 + draws;
+  return {
+    n, wins, draws, losses, rf, ra, sg: rf - ra, points,
+    winRate: n ? wins / n * 100 : 0, ppg: n ? points / n : 0,
+    twoZero: out.filter(m => m.twoZero).length, twoOne: out.filter(m => m.twoOne).length,
+    shutouts, shutoutRate: n ? shutouts / n * 100 : 0,
+    characters, bestWinStreak: bestW, curWinStreak: endW,
+  };
+}
+function StatTile({ label, value, hl }) {
+  return (
+    <div className={'dstat' + (hl ? ' hl' : '')}>
+      <div className="dstat-v">{value}</div>
+      <div className="dstat-l">{label}</div>
+    </div>
+  );
+}
+// Detalhamento a fundo de UM jogador (quando o mesmo perfil é escolhido nos 2 lados).
+function DetailedStatsCard({ nick, teamPlayers, cs, mkDraw, mkScores, mkLineups }) {
+  const f = fifaPlayerDetailedStats(nick, teamPlayers, cs ? cs.rounds : []);
+  const m = mkPlayerDetailedStats(nick, mkDraw, mkScores, mkLineups);
+  const pct = (v) => Math.round(v) + '%';
+  const dec = (v) => (Math.round(v * 100) / 100).toFixed(2);
+  return (
+    <>
+      {f.n > 0 && (
+        <div className="card">
+          <div className="card-head"><div className="title"><Icon name="football" size={15} /> FIFA · DETALHADO</div><div className="sub">{f.n} JOGOS</div></div>
+          <div className="card-body">
+            <div className="dstats-grid">
+              <StatTile label="APROVEITAMENTO" value={pct(f.winRate)} hl />
+              <StatTile label="V / E / D" value={f.wins + '/' + f.draws + '/' + f.losses} />
+              <StatTile label="PONTOS" value={f.points} />
+              <StatTile label="PTS/JOGO" value={dec(f.ppg)} />
+              <StatTile label="GOLS PRÓ" value={f.gf} />
+              <StatTile label="GOLS CONTRA" value={f.ga} />
+              <StatTile label="SALDO" value={(f.sg > 0 ? '+' : '') + f.sg} />
+              <StatTile label="SEM SOFRER" value={f.cleanSheets} />
+              <StatTile label="NÃO MARCOU" value={f.failToScore} />
+              <StatTile label="GOLEADAS (3+)" value={f.goleadas} />
+              <StatTile label="MAIOR VITÓRIA" value={'+' + f.biggestWin} />
+              <StatTile label="MELHOR SEQ. V" value={f.bestWinStreak} hl />
+              <StatTile label="INVENCIBILIDADE" value={f.bestUnbeaten} />
+              <StatTile label="SEQ. ATUAL V" value={f.curWinStreak} />
+            </div>
+          </div>
+        </div>
+      )}
+      {m.n > 0 && (
+        <div className="card">
+          <div className="card-head"><div className="title"><Icon name="skull" size={15} /> MORTAL KOMBAT · DETALHADO</div><div className="sub">{m.n} CONFRONTOS</div></div>
+          <div className="card-body">
+            <div className="dstats-grid">
+              <StatTile label="APROVEITAMENTO" value={pct(m.winRate)} hl />
+              <StatTile label="V / E / D" value={m.wins + '/' + m.draws + '/' + m.losses} />
+              <StatTile label="2×0 (LAVADA)" value={m.twoZero} hl />
+              <StatTile label="2×1 (SUADO)" value={m.twoOne} />
+              <StatTile label="ROUNDS PRÓ" value={m.rf} />
+              <StatTile label="ROUNDS CONTRA" value={m.ra} />
+              <StatTile label="PERFEITAS" value={m.shutouts} />
+              <StatTile label="% PERFEITA" value={pct(m.shutoutRate)} />
+              <StatTile label="MELHOR SEQ. V" value={m.bestWinStreak} hl />
+              <StatTile label="SEQ. ATUAL V" value={m.curWinStreak} />
+            </div>
+            {m.characters.length > 0 && (
+              <>
+                <div className="dstats-sub">PERSONAGENS · USO E APROVEITAMENTO</div>
+                <div className="dstats-chars">
+                  {m.characters.map(c => (
+                    <div key={c.char} className="dchar">
+                      <MkCharIcon name={c.char} />
+                      <div className="dchar-info">
+                        <div className="dchar-n">{c.char}</div>
+                        <div className="dchar-s">{c.apps}x · {c.apps ? Math.round(c.wins / c.apps * 100) : 0}% V</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      {f.n === 0 && m.n === 0 && (
+        <div className="card"><div className="card-body"><div className="empty"><div className="e1">SEM DADOS</div><div className="e2">@{nick} ainda não tem jogos lançados na FIFA nem no MK.</div></div></div></div>
+      )}
+    </>
+  );
+}
+
 function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw, mkScores, mkLineups, interests, comments }) {
   const ctx = { users: users || {}, bets: bets || [], teamPlayers: teamPlayers || {}, cs, worldcup, interests: interests || {}, comments: comments || {}, mk: { draw: mkDraw, scores: mkScores } };
 
@@ -8988,6 +9145,9 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   };
 
   const list = right ? h2hBetween(left, right) : [];
+  // Mesmo perfil escolhido nos 2 lados -> mostra DETALHAMENTO a fundo (não comparação).
+  const sameProfile = !!right && right === left;
+  const profiles = sameProfile ? [left] : [left, right].filter(Boolean);
   let aWins = 0, bWins = 0, draws = 0;
   list.forEach(x => { if (x.winner === 'D') draws++; else if (x.winner === left) aWins++; else if (x.winner === right) bWins++; });
   const cmpRows = [
@@ -9006,7 +9166,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
         <div className="stats-rail-h"><Icon name="user" size={12} /> ESQUERDA</div>
         <div className="stats-rail-list">
           {players.map(n => (
-            <button key={n} type="button" className={'stats-rail-item' + (left === n ? ' on' : '')} onClick={() => setLeft(n)} disabled={n === right}>
+            <button key={n} type="button" className={'stats-rail-item' + (left === n ? ' on' : '')} onClick={() => setLeft(n)}>
               <Avatar nick={n} teamPlayers={teamPlayers} size={28} noBadge />
               <span className="stats-rail-nick">@{n}</span>
               {n === nick && <span className="stats-rail-you">VOCÊ</span>}
@@ -9029,7 +9189,9 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
                 <span className="stats-vs-nick">@{left}</span><small>{sideLabel(left)}</small>
               </div>
               <div className="stats-vs-mid">
-                {right ? (
+                {sameProfile ? (
+                  <span className="stats-vs-novs">DETALHADO</span>
+                ) : right ? (
                   <>
                     <span className="stats-vs-score"><b className={aWins > bWins ? 'hi' : ''}>{aWins}</b><i>-</i><b className={bWins > aWins ? 'hi' : ''}>{bWins}</b></span>
                     <span className="stats-vs-d">{draws} empate{draws === 1 ? '' : 's'}</span>
@@ -9048,7 +9210,11 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
           </div>
         </div>
 
-        {right && (
+        {sameProfile && (
+          <DetailedStatsCard nick={left} teamPlayers={teamPlayers} cs={cs} mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} />
+        )}
+
+        {right && !sameProfile && (
           <div className="card">
             <div className="card-head"><div className="title">COMPARAÇÃO</div></div>
             <div className="card-body" style={{ overflowX: 'auto' }}>
@@ -9072,7 +9238,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
           </div>
         )}
 
-        {right && (
+        {right && !sameProfile && (
           <div className="card mk-card">
             <div className="card-head"><div className="title"><Icon name="sword" size={15} /> CONFRONTOS DIRETOS</div><div className="sub">{list.length} JOGO{list.length === 1 ? '' : 'S'}</div></div>
             <div className="card-body">
@@ -9110,8 +9276,8 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
         <div className="card">
           <div className="card-head"><div className="title">TROFÉUS E CONQUISTAS</div></div>
           <div className="card-body">
-            <div className={'stats-tro-cols' + (right ? '' : ' single')}>
-              {[left, right].filter(Boolean).map((p, pi) => {
+            <div className={'stats-tro-cols' + (profiles.length > 1 ? '' : ' single')}>
+              {profiles.map((p, pi) => {
                 const tro = trophiesOf(p), tit = titlesOf(p), betKing = betKingOf(p);
                 const totalTro = tro.length + betKing.length;
                 return (
@@ -9156,8 +9322,8 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
         <div className="card">
           <div className="card-head"><div className="title">HISTÓRICO DE PARTIDAS</div></div>
           <div className="card-body">
-            <div className={'stats-tro-cols' + (right ? '' : ' single')}>
-              {[left, right].filter(Boolean).map((p, pi) => {
+            <div className={'stats-tro-cols' + (profiles.length > 1 ? '' : ' single')}>
+              {profiles.map((p, pi) => {
                 const tid = teamOf(p);
                 const fifaPlayed = fifaGamesOf(p).filter(isGamePlayed);
                 const inMk = mkPlayers.includes(p);
@@ -9187,7 +9353,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
         <div className="stats-rail-h"><Icon name="user" size={12} /> DIREITA</div>
         <div className="stats-rail-list">
           {players.map(n => (
-            <button key={n} type="button" className={'stats-rail-item' + (right === n ? ' on' : '')} onClick={() => setRight(right === n ? null : n)} disabled={n === left}>
+            <button key={n} type="button" className={'stats-rail-item' + (right === n ? ' on' : '')} onClick={() => setRight(right === n ? null : n)}>
               <Avatar nick={n} teamPlayers={teamPlayers} size={28} noBadge />
               <span className="stats-rail-nick">@{n}</span>
             </button>
