@@ -123,7 +123,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260624-fixinsc ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-avatarfix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4221,7 +4221,7 @@ function ProfileSidebar({ nick, me, cs, bets, users, teamPlayers, worldcup, inte
     <aside className="app-profile" style={{ '--ap-accent': (titleDef && titleDef.color) || '#d76414' }}>
       <button type="button" className="ap-card" onClick={() => setView('perfil')} title="Abrir perfil completo">
         <div className="ap-avatar">
-          {myTeamId ? <Avatar teamId={myTeamId} cosmetics={me?.cosmetics} size={94} /> : <div className="ap-avatar-fb">{String(nick).slice(0, 2).toUpperCase()}</div>}
+          {myTeamId ? <Avatar teamId={myTeamId} nick={nick} cosmetics={me?.cosmetics} size={94} /> : <div className="ap-avatar-fb">{String(nick).slice(0, 2).toUpperCase()}</div>}
         </div>
         <div className="ap-nick">@{nick}</div>
         <div className="ap-title">{titleDef ? <><Icon name={titleDef.icon} size={11} /> {titleDef.name}</> : (isAdmin ? 'ADMIN' : 'sem conquista')}</div>
@@ -9128,7 +9128,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
       <aside className="perfil-side">
       <div className="perfil-id-card">
         {myTeamId
-          ? <Avatar teamId={myTeamId} cosmetics={me?.cosmetics} size={92} className="perfil-id-avatar" />
+          ? <Avatar teamId={myTeamId} nick={nick} cosmetics={me?.cosmetics} size={92} className="perfil-id-avatar" />
           : <div className="perfil-id-avatar-fb">{String(nick).slice(0, 2).toUpperCase()}</div>}
         <div className="perfil-id-nick">@{nick}</div>
         {me?.title && <TitleBadge titleId={me.title} size="lg" />}
