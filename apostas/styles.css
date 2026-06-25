@@ -3553,6 +3553,23 @@
       padding: 20px;
       animation: shared-fade 0.18s ease-out;
     }
+    /* MEU JOGO como JANELA (modal) — escalar abre por cima de JOGOS */
+    .mj-modal-backdrop {
+      position: fixed; inset: 0; background: rgba(28,22,18,0.8); z-index: 9000;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 24px 16px; overflow-y: auto; animation: shared-fade 0.18s ease-out;
+    }
+    .mj-modal {
+      position: relative; width: 100%; max-width: 920px; margin: auto;
+      background: var(--pv-bg, var(--pv-bone)); border: 2px solid var(--pv-charcoal);
+      box-shadow: var(--sh-lg); padding: 16px; animation: shared-fade 0.2s var(--ease);
+    }
+    html.pv-dark .mj-modal { background: #1a130d; }
+    .mj-modal-close {
+      position: absolute; top: 10px; right: 10px; z-index: 2;
+      width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+      background: var(--pv-charcoal); color: var(--pv-bone); border: none; cursor: pointer;
+    }
     @keyframes shared-fade {
       from { opacity: 0; }
       to   { opacity: 1; }

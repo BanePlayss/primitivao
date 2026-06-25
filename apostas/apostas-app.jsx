@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-m5 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-m5b ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2267,6 +2267,8 @@ function App() {
   const [slip, setSlip]     = useState([]); // [{fixtureId='rXgY', market, pick, odds}]
   const [synced, setSynced] = useState(false);
   const [championship, setChampionship] = useState('fifa');
+  // MEU JOGO (escalar): abre como JANELA (modal) por cima de JOGOS ao clicar VER MEUS JOGOS.
+  const [meuJogoOpen, setMeuJogoOpen] = useState(false);
   // Barra lateral de campeonatos (em CAMPEONATOS): oculta por padrão, expande na seta.
   const [champRailOpen, setChampRailOpen] = useState(() => { try { return localStorage.getItem('pv-champrail') === '1'; } catch (e) { return false; } });
   const toggleChampRail = () => setChampRailOpen(o => { const n = !o; try { localStorage.setItem('pv-champrail', n ? '1' : '0'); } catch (e) {} return n; });
@@ -3724,7 +3726,7 @@ function App() {
                     <MeuJogoMini
                       nick={session.nick} users={users} interests={interests || {}}
                       draw={mkDraw} scores={mkScores} lineups={mkLineups} teamPlayers={teamPlayers || {}}
-                      onOpen={() => setView('meujogo')}
+                      onOpen={() => setMeuJogoOpen(true)}
                     />
                   )}
                   {!isAdmin && (
@@ -3818,7 +3820,7 @@ function App() {
                       <MeuJogoMini
                         nick={session.nick} users={users} interests={interests || {}}
                         draw={mkDraw} scores={mkScores} lineups={mkLineups} teamPlayers={teamPlayers || {}}
-                        onOpen={() => setView('meujogo')}
+                        onOpen={() => setMeuJogoOpen(true)}
                       />
                     </div>
                   )}
@@ -3927,6 +3929,18 @@ function App() {
             showToast(`${legs.length} palpite${legs.length === 1 ? '' : 's'} adicionado${legs.length === 1 ? '' : 's'} ao seu cupom`, 'success');
           }}
         />
+      )}
+      {meuJogoOpen && (
+        <div className="mj-modal-backdrop" onClick={() => setMeuJogoOpen(false)}>
+          <div className="mj-modal" onClick={e => e.stopPropagation()}>
+            <button className="mj-modal-close" type="button" aria-label="Fechar" onClick={() => setMeuJogoOpen(false)}><Icon name="x" size={18} /></button>
+            <MeuJogoView
+              nick={session.nick} isAdmin={isAdmin} users={users} interests={interests || {}} onSave={setMkChars}
+              draw={mkDraw} scores={mkScores} lineups={mkLineups} onSlot={setMkLineupSlot}
+              teamPlayers={teamPlayers || {}}
+            />
+          </div>
+        </div>
       )}
       <ToastHost />
       <UpdateBanner />
