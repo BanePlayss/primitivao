@@ -876,6 +876,20 @@
     }
     .card-body { padding: 18px; }
 
+    /* DIA OFICIAL: faixa global quando o bônus de +25% está ativo */
+    .official-day-banner {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: linear-gradient(90deg, var(--pv-orange), var(--pv-orange-2));
+      color: var(--pv-bone); font-weight: 800; font-size: 12px; letter-spacing: 0.06em;
+      padding: 8px 16px; text-align: center;
+    }
+    .official-day-banner strong { color: #fff; }
+    /* selo "+25% DIA OFICIAL" nos boxes de retorno */
+    .official-seal {
+      display: inline-flex; align-items: center; gap: 5px; margin-top: 6px;
+      background: var(--pv-orange); color: var(--pv-bone); font-weight: 800;
+      font-size: 10px; letter-spacing: 0.12em; padding: 3px 8px;
+    }
     /* layout principal: conteúdo + sidebar full-height à direita */
     .below-topbar {
       display: flex;

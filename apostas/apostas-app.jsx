@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-m2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-m67 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -776,6 +776,8 @@ const START_PC = 50;
 // Bônus por RODADA: quando uma rodada de qualquer campeonato (FIFA tabela + MK)
 // fecha, todo mundo ganha isso. Substituiu o antigo bônus semanal.
 const ROUND_BONUS_PC = 1000;
+// DIA OFICIAL: admin liga e toda aposta vencedora paga +25% de PC enquanto ativo.
+const OFFICIAL_DAY_MULT = 1.25;
 
 const DEF_BY = 1.8; // ambos marcam: SIM
 const DEF_BN = 2.0; // ambos marcam: NÃO
@@ -2232,7 +2234,7 @@ class ViewBoundary extends React.Component {
 
 // Views navegáveis via hash (#/apostas, #/ranking...). Tem que casar com os
 // ids de getTabItems + 'admin'. Hash desconhecido cai em 'apostas'.
-const VALID_VIEWS = ['apostas', 'campeonatos', 'copa', 'estatisticas', 'hall', 'inicio', 'loja', 'perfil', 'tickets', 'ranking', 'admin'];
+const VALID_VIEWS = ['apostas', 'campeonatos', 'copa', 'estatisticas', 'hall', 'inicio', 'loja', 'perfil', 'tickets', 'ranking', 'admin', 'mod'];
 
 // Telas/recursos escondidos POR ENQUANTO. O código continua TODO no lugar — só
 // não aparecem na navegação/UI. Pra reativar: tira do set / vira HIDE_CC = false.
@@ -2285,6 +2287,8 @@ function App() {
   // partidas). Keyed por gKey: mkLineups[gKey] = { p1:{home,away}, p2:{home,away} }.
   const [mkLineups, setMkLineups] = useState({});
   const [mkLocked, setMkLocked] = useState(false); // chaveamento publicado -> inscrições fechadas
+  // DIA OFICIAL: { active, since, by } no JSON do doc. Quando ativo, payout +25%.
+  const [officialDay, setOfficialDayState] = useState(null);
 
   // Muta o campo `mk` no doc de apostas, preservando o resto. Optimistic: o caller
   // já atualizou o estado local; aqui só persiste.
@@ -2502,6 +2506,7 @@ function App() {
         setMkScores(mk.scores && typeof mk.scores === 'object' ? mk.scores : {});
         setMkLineups(mk.lineups && typeof mk.lineups === 'object' ? mk.lineups : {});
         setMkLocked(!!mk.locked);
+        setOfficialDayState(remote.officialDay && typeof remote.officialDay === 'object' ? remote.officialDay : null);
         hasLoadedRef.current = true; setSynced(true);
         // Migração one-shot: promove interests do json pra campo top-level.
         if (needsMigration) {
@@ -2665,8 +2670,9 @@ function App() {
             if (oldStatus === 'won' && newStatus !== 'won' && oldPayout > 0 && newUsers[b.user]) {
               newUsers[b.user] = { ...newUsers[b.user], pc: Math.max(0, newUsers[b.user].pc - oldPayout) };
             }
+            const offOn = !!(remote.officialDay && remote.officialDay.active);
             if (newStatus === 'won' && oldStatus !== 'won') {
-              newPayout = Math.round(b.amount * b.combinedOdds);
+              newPayout = Math.round(b.amount * b.combinedOdds * (offOn ? OFFICIAL_DAY_MULT : 1));
               if (newUsers[b.user]) {
                 newUsers[b.user] = { ...newUsers[b.user], pc: newUsers[b.user].pc + newPayout };
               }
@@ -2679,7 +2685,7 @@ function App() {
             // settledAt marca QUANDO o ticket liquidou (Jornalista ordena por isso)
             const settledAt = newStatus === 'pending' ? undefined
               : (oldStatus !== newStatus ? Date.now() : b.settledAt);
-            return { ...b, legs, status: newStatus, payout: newPayout, settledAt };
+            return { ...b, legs, status: newStatus, payout: newPayout, settledAt, officialBonus: newStatus === 'won' ? offOn : false };
           });
           if (!dirty) return null;
           return { ...remote, users: newUsers, bets: newBets };
@@ -2730,8 +2736,9 @@ function App() {
             if (oldStatus === 'won' && newStatus !== 'won' && oldPayout > 0 && newUsers[b.user]) {
               newUsers[b.user] = { ...newUsers[b.user], pc: Math.max(0, newUsers[b.user].pc - oldPayout) };
             }
+            const offOn = !!(remote.officialDay && remote.officialDay.active);
             if (newStatus === 'won' && oldStatus !== 'won') {
-              newPayout = Math.round(b.amount * b.combinedOdds);
+              newPayout = Math.round(b.amount * b.combinedOdds * (offOn ? OFFICIAL_DAY_MULT : 1));
               if (newUsers[b.user]) newUsers[b.user] = { ...newUsers[b.user], pc: newUsers[b.user].pc + newPayout };
             } else if (newStatus === 'lost') { newPayout = 0; }
             else if (newStatus === 'pending') { newPayout = undefined; }
@@ -2739,7 +2746,7 @@ function App() {
             // settledAt marca QUANDO o ticket liquidou (Jornalista ordena por isso)
             const settledAt = newStatus === 'pending' ? undefined
               : (oldStatus !== newStatus ? Date.now() : b.settledAt);
-            return { ...b, legs, status: newStatus, payout: newPayout, settledAt };
+            return { ...b, legs, status: newStatus, payout: newPayout, settledAt, officialBonus: newStatus === 'won' ? offOn : false };
           });
           if (!dirty) return null;
           return { ...remote, users: newUsers, bets: newBets };
@@ -2793,7 +2800,7 @@ function App() {
   const toggleModView = () => setModDisabled(d => { const next = !d; try { localStorage.setItem('pv-mod-off', next ? '1' : '0'); } catch (_) {} return next; });
   const isMod = isAdmin || (isNaturalMod && !modDisabled);
   // Se desligar o mod estando na aba ADMIN, volta pra apostas (não fica em tela vazia).
-  useEffect(() => { if (view === 'admin' && !isMod) setView('apostas'); }, [view, isMod]);
+  useEffect(() => { if ((view === 'admin' || view === 'mod') && !isMod) setView('apostas'); }, [view, isMod]);
 
   // Login/signup via transação: cadastro atomico contra remote — evita perder
   // user novo se outro write concorrer.
@@ -2891,6 +2898,18 @@ function App() {
       });
       return res || { ok: true };
     } catch (e) { console.warn('grantAllPc failed', e); return { err: 'falha' }; }
+  };
+
+  // ADMIN/MOD: liga/desliga o DIA OFICIAL (+25% PC em apostas vencedoras).
+  // Grava no JSON (sibling de users/bets/mk) — coberto pelo backup do json.
+  const setOfficialDay = async (active) => {
+    try {
+      const res = await commitBetDocUpdate(remote => ({
+        ...remote,
+        officialDay: { active: !!active, since: Date.now(), by: session.nick },
+      }));
+      return res || { ok: true };
+    } catch (e) { console.warn('setOfficialDay failed', e); return { err: 'falha' }; }
   };
 
   // ── CUPOM (parlay) ────────────────────────────────────────────────────────
@@ -3636,12 +3655,18 @@ function App() {
         pc={isAdmin ? '∞' : me.pc}
         cc={isAdmin ? '∞' : ccBalanceFor(session.nick, me, ccCtx)}
         isAdmin={isAdmin}
+        isMod={isMod}
         onLogout={logout}
         view={view}
         onView={setView}
         teamPlayers={teamPlayers || {}}
         myCosmetics={me?.cosmetics || {}}
       />
+      {officialDay && officialDay.active && (
+        <div className="official-day-banner">
+          <Icon name="coin-fire" size={16} /> <strong>DIA OFICIAL</strong> — toda aposta vencedora paga <strong>+25%</strong> de Primitivo Coins enquanto durar.
+        </div>
+      )}
       {/* Sidebar esquerda de perfil REMOVIDA — o perfil mora na aba MEU PERFIL
           (à direita do DISCORD). Conteúdo ocupa a largura toda. */}
       <div className="below-topbar">
@@ -3852,6 +3877,9 @@ function App() {
                 worldcup={worldcup} wcFixtures={wcData.matches}
               />
             )}
+            {view === 'mod' && isMod && (
+              <ModView officialDay={officialDay} onSetOfficialDay={setOfficialDay} myNick={session.nick} />
+            )}
             </ViewBoundary>
           </div>
         </div>
@@ -3877,7 +3905,7 @@ function App() {
 }
 
 // ─── TOP BAR / TABS ─────────────────────────────────────────────────────────
-function TopBar({ nick, pc, cc, isAdmin, onLogout, view, onView, teamPlayers, myCosmetics }) {
+function TopBar({ nick, pc, cc, isAdmin, isMod, onLogout, view, onView, teamPlayers, myCosmetics }) {
   const goDiscord = () => window.open('https://discord.gg/CgjuJSYW5u', '_blank', 'noopener,noreferrer');
   return (
     <div className="topbar">
@@ -3908,6 +3936,8 @@ function TopBar({ nick, pc, cc, isAdmin, onLogout, view, onView, teamPlayers, my
           DISCORD <span className="pnav-ext-icon"><Icon name="arrow-up-right" size={12} /></span>
         </button>
         <button className={'pnav ' + (view === 'perfil' ? 'active' : '')} onClick={() => onView && onView('perfil')}>MEU PERFIL</button>
+        {isMod && <button className={'pnav ' + (view === 'mod' ? 'active' : '')} onClick={() => onView && onView('mod')}>MOD</button>}
+        {isMod && <button className={'pnav ' + (view === 'admin' ? 'active' : '')} onClick={() => onView && onView('admin')}>ADMIN</button>}
       </nav>
       <div className="wallet">
         {!isAdmin && (
@@ -4184,6 +4214,7 @@ function getTabItems(isAdmin, mkInscrito, isMod) {
   const globalItems = [
     { id: 'perfil',   label: 'MEU PERFIL',   icon: 'user' },
   ];
+  if (isMod) globalItems.push({ id: 'mod', label: 'MOD', icon: 'whistle' });
   if (isMod) globalItems.push({ id: 'admin', label: 'ADMIN', icon: 'shield' });
   return { sectionItems, globalItems };
 }
@@ -12328,6 +12359,48 @@ function CoinAdjuster({ label, value, accent, onApply }) {
         </>
       )}
     </div>
+  );
+}
+
+// ── ABA MOD: painel de moderação (Dia Oficial, e futuramente sorteio/placar) ──
+function ModView({ officialDay, onSetOfficialDay, myNick }) {
+  const [busy, setBusy] = useState(false);
+  const active = !!(officialDay && officialDay.active);
+  const toggle = async () => {
+    if (busy) return;
+    const ok = await confirmModal({
+      title: active ? 'DESLIGAR DIA OFICIAL?' : 'LIGAR DIA OFICIAL?',
+      body: active
+        ? 'As apostas vencedoras voltam a pagar o valor normal (sem o +25%).'
+        : 'Enquanto ligado, TODA aposta vencedora paga +25% de Primitivo Coins. Liga num dia de jogos oficiais e desliga depois — não retroage.',
+      confirmLabel: active ? 'DESLIGAR' : 'LIGAR +25%', danger: active,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const r = await onSetOfficialDay(!active);
+      if (r && r.err) showToast('Erro: ' + r.err, 'error');
+      else showToast(active ? 'Dia Oficial desligado.' : 'Dia Oficial LIGADO — +25% PC nas vitórias!', 'success');
+    } finally { setBusy(false); }
+  };
+  return (
+    <>
+      <div className="mk-admin-note" style={{ marginBottom: 14 }}><Icon name="whistle" size={12} /> Painel do MODERADOR — gestão da liga.</div>
+      <div className="card">
+        <div className="card-head"><div className="title">DIA OFICIAL</div><div className="sub">{active ? 'ATIVO · +25% PC' : 'desligado'}</div></div>
+        <div className="card-body">
+          <p style={{ marginTop: 0, fontSize: 13, lineHeight: 1.5 }}>
+            Em dias oficiais de jogos, ligue o bônus pra que <strong>toda aposta vencedora pague +25%</strong> de Primitivo Coins. Vale só pras apostas liquidadas <strong>enquanto estiver ligado</strong> — não retroage as já pagas.
+          </p>
+          {active && officialDay && officialDay.by && (
+            <div style={{ fontSize: 11, color: 'rgba(28,22,18,0.6)', marginBottom: 10 }}>Ligado por @{officialDay.by}.</div>
+          )}
+          <button onClick={toggle} disabled={busy} style={{ background: active ? 'var(--pv-charcoal)' : 'var(--pv-orange)', color: 'var(--pv-bone)', border: 'none', padding: '10px 18px', fontWeight: 800, fontSize: 13, letterSpacing: '0.1em', cursor: busy ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <Icon name={active ? 'x' : 'coin-fire'} size={14} /> {busy ? 'SALVANDO…' : (active ? 'DESLIGAR DIA OFICIAL' : 'LIGAR DIA OFICIAL (+25%)')}
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
