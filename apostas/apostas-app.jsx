@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-m1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-m2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1839,16 +1839,9 @@ function Avatar({ teamId, nick, teamPlayers, cosmetics, size = 32, fullBody = fa
   const badgeItem = (!noBadge && cosm.badge) ? ITEM_BY_ID[cosm.badge] : null;
   const frameClass = frameItem ? ' has-frame avatar-frame-' + frameItem.id : '';
 
-  const renderBadge = () => {
-    if (!badgeItem) return null;
-    // Tamanho proporcional ao avatar (mínimo 14px, máximo 32px)
-    const bSize = Math.max(14, Math.min(32, Math.round(size * 0.32)));
-    return (
-      <span className="avatar-badge" style={{ background: badgeItem.color, width: bSize + 8, height: bSize + 8 }} title={badgeItem.name}>
-        <Icon name={badgeItem.icon} size={bSize - 2} />
-      </span>
-    );
-  };
+  // Distintivos (badges) do avatar REMOVIDOS da UI (pedido do Lucas). O item de
+  // badge continua no inventário, só não é mais renderizado sobre o avatar.
+  const renderBadge = () => null;
 
   // Helper: envolve um avatar-icon com a moldura SVG decorativa quando há
   // frameItem. No fullBody mantém o tratamento de borda/glow via frameClass.
@@ -2272,6 +2265,9 @@ function App() {
   const [slip, setSlip]     = useState([]); // [{fixtureId='rXgY', market, pick, odds}]
   const [synced, setSynced] = useState(false);
   const [championship, setChampionship] = useState('fifa');
+  // Barra lateral de campeonatos (em CAMPEONATOS): oculta por padrão, expande na seta.
+  const [champRailOpen, setChampRailOpen] = useState(() => { try { return localStorage.getItem('pv-champrail') === '1'; } catch (e) { return false; } });
+  const toggleChampRail = () => setChampRailOpen(o => { const n = !o; try { localStorage.setItem('pv-champrail', n ? '1' : '0'); } catch (e) {} return n; });
   // Pick MANUAL de campeonato (clicar num "em breve"/encerrado dentro da aba
   // CAMPEONATOS) trava a autosseleção do ATIVO — senão, quando o cs carrega, a
   // gente jogaria o usuário de volta pro MK. lastChampViewRef detecta a ENTRADA
@@ -3646,18 +3642,11 @@ function App() {
         teamPlayers={teamPlayers || {}}
         myCosmetics={me?.cosmetics || {}}
       />
-      <div className={'below-topbar' + (view !== 'perfil' ? ' has-rail' : '')}>
-        {/* No MEU PERFIL completo o rail global some — o perfil tem a própria sidebar. */}
-        {view !== 'perfil' && (
-          <ProfileSidebar
-            nick={session.nick} me={me} cs={cs} bets={bets} users={users}
-            teamPlayers={teamPlayers || {}} worldcup={worldcup} interests={interests || {}}
-            mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} isAdmin={isAdmin} isMod={isMod} setView={setView}
-            showMkMini={view === 'campeonatos' && (isAdmin || mkInscrito)}
-          />
-        )}
+      {/* Sidebar esquerda de perfil REMOVIDA — o perfil mora na aba MEU PERFIL
+          (à direita do DISCORD). Conteúdo ocupa a largura toda. */}
+      <div className="below-topbar">
         <div className="content-area">
-          <div className={'page' + (view === 'campeonatos' ? ' page--wide' : '')}>
+          <div className={'page' + (view === 'campeonatos' || view === 'apostas' ? ' page--wide' : '')}>
             {/* Navegação mobile (some no desktop). Sempre montada pra que as
                 telas globais — perfil/tickets/ranking — sejam alcançáveis de
                 qualquer view, já que a Sidebar fica escondida no mobile. */}
@@ -3746,11 +3735,16 @@ function App() {
 
             {/* CAMPEONATOS — classificação do campeonato selecionado. */}
             {view === 'campeonatos' && (
-              <div className="champ-layout champ-layout--camp">
-                {/* lista de CAMPEONATOS grudada na CLASSIFICAÇÃO (sem gap). O MEU JOGO
-                    mini vai embaixo do MEU PERFIL (ProfileSidebar) no desktop. */}
-                <ChampSidebar value={championship} onChange={pickChampionship} cs={cs} interests={interests || {}} mode="campeonatos" />
+              <div className={'champ-layout champ-layout--camp' + (champRailOpen ? '' : ' rail-collapsed')}>
+                {/* lista de CAMPEONATOS oculta por padrão — abre na seta. */}
+                {champRailOpen && (
+                  <ChampSidebar value={championship} onChange={pickChampionship} cs={cs} interests={interests || {}} mode="campeonatos" />
+                )}
                 <div className="champ-main">
+                  <button type="button" className="champ-rail-toggle" onClick={toggleChampRail}
+                          title={champRailOpen ? 'Esconder lista de campeonatos' : 'Ver outros campeonatos'}>
+                    <Icon name={champRailOpen ? 'x' : 'menu'} size={13} /> {champRailOpen ? 'ESCONDER LISTA' : 'OUTROS CAMPEONATOS'}
+                  </button>
                   <ChampHeader value={championship} onChange={pickChampionship} interests={interests || {}} bare />
                   {active.id === 'mk' ? (
                     // MK: CLASSIFICACAO (centro) + RODADAS (direita), grid de 2 colunas.
@@ -3899,11 +3893,11 @@ function TopBar({ nick, pc, cc, isAdmin, onLogout, view, onView, teamPlayers, my
         <MiniCrest size={36} />
         <div className="brand-text">
           <div className="t1 display">PRIMITIVÃO</div>
-          <div className="t2">APOSTAS · 2026</div>
+          <div className="t2">TEMPORADA 2026</div>
         </div>
       </div>
       <nav className="primary-nav" aria-label="Navegação principal">
-        <button className={'pnav ' + (view === 'apostas' ? 'active' : '')} onClick={() => onView && onView('apostas')}>APOSTAS</button>
+        <button className={'pnav ' + (view === 'apostas' ? 'active' : '')} onClick={() => onView && onView('apostas')}>JOGOS</button>
         <button className={'pnav ' + (view === 'campeonatos' ? 'active' : '')} onClick={() => onView && onView('campeonatos')}>CAMPEONATOS</button>
         <button className={'pnav ' + (view === 'copa' ? 'active' : '')} onClick={() => onView && onView('copa')}>COPA DO MUNDO</button>
         <button className={'pnav ' + (view === 'estatisticas' ? 'active' : '')} onClick={() => onView && onView('estatisticas')}>ESTATÍSTICAS</button>
@@ -3913,6 +3907,7 @@ function TopBar({ nick, pc, cc, isAdmin, onLogout, view, onView, teamPlayers, my
         <button className="pnav pnav-ext" onClick={goDiscord} title="Abre em nova aba">
           DISCORD <span className="pnav-ext-icon"><Icon name="arrow-up-right" size={12} /></span>
         </button>
+        <button className={'pnav ' + (view === 'perfil' ? 'active' : '')} onClick={() => onView && onView('perfil')}>MEU PERFIL</button>
       </nav>
       <div className="wallet">
         {!isAdmin && (
@@ -4175,7 +4170,7 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
 // "meu espaço" (sidebar no desktop). MERCADINHO foi pro topo (sectionItems).
 function getTabItems(isAdmin, mkInscrito, isMod) {
   const sectionItems = [
-    { id: 'apostas',     label: 'APOSTAS',       icon: 'ticket' },
+    { id: 'apostas',     label: 'JOGOS',         icon: 'ticket' },
     { id: 'campeonatos', label: 'CAMPEONATOS',   icon: 'chart' },
     { id: 'copa',        label: 'COPA DO MUNDO', icon: 'globe' },
     { id: 'estatisticas',label: 'ESTATÍSTICAS',  icon: 'medal' },
@@ -8509,7 +8504,6 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
           <div className="empty"><div className="e1">SEM SORTEIO AINDA</div><div className="e2">O admin sorteia as rodadas em CAMPEONATOS → MK. Aí as odds aparecem aqui.</div></div>
         ) : (
           <>
-            <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="coin" size={11} /> Valendo <strong>PC</strong> · você não aposta no próprio jogo. Um jogo <strong>libera</strong> quando os <strong>2 jogadores</strong> já fecharam as rodadas anteriores — dá pra adiantar.</div>
             <div className="mk-bet-layout">
               <div className="mk-bet-main">
                 <div className="mk-liberados-h"><Icon name="skull" size={13} /> JOGOS LIBERADOS <span className="mk-liberados-c">{liberados.length}</span></div>
@@ -8725,6 +8719,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
               </aside>
             </div>
             <div className="mk-bets-hint"><Icon name="ticket" size={12} /> Suas apostas ficam em <strong>MEUS TICKETS</strong>.</div>
+            <div className="mk-admin-note" style={{ marginTop: 12 }}><Icon name="coin" size={11} /> Valendo <strong>PC</strong> · você não aposta no próprio jogo. Um jogo <strong>libera</strong> quando os <strong>2 jogadores</strong> já fecharam as rodadas anteriores — dá pra adiantar.</div>
 
             {/* Backdrop do bottom-sheet (mobile): toca fora pra fechar. */}
             {cupomOpen && (
@@ -9267,7 +9262,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
       {/* NAV vertical do perfil (a sidebar) */}
       <nav className="perfil-side-nav">
         <button className={'perfil-navi ' + (ptab === 'resumo' ? 'active' : '')} onClick={() => setPtab('resumo')}><Icon name="chart" size={14} /> RESUMO</button>
-        {(myTeam || mkInscrito) && <button className={'perfil-navi ' + (ptab === 'time' ? 'active' : '')} onClick={() => setPtab('time')}><Icon name="shield" size={14} /> MEU TIME</button>}
+        {(myTeam || mkInscrito) && <button className={'perfil-navi ' + (ptab === 'time' ? 'active' : '')} onClick={() => setPtab('time')}><Icon name="shield" size={14} /> MEUS JOGOS</button>}
         <button className={'perfil-navi ' + (ptab === 'titulos' ? 'active' : '')} onClick={() => setPtab('titulos')}><Icon name="trophy" size={14} /> CONQUISTAS</button>
         {!isAdmin && <button className={'perfil-navi ' + (ptab === 'colecao' ? 'active' : '')} onClick={() => setPtab('colecao')}><Icon name="star" size={14} /> COLEÇÃO</button>}
         <button className={'perfil-navi ' + (ptab === 'aparencia' ? 'active' : '')} onClick={() => setPtab('aparencia')}><Icon name="sparkle" size={14} /> APARÊNCIA</button>
