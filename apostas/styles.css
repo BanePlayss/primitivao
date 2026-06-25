@@ -3421,6 +3421,25 @@
     .mh-score { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 17px; color: var(--pv-charcoal); white-space: nowrap; }
     .mh-score i { font-style: normal; color: rgba(28,22,18,0.35); margin: 0 3px; font-size: 12px; }
     .mh-date { font-family: "JetBrains Mono", monospace; font-size: 11px; color: rgba(28,22,18,0.5); white-space: nowrap; }
+    /* HISTÓRICO MK — confronto com placar das 2 partidas + personagens */
+    .mkh-empty { font-size: 12px; color: rgba(28,22,18,0.5); padding: 6px 2px; }
+    .mkh-list { display: flex; flex-direction: column; gap: 7px; }
+    .mkh-row { border-left: 4px solid rgba(28,22,18,0.2); background: rgba(28,22,18,0.025); padding: 8px 10px; }
+    .mkh-row.win { border-left-color: var(--pv-green, #2a8f3f); background: rgba(42,143,63,0.07); }
+    .mkh-row.loss { border-left-color: var(--pv-red-bright, #c33); background: rgba(195,51,51,0.06); }
+    .mkh-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .mkh-res { width: 20px; height: 20px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-family: "Bagel Fat One", Impact, sans-serif; font-size: 10px; color: var(--pv-bone); border-radius: 50%; background: rgba(28,22,18,0.4); }
+    .mkh-row.win .mkh-res { background: var(--pv-green, #2a8f3f); }
+    .mkh-row.loss .mkh-res { background: var(--pv-red-bright, #c33); }
+    .mkh-opp { font-weight: 800; font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mkh-phase { font-family: "JetBrains Mono", monospace; font-size: 9px; letter-spacing: 0.08em; color: rgba(28,22,18,0.5); }
+    .mkh-partidas { display: flex; gap: 8px; flex-wrap: wrap; }
+    .mkh-part { display: inline-flex; align-items: center; gap: 6px; background: rgba(28,22,18,0.05); border: 1px solid rgba(28,22,18,0.1); padding: 4px 8px; }
+    .mkh-pl { font-family: "JetBrains Mono", monospace; font-size: 9px; font-weight: 700; color: rgba(28,22,18,0.5); }
+    .mkh-sc { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 14px; color: var(--pv-charcoal); }
+    .mkh-sc i { font-style: normal; color: rgba(28,22,18,0.35); margin: 0 2px; font-size: 11px; }
+    .mkh-ch { font-size: 10px; font-weight: 700; color: rgba(28,22,18,0.6); }
+    .mkh-ch i { font-style: normal; color: rgba(28,22,18,0.4); margin: 0 2px; }
     .perfil-team-hero { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
     .perfil-team-result { margin-top: 6px; display: inline-flex; align-items: center; gap: 6px; font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 16px; line-height: 1; }
     .perfil-team-status { margin-top: 6px; display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.1em; color: rgba(28,22,18,0.55); }

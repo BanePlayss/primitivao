@@ -123,7 +123,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-rodadas ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-historico ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3766,7 +3766,7 @@ function App() {
                 onEquip={equipItem}
                 interests={interests || {}}
                 onCancelInterest={toggleInterest}
-                mkDraw={mkDraw} mkScores={mkScores}
+                mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups}
                 ctx={ccCtx}
                 onSeeRanking={seeRanking}
                 theme={me?.theme || null}
@@ -3781,7 +3781,7 @@ function App() {
               <EstatisticasView
                 nick={session.nick} users={users} cs={cs} bets={bets}
                 teamPlayers={teamPlayers || {}} worldcup={worldcup}
-                mkDraw={mkDraw} mkScores={mkScores} interests={interests || {}}
+                mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} interests={interests || {}}
                 comments={comments || {}}
               />
             )}
@@ -8776,7 +8776,7 @@ function TrocarSenhaCard({ nick }) {
 // Hub de comparação: escolhe um jogador (seletor visual de avatares) e mostra o
 // perfil dele (troféus/títulos), uma comparação VOCÊ × ELE e TODOS os confrontos
 // diretos (H2H) em todos os jogos com fixtures (FIFA = 1 jogo/par, MK = ida+volta).
-function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw, mkScores, interests, comments }) {
+function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw, mkScores, mkLineups, interests, comments }) {
   const ctx = { users: users || {}, bets: bets || [], teamPlayers: teamPlayers || {}, cs, worldcup, interests: interests || {}, comments: comments || {}, mk: { draw: mkDraw, scores: mkScores } };
 
   // universo de jogadores (menos o admin e quem se retirou), em ordem alfabética
@@ -8807,6 +8807,15 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   // REI DAS APOSTAS — campeão da season de apostas (por campeonato fechado).
   const betKingOf = (n) => betKingChamps(n, cs, bets).map(b => { const c = CHAMP_BY_ID[b.champId]; return { tag: (c && c.tag) || b.champId, season: (c && c.season) || '' }; });
   const troTotal = (n) => trophiesOf(n).length + betKingOf(n).length;
+  // Jogos da FIFA de um jogador (resolve nick -> teamId), com round/índices.
+  const fifaGamesOf = (n) => {
+    const tid = teamOf(n);
+    const out = [];
+    (cs ? cs.rounds : []).forEach((r, ri) => (r || []).forEach((g, gi) => {
+      if (g.home === tid || g.away === tid) out.push({ ...g, ri, gi, round: ri + 1 });
+    }));
+    return out;
+  };
 
   // confrontos diretos entre A (esq) e B (dir) em todos os jogos.
   const h2hBetween = (a, b) => {
@@ -9004,6 +9013,35 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
             </div>
           </div>
         </div>
+
+        {/* HISTÓRICO DE PARTIDAS — FIFA (@nick) + MK (placares das partidas + personagens) */}
+        <div className="card">
+          <div className="card-head"><div className="title">HISTÓRICO DE PARTIDAS</div></div>
+          <div className="card-body">
+            <div className={'stats-tro-cols' + (right ? '' : ' single')}>
+              {[left, right].filter(Boolean).map((p, pi) => {
+                const tid = teamOf(p);
+                const fifaPlayed = fifaGamesOf(p).filter(isGamePlayed);
+                const inMk = mkPlayers.includes(p);
+                return (
+                  <div key={'h' + p + pi} className="stats-prof">
+                    <div className={'stats-tro-name' + (p === nick ? ' me' : '')}>@{p}{p === nick && <span className="stats-you">VOCÊ</span>}</div>
+                    <div className="stats-tro-h">FIFA · {fifaPlayed.length} JOGOS</div>
+                    {fifaPlayed.length === 0
+                      ? <div className="stats-none">Sem jogos na FIFA.</div>
+                      : fifaPlayed.map(g => <MatchRow key={'f' + g.ri + '-' + g.gi} g={g} myTeamId={tid} teamPlayers={teamPlayers} />)}
+                    {inMk && (
+                      <>
+                        <div className="stats-tro-h" style={{ marginTop: 16 }}>MORTAL KOMBAT</div>
+                        <MkMatchHistory nick={p} draw={mkDraw} scores={mkScores} lineups={mkLineups} />
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* SIDEBAR DIREITA — escolhe o jogador da direita (clica de novo pra limpar) */}
@@ -9022,7 +9060,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   );
 }
 
-function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest, mkDraw, mkScores, ctx, onSeeRanking, theme, onSetTheme, currentAvatar, onUploadAvatar, onRemoveAvatar, isNaturalMod, modDisabled, onToggleMod }) {
+function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdmin, onSelectTitle, onEquip, interests, onCancelInterest, mkDraw, mkScores, mkLineups, ctx, onSeeRanking, theme, onSetTheme, currentAvatar, onUploadAvatar, onRemoveAvatar, isNaturalMod, modDisabled, onToggleMod }) {
   const [inscBusy, setInscBusy] = useState(null);
   const [ptab, setPtab] = useState('resumo'); // sub-aba: resumo / time / trofeus / titulos / colecao
   const champLabel = (cid) => cid === 'copa'
@@ -9328,11 +9366,11 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
 
                 <div className="mkt-label" style={{ marginTop: 14 }}>JOGOS DISPUTADOS ({played.length})</div>
                 {played.length === 0 && <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.5)', padding: '6px 2px' }}>Nenhum jogo ainda.</div>}
-                {played.map(g => <MatchRow key={`p-${g.ri}-${g.gi}`} g={g} myTeamId={myTeamId} />)}
+                {played.map(g => <MatchRow key={`p-${g.ri}-${g.gi}`} g={g} myTeamId={myTeamId} teamPlayers={teamPlayers} />)}
 
                 <div className="mkt-label" style={{ marginTop: 16 }}>PRÓXIMOS JOGOS ({upcoming.length})</div>
                 {upcoming.length === 0 && <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.5)', padding: '6px 2px' }}>Nenhum jogo agendado.</div>}
-                {upcoming.map(g => <MatchRow key={`u-${g.ri}-${g.gi}`} g={g} myTeamId={myTeamId} />)}
+                {upcoming.map(g => <MatchRow key={`u-${g.ri}-${g.gi}`} g={g} myTeamId={myTeamId} teamPlayers={teamPlayers} />)}
               </div>
             </div>
           )}
@@ -9371,7 +9409,10 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
                   </>
                 )}
 
-                <div className="mkt-label" style={{ marginTop: 14 }}>MEUS CONFRONTOS ({myMkGames.length})</div>
+                <div className="mkt-label" style={{ marginTop: 16 }}>HISTÓRICO DAS PARTIDAS</div>
+                <MkMatchHistory nick={nick} draw={mkDraw} scores={mkScores} lineups={mkLineups} />
+
+                <div className="mkt-label" style={{ marginTop: 16 }}>MEUS CONFRONTOS ({myMkGames.length})</div>
                 {myMkGames.length === 0 && <div style={{ fontSize: 12, color: 'rgba(28,22,18,0.5)', padding: '6px 2px' }}>Aguardando o sorteio.</div>}
                 {myMkGames.map((m, i) => {
                   const o = mkMatchOutcome(m.sc);
@@ -9434,12 +9475,14 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
   );
 }
 
-// Linha do HISTÓRICO de partidas (MEU TIME), na perspectiva do jogador: escudo
-// do adversário + placar (meu × dele) + resultado V/E/D colorido. Pendentes
-// mostram a data. Visual em card colorido por resultado (verde/vermelho/cinza).
-function MatchRow({ g, myTeamId }) {
+// Linha do HISTÓRICO de partidas (FIFA), na perspectiva do jogador: avatar +
+// @nick do adversário + placar (meu × dele) + resultado V/E/D colorido.
+// Pendentes mostram a data. teamPlayers resolve teamId -> @nick (mostra o USER,
+// não o time).
+function MatchRow({ g, myTeamId, teamPlayers }) {
   const iAmHome = g.home === myTeamId;
-  const opp = TEAM(iAmHome ? g.away : g.home);
+  const oppTid = iAmHome ? g.away : g.home;
+  const oppNick = (teamPlayers || {})[oppTid] || oppTid;
   const played = isGamePlayed(g);
   const ghN = parseInt(g.gh, 10), gaN = parseInt(g.ga, 10);
   const myG = iAmHome ? ghN : gaN;
@@ -9451,11 +9494,65 @@ function MatchRow({ g, myTeamId }) {
     <div className={'mh-row ' + cls}>
       <span className="mh-round">R{String(g.round).padStart(2, '0')}</span>
       <span className="mh-res" title={resLabel}>{outcome || '·'}</span>
-      <TeamMini team={opp} size={20} />
-      <span className="mh-opp">{opp.name}</span>
+      <Avatar nick={oppNick} teamPlayers={teamPlayers} size={20} noBadge />
+      <span className="mh-opp">@{oppNick}</span>
       {played
         ? <span className="mh-score">{myG}<i>×</i>{oppG}</span>
         : <span className="mh-date">{g.day} {g.date}</span>}
+    </div>
+  );
+}
+
+// HISTÓRICO de confrontos do MK pro nick: cada confronto concluído com vs @opp,
+// placar das 2 partidas (ex: 2×1, 2×0) e os personagens escalados em cada uma.
+function MkMatchHistory({ nick, draw, scores, lineups }) {
+  if (!draw || !nick) return null;
+  const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const rows = [];
+  draw.forEach(r => (r.games || []).forEach((g, gi) => {
+    if (g.home !== nick && g.away !== nick) return;
+    if (mkGameVoid(g)) return;
+    const o = mkMatchOutcome((scores || {})[gk(r, gi)]);
+    if (!o) return; // só concluídos
+    const meHome = g.home === nick;
+    const oppNick = meHome ? g.away : g.home;
+    const myWon = (meHome && o.winner === 'H') || (!meHome && o.winner === 'A');
+    const res = o.winner === 'D' ? 'E' : (myWon ? 'V' : 'D');
+    const ln = (lineups || {})[gk(r, gi)] || {};
+    const ch = (part, side) => (ln[part] && ln[part][side]) || null;
+    rows.push({
+      key: gk(r, gi), phase: r.phase, n: r.n, oppNick, res,
+      p1my: meHome ? o.p1h : o.p1a, p1op: meHome ? o.p1a : o.p1h,
+      p2my: meHome ? o.p2h : o.p2a, p2op: meHome ? o.p2a : o.p2h,
+      c1my: ch('p1', meHome ? 'home' : 'away'), c1op: ch('p1', meHome ? 'away' : 'home'),
+      c2my: ch('p2', meHome ? 'home' : 'away'), c2op: ch('p2', meHome ? 'away' : 'home'),
+    });
+  }));
+  if (!rows.length) return <div className="mkh-empty">Nenhum confronto concluído ainda.</div>;
+  const resLabel = (r) => r === 'V' ? 'Vitória' : r === 'D' ? 'Derrota' : 'Empate';
+  return (
+    <div className="mkh-list">
+      {rows.map(m => (
+        <div key={m.key} className={'mkh-row ' + (m.res === 'V' ? 'win' : m.res === 'D' ? 'loss' : 'draw')}>
+          <div className="mkh-head">
+            <span className="mkh-res" title={resLabel(m.res)}>{m.res}</span>
+            <span className="mkh-opp">vs @{m.oppNick}</span>
+            <span className="mkh-phase">{m.phase} {m.n}</span>
+          </div>
+          <div className="mkh-partidas">
+            <div className="mkh-part">
+              <span className="mkh-pl">P1</span>
+              <span className="mkh-sc">{m.p1my}<i>×</i>{m.p1op}</span>
+              {(m.c1my || m.c1op) && <span className="mkh-ch">{m.c1my || '?'} <i>vs</i> {m.c1op || '?'}</span>}
+            </div>
+            <div className="mkh-part">
+              <span className="mkh-pl">P2</span>
+              <span className="mkh-sc">{m.p2my}<i>×</i>{m.p2op}</span>
+              {(m.c2my || m.c2op) && <span className="mkh-ch">{m.c2my || '?'} <i>vs</i> {m.c2op || '?'}</span>}
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
