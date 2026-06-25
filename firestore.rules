@@ -71,6 +71,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Campeonatos lançados pelo admin (M8) — doc SEPARADO { json: "{champs:{...}}" }.
+    // Mesma postura defensiva: leitura pública, escrita estrutural, nunca apaga.
+    match /primitivao/championships {
+      allow read: if true;
+      allow create: if request.resource.data.json is string && payloadFits(request.resource.data);
+      allow update: if request.resource.data.json is string && payloadFits(request.resource.data);
+      allow delete: if false;
+    }
+
     // Tudo mais é negado por padrão (defensivo contra futuras coleções).
     match /{document=**} {
       allow read, write: if false;

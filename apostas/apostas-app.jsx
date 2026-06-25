@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-m9 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-m8a ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -922,6 +922,7 @@ function osDefaultThemeId() {
 const BET_DOC      = () => window.db.doc('primitivao/apostas');
 const CLASSIF_DOC  = () => window.db.doc('primitivao/state');
 const AVATARS_DOC  = () => window.db.doc('primitivao/avatars');
+const CHAMP_DOC    = () => window.db.doc('primitivao/championships'); // M8: campeonatos lançados pelo admin
 
 // ─── AVATARES CUSTOM (upload do jogador) ────────────────────────────────────
 // Guardados num doc SEPARADO (primitivao/avatars), shape { nickLower: dataUrl },
@@ -1137,14 +1138,16 @@ function mergeBetsById(remote, local) {
 
 async function downloadFullBackup() {
   try {
-    const [betSnap, classifSnap, avatarSnap] = await Promise.all([
+    const [betSnap, classifSnap, avatarSnap, champSnap] = await Promise.all([
       BET_DOC().get(),
       CLASSIF_DOC().get(),
       AVATARS_DOC().get(),
+      CHAMP_DOC().get(),
     ]);
     const apostas       = parseDocJsonSafe(betSnap);
     const classificacao = parseDocJsonSafe(classifSnap);
     const avatars       = avatarSnap.exists ? (avatarSnap.data() || {}) : {};
+    const championships = parseDocJsonSafe(champSnap);
     // interests agora vive em campo top-level do doc (sibling de `json`),
     // pra não competir com outras escritas. Fallback ao formato antigo
     // (interests dentro de json) pra retrocompat.
@@ -1174,11 +1177,12 @@ async function downloadFullBackup() {
     const wcResults = Object.keys(apostasData?.worldcup?.results || {}).length;
     const payload = {
       exportedAt: new Date().toISOString(),
-      version: 7,
+      version: 8,
       source: 'browser-admin',
       apostas:       apostasData,
       classificacao: classificacao.data,
       avatars,   // doc separado primitivao/avatars { nick: dataUrl }
+      championships: championships.data,   // doc separado primitivao/championships (M8)
       _raw: { apostas, classificacao, topLevelInterests, topLevelComments, topLevelWorldcup, topLevelNews, topLevelWebhook },
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -1275,6 +1279,10 @@ async function restoreFromBackup(payload) {
     if (payload.avatars && typeof payload.avatars === 'object' && Object.keys(payload.avatars).length > 0) {
       writes.push(AVATARS_DOC().set(payload.avatars, { merge: true }));
     }
+    // Campeonatos (M8): só escreve se o backup tem (não apaga os atuais num backup antigo).
+    if (payload.championships && typeof payload.championships === 'object') {
+      writes.push(CHAMP_DOC().set({ json: JSON.stringify(payload.championships), updatedAt: Date.now() }, { merge: true }));
+    }
     await Promise.all(writes);
     const wcPicksRestored = Object.values(apostas?.worldcup?.picks || {})
                                   .reduce((s, perUser) => s + Object.keys(perUser || {}).length, 0);
@@ -1330,6 +1338,8 @@ async function wipeAllData() {
       }, { merge: true }),
       // Avatares custom: zera o doc inteiro (não há config a preservar aqui).
       AVATARS_DOC().set({}),
+      // Campeonatos (M8): zera pro estado inicial.
+      CHAMP_DOC().set({ json: JSON.stringify({ champs: {} }), updatedAt: Date.now() }, { merge: true }),
     ]);
     return { ok: true, backedUp: backup };
   } catch (e) {
@@ -1418,6 +1428,84 @@ function defaultRounds() {
     });
   });
 }
+
+// ── M8: GERADORES DE CAMPEONATO (liga round-robin + chaveamento mata-mata) ───
+// Liga round-robin (Berger). doubleRound => ida e volta (espelha trocando mando).
+function generateLeague(participants, opts) {
+  const ps = (participants || []).filter(Boolean);
+  if (ps.length < 2) return [];
+  const ida = generateSchedule(ps);
+  if (!opts || !opts.doubleRound) return ida;
+  const volta = ida.map(games => games.map(g => ({ home: g.away, away: g.home })));
+  return [...ida, ...volta];
+}
+// Liga com placeholders de data/placar (mesma forma de cs.rounds), começando hoje.
+function champLeagueRounds(participants, opts) {
+  const sched = generateLeague(participants, opts);
+  const startDate = new Date();
+  return sched.map((games, ri) => {
+    const base = new Date(startDate); base.setDate(base.getDate() + ri * 7);
+    return games.map((g, gi) => {
+      const d = new Date(base); d.setDate(d.getDate() + gi);
+      const day = DAYS[d.getDay() === 0 ? 6 : d.getDay() - 1];
+      const date = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return { home: g.home, away: g.away, day, date, time: gi % 2 === 0 ? '21:00' : '21:30', gh: '', ga: '' };
+    });
+  });
+}
+function koRoundName(nMatches) {
+  return ({ 1: 'FINAL', 2: 'SEMIFINAL', 4: 'QUARTAS', 8: 'OITAVAS', 16: '16-AVOS' })[nMatches] || (nMatches * 2 + ' JOGADORES');
+}
+// Ordem de seeds num bracket de `size` (potência de 2): 1 enfrenta o pior, favoritos
+// só se cruzam no fim. Recursivo: [1,2] -> [1,4,2,3] -> [1,8,4,5,2,7,3,6]...
+function seedBracketOrder(size) {
+  let arr = [1, 2];
+  while (arr.length < size) {
+    const m = arr.length * 2 + 1;
+    const next = [];
+    arr.forEach(s => { next.push(s); next.push(m - s); });
+    arr = next;
+  }
+  return arr;
+}
+// Chaveamento por seed (1vN, 2v(N-1)...). N não-potência-de-2 => byes pros MELHORES
+// seeds (benefício de classificar bem). koLegs = ida(1) ou ida-e-volta(2).
+function generateBracket(seedOrder, opts) {
+  const seeds = (seedOrder || []).filter(Boolean);
+  const n = seeds.length;
+  if (n < 2) return null;
+  const koLegs = (opts && opts.koLegs) || 1;
+  let size = 1; while (size < n) size *= 2;
+  const order = seedBracketOrder(size);
+  const slot = (s) => (s <= n ? { kind: 'seed', ref: s } : { kind: 'bye' });
+  const emptyLegs = () => Array.from({ length: koLegs }, () => ({ gh: '', ga: '' }));
+  const first = [];
+  for (let i = 0; i < size; i += 2) {
+    first.push({ id: 'ko-r0-m' + (i / 2), home: slot(order[i]), away: slot(order[i + 1]), legs: emptyLegs(), pen: null, locked: false, winner: null });
+  }
+  const rounds = [{ name: koRoundName(first.length), matches: first }];
+  let prevCount = first.length, ri = 1;
+  while (prevCount > 1) {
+    const cnt = prevCount / 2;
+    const matches = [];
+    for (let i = 0; i < cnt; i++) {
+      matches.push({ id: 'ko-r' + ri + '-m' + i, home: { kind: 'winner', ref: 'ko-r' + (ri - 1) + '-m' + (i * 2) }, away: { kind: 'winner', ref: 'ko-r' + (ri - 1) + '-m' + (i * 2 + 1) }, legs: emptyLegs(), pen: null, locked: false, winner: null });
+    }
+    rounds.push({ name: koRoundName(cnt), matches });
+    prevCount = cnt; ri++;
+  }
+  let thirdPlace = null;
+  if (opts && opts.thirdPlace && rounds.length >= 2) {
+    const semi = rounds[rounds.length - 2].matches;
+    if (semi.length === 2) thirdPlace = { id: 'ko-3p', home: { kind: 'loser', ref: semi[0].id }, away: { kind: 'loser', ref: semi[1].id }, legs: [{ gh: '', ga: '' }], pen: null, locked: false, winner: null };
+  }
+  return { seedOrder: seeds, rounds, thirdPlace };
+}
+// Top N de uma classificação (computeStandings .id / computeMkStandings .nick).
+function seedFromStandings(standings, n) {
+  return (standings || []).slice(0, n).map(s => s.id || s.nick).filter(Boolean);
+}
+
 function computeStandings(rounds) {
   // Dinâmico: cria o registro a partir das CHAVES dos jogos (home/away). Assim
   // funciona tanto pra chaves teamId (antes da migração) quanto nick (depois).
@@ -2280,6 +2368,9 @@ function App() {
   const [cs, setCs] = useState(null);
   const csLoadedRef   = useRef(false);
   const csApplyingRef = useRef(false);
+  // M8: campeonatos lançados pelo admin (doc primitivao/championships, separado).
+  const [champs, setChamps] = useState({});
+  const champsLoadedRef = useRef(false);
   // Avatares custom: contador que força re-render quando AVATAR_MAP (módulo) muda.
   const [avatarsRev, setAvatarsRev] = useState(0);
   const avLoadedRef = useRef(false);
@@ -2322,6 +2413,28 @@ function App() {
     const base = { draw: null, scores: {}, lineups: {}, locked: false, ...cur };
     return { ...remote, mk: mutator(base) };
   }).catch(e => console.warn('persistMk failed', e));
+
+  // M8: muta um campeonato no doc championships (transação própria, doc separado).
+  // mutator(champAtual|null, todosChamps) -> novo champ | null(apaga) | undefined(no-op).
+  const persistChamp = async (champId, mutator) => {
+    try {
+      await window.db.runTransaction(async (tx) => {
+        const ref = CHAMP_DOC();
+        const snap = await tx.get(ref);
+        let data = { champs: {} };
+        if (snap.exists && typeof snap.data().json === 'string') {
+          try { data = JSON.parse(snap.data().json) || { champs: {} }; } catch (_) {}
+        }
+        const champsMap = (data && typeof data.champs === 'object') ? data.champs : {};
+        const next = mutator(champsMap[champId] || null, champsMap);
+        if (next === undefined) return;
+        const newChamps = { ...champsMap };
+        if (next === null) delete newChamps[champId]; else newChamps[champId] = next;
+        tx.set(ref, { json: JSON.stringify({ ...data, champs: newChamps }), updatedAt: Date.now() }, { merge: true });
+      });
+      return { ok: true };
+    } catch (e) { console.warn('persistChamp failed', e); return { err: 'falha' }; }
+  };
 
   // ADMIN: sorteia e PUBLICA o chaveamento (fecha inscrições, zera placares).
   const publishMkDraw = (draw) => {
@@ -2618,6 +2731,29 @@ function App() {
       avLoadedRef.current = true;
       setAvatarsRev(r => r + 1);
     }, err => console.warn('Avatars subscription failed', err));
+    return () => unsub();
+  }, []);
+
+  // ── M8: Firestore campeonatos (primitivao/championships) ──────────────────
+  // Doc SEPARADO (não incha o apostas, não colide com cs.rounds). Mesmas guardas
+  // de !snap.exists transiente da CLAUDE.md §2.3 — nunca zera fora do guard.
+  useEffect(() => {
+    const ref = CHAMP_DOC();
+    const unsub = ref.onSnapshot(snap => {
+      if (!snap.exists) {
+        if (champsLoadedRef.current) { console.warn('Champs: exists=false IGNORADO (transiente).'); return; }
+        if (snap.metadata && snap.metadata.fromCache) return;
+        // servidor confirma que não existe: cria vazio com merge (nunca apaga nada).
+        ref.set({ json: JSON.stringify({ champs: {} }), updatedAt: Date.now() }, { merge: true }).catch(e => console.warn(e));
+        setChamps({}); champsLoadedRef.current = true;
+        return;
+      }
+      try {
+        const d = JSON.parse(snap.data().json || '{}');
+        setChamps(d && typeof d.champs === 'object' ? d.champs : {});
+        champsLoadedRef.current = true;
+      } catch (e) { console.warn('Champs parse failed', e); }
+    }, err => console.warn('Champs subscription failed', err));
     return () => unsub();
   }, []);
 

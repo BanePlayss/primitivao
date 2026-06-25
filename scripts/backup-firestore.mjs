@@ -22,10 +22,11 @@ try {
 admin.initializeApp({ credential: admin.credential.cert(sa) });
 const db = admin.firestore();
 
-const [betSnap, classifSnap, avatarSnap] = await Promise.all([
+const [betSnap, classifSnap, avatarSnap, champSnap] = await Promise.all([
   db.doc('primitivao/apostas').get(),
   db.doc('primitivao/state').get(),
   db.doc('primitivao/avatars').get(),
+  db.doc('primitivao/championships').get(),
 ]);
 
 const parseJsonField = (snap) => {
@@ -74,13 +75,17 @@ if (apostasData && typeof apostasData === 'object') {
 // doc de apostas pra não inchar). Backup tem que cobrir — senão restore perde.
 const avatars = avatarSnap.exists ? (avatarSnap.data() || {}) : {};
 
+// Campeonatos (M8): doc SEPARADO primitivao/championships. Backup precisa cobrir.
+const championships = parseJsonField(champSnap);
+
 const payload = {
   exportedAt: new Date().toISOString(),
-  version: 5,
+  version: 6,
   source: 'github-action',
   apostas:       apostasData,
   classificacao: parseJsonField(classifSnap),
   avatars,
+  championships,
 };
 
 const date = new Date().toISOString().slice(0, 10);
