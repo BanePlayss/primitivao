@@ -17,7 +17,7 @@
 // ÍNDICE — pra navegar rápido, pulando pra L<numero>
 // =============================================================================
 // 1. CONSTANTS & DATA
-//    - DADOS BASE (TEAMS, MARKETS, NEWS, WEEKLY_PC, etc)
+//    - DADOS BASE (TEAMS, MARKETS, NEWS, START_PC, ROUND_BONUS_PC, etc)
 //    - CAMPEONATOS (FIFA, MK, RL, etc)
 //    - COPA DO MUNDO (i18n de times, fases, scoring)
 //
@@ -123,7 +123,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-darkfix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-rodadas ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -689,44 +689,80 @@ function mkPlayerFirstPendingRound(player, draw, scores) {
   }
   return Infinity;
 }
-// Jogos LIBERADOS pra jogar/apostar AGORA: não lançados e com os 2 jogadores sem
-// pendência em rodada anterior (dá pra adiantar). Retorna [{ r, ri, g, gi, key }].
+// Quantos jogos um jogador pode ADIANTAR além do seu próximo pendente. Com 2, o
+// jogo da rodada N libera quando os DOIS jogadores estão no máximo 2 rodadas
+// atrás dele (cada um pode jogar o atual + 2 à frente).
+const MK_AHEAD = 2;
+// Jogos LIBERADOS pra jogar/apostar AGORA: não lançados e com os 2 jogadores no
+// máximo MK_AHEAD rodadas atrás (dá pra adiantar). Retorna [{ r, ri, g, gi, key }].
 function mkLiberadoGames(draw, scores) {
   if (!draw || !draw.length) return [];
   const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const fpCache = {};
   const fp = (p) => (p in fpCache ? fpCache[p] : (fpCache[p] = mkPlayerFirstPendingRound(p, draw, scores)));
+  // O adiantar NUNCA cruza a virada IDA->VOLTA: enquanto a IDA não fechar, jogo
+  // da VOLTA não libera. Senão um jogador jogaria a volta cedo e perderia a
+  // janela de re-escolher o elenco quando a volta começa (ver mkRosterLockedFor).
+  const idaDone = mkIdaComplete(draw, scores);
   const out = [];
   draw.forEach((r, ri) => (r.games || []).forEach((g, gi) => {
     if (mkGameVoid(g)) return; // jogo anulado (jogador retirado) não entra em liberados
+    if (r.phase === 'VOLTA' && !idaDone) return; // trava a volta até a ida fechar
     if (mkMatchOutcome((scores || {})[gk(r, gi)] || {})) return;
-    if (fp(g.home) >= ri && fp(g.away) >= ri) out.push({ r, ri, g, gi, key: gk(r, gi) });
+    if (fp(g.home) >= ri - MK_AHEAD && fp(g.away) >= ri - MK_AHEAD) out.push({ r, ri, g, gi, key: gk(r, gi) });
   }));
   return out;
 }
 
-const START_PC = 50;
-const WEEKLY_PC = 550;
+// ── ELENCO DO MK por FASE (ida/volta) ───────────────────────────────────────
+// O elenco trava quando o jogador joga UM confronto na FASE atual. Quando o
+// turno de IDA acaba (todos os jogos de ida concluídos), a VOLTA começa e o
+// elenco LIBERA de novo — até o jogador jogar a 1ª partida da volta.
+const mkRoundConcluded = (r, scores) => {
+  const gk = (ri, gi) => ri.phase + '-' + ri.n + '-' + gi;
+  return (r.games || []).length > 0 && (r.games || []).every((g, gi) => mkGameVoid(g) || !!mkMatchOutcome((scores || {})[gk(r, gi)] || {}));
+};
+function mkIdaComplete(draw, scores) {
+  const ida = (draw || []).filter(r => r.phase === 'IDA');
+  return ida.length > 0 && ida.every(r => mkRoundConcluded(r, scores));
+}
+function mkCurrentPhase(draw, scores) {
+  const hasVolta = (draw || []).some(r => r.phase === 'VOLTA');
+  return (hasVolta && mkIdaComplete(draw, scores)) ? 'VOLTA' : 'IDA';
+}
+// Jogador já jogou (confronto concluído) algum jogo da fase indicada?
+function mkPlayedInPhase(nick, phase, draw, scores) {
+  const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  return (draw || []).some(r => r.phase === phase && (r.games || []).some((g, gi) =>
+    (g.home === nick || g.away === nick) && !mkGameVoid(g) && !!mkMatchOutcome((scores || {})[gk(r, gi)] || {})));
+}
+// Elenco travado pro nick? (jogou na fase atual). Fonte única pro App e a UI.
+function mkRosterLockedFor(nick, draw, scores) {
+  if (!draw || !nick) return false;
+  return mkPlayedInPhase(nick, mkCurrentPhase(draw, scores), draw, scores);
+}
 
-// Bônus libera TODO DOMINGO 21:00 BRT (= 00:00 UTC de segunda). Quem ainda
-// não resgatou nesta janela (lastWeekly < último domingo 21h) está elegível.
-// Como a regra é baseada em "último domingo passado", a janela reabre sozinha
-// todo domingo 21h: todo mundo cuja última claim foi antes disso fica elegível
-// automaticamente, sem precisar de timestamp manual.
-function lastSundayAt21BRT(now) {
-  const t = now == null ? Date.now() : now;
-  const d = new Date(t);
-  // Domingo 21:00 BRT == Segunda 00:00 UTC. Janela = última Segunda 00:00 UTC <= now.
-  const day = d.getUTCDay(); // 0=Dom, 1=Seg, ..., 6=Sáb (UTC)
-  const daysBack = (day + 6) % 7; // Seg=1→0, Ter=2→1, ..., Dom=0→6, Sáb=6→5
-  const m = new Date(d);
-  m.setUTCDate(d.getUTCDate() - daysBack);
-  m.setUTCHours(0, 0, 0, 0);
-  return m.getTime();
+// ── RODADAS COMPLETAS (base do bônus por rodada) ────────────────────────────
+// Índices das rodadas 100% concluídas. Set por campeonato evita duplo-crédito e
+// lida com rodadas que fecham fora de ordem (MK com adiantar).
+function mkCompleteRoundIdxs(draw, scores) {
+  const out = [];
+  (draw || []).forEach((r, i) => { if (mkRoundConcluded(r, scores)) out.push(i); });
+  return out;
 }
-function nextSundayAt21BRT(now) {
-  return lastSundayAt21BRT(now) + 7 * 24 * 60 * 60 * 1000;
+function fifaCompleteRoundIdxs(cs) {
+  const rounds = (cs && cs.rounds) || [];
+  const out = [];
+  rounds.forEach((r, i) => {
+    if (Array.isArray(r) && r.length > 0 && r.every(g => g && g.gh !== '' && g.ga !== '' && g.gh != null && g.ga != null)) out.push(i);
+  });
+  return out;
 }
+
+const START_PC = 50;
+// Bônus por RODADA: quando uma rodada de qualquer campeonato (FIFA tabela + MK)
+// fecha, todo mundo ganha isso. Substituiu o antigo bônus semanal.
+const ROUND_BONUS_PC = 1000;
 
 const DEF_BY = 1.8; // ambos marcam: SIM
 const DEF_BN = 2.0; // ambos marcam: NÃO
@@ -2780,39 +2816,48 @@ function App() {
 
   const logout = () => { setSession(null); setView('apostas'); setSlip([]); };
 
-  // Bônus semanal via transação: revalida elegibilidade contra dados REMOTOS
-  // pra evitar dois cliques rápidos creditarem em dobro, ou ser sobrescrito.
-  // Elegível = user ainda não resgatou nesta semana (janela = último domingo 21h BRT).
-  const claimWeekly = async () => {
-    if (!session || isAdmin) return;
-    const nick = session.nick;
-    // flag de fora da transação: o reducer pode rodar mais de uma vez (retry),
-    // só o resultado da última execução vale pro toast.
-    let credited = false;
+  // ── BÔNUS POR RODADA (substitui o semanal) ────────────────────────────────
+  // Quando uma rodada de QUALQUER campeonato (tabela da FIFA + MK) fica completa,
+  // credita ROUND_BONUS_PC pra TODO MUNDO — UMA vez por rodada. O ledger no json
+  // (roundBonus: { fifa:[idx], mk:[idx] }) é set de índices: idempotente, à prova
+  // de duplo-crédito (transação) e de rodadas que fecham fora de ordem. Retroativo:
+  // ledger vazio na 1ª vez credita todas as rodadas já completas.
+  const creditRoundBonus = async () => {
+    const fifaIdx = fifaCompleteRoundIdxs(cs);
+    const mkIdx = mkCompleteRoundIdxs(mkDraw, mkScores);
+    if (fifaIdx.length + mkIdx.length === 0) return;
     try {
       await commitBetDocUpdate(remote => {
-        credited = false;
-        const u = (remote.users || {})[nick];
-        if (!u) return null;
-        const windowStart = lastSundayAt21BRT();
-        if ((u.lastWeekly || 0) >= windowStart) return null; // já resgatou nesta janela
-        credited = true;
-        const users = {
-          ...remote.users,
-          [nick]: { ...u, pc: u.pc + WEEKLY_PC, lastWeekly: Date.now() },
-        };
+        const led = (remote.roundBonus && typeof remote.roundBonus === 'object') ? remote.roundBonus : {};
+        const credF = new Set(Array.isArray(led.fifa) ? led.fifa : []);
+        const credM = new Set(Array.isArray(led.mk) ? led.mk : []);
+        const newF = fifaIdx.filter(i => !credF.has(i));
+        const newM = mkIdx.filter(i => !credM.has(i));
+        const n = newF.length + newM.length;
+        if (n <= 0) return null;
+        const add = n * ROUND_BONUS_PC;
+        const users = {};
+        for (const [nk, u] of Object.entries(remote.users || {})) users[nk] = { ...u, pc: (u.pc || 0) + add };
+        return { ...remote, users, roundBonus: {
+          fifa: [...credF, ...newF].sort((a, b) => a - b),
+          mk: [...credM, ...newM].sort((a, b) => a - b),
+        } };
+      });
+    } catch (e) { console.warn('creditRoundBonus failed', e); }
+  };
+
+  // ADMIN: credita `amount` PC pra TODOS de uma vez (botão da aba USUÁRIOS).
+  const grantAllPc = async (amount) => {
+    const amt = Number(amount) || 0; if (!amt) return { err: 'valor inválido' };
+    try {
+      const res = await commitBetDocUpdate(remote => {
+        const users = {};
+        for (const [nk, u] of Object.entries(remote.users || {})) users[nk] = { ...u, pc: (u.pc || 0) + amt };
         return { ...remote, users };
       });
-      if (credited) showToast('+' + WEEKLY_PC + ' PC creditados! Bom jogo.', 'success');
-    } catch (e) {
-      console.warn('claimWeekly failed', e);
-      showToast('Falha ao resgatar o bônus. Tenta de novo.', 'error');
-    }
+      return res || { ok: true };
+    } catch (e) { console.warn('grantAllPc failed', e); return { err: 'falha' }; }
   };
-  const weeklyReady = me ? ((me.lastWeekly || 0) < lastSundayAt21BRT()) : false;
-  const weeklyIn = me && !weeklyReady
-    ? Math.max(0, nextSundayAt21BRT() - Date.now())
-    : 0;
 
   // ── CUPOM (parlay) ────────────────────────────────────────────────────────
   // game = item de `games` (vindo de cs.rounds, com id rXgY e odds calculadas)
@@ -3382,14 +3427,15 @@ function App() {
       const res = await commitBetDocUpdate(remote => {
         const u = (remote.users || {})[targetNick];
         if (!u) return null;
-        // Confere no doc (fonte da verdade) se o jogador já tem confronto concluído.
+        // Trava por FASE (fonte da verdade no doc): travado se já jogou na fase
+        // atual. Na virada IDA->VOLTA o elenco libera de novo (até jogar a 1ª da volta).
         const mk = remote.mk || {};
         const draw = Array.isArray(mk.draw) ? mk.draw : [];
         const scores = mk.scores || {};
-        const played = draw.some(r => (r.games || []).some((g, gi) =>
-          (g.home === targetNick || g.away === targetNick) && !mkGameVoid(g) &&
-          !!mkMatchOutcome(scores[r.phase + '-' + r.n + '-' + gi] || {})));
-        if (played) return { __abort: true, result: { err: 'Elenco travado: esse jogador já jogou uma rodada.' } };
+        if (mkRosterLockedFor(targetNick, draw, scores)) {
+          const ph = mkCurrentPhase(draw, scores);
+          return { __abort: true, result: { err: 'Elenco travado: você já jogou na ' + ph + '.' } };
+        }
         return { ...remote, users: { ...remote.users, [targetNick]: { ...u, mkChars: clean } } };
       });
       return res || { ok: true };
@@ -3473,6 +3519,15 @@ function App() {
     });
   }, [me, ccCtx, session]);
 
+  // BÔNUS POR RODADA: dispara o crédito quando alguma rodada nova fica completa.
+  // Só os MODS rodam (são quem lança placar — sempre tem um online ao fechar a
+  // rodada); a transação é idempotente, então 2 mods juntos não duplicam. Roda
+  // no mount (pega rodadas já completas = retroativo) e a cada placar novo.
+  useEffect(() => {
+    if (!isMod) return;
+    creditRoundBonus();
+  }, [isMod, cs, mkDraw, mkScores]);
+
   // LATCH DE CONQUISTAS (#3): títulos e badges de drop são PERMANENTES. Quando
   // uma conquista passa a valer ao vivo pro user logado, gravamos o id em
   // users[nick].earnedTitles / .earnedDrops (cresce só, nunca remove). Isso
@@ -3548,9 +3603,6 @@ function App() {
         cc={isAdmin ? '∞' : ccBalanceFor(session.nick, me, ccCtx)}
         isAdmin={isAdmin}
         onLogout={logout}
-        weeklyReady={weeklyReady}
-        weeklyIn={weeklyIn}
-        onClaimWeekly={claimWeekly}
         view={view}
         onView={setView}
         teamPlayers={teamPlayers || {}}
@@ -3635,7 +3687,6 @@ function App() {
               ) : (
                 <ApostarView
                   games={games} gamesById={gamesById} bets={bets} me={me} session={session} users={users}
-                  weeklyReady={weeklyReady} weeklyIn={weeklyIn} onClaim={claimWeekly}
                   slip={slip} onToggleLeg={toggleLeg} onRemoveLeg={removeLeg}
                   onClearSlip={clearSlip} onPlaceBet={placeBet} isAdmin={isAdmin} canLock={isMod}
                   slipPruneMsg={slipPruneMsg}
@@ -3760,10 +3811,11 @@ function App() {
               <AdminView
                 isFullAdmin={isAdmin}
                 bets={bets} users={users} adjustPc={adjustPc} adjustCc={adjustCc}
+                grantAllPc={grantAllPc}
                 splitCurrency={splitCurrency} ccCtx={ccCtx}
                 teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
                 discordWebhook={discordWebhook} remoteNews={remoteNews}
-                cs={cs} weeklyReady={weeklyReady} onVoidBet={adminVoidBet}
+                cs={cs} onVoidBet={adminVoidBet}
                 worldcup={worldcup} wcFixtures={wcData.matches}
               />
             )}
@@ -3791,11 +3843,7 @@ function App() {
 }
 
 // ─── TOP BAR / TABS ─────────────────────────────────────────────────────────
-function TopBar({ nick, pc, cc, isAdmin, onLogout, weeklyReady, weeklyIn, onClaimWeekly, view, onView, teamPlayers, myCosmetics }) {
-  const days = Math.floor(weeklyIn / (24 * 60 * 60 * 1000));
-  const hrs  = Math.floor((weeklyIn % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-  const mins = Math.floor((weeklyIn % (60 * 60 * 1000)) / (60 * 1000));
-  const countdown = days > 0 ? `${days}d ${hrs}h` : (hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`);
+function TopBar({ nick, pc, cc, isAdmin, onLogout, view, onView, teamPlayers, myCosmetics }) {
   const goDiscord = () => window.open('https://discord.gg/CgjuJSYW5u', '_blank', 'noopener,noreferrer');
   return (
     <div className="topbar">
@@ -3827,24 +3875,6 @@ function TopBar({ nick, pc, cc, isAdmin, onLogout, weeklyReady, weeklyIn, onClai
         </button>
       </nav>
       <div className="wallet">
-        {!isAdmin && weeklyReady && (
-          <button className="weekly-chip weekly-chip-ready" onClick={onClaimWeekly} title="Reclamar bônus semanal">
-            <span className="weekly-chip-icon"><Icon name="gift" size={16} /></span>
-            <span className="weekly-chip-stack">
-              <span className="weekly-chip-main">+{WEEKLY_PC} PC</span>
-              <span className="weekly-chip-sub">RECLAMAR</span>
-            </span>
-          </button>
-        )}
-        {!isAdmin && !weeklyReady && (
-          <div className="weekly-chip weekly-chip-locked" title="Próximo bônus: domingo 21h BRT">
-            <span className="weekly-chip-icon"><Icon name="lock" size={14} /></span>
-            <span className="weekly-chip-stack">
-              <span className="weekly-chip-main">BÔNUS</span>
-              <span className="weekly-chip-sub">{countdown}</span>
-            </span>
-          </div>
-        )}
         {!isAdmin && (
           <div className="pc-pill">
             <div className="pc-coin">P</div>
@@ -5024,23 +5054,23 @@ const NEWS = [
     ),
   },
   {
-    id: 'bonus-semanal',
-    title: '+550 PC NA CONTA, MEU FILHO!',
-    subtitle: 'Agora todo domingo 21h (BRT) — corre que o cofre tá aberto.',
-    date: '07/06/2026',
+    id: 'bonus-por-rodada',
+    title: 'BÔNUS AGORA É POR RODADA!',
+    subtitle: 'Acabou o domingo: cada rodada que fecha pinga +1000 PC pra todo mundo.',
+    date: '25/06/2026',
     tag: 'PROMO',
     image: 'news/bonus-semanal.jpg',
     body: (
       <>
         <p>
-          Todo <strong>domingo às 21h (BRT)</strong> o cofre
-          do xamã se abre e libera <strong>550 PC de graça</strong> pra cada
-          jogador. É só clicar no chip <strong>+550 PC RECLAMAR</strong> que
-          aparece lá no topo da página, ao lado do seu saldo.
+          O bônus semanal foi <strong>aposentado</strong>. No lugar entra um bônus
+          melhor: toda vez que uma <strong>rodada fecha</strong> (a tabela da FIFA
+          OU o Mortal Kombat), o cofre pinga <strong>+1000 PC pra cada jogador</strong>,
+          automaticamente — sem precisar reclamar nada.
         </p>
         <p>
-          Não perdeu? Confere também o site todo domingo — quem não reclama
-          fica de fora até a próxima.
+          Mais rodada acontecendo = mais PC no bolso de todo mundo. Joga que o
+          cofre enche sozinho.
         </p>
       </>
     ),
@@ -6144,7 +6174,7 @@ function formatCommentTime(ts) {
   return `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}`;
 }
 
-function ApostarView({ games, gamesById, bets, me, session, users, weeklyReady, weeklyIn, onClaim,
+function ApostarView({ games, gamesById, bets, me, session, users,
                         slip, onToggleLeg, onRemoveLeg, onClearSlip, onPlaceBet, isAdmin, canLock, slipPruneMsg,
                         onToggleLock, championship, setChampionship, interests }) {
   // Quem trava (admin/mod) vê todos os jogos abertos (inclusive travados, pra
@@ -7798,11 +7828,10 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
   const nextKey = nextGame ? nextGame.key : null;
   const effOpen = openKey == null ? nextKey : (openKey === '' ? null : openKey);
   const toggleOpen = (k) => setOpenKey(cur => { const eff = cur == null ? nextKey : (cur === '' ? null : cur); return eff === k ? '' : k; });
-  // ELENCO TRAVADO: quem JÁ JOGOU uma rodada (tem confronto concluído em
-  // qualquer rodada) não pode mais trocar os 3 personagens — vale pra todo mundo.
-  const rosterLocked = !!(draw && draw.some((r) =>
-    (r.games || []).some((g, gi) => (g.home === target || g.away === target) && !mkGameVoid(g) && !!mkMatchOutcome((scores || {})[gKey(r, gi)] || {}))
-  ));
+  // ELENCO TRAVADO por FASE: trava quando o jogador joga 1 confronto da fase
+  // atual. Na virada IDA->VOLTA libera de novo (até jogar a 1ª partida da volta).
+  const rosterLocked = mkRosterLockedFor(target, draw, scores);
+  const rosterPhase = mkCurrentPhase(draw, scores);
   // Atualiza um slot da escalação (mandante). lineups[key] = { p1:{home,away}, p2:{home,away} }
   const setSlot = (key, part, side, val) => onSlot(key, part, side, val);
 
@@ -7833,9 +7862,9 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
             <div className="mk-jogo-sec">
               <div className="mk-jogo-sec-h"><Icon name="user" size={13} /> MEU ELENCO DO TURNO <span className="mk-jogo-sec-c">{sel.length}/{MK_MAX_CHARS}</span></div>
               {rosterLocked ? (
-                <div className="mk-roster-lock"><Icon name="lock" size={12} /> <span><strong>Elenco travado.</strong> {isAdmin ? 'Esse jogador já' : 'Você já'} jogou uma rodada — não dá mais pra trocar os personagens.</span></div>
+                <div className="mk-roster-lock"><Icon name="lock" size={12} /> <span><strong>Elenco travado.</strong> {isAdmin ? 'Esse jogador já' : 'Você já'} jogou na {rosterPhase} — o elenco destrava de novo quando a {rosterPhase === 'IDA' ? 'VOLTA' : 'próxima fase'} começar.</span></div>
               ) : (
-                <p className="mk-jogo-hint">Seus <strong>{MK_MAX_CHARS} personagens fixos</strong>. Escolhe com calma: <strong>depois que você joga sua primeira rodada, o elenco trava</strong>. O mandante escala esses bonecos nas partidas.</p>
+                <p className="mk-jogo-hint">Seus <strong>{MK_MAX_CHARS} personagens fixos</strong> da <strong>{rosterPhase}</strong>. Escolhe com calma: <strong>quando você joga a 1ª partida da {rosterPhase}, o elenco trava</strong> — e libera de novo na virada do turno. O mandante escala esses bonecos.</p>
               )}
               <div className="mk-roster">
                 {MK_CHARACTERS.map(c => {
@@ -9405,40 +9434,28 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
   );
 }
 
+// Linha do HISTÓRICO de partidas (MEU TIME), na perspectiva do jogador: escudo
+// do adversário + placar (meu × dele) + resultado V/E/D colorido. Pendentes
+// mostram a data. Visual em card colorido por resultado (verde/vermelho/cinza).
 function MatchRow({ g, myTeamId }) {
-  const h = TEAM(g.home), a = TEAM(g.away);
+  const iAmHome = g.home === myTeamId;
+  const opp = TEAM(iAmHome ? g.away : g.home);
   const played = isGamePlayed(g);
   const ghN = parseInt(g.gh, 10), gaN = parseInt(g.ga, 10);
-  let outcome = null;
-  if (played) {
-    if (g.home === myTeamId) {
-      outcome = ghN > gaN ? 'V' : ghN < gaN ? 'D' : 'E';
-    } else {
-      outcome = gaN > ghN ? 'V' : gaN < ghN ? 'D' : 'E';
-    }
-  }
-  const outcomeColor = outcome === 'V' ? 'var(--pv-green, #2a8)'
-                     : outcome === 'D' ? 'var(--pv-red, #c33)'
-                     : 'rgba(28,22,18,0.5)';
+  const myG = iAmHome ? ghN : gaN;
+  const oppG = iAmHome ? gaN : ghN;
+  const outcome = !played ? null : (myG > oppG ? 'V' : myG < oppG ? 'D' : 'E');
+  const cls = outcome === 'V' ? 'win' : outcome === 'D' ? 'loss' : outcome === 'E' ? 'draw' : 'pending';
+  const resLabel = outcome === 'V' ? 'Vitória' : outcome === 'D' ? 'Derrota' : outcome === 'E' ? 'Empate' : 'A jogar';
   return (
-    <div style={{
-      display: 'grid', gridTemplateColumns: '48px 1fr auto auto', gap: 12,
-      alignItems: 'center', padding: '8px 4px', borderBottom: '1px solid rgba(28,22,18,0.08)',
-    }}>
-      <div style={{ fontSize: 10, letterSpacing: '0.18em', fontWeight: 800, color: 'rgba(28,22,18,0.55)' }}>
-        R{String(g.round).padStart(2, '0')}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontWeight: g.home === myTeamId ? 800 : 600 }}>{h.short}</span>
-        <span style={{ color: 'rgba(28,22,18,0.4)' }}>×</span>
-        <span style={{ fontWeight: g.away === myTeamId ? 800 : 600 }}>{a.short}</span>
-      </div>
-      <div style={{ fontFamily: 'mono', fontSize: 13, color: played ? 'var(--pv-orange)' : 'rgba(28,22,18,0.4)' }}>
-        {played ? `${ghN}×${gaN}` : `${g.day} ${g.date}`}
-      </div>
-      <div style={{ width: 24, textAlign: 'center', fontWeight: 800, color: outcomeColor }}>
-        {outcome || '·'}
-      </div>
+    <div className={'mh-row ' + cls}>
+      <span className="mh-round">R{String(g.round).padStart(2, '0')}</span>
+      <span className="mh-res" title={resLabel}>{outcome || '·'}</span>
+      <TeamMini team={opp} size={20} />
+      <span className="mh-opp">{opp.name}</span>
+      {played
+        ? <span className="mh-score">{myG}<i>×</i>{oppG}</span>
+        : <span className="mh-date">{g.day} {g.date}</span>}
     </div>
   );
 }
@@ -10599,7 +10616,7 @@ function computeStreaks(rounds) {
 
 // Detecta todos os eventos noticiaveis no estado atual.
 // Retorna array tipado pra o prompt builder formatar.
-function detectJournalistEvents({ cs, bets, users, weeklyReady }) {
+function detectJournalistEvents({ cs, bets, users }) {
   const events = [];
   const rounds = (cs && cs.rounds) || [];
   const now = new Date();
@@ -10711,15 +10728,6 @@ function detectJournalistEvents({ cs, bets, users, weeklyReady }) {
     }
   }
 
-  // 7. Bonus semanal disponivel
-  if (weeklyReady) {
-    events.push({
-      type: 'weekly_bonus',
-      id: 'weekly-bonus',
-      amount: WEEKLY_PC,
-    });
-  }
-
   return events;
 }
 
@@ -10738,8 +10746,6 @@ function formatEventForPrompt(e) {
       return `SEQUÊNCIA: ${e.team} ${e.kind === 'win' ? 'venceu' : 'perdeu'} ${e.count} jogos seguidos`;
     case 'season_end':
       return `FIM DE TEMPORADA: Campeão ${e.champion} · Vice ${e.vice} · Penúltimo ${e.penultimo} · Lanterna ${e.lanterna} (artilheiro do líder: ${e.topScorerGoals} gols)`;
-    case 'weekly_bonus':
-      return `BÔNUS SEMANAL LIBERADO: ${e.amount} PC pra todo mundo reclamar (botão no topo da página)`;
     case 'manual':
       // Evento reportado pelo admin (polemica, manipulacao, fofoca, etc).
       // Marcado explicitamente pro Jornalista entender que é narrativa social,
@@ -11768,7 +11774,7 @@ function DiscordAdminPanel({ webhook }) {
         </div>
 
         <div style={{ marginTop: 22, padding: 10, background: 'rgba(215,100,20,0.08)', borderLeft: '4px solid var(--pv-orange)', fontSize: 11, lineHeight: 1.5 }}>
-          <strong>Posts automáticos planejados</strong> (em breve): bônus semanal liberado,
+          <strong>Posts automáticos planejados</strong> (em breve): rodada fechada (+bônus),
           fim de campeonato com Hall da Fama/Vergonha, recorde de aposta vencida.
           Por enquanto: usa o post customizado pra avisos do canal.
         </div>
@@ -12187,7 +12193,7 @@ function CoinAdjuster({ label, value, accent, onApply }) {
   );
 }
 
-function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, splitCurrency, ccCtx, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, weeklyReady, worldcup, wcFixtures, onVoidBet }) {
+function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, splitCurrency, ccCtx, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, worldcup, wcFixtures, onVoidBet }) {
   const [splitting, setSplitting] = useState(false);
   const handleSplit = async () => {
     if (splitting) return;
@@ -12202,6 +12208,23 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, splitCurrency
       if (r && r.err) showToast('Erro na migração: ' + r.err, 'error');
       else showToast('Moedas separadas! PC devolvido a quem comprou; loja agora roda em Campeão Coins.', 'success');
     } finally { setSplitting(false); }
+  };
+  // Crédito manual de PC pra TODOS de uma vez (botão da aba USUÁRIOS).
+  const [granting, setGranting] = useState(false);
+  const handleGrantAll = async () => {
+    if (granting) return;
+    const n = Object.keys(users || {}).length;
+    if (!(await confirmModal({
+      title: 'DAR +1000 PC PRA TODOS?',
+      body: 'Soma 1000 PC ao saldo de TODOS os ' + n + ' jogadores cadastrados. Isso é manual e some no histórico — cada clique credita de novo.',
+      confirmLabel: 'CREDITAR +1000 A TODOS', danger: true,
+    }))) return;
+    setGranting(true);
+    try {
+      const r = await grantAllPc(1000);
+      if (r && r.err) showToast('Erro: ' + r.err, 'error');
+      else showToast('+1000 PC creditados pra todos os ' + n + ' jogadores!', 'success');
+    } finally { setGranting(false); }
   };
   // Reset de senha: gera temporária de 6 chars, grava o hash e mostra a temp
   // pro admin repassar (a antiga para de valer na hora). O usuário troca
@@ -12265,6 +12288,17 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, splitCurrency
         <div className="card">
           <div className="card-head"><div className="title">USUÁRIOS</div><div className="sub">{Object.keys(users).length} CADASTRADOS</div></div>
           <div className="card-body">
+            <div style={{ marginBottom: 14, padding: 12, border: '2px solid var(--pv-green, #2a8f3f)', background: 'rgba(42,143,63,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="coin" size={14} /> DAR +1000 PC PRA TODOS</div>
+                <div style={{ fontSize: 11, color: 'rgba(28,22,18,0.7)', lineHeight: 1.4, marginTop: 4 }}>
+                  Credita 1000 PC pra cada um dos {Object.keys(users).length} jogadores. Manual — cada clique soma de novo.
+                </div>
+              </div>
+              <button onClick={handleGrantAll} disabled={granting} style={{ background: 'var(--pv-green, #2a8f3f)', color: 'var(--pv-bone)', border: 'none', padding: '10px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.1em', cursor: granting ? 'wait' : 'pointer', flexShrink: 0 }}>
+                {granting ? 'CREDITANDO…' : '+1000 PRA TODOS'}
+              </button>
+            </div>
             <div style={{ marginBottom: 14, padding: 12, border: '2px solid var(--pv-orange)', background: 'rgba(215,100,20,0.08)' }}>
               <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: '0.06em' }}>SEPARAR MOEDAS — PC (apostas) × CAMPEÃO COINS (loja)</div>
               <div style={{ fontSize: 11, color: 'rgba(28,22,18,0.7)', lineHeight: 1.4, margin: '6px 0 10px' }}>

@@ -3406,6 +3406,21 @@
     .perfil-hl > svg { color: var(--pv-orange); }
     .perfil-hl-v { font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 22px; line-height: 1; }
     .perfil-hl-l { font-size: 9px; font-weight: 800; letter-spacing: 0.12em; color: rgba(28,22,18,0.55); }
+    /* HISTÓRICO de partidas (MEU TIME) — card colorido por resultado */
+    .mh-row { display: grid; grid-template-columns: 34px 24px 22px 1fr auto; gap: 9px; align-items: center; padding: 8px 10px; margin-bottom: 5px; border-left: 4px solid rgba(28,22,18,0.15); background: rgba(28,22,18,0.025); }
+    .mh-row.win { border-left-color: var(--pv-green, #2a8f3f); background: rgba(42,143,63,0.08); }
+    .mh-row.loss { border-left-color: var(--pv-red-bright, #c33); background: rgba(195,51,51,0.07); }
+    .mh-row.pending { border-left-style: dashed; background: transparent; }
+    .mh-round { font-family: "JetBrains Mono", monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: rgba(28,22,18,0.5); }
+    .mh-res { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-family: "Bagel Fat One", Impact, sans-serif; font-size: 11px; color: var(--pv-bone); border-radius: 50%; background: rgba(28,22,18,0.35); }
+    .mh-row.win .mh-res { background: var(--pv-green, #2a8f3f); }
+    .mh-row.loss .mh-res { background: var(--pv-red-bright, #c33); }
+    .mh-row.draw .mh-res { background: rgba(28,22,18,0.45); }
+    .mh-row.pending .mh-res { background: transparent; color: rgba(28,22,18,0.3); }
+    .mh-opp { font-weight: 700; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mh-score { font-family: "Bagel Fat One", Impact, sans-serif; font-size: 17px; color: var(--pv-charcoal); white-space: nowrap; }
+    .mh-score i { font-style: normal; color: rgba(28,22,18,0.35); margin: 0 3px; font-size: 12px; }
+    .mh-date { font-family: "JetBrains Mono", monospace; font-size: 11px; color: rgba(28,22,18,0.5); white-space: nowrap; }
     .perfil-team-hero { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
     .perfil-team-result { margin-top: 6px; display: inline-flex; align-items: center; gap: 6px; font-family: 'Bagel Fat One', Impact, sans-serif; font-size: 16px; line-height: 1; }
     .perfil-team-status { margin-top: 6px; display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.1em; color: rgba(28,22,18,0.55); }
