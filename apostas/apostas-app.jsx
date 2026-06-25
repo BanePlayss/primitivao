@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-m10 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260625-modadm ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2802,7 +2802,7 @@ function App() {
   const toggleModView = () => setModDisabled(d => { const next = !d; try { localStorage.setItem('pv-mod-off', next ? '1' : '0'); } catch (_) {} return next; });
   const isMod = isAdmin || (isNaturalMod && !modDisabled);
   // Se desligar o mod estando na aba ADMIN, volta pra apostas (não fica em tela vazia).
-  useEffect(() => { if ((view === 'admin' || view === 'mod') && !isMod) setView('apostas'); }, [view, isMod]);
+  useEffect(() => { if (view === 'admin') { setView('mod'); return; } if (view === 'mod' && !isMod) setView('apostas'); }, [view, isMod]);
 
   // Login/signup via transação: cadastro atomico contra remote — evita perder
   // user novo se outro write concorrer.
@@ -3885,18 +3885,6 @@ function App() {
                 onEquip={equipItem}
               />
             )}
-            {view === 'admin' && isMod && (
-              <AdminView
-                isFullAdmin={isAdmin}
-                bets={bets} users={users} adjustPc={adjustPc} adjustCc={adjustCc}
-                grantAllPc={grantAllPc}
-                splitCurrency={splitCurrency} ccCtx={ccCtx}
-                teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
-                discordWebhook={discordWebhook} remoteNews={remoteNews}
-                cs={cs} onVoidBet={adminVoidBet}
-                worldcup={worldcup} wcFixtures={wcData.matches}
-              />
-            )}
             {view === 'mod' && isMod && (
               <>
                 <ModView officialDay={officialDay} onSetOfficialDay={setOfficialDay} myNick={session.nick} />
@@ -3912,6 +3900,18 @@ function App() {
                 <div style={{ height: 18 }} />
                 <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isMod}
                                    users={users} teamPlayers={teamPlayers || {}} myNick={session.nick} />
+                {/* TODAS as funções de admin agora vivem aqui (aba ADMIN removida). */}
+                <div style={{ height: 18 }} />
+                <AdminView
+                  isFullAdmin={isAdmin}
+                  bets={bets} users={users} adjustPc={adjustPc} adjustCc={adjustCc}
+                  grantAllPc={grantAllPc}
+                  splitCurrency={splitCurrency} ccCtx={ccCtx}
+                  teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
+                  discordWebhook={discordWebhook} remoteNews={remoteNews}
+                  cs={cs} onVoidBet={adminVoidBet}
+                  worldcup={worldcup} wcFixtures={wcData.matches}
+                />
               </>
             )}
             </ViewBoundary>
@@ -3971,7 +3971,7 @@ function TopBar({ nick, pc, cc, isAdmin, isMod, onLogout, view, onView, teamPlay
         </div>
       </div>
       <nav className="primary-nav" aria-label="Navegação principal">
-        <button className={'pnav ' + (view === 'apostas' ? 'active' : '')} onClick={() => onView && onView('apostas')}>JOGOS</button>
+        <button className={'pnav ' + (view === 'apostas' ? 'active' : '')} onClick={() => onView && onView('apostas')}>APOSTAS/JOGOS</button>
         <button className={'pnav ' + (view === 'campeonatos' ? 'active' : '')} onClick={() => onView && onView('campeonatos')}>CAMPEONATOS</button>
         <button className={'pnav ' + (view === 'copa' ? 'active' : '')} onClick={() => onView && onView('copa')}>COPA DO MUNDO</button>
         <button className={'pnav ' + (view === 'estatisticas' ? 'active' : '')} onClick={() => onView && onView('estatisticas')}>ESTATÍSTICAS</button>
@@ -3983,7 +3983,6 @@ function TopBar({ nick, pc, cc, isAdmin, isMod, onLogout, view, onView, teamPlay
         </button>
         <button className={'pnav ' + (view === 'perfil' ? 'active' : '')} onClick={() => onView && onView('perfil')}>MEU PERFIL</button>
         {isMod && <button className={'pnav ' + (view === 'mod' ? 'active' : '')} onClick={() => onView && onView('mod')}>MOD</button>}
-        {isMod && <button className={'pnav ' + (view === 'admin' ? 'active' : '')} onClick={() => onView && onView('admin')}>ADMIN</button>}
       </nav>
       <div className="wallet">
         {!isAdmin && (
@@ -4246,7 +4245,7 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
 // "meu espaço" (sidebar no desktop). MERCADINHO foi pro topo (sectionItems).
 function getTabItems(isAdmin, mkInscrito, isMod) {
   const sectionItems = [
-    { id: 'apostas',     label: 'JOGOS',         icon: 'ticket' },
+    { id: 'apostas',     label: 'APOSTAS/JOGOS', icon: 'ticket' },
     { id: 'campeonatos', label: 'CAMPEONATOS',   icon: 'chart' },
     { id: 'copa',        label: 'COPA DO MUNDO', icon: 'globe' },
     { id: 'estatisticas',label: 'ESTATÍSTICAS',  icon: 'medal' },
@@ -4261,7 +4260,6 @@ function getTabItems(isAdmin, mkInscrito, isMod) {
     { id: 'perfil',   label: 'MEU PERFIL',   icon: 'user' },
   ];
   if (isMod) globalItems.push({ id: 'mod', label: 'MOD', icon: 'whistle' });
-  if (isMod) globalItems.push({ id: 'admin', label: 'ADMIN', icon: 'shield' });
   return { sectionItems, globalItems };
 }
 
