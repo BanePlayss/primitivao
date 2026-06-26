@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-gorjeta-odd ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-tiers-seguro ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -934,17 +934,23 @@ const REP_LEVELS = [
 ];
 function repLevel(score) { let lv = REP_LEVELS[0]; for (const l of REP_LEVELS) if ((score || 0) >= l.min) lv = l; return lv; }
 function repScoreOf(user) { return Math.max(0, Math.round(((user && user.rep && user.rep.score) || 0))); }
-// Tier visual do BILHETE pela ODD do cupom: odd alta = holográfico (call ousada/
-// rara), média = normal, baixa = rasgado (ticket "seguro"/baixo). Soma das pernas.
+// Tier visual do BILHETE pela ODD do cupom (soma das pernas): quanto mais ousada
+// a call, mais raro o bilhete. holo (15+) > dourado (10+) > brilhante (6+) >
+// normal (2+) > rasgado (<2, ticket "seguro"/baixo).
 function oddTier(odds) {
   const o = Number(odds) || 0;
-  if (o >= 4) return 'high';
-  if (o >= 2) return 'mid';
-  return 'low';
+  if (o >= 15) return 'holo';
+  if (o >= 10) return 'gold';
+  if (o >= 6) return 'shiny';
+  if (o >= 2) return 'normal';
+  return 'torn';
 }
-// Gorjeta do Cartola: % do LUCRO do seguidor que vai pro autor da dica quando a
-// cópia vence. Quanto mais gente copia e ganha, mais o cartola fatura.
-const TIP_COMMISSION = 0.05;
+const TIER_TAG = { holo: 'HOLOGRÁFICO', gold: 'DOURADO', shiny: 'BRILHANTE' };
+// Copiar cupom público = SEGURO com custo. Perdeu: volta CASHBACK_RATE do stake
+// (seguro). Ganhou: paga FOLLOW_FEE do lucro (taxa de seguidor); metade disso
+// (TIP_COMMISSION) é a gorjeta que vai pro autor da dica.
+const FOLLOW_FEE = 0.10;     // taxa sobre o lucro do copiador quando ganha
+const TIP_COMMISSION = 0.05; // parte da taxa que vira gorjeta do cartola
 // Delta de reputação do DONO por cópia resolvida. Peso pelo stake do seguidor
 // (cap em 100 PC pra não dar pra inflar) + assimetria (perda pesa 1.3x).
 function repDeltaForCopy(copy, won) {
@@ -3078,12 +3084,18 @@ function App() {
             const oldStatus = b.status;
             const oldPayout = b.payout || 0;
             let newPayout = b.payout;
+            let gorjeta = 0; // gorjeta do cartola (preenchida quando uma cópia vence)
             if (oldStatus === 'won' && newStatus !== 'won' && oldPayout > 0 && newUsers[b.user]) {
               newUsers[b.user] = { ...newUsers[b.user], pc: Math.max(0, newUsers[b.user].pc - oldPayout) };
             }
             const offOn = !!(remote.officialDay && remote.officialDay.active);
             if (newStatus === 'won' && oldStatus !== 'won') {
-              newPayout = Math.round(b.amount * b.combinedOdds * (offOn ? OFFICIAL_DAY_MULT : 1));
+              const gross = Math.round(b.amount * b.combinedOdds * (offOn ? OFFICIAL_DAY_MULT : 1));
+              const profit = Math.max(0, gross - (b.amount || 0));
+              // Cópia que vence paga taxa de seguidor (FOLLOW_FEE do lucro); metade vira gorjeta do cartola.
+              const fee = b.copyOf ? Math.round(profit * FOLLOW_FEE) : 0;
+              gorjeta = b.copyOf ? Math.round(profit * TIP_COMMISSION) : 0;
+              newPayout = gross - fee;
               if (newUsers[b.user]) {
                 newUsers[b.user] = { ...newUsers[b.user], pc: newUsers[b.user].pc + newPayout };
               }
@@ -3104,23 +3116,22 @@ function App() {
                 if (!(rep.graded && rep.graded[b.id])) {
                   const repWon = newStatus === 'won';
                   const delta = repDeltaForCopy(b, repWon);
-                  // Gorjeta do Cartola: 5% do LUCRO do seguidor vai pro autor (só na vitória).
-                  const tip = repWon ? Math.max(0, Math.round(((newPayout || 0) - (b.amount || 0)) * TIP_COMMISSION)) : 0;
-                  newUsers[b.copyOwner] = { ...ow, pc: (ow.pc || 0) + tip, rep: {
+                  // Gorjeta do Cartola: parte da taxa de seguidor (calculada no ganho acima).
+                  newUsers[b.copyOwner] = { ...ow, pc: (ow.pc || 0) + gorjeta, rep: {
                     score: Math.max(0, (rep.score || 0) + delta),
                     followersWon: (rep.followersWon || 0) + (repWon ? 1 : 0),
                     followersLost: (rep.followersLost || 0) + (repWon ? 0 : 1),
-                    tips: (rep.tips || 0) + tip,
+                    tips: (rep.tips || 0) + gorjeta,
                     graded: { ...(rep.graded || {}), [b.id]: 1 },
                   } };
                 }
               }
             }
-            // M9 fix: cashback DIFERIDO da cópia -> credita 10% ao copiador 1x na
-            // liquidação (won OU lost). cashbackPaid garante idempotência; cópias
-            // antigas (sem cashbackDeferred) já receberam na hora e não pagam de novo.
+            // SEGURO da cópia: o cashback (10% do stake) só volta na DERROTA (seguro),
+            // creditado 1x. cashbackPaid garante idempotência; cópias antigas (sem
+            // cashbackDeferred) já receberam na hora e não pagam de novo.
             let cashbackPaid = b.cashbackPaid;
-            if (b.copyOf && b.cashbackDeferred && !b.cashbackPaid && (newStatus === 'won' || newStatus === 'lost') && (b.cashback || 0) > 0 && newUsers[b.user]) {
+            if (b.copyOf && b.cashbackDeferred && !b.cashbackPaid && newStatus === 'lost' && (b.cashback || 0) > 0 && newUsers[b.user]) {
               newUsers[b.user] = { ...newUsers[b.user], pc: newUsers[b.user].pc + b.cashback };
               cashbackPaid = true;
             }
@@ -3173,12 +3184,17 @@ function App() {
             const oldStatus = b.status;
             const oldPayout = b.payout || 0;
             let newPayout = b.payout;
+            let gorjeta = 0; // gorjeta do cartola (preenchida quando uma cópia vence)
             if (oldStatus === 'won' && newStatus !== 'won' && oldPayout > 0 && newUsers[b.user]) {
               newUsers[b.user] = { ...newUsers[b.user], pc: Math.max(0, newUsers[b.user].pc - oldPayout) };
             }
             const offOn = !!(remote.officialDay && remote.officialDay.active);
             if (newStatus === 'won' && oldStatus !== 'won') {
-              newPayout = Math.round(b.amount * b.combinedOdds * (offOn ? OFFICIAL_DAY_MULT : 1));
+              const gross = Math.round(b.amount * b.combinedOdds * (offOn ? OFFICIAL_DAY_MULT : 1));
+              const profit = Math.max(0, gross - (b.amount || 0));
+              const fee = b.copyOf ? Math.round(profit * FOLLOW_FEE) : 0;
+              gorjeta = b.copyOf ? Math.round(profit * TIP_COMMISSION) : 0;
+              newPayout = gross - fee;
               if (newUsers[b.user]) newUsers[b.user] = { ...newUsers[b.user], pc: newUsers[b.user].pc + newPayout };
             } else if (newStatus === 'lost') { newPayout = 0; }
             else if (newStatus === 'pending') { newPayout = undefined; }
@@ -3194,13 +3210,12 @@ function App() {
                 if (!(rep.graded && rep.graded[b.id])) {
                   const repWon = newStatus === 'won';
                   const delta = repDeltaForCopy(b, repWon);
-                  // Gorjeta do Cartola: 5% do LUCRO do seguidor vai pro autor (só na vitória).
-                  const tip = repWon ? Math.max(0, Math.round(((newPayout || 0) - (b.amount || 0)) * TIP_COMMISSION)) : 0;
-                  newUsers[b.copyOwner] = { ...ow, pc: (ow.pc || 0) + tip, rep: {
+                  // Gorjeta do Cartola: parte da taxa de seguidor (calculada no ganho acima).
+                  newUsers[b.copyOwner] = { ...ow, pc: (ow.pc || 0) + gorjeta, rep: {
                     score: Math.max(0, (rep.score || 0) + delta),
                     followersWon: (rep.followersWon || 0) + (repWon ? 1 : 0),
                     followersLost: (rep.followersLost || 0) + (repWon ? 0 : 1),
-                    tips: (rep.tips || 0) + tip,
+                    tips: (rep.tips || 0) + gorjeta,
                     graded: { ...(rep.graded || {}), [b.id]: 1 },
                   } };
                 }
@@ -3208,7 +3223,7 @@ function App() {
             }
             // M9 fix: cashback DIFERIDO da cópia (mesmo da FIFA) — 1x na liquidação.
             let cashbackPaid = b.cashbackPaid;
-            if (b.copyOf && b.cashbackDeferred && !b.cashbackPaid && (newStatus === 'won' || newStatus === 'lost') && (b.cashback || 0) > 0 && newUsers[b.user]) {
+            if (b.copyOf && b.cashbackDeferred && !b.cashbackPaid && newStatus === 'lost' && (b.cashback || 0) > 0 && newUsers[b.user]) {
               newUsers[b.user] = { ...newUsers[b.user], pc: newUsers[b.user].pc + b.cashback };
               cashbackPaid = true;
             }
@@ -3571,7 +3586,7 @@ function App() {
         return { ...remote, users, bets: [copy, ...bets] };
       });
       if (result && result.err) { showToast(result.err, 'error'); return result; }
-      showToast('Copiado! Cashback de ' + cashback + ' PC entra quando o cupom liquidar.', 'success');
+      showToast('Copiado! Seguro de ' + cashback + ' PC se o cupom perder.', 'success');
       return { ok: true, cashback };
     } catch (e) { console.warn('copyOpenTicket failed', e); return { err: 'falha' }; }
   };
@@ -7378,15 +7393,14 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwn
   const [amt, setAmt] = useState(50);
   const [busy, setBusy] = useState(false);
   const copies = (t.openMeta && t.openMeta.copies) || 0;
-  const cashback = Math.round((amt || 0) * CASHBACK_RATE);
-  const cost = (amt || 0) - cashback;
+  const insurance = Math.round((amt || 0) * CASHBACK_RATE); // volta SE perder (seguro)
   const nLegs = (t.legs || []).length;
   const doCopy = async () => { if (busy) return; setBusy(true); try { await onCopy(t.id, amt); } finally { setBusy(false); } };
   // Bilhete muda pela ODD do cupom: odd alta = holográfico, baixa = rasgado.
   const tier = oddTier(t.combinedOdds);
   return (
     <div className={'mesa-card mesa-card--' + tier}>
-      {tier === 'high' && <span className="mesa-holo-tag"><Icon name="sparkle" size={10} /> ODD ALTA</span>}
+      {TIER_TAG[tier] && <span className={'mesa-tier-tag tag-' + tier}><Icon name="sparkle" size={10} /> {TIER_TAG[tier]}</span>}
       <div className="mesa-card-h">
         <Avatar nick={owner} teamPlayers={teamPlayers} size={34} noBadge />
         <div className="mesa-card-who">
@@ -7408,7 +7422,7 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwn
         <div className="mesa-card-tag done"><Icon name="check" size={11} /> JÁ NA SUA BANCA</div>
       ) : (
         <>
-          <div className="mesa-cashback"><Icon name="coin-fire" size={12} /> CASHBACK 10% — paga <b>{cost}</b> líquido, <b>+{cashback}</b> volta na liquidação</div>
+          <div className="mesa-cashback"><Icon name="shield" size={12} /> SEGURO: se perder volta <b>{insurance} PC</b> (10%). Se ganhar, taxa de 10% do lucro (5% pro cartola).</div>
           <div className="mesa-copyrow">
             <input className="mesa-stake" value={amt} inputMode="numeric" onChange={e => setAmt(Math.max(0, parseInt(e.target.value.replace(/\D/g, ''), 10) || 0))} />
             <button type="button" className="mesa-copybtn" disabled={busy || !amt || amt > balance} onClick={doCopy}>
