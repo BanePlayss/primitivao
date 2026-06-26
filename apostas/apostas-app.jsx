@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-bugfix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-dots ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -539,24 +539,29 @@ function MkRoundDots({ sc, onPatch, disabled }) {
     if (next.h >= 2 && next.a >= 2) next[other] = 1; // MD3: só um lado chega a 2
     onPatch({ [pa.h]: String(next.h), [pa.a]: String(next.a) });
   };
-  const dots = (pa, side, count) => (
-    <span className={'mk-dots-side ' + side}>
-      {[0, 1].map(i => (
-        <button key={i} type="button" disabled={disabled}
-          className={'mk-dot ' + side + (i < count ? ' on' : '')}
-          onClick={() => click(pa, side, i)} aria-label={'P' + pa.n + ' round ' + (i + 1)} />
-      ))}
-    </span>
-  );
+  const dots = (pa, side, count) => {
+    const cls = side === 'h' ? 'home' : 'away';
+    return (
+      <span className={'mk-dots-side ' + cls}>
+        {[0, 1].map(i => (
+          <button key={i} type="button" disabled={disabled}
+            className={'mk-dot ' + cls + (i < count ? ' on' : '')}
+            onClick={() => click(pa, side, i)} aria-label={'P' + pa.n + ' round ' + (i + 1) + ' ' + (side === 'h' ? 'mandante' : 'visitante')} />
+        ))}
+      </span>
+    );
+  };
   return (
     <div className="mk-dots">
+      <div className="mk-dots-legend"><span className="mk-dot home on mk-dot-leg" /> MANDANTE <span className="mk-dot away on mk-dot-leg" /> VISITANTE</div>
       {partidas.map(pa => {
         const h = g(pa.h), a = g(pa.a);
+        const win = h === 2 ? 'h' : a === 2 ? 'a' : null;
         return (
-          <div key={pa.n} className="mk-dots-row">
+          <div key={pa.n} className={'mk-dots-row' + (win ? ' decided' : '')}>
             <span className="mk-dots-lbl">P{pa.n}</span>
             {dots(pa, 'h', h)}
-            <span className="mk-dots-score">{h}<span className="mk-dots-x">-</span>{a}</span>
+            <span className="mk-dots-score"><b className={win === 'h' ? 'wh' : ''}>{h}</b><i>×</i><b className={win === 'a' ? 'wa' : ''}>{a}</b></span>
             {dots(pa, 'a', a)}
           </div>
         );

@@ -4205,17 +4205,29 @@
     .champ-launched .card { margin-bottom: 14px; }
 
     /* ── Round-dots do placar MK (estilo jogo de luta) ── */
-    .mk-dots { display: flex; flex-direction: column; gap: 6px; }
-    .mk-dots-row { display: flex; align-items: center; gap: 8px; }
-    .mk-dots-lbl { font-size: 10px; font-weight: 800; letter-spacing: 0.1em; color: rgba(28,22,18,0.55); min-width: 20px; }
-    .mk-dots-side { display: inline-flex; gap: 5px; }
-    .mk-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(28,22,18,0.3); background: transparent; cursor: pointer; padding: 0; transition: transform 0.08s, background 0.12s; }
-    .mk-dot:hover:not(:disabled) { transform: scale(1.15); }
+    .mk-dots { display: flex; flex-direction: column; gap: 8px; }
+    .mk-dots-legend { display: flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; color: rgba(28,22,18,0.5); }
+    .mk-dot-leg { width: 11px !important; height: 11px !important; pointer-events: none; cursor: default; }
+    .mk-dots-row { display: flex; align-items: center; gap: 10px; }
+    .mk-dots-lbl { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: var(--pv-charcoal); min-width: 22px; }
+    .mk-dots-side { display: inline-flex; gap: 7px; }
+    .mk-dot {
+      width: 26px; height: 26px; border-radius: 50%;
+      border: 2.5px solid rgba(28,22,18,0.28); background: transparent;
+      cursor: pointer; padding: 0; transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.12s ease;
+    }
+    .mk-dot:hover:not(:disabled) { transform: scale(1.14); border-color: rgba(28,22,18,0.5); }
     .mk-dot:disabled { cursor: default; }
-    .mk-dot.home.on { background: var(--pv-orange); border-color: var(--pv-orange); }
-    .mk-dot.away.on { background: var(--pv-charcoal, #1c1612); border-color: var(--pv-charcoal, #1c1612); }
-    .mk-dots-score { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; min-width: 30px; text-align: center; color: var(--pv-charcoal); }
-    .mk-dots-x { opacity: 0.4; margin: 0 1px; }
+    .mk-dot.home.on { background: var(--pv-orange); border-color: var(--pv-orange); box-shadow: 0 0 0 3px rgba(215,100,20,0.2); }
+    .mk-dot.away.on { background: var(--pv-red, #c0392b); border-color: var(--pv-red, #c0392b); box-shadow: 0 0 0 3px rgba(192,57,43,0.2); }
+    .mk-dots-score {
+      font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 800;
+      min-width: 44px; text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+      color: rgba(28,22,18,0.45);
+    }
+    .mk-dots-score i { font-style: normal; opacity: 0.35; }
+    .mk-dots-score b.wh { color: var(--pv-orange); }
+    .mk-dots-score b.wa { color: var(--pv-red, #c0392b); }
     /* RODADAS ganham mais largura no desktop (classificação ~1fr, rodadas ~1.35fr,
        mín. 360px) — em tela larga a coluna cresce e cabem 2 jogos lado a lado. */
     .champ-main .mk-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, 1.35fr); }
