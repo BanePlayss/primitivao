@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-result-chars ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-r1-brutality ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -600,12 +600,24 @@ function ResultLauncherPanel({ champId, mkDraw, mkScores, mkLineups, onMkScore, 
         {head(pending.length)}
         <div className="card-body"><div className="rl-list">
           {pending.map(({ r, gi, g, key, sc }) => (
-            <div className="rl-row" key={key}>
+            <div className="rl-row rl-row--mk" key={key}>
               <div className="rl-match">
                 <span className="rl-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase} · JOGO {String(gi + 1).padStart(2, '0')}</span>
                 <span className="rl-vs"><b>@{g.home}</b><i>×</i><b>@{g.away}</b></span>
               </div>
               <MkRoundDots sc={sc} lineup={(mkLineups || {})[key]} onPatch={(patch) => onMkScore(key, patch)} />
+              <div className="rl-extras">
+                <span className="rl-extra-grp">
+                  <span className="rl-extra-l">1º ROUND</span>
+                  <button type="button" className={'rl-pick home' + (sc.firstRound === 'H' ? ' on' : '')} onClick={() => onMkScore(key, { firstRound: sc.firstRound === 'H' ? '' : 'H' })}>@{g.home}</button>
+                  <button type="button" className={'rl-pick away' + (sc.firstRound === 'A' ? ' on' : '')} onClick={() => onMkScore(key, { firstRound: sc.firstRound === 'A' ? '' : 'A' })}>@{g.away}</button>
+                </span>
+                <span className="rl-extra-grp">
+                  <span className="rl-extra-l"><Icon name="skull" size={11} /> BRUTALITY</span>
+                  <button type="button" className={'rl-pick' + (sc.finisher1 === 'brutality' ? ' on' : '')} onClick={() => onMkScore(key, { finisher1: sc.finisher1 === 'brutality' ? '' : 'brutality' })}>P1</button>
+                  <button type="button" className={'rl-pick' + (sc.finisher2 === 'brutality' ? ' on' : '')} onClick={() => onMkScore(key, { finisher2: sc.finisher2 === 'brutality' ? '' : 'brutality' })}>P2</button>
+                </span>
+              </div>
             </div>
           ))}
         </div></div>
@@ -700,8 +712,9 @@ function computeMkStandings(players, matches) {
 // FLAW (Flawless Victory) também foi aposentado: dava pra FARMAR ponto solo e
 // não fazia sentido como aposta. A liquidação/label/odds dele seguem abaixo só
 // pras apostas antigas continuarem liquidando certo.
-const MK_MARKETS = ['VENC', 'P1', 'P2', 'TOTAL', 'FINISH'];
-const MK_MARKET_TITLE = { VENC: 'VENCEDOR', RESULT: 'RESULTADO (PARTIDAS)', P1: 'PLACAR PARTIDA 1', P2: 'PLACAR PARTIDA 2', TOTAL: 'TOTAL DE ROUNDS', FINISH: 'FINALIZAÇÃO', FLAW: 'FLAWLESS VICTORY' };
+const MK_MARKETS = ['VENC', 'R1', 'P1', 'P2', 'TOTAL', 'FINISH'];
+const MK_MARKET_TITLE = { VENC: 'VENCEDOR', R1: 'PRIMEIRO ROUND', RESULT: 'RESULTADO (PARTIDAS)', P1: 'PLACAR PARTIDA 1', P2: 'PLACAR PARTIDA 2', TOTAL: 'TOTAL DE ROUNDS', FINISH: 'FINALIZAÇÃO', FLAW: 'FLAWLESS VICTORY' };
+const MK_R1_PICKS = ['H', 'A']; // quem vence o primeiro round (mandante/visitante)
 const MK_RESULT_PICKS = ['20', '11', '02'];          // 2×0 / 1×1 / 0×2
 const MK_PARTIDA_PICKS = ['20', '21', '12', '02']; // mandante x visitante (primeiro a 2)
 // Odd do MK: pagamento conservador no COMEÇO sem capar o crescimento. Em vez de
@@ -756,6 +769,7 @@ function computeMkGameOdds(home, away, metrics) {
   const finish = {}; MK_FINISHERS.forEach(f => { finish[f.id] = mko(1 - Math.pow(1 - f.p, 2)); });
   return {
     VENC:   { H: mko(p20), D: mko(p11), A: mko(p02) },
+    R1:     { H: mko(p), A: mko(1 - p) }, // primeiro round: prob = round-win prob
     RESULT: { '20': mko(p20), '11': mko(p11), '02': mko(p02) },
     P1: partida, P2: partida, TOTAL: totalO,
     FINISH: finish,
@@ -764,6 +778,7 @@ function computeMkGameOdds(home, away, metrics) {
 }
 // Ordem de exibição (chaves "inteiras" do JS reordenam — fixar aqui).
 function mkMarketPicks(market, odds) {
+  if (market === 'R1') return MK_R1_PICKS;
   if (market === 'RESULT') return MK_RESULT_PICKS;
   if (market === 'P1' || market === 'P2') return MK_PARTIDA_PICKS;
   if (market === 'TOTAL') return MK_TOTAL_PICKS;
@@ -777,6 +792,9 @@ function mkLegResult(market, pick, sc, extra) {
   const e = extra || {};
   switch (market) {
     case 'VENC':   return pick === o.winner ? 'win' : 'lose';
+    // PRIMEIRO ROUND: depende de sc.firstRound ('H'/'A'); se o mod não marcou,
+    // fica pendente (não liquida como derrota) até ser lançado.
+    case 'R1':     return e.firstRound ? (pick === e.firstRound ? 'win' : 'lose') : 'pending';
     case 'RESULT': return pick === ('' + o.confH + o.confA) ? 'win' : 'lose';
     case 'P1':     return pick === ('' + o.p1h + o.p1a) ? 'win' : 'lose';
     case 'P2':     return pick === ('' + o.p2h + o.p2a) ? 'win' : 'lose';
@@ -788,6 +806,7 @@ function mkLegResult(market, pick, sc, extra) {
 }
 function mkPickLabel(market, pick) {
   if (market === 'VENC') return { H: 'MANDANTE', D: 'EMPATE', A: 'VISITANTE' }[pick];
+  if (market === 'R1') return { H: 'MANDANTE', A: 'VISITANTE' }[pick];
   if (market === 'RESULT' || market === 'P1' || market === 'P2') return pick[0] + '×' + pick[1];
   if (market === 'TOTAL') return pick + ' rounds';
   if (market === 'FLAW') return pick === 'Y' ? 'SIM' : 'NÃO';
@@ -796,8 +815,8 @@ function mkPickLabel(market, pick) {
 }
 // Dois palpites do MESMO jogo se contradizem? (não dá pra ganhar os dois juntos)
 function mkLegsContradict(a, b) {
-  const indep = m => m === 'FINISH' || m === 'FLAW';
-  // FINISH/FLAW independem do placar: só contradizem outro do mesmo tipo (pick diferente).
+  const indep = m => m === 'FINISH' || m === 'FLAW' || m === 'R1';
+  // FINISH/FLAW/R1 independem do placar: só contradizem outro do mesmo tipo (pick diferente).
   if (indep(a.market) || indep(b.market)) return a.market === b.market && a.pick !== b.pick;
   // ambos baseados em placar: existe algum resultado onde os DOIS ganham?
   for (const p1 of MK_PARTIDA_PICKS) for (const p2 of MK_PARTIDA_PICKS) {
@@ -3059,9 +3078,10 @@ function App() {
               const done = !!mkMatchOutcome(sc);
               if (l.result && !done) { changed = true; return { ...l, result: undefined }; }
               if (!l.result && done) {
-                const won = mkLegResult(l.market, l.pick, sc, sc) === 'win';
-                changed = true;
-                return { ...l, result: won ? 'win' : 'lose' };
+                const res = mkLegResult(l.market, l.pick, sc, sc);
+                // R1 sem firstRound marcado retorna 'pending' mesmo com o confronto
+                // concluído — não liquida (espera o mod marcar o 1º round).
+                if (res === 'win' || res === 'lose') { changed = true; return { ...l, result: res }; }
               }
               return l;
             });
@@ -9038,7 +9058,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     // somem da tela — senão ficariam "fantasmas" (visíveis só no cupom).
     if (m === 'simples') setCupom(prev => prev.filter(l => l.market === 'VENC'));
   };
-  const visibleMarkets = betMode === 'avancado' ? MK_MARKETS : MK_MARKETS.filter(m => m === 'VENC');
+  const visibleMarkets = betMode === 'avancado' ? MK_MARKETS : MK_MARKETS.filter(m => m === 'VENC' || m === 'R1');
   // Relógio que tica de 1 em 1s pro cronômetro de fechamento (#4): faz a contagem
   // regressiva andar e fecha o jogo sozinho quando lockAt vence. Só tica se há
   // algum cronômetro ativo — senão fica parado pra não re-renderizar à toa.
@@ -9114,7 +9134,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     let pending = false;
     for (const l of (bet.legs || [])) {
       const sc = (scores || {})[skey(l.phase, l.roundN, l.gi)] || {};
-      const r = mkLegResult(l.market, l.pick, sc, { finisher1: sc.finisher1, finisher2: sc.finisher2, flawless: sc.flawless });
+      const r = mkLegResult(l.market, l.pick, sc, { finisher1: sc.finisher1, finisher2: sc.finisher2, flawless: sc.flawless, firstRound: sc.firstRound });
       if (r === 'lose') return 'lost';
       if (r !== 'win') pending = true;
     }

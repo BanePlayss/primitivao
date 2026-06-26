@@ -4243,6 +4243,17 @@
     .rl-vs i { font-style: normal; opacity: 0.4; }
     .rl-fifa { display: inline-flex; align-items: center; gap: 6px; }
     .rl-x { font-style: normal; opacity: 0.4; font-weight: 700; }
+    .rl-row--mk { flex-direction: column; align-items: stretch; }
+    .rl-extras { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; padding-top: 8px; border-top: 1px dashed rgba(28,22,18,0.18); }
+    .rl-extra-grp { display: inline-flex; align-items: center; gap: 6px; }
+    .rl-extra-l { font-size: 9px; font-weight: 800; letter-spacing: 0.12em; color: rgba(28,22,18,0.55); display: inline-flex; align-items: center; gap: 4px; }
+    .rl-pick {
+      padding: 4px 9px; border: 1.5px solid rgba(28,22,18,0.22); background: transparent;
+      font-family: inherit; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; cursor: pointer; color: var(--pv-charcoal);
+    }
+    .rl-pick:hover { border-color: rgba(28,22,18,0.5); }
+    .rl-pick.on { background: var(--pv-orange); border-color: var(--pv-orange); color: var(--pv-bone); }
+    .rl-pick.away.on { background: var(--pv-red, #c0392b); border-color: var(--pv-red, #c0392b); }
     /* RODADAS ganham mais largura no desktop (classificação ~1fr, rodadas ~1.35fr,
        mín. 360px) — em tela larga a coluna cresce e cabem 2 jogos lado a lado. */
     .champ-main .mk-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, 1.35fr); }
