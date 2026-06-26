@@ -4170,16 +4170,13 @@
     .mesa-card-tag { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px; }
     .mesa-card-tag.own { color: var(--pv-orange); background: rgba(215,100,20,0.08); }
     .mesa-card-tag.done { color: var(--pv-green, #2a8f3f); background: rgba(42,143,63,0.08); }
-    /* Botão CUPOM PÚBLICO (aposta + publica na Mesa) — abaixo do APOSTAR */
-    .cupom-public-btn {
-      width: 100%; margin-top: 8px; padding: 9px 12px;
-      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-      background: transparent; color: var(--pv-orange);
-      border: 1.5px dashed var(--pv-orange); font-family: inherit;
-      font-weight: 800; font-size: 11px; letter-spacing: 0.1em; cursor: pointer;
+    /* Nota: todo cupom vai pra MESA DOS CARTOLAS automaticamente — abaixo do APOSTAR */
+    .cupom-public-note {
+      margin-top: 8px; padding: 7px 10px;
+      display: flex; align-items: center; gap: 7px;
+      background: rgba(215,100,20,0.08); color: var(--pv-orange);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.04em; line-height: 1.3;
     }
-    .cupom-public-btn:hover:not(:disabled) { background: var(--pv-orange); color: var(--pv-bone); }
-    .cupom-public-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
     /* ── M8b: wizard de campeonato + campeonatos lançados ── */
     .champ-wizard { display: flex; flex-direction: column; gap: 12px; }
@@ -4206,6 +4203,19 @@
     .champ-launched { margin-top: 22px; }
     .champ-launched-h { font-family: 'Anton', Impact, sans-serif; font-size: 18px; letter-spacing: 0.04em; color: var(--pv-charcoal); display: flex; align-items: center; gap: 8px; margin-bottom: 10px; border-top: 2px solid rgba(28,22,18,0.12); padding-top: 16px; }
     .champ-launched .card { margin-bottom: 14px; }
+
+    /* ── Round-dots do placar MK (estilo jogo de luta) ── */
+    .mk-dots { display: flex; flex-direction: column; gap: 6px; }
+    .mk-dots-row { display: flex; align-items: center; gap: 8px; }
+    .mk-dots-lbl { font-size: 10px; font-weight: 800; letter-spacing: 0.1em; color: rgba(28,22,18,0.55); min-width: 20px; }
+    .mk-dots-side { display: inline-flex; gap: 5px; }
+    .mk-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(28,22,18,0.3); background: transparent; cursor: pointer; padding: 0; transition: transform 0.08s, background 0.12s; }
+    .mk-dot:hover:not(:disabled) { transform: scale(1.15); }
+    .mk-dot:disabled { cursor: default; }
+    .mk-dot.home.on { background: var(--pv-orange); border-color: var(--pv-orange); }
+    .mk-dot.away.on { background: var(--pv-charcoal, #1c1612); border-color: var(--pv-charcoal, #1c1612); }
+    .mk-dots-score { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; min-width: 30px; text-align: center; color: var(--pv-charcoal); }
+    .mk-dots-x { opacity: 0.4; margin: 0 1px; }
     /* RODADAS ganham mais largura no desktop (classificação ~1fr, rodadas ~1.35fr,
        mín. 360px) — em tela larga a coluna cresce e cabem 2 jogos lado a lado. */
     .champ-main .mk-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, 1.35fr); }

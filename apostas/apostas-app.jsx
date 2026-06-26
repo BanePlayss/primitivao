@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-m8b ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-bugfix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -519,6 +519,50 @@ function mkMatchOutcome(sc) {
   const roundsH = p1h + p2h, roundsA = p1a + p2a;
   return { p1h, p1a, p2h, p2a, confH, confA, roundsH, roundsA, total: roundsH + roundsA,
     winner: confH > confA ? 'H' : confH < confA ? 'A' : 'D' }; // D = empate (1×1)
+}
+
+// Round-dots de um confronto MK (estilo jogo de luta): 2 partidas, cada uma
+// "primeiro a 2 rounds" (MD3). Cada lado tem 2 bolinhas; o mod toca pra marcar os
+// rounds vencidos (toca de novo na do topo pra desmarcar). Deriva e grava o MESMO
+// shape { p1h, p1a, p2h, p2a } (dígitos 0..2 como string) — liquidação/
+// classificação seguem iguais. A própria UI impede placar impossível (a partida
+// fecha quando um lado chega a 2).
+function MkRoundDots({ sc, onPatch, disabled }) {
+  const g = (k) => { const n = parseInt(sc && sc[k], 10); return Number.isNaN(n) ? 0 : Math.max(0, Math.min(2, n)); };
+  const partidas = [{ n: 1, h: 'p1h', a: 'p1a' }, { n: 2, h: 'p2h', a: 'p2a' }];
+  const click = (pa, side, idx) => {
+    if (disabled) return;
+    const cur = { h: g(pa.h), a: g(pa.a) };
+    const desired = (cur[side] === idx + 1) ? idx : idx + 1; // liga até idx+1; topo aceso -> desliga
+    const next = { ...cur, [side]: desired };
+    const other = side === 'h' ? 'a' : 'h';
+    if (next.h >= 2 && next.a >= 2) next[other] = 1; // MD3: só um lado chega a 2
+    onPatch({ [pa.h]: String(next.h), [pa.a]: String(next.a) });
+  };
+  const dots = (pa, side, count) => (
+    <span className={'mk-dots-side ' + side}>
+      {[0, 1].map(i => (
+        <button key={i} type="button" disabled={disabled}
+          className={'mk-dot ' + side + (i < count ? ' on' : '')}
+          onClick={() => click(pa, side, i)} aria-label={'P' + pa.n + ' round ' + (i + 1)} />
+      ))}
+    </span>
+  );
+  return (
+    <div className="mk-dots">
+      {partidas.map(pa => {
+        const h = g(pa.h), a = g(pa.a);
+        return (
+          <div key={pa.n} className="mk-dots-row">
+            <span className="mk-dots-lbl">P{pa.n}</span>
+            {dots(pa, 'h', h)}
+            <span className="mk-dots-score">{h}<span className="mk-dots-x">-</span>{a}</span>
+            {dots(pa, 'a', a)}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 // Apostas de UM confronto MK estão FECHADAS? Fecha por (a) trava manual `locked`
@@ -2893,7 +2937,15 @@ function App() {
                 }
               }
             }
-            return { ...b, legs, status: newStatus, payout: newPayout, settledAt, officialBonus: newStatus === 'won' ? offOn : false };
+            // M9 fix: cashback DIFERIDO da cópia -> credita 10% ao copiador 1x na
+            // liquidação (won OU lost). cashbackPaid garante idempotência; cópias
+            // antigas (sem cashbackDeferred) já receberam na hora e não pagam de novo.
+            let cashbackPaid = b.cashbackPaid;
+            if (b.copyOf && b.cashbackDeferred && !b.cashbackPaid && (newStatus === 'won' || newStatus === 'lost') && (b.cashback || 0) > 0 && newUsers[b.user]) {
+              newUsers[b.user] = { ...newUsers[b.user], pc: newUsers[b.user].pc + b.cashback };
+              cashbackPaid = true;
+            }
+            return { ...b, legs, status: newStatus, payout: newPayout, settledAt, officialBonus: newStatus === 'won' ? offOn : false, cashbackPaid };
           });
           if (!dirty) return null;
           return { ...remote, users: newUsers, bets: newBets };
@@ -2971,7 +3023,13 @@ function App() {
                 }
               }
             }
-            return { ...b, legs, status: newStatus, payout: newPayout, settledAt, officialBonus: newStatus === 'won' ? offOn : false };
+            // M9 fix: cashback DIFERIDO da cópia (mesmo da FIFA) — 1x na liquidação.
+            let cashbackPaid = b.cashbackPaid;
+            if (b.copyOf && b.cashbackDeferred && !b.cashbackPaid && (newStatus === 'won' || newStatus === 'lost') && (b.cashback || 0) > 0 && newUsers[b.user]) {
+              newUsers[b.user] = { ...newUsers[b.user], pc: newUsers[b.user].pc + b.cashback };
+              cashbackPaid = true;
+            }
+            return { ...b, legs, status: newStatus, payout: newPayout, settledAt, officialBonus: newStatus === 'won' ? offOn : false, cashbackPaid };
           });
           if (!dirty) return null;
           return { ...remote, users: newUsers, bets: newBets };
@@ -3167,8 +3225,10 @@ function App() {
 
   // PlaceBet via transação: debita PC + adiciona ticket atomicamente contra
   // o estado remoto (não permite ficar negativo nem perder o ticket).
+  // TODO cupom agora nasce PÚBLICO (vai direto pra MESA DOS CARTOLAS). O usuário
+  // pode tirar da mesa depois em MEUS TICKETS (unpublishTicket). `opts` mantido
+  // por compatibilidade dos callers, mas a aposta sempre sai open.
   const placeBet = async (amount, opts) => {
-    const asPublic = !!(opts && opts.open);
     if (!me || slip.length === 0) return;
     // Rede de segurança: se algum palpite ainda referencia jogo indisponível
     // (admin lançou placar ou travou bem na hora), removemos e avisamos sem bloquear.
@@ -3192,7 +3252,7 @@ function App() {
       champId: apostasChampId, // marca a season/campeonato pra ranking de apostas por edição
       combinedOdds: co,
       legs: slip.map(l => ({ fixtureId: l.fixtureId, market: l.market, pick: l.pick, odds: l.odds })),
-      ...(asPublic ? { open: true, openMeta: { publishedAt: Date.now(), copies: 0, stakeCopied: 0 } } : {}),
+      open: true, openMeta: { publishedAt: Date.now(), copies: 0, stakeCopied: 0 },
     };
     try {
       const result = await commitBetDocUpdate(remote => {
@@ -3203,11 +3263,6 @@ function App() {
         if (u.pc < amount) {
           return { __abort: true, result: { err: 'Saldo insuficiente (tem ' + u.pc + ' PC, aposta de ' + amount + ' PC).' } };
         }
-        // CUPOM PÚBLICO: respeita o teto de tickets abertos por dono.
-        if (asPublic) {
-          const openCount = (remote.bets || []).filter(b => b.user === session.nick && b.open && b.status === 'pending').length;
-          if (openCount >= MAX_OPEN_TICKETS) return { __abort: true, result: { err: 'Você já tem ' + MAX_OPEN_TICKETS + ' cupons na mesa. Tire um antes de publicar outro.' } };
-        }
         // Idempotência: se por algum motivo o ticket já foi gravado, não duplica.
         if ((remote.bets || []).some(b => b.id === ticket.id)) return null;
         const users = { ...remote.users, [session.nick]: { ...u, pc: u.pc - amount } };
@@ -3216,9 +3271,7 @@ function App() {
       });
       if (result && result.err) { showToast(result.err, 'error'); return; }
       setSlip([]);
-      showToast(asPublic
-        ? `Cupom de ${amount} PC publicado na MESA DOS CARTOLAS!`
-        : `Aposta de ${amount} PC registrada — acompanha em MEUS TICKETS`, 'success');
+      showToast(`Aposta de ${amount} PC feita e publicada na MESA DOS CARTOLAS!`, 'success');
       return { ok: true };
     } catch (e) {
       console.warn('placeBet failed', e);
@@ -3305,7 +3358,9 @@ function App() {
       showToast('Ticket tirado da mesa.', 'success');
     } catch (e) { console.warn('unpublishTicket failed', e); }
   };
-  // Copia um ticket aberto: paga stake, ganha 10% de cashback NA HORA (da casa).
+  // Copia um ticket aberto: paga o stake. O cashback de 10% (da casa) NÃO é mais
+  // creditado na hora — fica DIFERIDO pra liquidação (settle), pago 1x quando a
+  // cópia resolve. Isso fecha o exploit (copiar+cancelar ficava com o cashback).
   const copyOpenTicket = async (sourceId, amount) => {
     const amt = Math.round(Number(amount) || 0);
     if (amt <= 0) return { err: 'valor inválido' };
@@ -3326,14 +3381,14 @@ function App() {
           id: copyId, user: session.nick, amount: amt, status: 'pending', createdAt: Date.now(),
           champId: src.champId, combinedOdds: src.combinedOdds, casada: src.casada,
           legs: (src.legs || []).map(l => ({ ...l })),
-          copyOf: sourceId, copyOwner: src.user, cashback,
+          copyOf: sourceId, copyOwner: src.user, cashback, cashbackDeferred: true,
         };
-        const users = { ...remote.users, [session.nick]: { ...u, pc: u.pc - amt + cashback } };
+        const users = { ...remote.users, [session.nick]: { ...u, pc: u.pc - amt } };
         const bets = (remote.bets || []).map(b => b.id !== sourceId ? b : ({ ...b, openMeta: { ...(b.openMeta || {}), copies: ((b.openMeta && b.openMeta.copies) || 0) + 1, stakeCopied: ((b.openMeta && b.openMeta.stakeCopied) || 0) + amt } }));
         return { ...remote, users, bets: [copy, ...bets] };
       });
       if (result && result.err) { showToast(result.err, 'error'); return result; }
-      showToast('Copiado! Cashback +' + cashback + ' PC já creditado.', 'success');
+      showToast('Copiado! Cashback de ' + cashback + ' PC entra quando o cupom liquidar.', 'success');
       return { ok: true, cashback };
     } catch (e) { console.warn('copyOpenTicket failed', e); return { err: 'falha' }; }
   };
@@ -3346,7 +3401,6 @@ function App() {
     if (!nick || !payload || !Array.isArray(payload.legs) || payload.legs.length === 0) return { err: 'cupom inválido' };
     const stake = Math.floor(Number(payload.stake) || 0);
     if (!(stake > 0)) return { err: 'valor inválido' };
-    const asPublic = !!payload.open;
     const combined = +Number(payload.combined).toFixed(2);
     const ticket = {
       id: 'mkb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
@@ -3354,7 +3408,7 @@ function App() {
       champId: 'mk', combinedOdds: combined, casada: !!payload.casada,
       roundN: payload.roundN, phase: payload.phase,
       nick, stake, combined, // aliases (display)
-      ...(asPublic ? { open: true, openMeta: { publishedAt: Date.now(), copies: 0, stakeCopied: 0 } } : {}),
+      open: true, openMeta: { publishedAt: Date.now(), copies: 0, stakeCopied: 0 }, // todo cupom nasce público
       legs: payload.legs.map(l => ({
         // cada perna leva a SUA rodada (phase/roundN/gi) — casada pode misturar
         // jogos de rodadas diferentes (jogos adiantados) e liquidar certo.
@@ -3369,15 +3423,11 @@ function App() {
         const u = (remote.users || {})[nick];
         if (!u) return { __abort: true, result: { err: 'Conta não sincronizada. Faz login de novo.' } };
         if ((u.pc || 0) < stake) return { __abort: true, result: { err: 'Saldo insuficiente (tem ' + (u.pc || 0) + ' PC).' } };
-        if (asPublic) {
-          const openCount = (remote.bets || []).filter(b => b.user === nick && b.open && b.status === 'pending').length;
-          if (openCount >= MAX_OPEN_TICKETS) return { __abort: true, result: { err: 'Você já tem ' + MAX_OPEN_TICKETS + ' cupons na mesa.' } };
-        }
         if ((remote.bets || []).some(b => b.id === ticket.id)) return null;
         return { ...remote, users: { ...remote.users, [nick]: { ...u, pc: u.pc - stake } }, bets: [ticket, ...(remote.bets || [])] };
       });
       if (res && res.err) { showToast(res.err, 'error'); return res; }
-      if (asPublic) showToast('Cupom publicado na MESA DOS CARTOLAS!', 'success');
+      showToast('Aposta feita e publicada na MESA DOS CARTOLAS!', 'success');
       return { ok: true };
     } catch (e) { console.warn('placeMkBet failed', e); showToast('Erro ao apostar. Tenta de novo.', 'error'); return { err: String(e) }; }
   };
@@ -7068,11 +7118,8 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
                 {busy ? 'APOSTANDO…' : `APOSTAR ${amt} PC`}
               </button>
             </div>
-            {/* CUPOM PÚBLICO: aposta + publica na MESA DOS CARTOLAS num passo. */}
-            <button type="button" className="cupom-public-btn" disabled={!valid} onClick={() => handlePlace({ open: true })}
-                    title="Aposta e deixa o cupom público pros outros copiarem (você ganha reputação)">
-              <Icon name="cards" size={13} /> CUPOM PÚBLICO · MESA DOS CARTOLAS
-            </button>
+            {/* Todo cupom agora vai pra MESA DOS CARTOLAS automaticamente ao apostar. */}
+            <div className="cupom-public-note"><Icon name="cards" size={12} /> Toda aposta vai pra MESA DOS CARTOLAS — dá pra tirar depois em MEUS TICKETS.</div>
             <button
               type="button"
               className="cupom-share"
@@ -7187,7 +7234,7 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwn
 }
 function OpenTicketsFeed({ bets, users, teamPlayers, myNick, champId, balance, onCopy }) {
   const all = bets || [];
-  const open = all.filter(b => b.open && b.status === 'pending' && (b.champId || 'fifa') === champId)
+  const open = all.filter(b => b.open && !b.copyOf && b.status === 'pending' && (b.champId || 'fifa') === champId)
     .sort((a, b) => repScoreOf((users || {})[b.user]) - repScoreOf((users || {})[a.user]) || (b.openMeta?.publishedAt || 0) - (a.openMeta?.publishedAt || 0));
   if (!open.length) return null;
   return (
@@ -8841,16 +8888,8 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                       </div>
                       {isMod && (
                         <div className="mk-fx-admin-score">
-                          <span className="mk-fx-admin-l"><Icon name="shield" size={10} /> LANÇAR PLACAR <span className="mk-fx-finish-adm">só admin</span></span>
-                          <span className="mk-fx-pl">P1</span>
-                          <input className={'cscore-in' + (p1bad ? ' cscore-bad' : '')} value={sc.p1h || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p1h', e.target.value)} />
-                          <span className="mk-fx-x">×</span>
-                          <input className={'cscore-in' + (p1bad ? ' cscore-bad' : '')} value={sc.p1a || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p1a', e.target.value)} />
-                          <span className="mk-fx-pl">P2</span>
-                          <input className={'cscore-in' + (p2bad ? ' cscore-bad' : '')} value={sc.p2h || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p2h', e.target.value)} />
-                          <span className="mk-fx-x">×</span>
-                          <input className={'cscore-in' + (p2bad ? ' cscore-bad' : '')} value={sc.p2a || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => setScore(k, 'p2a', e.target.value)} />
-                          {(p1bad || p2bad) && <span className="mk-fx-score-err">placar inválido — um lado fecha 2</span>}
+                          <span className="mk-fx-admin-l"><Icon name="shield" size={10} /> LANÇAR PLACAR <span className="mk-fx-finish-adm">toque as bolinhas dos rounds</span></span>
+                          <MkRoundDots sc={sc} onPatch={(patch) => onScore(k, patch)} />
                         </div>
                       )}
                       {isMod && (
@@ -9134,12 +9173,10 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                         {/* M4: lançar placar aqui em JOGOS quando travado (mod). Grava direto no mkScores -> liquida. */}
                         {isMod && gameLocked && onSetGameLock && (() => {
                           const sc = scores[key] || {};
-                          const inp = (field) => <input className="cscore-in" value={sc[field] || ''} placeholder="–" inputMode="numeric" maxLength={1} onChange={e => onSetGameLock(key, { [field]: e.target.value.replace(/\D/g, '').slice(0, 1) })} />;
                           return (
                             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, margin: '8px 0', padding: '8px 10px', border: '1.5px solid var(--pv-orange)', background: 'rgba(215,100,20,0.06)' }}>
-                              <span style={{ fontWeight: 800, fontSize: 10, letterSpacing: '0.14em', color: 'var(--pv-orange)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="skull" size={11} /> LANÇAR PLACAR</span>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><b style={{ fontSize: 10 }}>P1</b> {inp('p1h')}<i style={{ fontStyle: 'normal' }}>×</i>{inp('p1a')}</span>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><b style={{ fontSize: 10 }}>P2</b> {inp('p2h')}<i style={{ fontStyle: 'normal' }}>×</i>{inp('p2a')}</span>
+                              <span style={{ fontWeight: 800, fontSize: 10, letterSpacing: '0.14em', color: 'var(--pv-orange)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="skull" size={11} /> LANÇAR PLACAR — toque as bolinhas</span>
+                              <MkRoundDots sc={sc} onPatch={(patch) => onSetGameLock(key, patch)} />
                             </div>
                           );
                         })()}
@@ -9234,11 +9271,8 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                         <button className="btn-secondary" onClick={() => setCupom([])}>LIMPAR</button>
                         <button className="btn-primary" disabled={!cupom.length || !(stake > 0) || (Number.isFinite(balance) && stake > balance)} onClick={() => place()}>{Number.isFinite(balance) && stake > balance ? 'SALDO INSUFICIENTE' : 'APOSTAR ' + stake + ' PC'}</button>
                       </div>
-                      {/* CUPOM PÚBLICO: aposta + publica na MESA DOS CARTOLAS num passo. */}
-                      <button type="button" className="cupom-public-btn" disabled={!cupom.length || !(stake > 0) || (Number.isFinite(balance) && stake > balance)} onClick={() => place({ open: true })}
-                              title="Aposta e deixa o cupom público pros outros copiarem (você ganha reputação)">
-                        <Icon name="cards" size={13} /> CUPOM PÚBLICO · MESA DOS CARTOLAS
-                      </button>
+                      {/* Todo cupom agora vai pra MESA DOS CARTOLAS automaticamente ao apostar. */}
+                      <div className="cupom-public-note"><Icon name="cards" size={12} /> Toda aposta vai pra MESA DOS CARTOLAS — dá pra tirar depois em MEUS TICKETS.</div>
                       <button type="button" className="cupom-share" onClick={() => {
                         const txt = 'Cupom MK: ' + cupom.map(l => MK_MARKET_TITLE[l.market] + ' ' + mkLegLabel(l) + ' @' + l.odd.toFixed(2)).join(' + ') + ' = ' + combined.toFixed(2) + 'x';
                         navigator.clipboard.writeText(txt).then(() => showToast('Cupom copiado!', 'success'), () => showToast('Falha ao copiar.', 'error'));
