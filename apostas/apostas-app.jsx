@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-stats4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-mesa1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -7403,10 +7403,11 @@ function RepBadge({ user, sm }) {
     </span>
   );
 }
-function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwner, balance, onCopy }) {
+function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwner, balance, onCopy, copiers }) {
   const [amt, setAmt] = useState(50);
   const [busy, setBusy] = useState(false);
-  const copies = (t.openMeta && t.openMeta.copies) || 0;
+  const copyList = copiers || [];
+  const copies = copyList.length; // contagem real (cancelar remove o bet)
   const insurance = Math.round((amt || 0) * CASHBACK_RATE); // volta SE perder (seguro)
   const nLegs = (t.legs || []).length;
   const doCopy = async () => { if (busy) return; setBusy(true); try { await onCopy(t.id, amt); } finally { setBusy(false); } };
@@ -7445,6 +7446,21 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwn
           </div>
         </>
       )}
+      {copyList.length > 0 && (
+        <div className="mesa-copiers">
+          <div className="mesa-copiers-h"><Icon name="user" size={10} /> QUEM COPIOU · {copyList.length}</div>
+          <div className="mesa-copiers-list">
+            {copyList.slice(0, 8).map((c, i) => (
+              <div key={c.nick + i} className="mesa-copier">
+                <Avatar nick={c.nick} teamPlayers={teamPlayers} size={16} noBadge />
+                <span className="mesa-copier-n">{c.nick}</span>
+                <span className="mesa-copier-a">{compactPC(c.amount)} <small>PC</small></span>
+              </div>
+            ))}
+            {copyList.length > 8 && <div className="mesa-copier-more">+{copyList.length - 8} mais</div>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -7458,12 +7474,19 @@ function OpenTicketsFeed({ bets, users, teamPlayers, myNick, champId, balance, o
       <div className="card-head"><div className="title"><Icon name="cards" size={16} /> MESA DOS CARTOLAS</div><div className="sub">{open.length} TICKET{open.length === 1 ? '' : 'S'} ABERTO{open.length === 1 ? '' : 'S'} · COPIE COM 10% DE CASHBACK</div></div>
       <div className="card-body">
         <div className="mesa-grid">
-          {open.map(t => (
-            <OpenTicketCard key={t.id} t={t} owner={t.user} ownerUser={(users || {})[t.user]}
-              teamPlayers={teamPlayers} isOwner={t.user === myNick}
-              alreadyCopied={all.some(b => b.copyOf === t.id && b.user === myNick)}
-              balance={balance} onCopy={onCopy} />
-          ))}
+          {open.map(t => {
+            // Lista de quem copiou (derivada dos bets: cópia = bet com copyOf === id).
+            // Cancelar remove o bet, então cópias canceladas somem daqui sozinhas.
+            const copiers = all.filter(b => b.copyOf === t.id)
+              .map(b => ({ nick: b.user, amount: b.amount || 0 }))
+              .sort((a, b) => b.amount - a.amount);
+            return (
+              <OpenTicketCard key={t.id} t={t} owner={t.user} ownerUser={(users || {})[t.user]}
+                teamPlayers={teamPlayers} isOwner={t.user === myNick} copiers={copiers}
+                alreadyCopied={all.some(b => b.copyOf === t.id && b.user === myNick)}
+                balance={balance} onCopy={onCopy} />
+            );
+          })}
         </div>
       </div>
     </div>
