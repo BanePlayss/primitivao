@@ -4228,9 +4228,20 @@
     .mk-dots-score i { font-style: normal; opacity: 0.35; }
     .mk-dots-score b.wh { color: var(--pv-orange); }
     .mk-dots-score b.wa { color: var(--pv-red, #c0392b); }
-    /* Painel do mod pra marcar resultado direto no card de aposta (MK) */
-    .mk-bet-result-mod { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 8px 0; padding: 9px 11px; border: 1.5px solid var(--pv-orange); background: rgba(215,100,20,0.06); }
-    .mk-bet-result-l { font-weight: 800; font-size: 10px; letter-spacing: 0.12em; color: var(--pv-orange); display: inline-flex; align-items: center; gap: 5px; }
+    /* Painel LANÇAR RESULTADOS (mod) — topo de APOSTAS/JOGOS */
+    .result-launcher { border: 2px solid var(--pv-orange); margin-bottom: 14px; }
+    .rl-list { display: flex; flex-direction: column; gap: 10px; }
+    .rl-row {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 10px 12px; background: rgba(215,100,20,0.06); border: 1px solid rgba(215,100,20,0.2);
+    }
+    .rl-match { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .rl-rod { font-size: 9px; font-weight: 800; letter-spacing: 0.16em; color: rgba(28,22,18,0.5); }
+    .rl-vs { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 700; color: var(--pv-charcoal); }
+    .rl-vs b { font-weight: 800; }
+    .rl-vs i { font-style: normal; opacity: 0.4; }
+    .rl-fifa { display: inline-flex; align-items: center; gap: 6px; }
+    .rl-x { font-style: normal; opacity: 0.4; font-weight: 700; }
     /* RODADAS ganham mais largura no desktop (classificação ~1fr, rodadas ~1.35fr,
        mín. 360px) — em tela larga a coluna cresce e cabem 2 jogos lado a lado. */
     .champ-main .mk-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, 1.35fr); }

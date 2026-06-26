@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-mod-resultado ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-painel-result ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -566,6 +566,74 @@ function MkRoundDots({ sc, onPatch, disabled }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// Painel LANÇAR RESULTADOS (só mod) — fica no topo de APOSTAS/JOGOS e lista APENAS
+// os jogos com apostas TRAVADAS que ainda não têm resultado. Some quando todos
+// forem lançados. MK usa as bolinhas de round; FIFA usa placar gh × ga.
+function ResultLauncherPanel({ champId, mkDraw, mkScores, onMkScore, cs, onFifaScore, teamPlayers }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  const head = (n) => (
+    <div className="card-head">
+      <div className="title"><Icon name="whistle" size={16} /> LANÇAR RESULTADOS</div>
+      <div className="sub">{n} JOGO{n === 1 ? '' : 'S'} TRAVADO{n === 1 ? '' : 'S'} AGUARDANDO</div>
+    </div>
+  );
+  if (champId === 'mk') {
+    const pending = [];
+    (mkDraw || []).forEach(r => (r.games || []).forEach((g, gi) => {
+      if (mkGameVoid(g)) return;
+      const key = r.phase + '-' + r.n + '-' + gi;
+      const sc = (mkScores || {})[key] || {};
+      if (mkGameClosed(sc, now) && !mkMatchOutcome(sc)) pending.push({ r, gi, g, key, sc });
+    }));
+    if (!pending.length) return null;
+    return (
+      <div className="card result-launcher">
+        {head(pending.length)}
+        <div className="card-body"><div className="rl-list">
+          {pending.map(({ r, gi, g, key, sc }) => (
+            <div className="rl-row" key={key}>
+              <div className="rl-match">
+                <span className="rl-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase} · JOGO {String(gi + 1).padStart(2, '0')}</span>
+                <span className="rl-vs"><b>@{g.home}</b><i>×</i><b>@{g.away}</b></span>
+              </div>
+              <MkRoundDots sc={sc} onPatch={(patch) => onMkScore(key, patch)} />
+            </div>
+          ))}
+        </div></div>
+      </div>
+    );
+  }
+  // FIFA (e ligas legadas no cs): jogos travados sem placar completo.
+  const pending = [];
+  ((cs && cs.rounds) || []).forEach((round, ri) => (round || []).forEach((m, gi) => {
+    if (!m || !m.locked) return;
+    const gh = parseInt(m.gh, 10), ga = parseInt(m.ga, 10);
+    if (Number.isNaN(gh) || Number.isNaN(ga)) pending.push({ ri, gi, m });
+  }));
+  if (!pending.length) return null;
+  return (
+    <div className="card result-launcher">
+      {head(pending.length)}
+      <div className="card-body"><div className="rl-list">
+        {pending.map(({ ri, gi, m }) => (
+          <div className="rl-row" key={ri + '-' + gi}>
+            <div className="rl-match">
+              <span className="rl-rod">RODADA {String((m.round != null ? m.round : ri + 1)).padStart(2, '0')}</span>
+              <span className="rl-vs"><b>@{fifaUserOf(m.home, teamPlayers)}</b><i>×</i><b>@{fifaUserOf(m.away, teamPlayers)}</b></span>
+            </div>
+            <span className="rl-fifa">
+              <input className="cscore-in" value={m.gh ?? ''} placeholder="–" inputMode="numeric" onChange={e => onFifaScore(ri, gi, { gh: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
+              <i className="rl-x">×</i>
+              <input className="cscore-in" value={m.ga ?? ''} placeholder="–" inputMode="numeric" onChange={e => onFifaScore(ri, gi, { ga: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
+            </span>
+          </div>
+        ))}
+      </div></div>
     </div>
   );
 }
@@ -4085,6 +4153,12 @@ function App() {
                 CAMPEONATOS (e o cancelamento no MEU PERFIL). */}
             {view === 'apostas' && (
               <>
+              {/* LANÇAR RESULTADOS (só mod): jogos travados aguardando placar. */}
+              {isMod && (
+                <ResultLauncherPanel champId={apostasChampId}
+                  mkDraw={mkDraw} mkScores={mkScores} onMkScore={setMkScoreField}
+                  cs={cs} onFifaScore={setFifaScore} teamPlayers={teamPlayers || {}} />
+              )}
               {/* MESA DOS CARTOLAS (M9): tickets abertos pra copiar com cashback. */}
               {!isAdmin && (
                 <OpenTicketsFeed bets={bets} users={users} teamPlayers={teamPlayers || {}}
@@ -6978,18 +7052,8 @@ function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock, onSet
           </button>
         </div>
       )}
-      {/* Mod marca o resultado direto no card (sempre visível). Digitar o placar já
-          TRAVA as apostas — marcar resultado fecha o jogo. */}
-      {canLock && onSetScore && (
-        <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 10, padding: '8px 10px', border: '1.5px solid var(--pv-orange)', background: 'rgba(215,100,20,0.06)' }}>
-          <span style={{ fontWeight: 800, fontSize: 10, letterSpacing: '0.14em', color: 'var(--pv-orange)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="football" size={12} /> MARCAR RESULTADO{!isLocked ? ' (trava as apostas)' : ''}</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <input className="cscore-in" value={game.gh ?? ''} placeholder="–" inputMode="numeric" onChange={e => onSetScore({ gh: e.target.value.replace(/\D/g, '').slice(0, 2), locked: true })} />
-            <i style={{ fontStyle: 'normal', color: 'rgba(28,22,18,0.4)' }}>×</i>
-            <input className="cscore-in" value={game.ga ?? ''} placeholder="–" inputMode="numeric" onChange={e => onSetScore({ ga: e.target.value.replace(/\D/g, '').slice(0, 2), locked: true })} />
-          </span>
-        </div>
-      )}
+      {/* O placar é lançado no painel LANÇAR RESULTADOS (topo de APOSTAS/JOGOS),
+          que lista os jogos travados aguardando resultado. Aqui só trava/destrava. */}
 
       {expanded && (
         <>
@@ -9176,17 +9240,8 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             )}
                           </div>
                         )}
-                        {/* Mod marca o resultado direto no card (sempre visível). Tocar uma
-                            bolinha já TRAVA as apostas — marcar resultado fecha o jogo. */}
-                        {isMod && onSetGameLock && (() => {
-                          const sc = scores[key] || {};
-                          return (
-                            <div className="mk-bet-result-mod">
-                              <span className="mk-bet-result-l"><Icon name="skull" size={11} /> MARCAR RESULTADO — toque as bolinhas{!gameLocked ? ' (trava as apostas)' : ''}</span>
-                              <MkRoundDots sc={sc} onPatch={(patch) => onSetGameLock(key, { ...patch, locked: true, lockAt: null })} />
-                            </div>
-                          );
-                        })()}
+                        {/* O placar é lançado no painel LANÇAR RESULTADOS (topo), que lista
+                            os jogos travados aguardando resultado. Aqui o card só trava/destrava. */}
                         {visibleMarkets.map(mkt => (
                           <div key={mkt} className="mk-bet-mkt">
                             <div className="mk-bet-mkt-h">{MK_MARKET_TITLE[mkt]}</div>
