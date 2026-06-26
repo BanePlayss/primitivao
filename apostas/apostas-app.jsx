@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-cupub ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-m8b ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2435,6 +2435,36 @@ function App() {
       return { ok: true };
     } catch (e) { console.warn('persistChamp failed', e); return { err: 'falha' }; }
   };
+  // M8b: cria um campeonato (gera liga e/ou bracket) e publica no doc championships.
+  const createChampionship = async (spec) => {
+    const id = 'champ-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 5);
+    const tag = String(spec.tag || spec.name.split(' ')[0] || 'CAMP').toUpperCase().slice(0, 12);
+    const cfg = spec.config || {};
+    const champ = {
+      id, game: spec.game, name: spec.name, season: spec.season, tag,
+      format: spec.format, status: 'running',
+      participants: spec.participants, config: cfg,
+      league: (spec.format === 'LEAGUE' || spec.format === 'LEAGUE_KO')
+        ? { rounds: champLeagueRounds(spec.participants, { doubleRound: cfg.doubleRound }) } : null,
+      bracket: (spec.format === 'CUP')
+        ? generateBracket(spec.participants, { koLegs: cfg.koLegs, thirdPlace: cfg.thirdPlace }) : null,
+      createdAt: Date.now(), by: session.nick,
+    };
+    const r = await persistChamp(id, () => champ);
+    if (r && r.err) showToast('Erro ao criar campeonato.', 'error');
+    else showToast('Campeonato "' + spec.name + '" criado e publicado!', 'success');
+    return r;
+  };
+  const setChampScore = (champId, ri, gi, patch) => persistChamp(champId, (c) => {
+    if (!c || !c.league || !Array.isArray(c.league.rounds)) return undefined;
+    const rounds = c.league.rounds.map((r, i) => i !== ri ? r : r.map((m, j) => j === gi ? { ...m, ...patch } : m));
+    return { ...c, league: { ...c.league, rounds } };
+  });
+  const deleteChampionship = async (champId) => {
+    if (!(await confirmModal({ title: 'APAGAR CAMPEONATO?', body: 'Remove o campeonato e seus jogos. Não dá pra desfazer.', confirmLabel: 'APAGAR', danger: true }))) return;
+    const r = await persistChamp(champId, () => null);
+    if (!r || !r.err) showToast('Campeonato apagado.', 'success');
+  };
 
   // ADMIN: sorteia e PUBLICA o chaveamento (fecha inscrições, zera placares).
   const publishMkDraw = (draw) => {
@@ -4114,6 +4144,15 @@ function App() {
                       />
                     </div>
                   )}
+                  {/* M8b: campeonatos lançados pelo admin (liga round-robin) — só leitura. */}
+                  {Object.keys(champs || {}).length > 0 && (
+                    <div className="champ-launched">
+                      <div className="champ-launched-h"><Icon name="trophy" size={14} /> CAMPEONATOS LANÇADOS</div>
+                      {Object.values(champs).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(c => (
+                        <ChampLeagueView key={c.id} champ={c} teamPlayers={teamPlayers || {}} editable={false} />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -4189,6 +4228,10 @@ function App() {
                 <div style={{ height: 18 }} />
                 <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isMod}
                                    users={users} teamPlayers={teamPlayers || {}} myNick={session.nick} />
+                {/* M8b: criar/gerir campeonatos lançados (liga round-robin + placar). */}
+                <ChampAdminPanel champs={champs} users={users} interests={interests || {}}
+                                 isFullAdmin={isAdmin} teamPlayers={teamPlayers || {}}
+                                 onCreate={createChampionship} onScore={setChampScore} onDelete={deleteChampionship} />
                 {/* TODAS as funções de admin agora vivem aqui (aba ADMIN removida). */}
                 <div style={{ height: 18 }} />
                 <AdminView
@@ -12988,6 +13031,161 @@ function CoinAdjuster({ label, value, accent, onApply }) {
 }
 
 // ── ABA MOD: painel de moderação (Dia Oficial, e futuramente sorteio/placar) ──
+// ── M8b: campeonatos lançados (classificação da liga + placar editável) ─────
+function ChampLeagueView({ champ, teamPlayers, editable, onScore }) {
+  const rounds = (champ.league && champ.league.rounds) || [];
+  const standings = computeStandings(rounds);
+  const [vr, setVr] = useState(0);
+  const round = rounds[vr] || [];
+  const fmtLabel = champ.format === 'CUP' ? 'COPA (MATA-MATA)' : champ.format === 'LEAGUE_KO' ? 'LIGA + MATA-MATA' : 'LIGA';
+  return (
+    <div className="card">
+      <div className="card-head">
+        <div className="title"><Icon name={champ.format === 'CUP' ? 'sword' : 'chart'} size={15} /> {champ.name}</div>
+        <div className="sub">{champ.season} · {fmtLabel}{champ.config && champ.config.doubleRound ? ' · IDA/VOLTA' : ''}</div>
+      </div>
+      <div className="card-body">
+        {rounds.length === 0 ? (
+          <div className="empty"><div className="e1">MATA-MATA</div><div className="e2">A visualização do chaveamento vem na próxima etapa. Os jogos já estão sorteados.</div></div>
+        ) : (
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="std-table">
+                <thead><tr><th>#</th><th style={{ textAlign: 'left' }}>JOGADOR</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th><th>P</th></tr></thead>
+                <tbody>
+                  {standings.map((s, i) => {
+                    const sg = s.gp - s.gc;
+                    const cls = i < 2 ? 'glory' : i >= standings.length - 2 ? 'releg' : '';
+                    return (
+                      <tr key={s.id} className={cls}>
+                        <td className="std-pos">{String(i + 1).padStart(2, '0')}</td>
+                        <td><div className="tnm" style={{ flexWrap: 'wrap' }}><Avatar nick={s.id} teamPlayers={teamPlayers} size={22} noBadge /><span>@{s.id}</span></div></td>
+                        <td>{s.j}</td><td style={{ fontWeight: 800 }}>{s.v}</td><td>{s.e}</td><td style={{ color: 'rgba(28,22,18,0.45)' }}>{s.d}</td><td>{sg > 0 ? '+' + sg : sg}</td>
+                        <td style={{ fontFamily: 'Anton, Impact', fontSize: 16 }}>{s.p}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="champ-rd-chips">
+              {rounds.map((r, ri) => <button key={ri} type="button" className={'mk-rchip' + (ri === vr ? ' sel' : '')} onClick={() => setVr(ri)}>{String(ri + 1).padStart(2, '0')}</button>)}
+            </div>
+            <div className="champ-rd-games">
+              {round.map((m, gi) => {
+                const ghN = parseInt(m.gh, 10), gaN = parseInt(m.ga, 10);
+                const played = !Number.isNaN(ghN) && !Number.isNaN(gaN);
+                return (
+                  <div key={gi} className={'mk-fx' + (played ? ' done' : '')}>
+                    <div className="mk-fx-body">
+                      <div className="mk-fx-side home"><Avatar nick={m.home} teamPlayers={teamPlayers} size={28} noBadge /><div className="mk-fx-id"><div className="mk-fx-nick">@{m.home}</div></div></div>
+                      <div className="fifa-fx-score">
+                        {editable
+                          ? <><input className="cscore-in" value={m.gh} placeholder="–" inputMode="numeric" onChange={e => onScore(vr, gi, { gh: e.target.value.replace(/\D/g, '').slice(0, 2) })} /><span className="fifa-fx-x">×</span><input className="cscore-in" value={m.ga} placeholder="–" inputMode="numeric" onChange={e => onScore(vr, gi, { ga: e.target.value.replace(/\D/g, '').slice(0, 2) })} /></>
+                          : <span className="fifa-fx-sc" style={{ color: played ? 'var(--pv-orange)' : 'rgba(28,22,18,0.3)' }}>{played ? ghN + ' × ' + gaN : '– × –'}</span>}
+                      </div>
+                      <div className="mk-fx-side away"><Avatar nick={m.away} teamPlayers={teamPlayers} size={28} noBadge /><div className="mk-fx-id"><div className="mk-fx-nick">@{m.away}</div></div></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+const CHAMP_FORMATS = [
+  { id: 'LEAGUE',    name: 'PRIMITIVÃO CLÁSSICO',     desc: 'Todos contra todos. Mais pontos vence.', icon: 'chart' },
+  { id: 'LEAGUE_KO', name: 'CLÁSSICO + MATA-MATA',    desc: 'Liga + top classificados no mata-mata. O mais difícil.', icon: 'trophy' },
+  { id: 'CUP',       name: 'COPA PRIMITIVA',          desc: 'Mata-mata direto, do início ao fim.', icon: 'sword' },
+];
+function ChampWizard({ users, interests, onCreate }) {
+  const [name, setName] = useState('');
+  const [season, setSeason] = useState('Season 1');
+  const [game, setGame] = useState('fifa');
+  const [format, setFormat] = useState('LEAGUE');
+  const [doubleRound, setDoubleRound] = useState(true);
+  const [koQualifiers, setKoQualifiers] = useState(8);
+  const [koLegs, setKoLegs] = useState(1);
+  const [thirdPlace, setThirdPlace] = useState(true);
+  const [parts, setParts] = useState({});
+  const [busy, setBusy] = useState(false);
+  const allNicks = Object.keys(users || {}).filter(n => n && n !== ADMIN_NICK).sort((a, b) => a.localeCompare(b));
+  const toggle = (n) => setParts(p => ({ ...p, [n]: !p[n] }));
+  const selected = allNicks.filter(n => parts[n]);
+  const isKO = format === 'CUP' || format === 'LEAGUE_KO';
+  const hasLeague = format === 'LEAGUE' || format === 'LEAGUE_KO';
+  const create = async () => {
+    if (busy) return;
+    if (!name.trim() || selected.length < 2) { showToast('Põe um nome e pelo menos 2 jogadores.', 'error'); return; }
+    setBusy(true);
+    try {
+      await onCreate({ name: name.trim(), game, season, format, participants: selected, config: { doubleRound, koQualifiers, koLegs, thirdPlace, pointsWin: 3, pointsDraw: 1, pointsLoss: 0 } });
+      setName(''); setParts({});
+    } finally { setBusy(false); }
+  };
+  return (
+    <div className="card">
+      <div className="card-head"><div className="title"><Icon name="trophy" size={15} /> CRIAR CAMPEONATO</div></div>
+      <div className="card-body champ-wizard">
+        <div className="cw-row">
+          <label className="cw-fld"><span>NOME</span><input value={name} placeholder="Primitivão FIFA" onChange={e => setName(e.target.value)} /></label>
+          <label className="cw-fld"><span>SEASON</span><input value={season} onChange={e => setSeason(e.target.value)} /></label>
+          <label className="cw-fld"><span>JOGO</span>
+            <select value={game} onChange={e => setGame(e.target.value)}>
+              <option value="fifa">FIFA</option><option value="mk">Mortal Kombat</option><option value="rl">Rocket League</option><option value="lol">LoL</option><option value="outro">Outro</option>
+            </select>
+          </label>
+        </div>
+        <div className="cw-lbl">FORMATO</div>
+        <div className="cw-formats">
+          {CHAMP_FORMATS.map(f => (
+            <button key={f.id} type="button" className={'cw-fmt' + (format === f.id ? ' on' : '')} onClick={() => setFormat(f.id)}>
+              <Icon name={f.icon} size={18} /><div className="cw-fmt-n">{f.name}</div><div className="cw-fmt-d">{f.desc}</div>
+            </button>
+          ))}
+        </div>
+        <div className="cw-lbl">CONFIGURAÇÃO</div>
+        <div className="cw-cfg">
+          {hasLeague && <label className="cw-check"><input type="checkbox" checked={doubleRound} onChange={e => setDoubleRound(e.target.checked)} /> Ida e volta</label>}
+          {isKO && <label className="cw-check"><input type="checkbox" checked={koLegs === 2} onChange={e => setKoLegs(e.target.checked ? 2 : 1)} /> Mata-mata ida e volta</label>}
+          {isKO && <label className="cw-check"><input type="checkbox" checked={thirdPlace} onChange={e => setThirdPlace(e.target.checked)} /> Disputa de 3º lugar</label>}
+          {format === 'LEAGUE_KO' && <label className="cw-fld inline"><span>CLASSIFICAM</span><select value={koQualifiers} onChange={e => setKoQualifiers(+e.target.value)}><option value={4}>Top 4</option><option value={8}>Top 8</option></select></label>}
+        </div>
+        <div className="cw-lbl">PARTICIPANTES <span className="cw-count">{selected.length} escolhidos</span></div>
+        <div className="cw-parts">
+          {allNicks.map(n => (
+            <button key={n} type="button" className={'cw-part' + (parts[n] ? ' on' : '')} onClick={() => toggle(n)}>
+              <Avatar nick={n} size={22} noBadge /> @{n}{parts[n] && <Icon name="check" size={12} />}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="btn-primary cw-create" disabled={busy} onClick={create}>{busy ? 'CRIANDO…' : 'CRIAR E PUBLICAR'}</button>
+      </div>
+    </div>
+  );
+}
+
+function ChampAdminPanel({ champs, users, interests, isFullAdmin, teamPlayers, onCreate, onScore, onDelete }) {
+  const list = Object.values(champs || {}).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return (
+    <div>
+      <div className="mk-admin-note" style={{ margin: '18px 0 10px' }}><Icon name="trophy" size={12} /> CAMPEONATOS — crie ligas e copas e lance os placares aqui. Aparecem pra todos em CAMPEONATOS.</div>
+      {isFullAdmin && <ChampWizard users={users} interests={interests} onCreate={onCreate} />}
+      {list.length === 0 ? (
+        <div className="empty" style={{ marginTop: 12 }}><div className="e1">NENHUM CAMPEONATO</div><div className="e2">{isFullAdmin ? 'Crie o primeiro no formulário acima.' : 'Nenhum campeonato lançado ainda.'}</div></div>
+      ) : list.map(c => (
+        <div key={c.id} style={{ marginTop: 14 }}>
+          <ChampLeagueView champ={c} teamPlayers={teamPlayers} editable onScore={(ri, gi, patch) => onScore(c.id, ri, gi, patch)} />
+          {isFullAdmin && <button type="button" className="btn-danger" style={{ marginTop: 8 }} onClick={() => onDelete(c.id)}><Icon name="trash" size={13} /> APAGAR "{c.name}"</button>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ModView({ officialDay, onSetOfficialDay, myNick }) {
   const [busy, setBusy] = useState(false);
   const active = !!(officialDay && officialDay.active);

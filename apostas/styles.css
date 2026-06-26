@@ -4180,6 +4180,32 @@
     }
     .cupom-public-btn:hover:not(:disabled) { background: var(--pv-orange); color: var(--pv-bone); }
     .cupom-public-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── M8b: wizard de campeonato + campeonatos lançados ── */
+    .champ-wizard { display: flex; flex-direction: column; gap: 12px; }
+    .cw-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .cw-fld { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 130px; }
+    .cw-fld.inline { flex-direction: row; align-items: center; gap: 8px; min-width: 0; }
+    .cw-fld > span { font-size: 9px; font-weight: 800; letter-spacing: 0.2em; color: rgba(28,22,18,0.55); }
+    .cw-fld input, .cw-fld select { padding: 8px 10px; border: 1.5px solid rgba(28,22,18,0.18); background: var(--pv-bone, #f4ead7); font-family: inherit; font-size: 13px; color: var(--pv-charcoal); }
+    .cw-lbl { font-size: 10px; font-weight: 800; letter-spacing: 0.2em; color: var(--pv-orange); margin-top: 4px; display: flex; justify-content: space-between; align-items: center; }
+    .cw-count { font-size: 9px; color: rgba(28,22,18,0.5); letter-spacing: 0.1em; }
+    .cw-formats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+    .cw-fmt { text-align: left; padding: 10px; border: 1.5px solid rgba(28,22,18,0.18); background: transparent; cursor: pointer; display: flex; flex-direction: column; gap: 4px; color: var(--pv-charcoal); }
+    .cw-fmt.on { border-color: var(--pv-orange); background: rgba(215,100,20,0.08); }
+    .cw-fmt-n { font-weight: 800; font-size: 11px; letter-spacing: 0.06em; }
+    .cw-fmt-d { font-size: 10px; line-height: 1.35; color: rgba(28,22,18,0.6); }
+    .cw-cfg { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+    .cw-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .cw-parts { display: flex; flex-wrap: wrap; gap: 6px; }
+    .cw-part { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px 4px 4px; border: 1.5px solid rgba(28,22,18,0.18); background: transparent; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; color: var(--pv-charcoal); border-radius: 999px; }
+    .cw-part.on { border-color: var(--pv-orange); background: rgba(215,100,20,0.1); color: var(--pv-orange); }
+    .cw-create { margin-top: 4px; }
+    .champ-rd-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 12px 0 10px; }
+    .champ-rd-games { display: flex; flex-direction: column; gap: 7px; }
+    .champ-launched { margin-top: 22px; }
+    .champ-launched-h { font-family: 'Anton', Impact, sans-serif; font-size: 18px; letter-spacing: 0.04em; color: var(--pv-charcoal); display: flex; align-items: center; gap: 8px; margin-bottom: 10px; border-top: 2px solid rgba(28,22,18,0.12); padding-top: 16px; }
+    .champ-launched .card { margin-bottom: 14px; }
     /* RODADAS ganham mais largura no desktop (classificação ~1fr, rodadas ~1.35fr,
        mín. 360px) — em tela larga a coluna cresce e cabem 2 jogos lado a lado. */
     .champ-main .mk-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, 1.35fr); }
