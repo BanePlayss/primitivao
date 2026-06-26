@@ -3610,6 +3610,28 @@
     .pp-name { font-family: 'Anton', Impact, sans-serif; font-size: 26px; letter-spacing: 0.02em; color: var(--pv-charcoal); line-height: 1; }
     html.pv-dark .pp-name { color: var(--pv-bone); }
     .bp-king { margin-top: 12px; display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: rgba(217,165,33,0.12); border: 1.5px solid #d9a521; font-weight: 800; font-size: 13px; letter-spacing: 0.04em; color: #8a6512; }
+    .pp-modal .card { margin-bottom: 12px; }
+    .bp-rep { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+    .bp-rep-stats { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; font-weight: 600; color: rgba(28,22,18,0.7); }
+    html.pv-dark .bp-rep-stats { color: rgba(244,234,215,0.7); }
+    .bp-rep-stats b { color: var(--pv-charcoal); font-weight: 800; }
+    html.pv-dark .bp-rep-stats b { color: var(--pv-bone); }
+    .bp-tklist { display: flex; flex-direction: column; gap: 8px; }
+    .bp-tk { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1.5px solid rgba(28,22,18,0.14); background: rgba(28,22,18,0.02); }
+    .bp-tk-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: var(--pv-charcoal); }
+    .bp-tk.won .bp-tk-dot { background: var(--pv-green, #2a8f3f); }
+    .bp-tk.lost .bp-tk-dot { background: var(--pv-red, #c0392b); }
+    .bp-tk.pending .bp-tk-dot { background: var(--pv-orange); }
+    .bp-tk-l { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    .bp-tk-type { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; color: var(--pv-charcoal); }
+    html.pv-dark .bp-tk-type { color: var(--pv-bone); }
+    .bp-tk-st { font-size: 10px; font-weight: 700; color: rgba(28,22,18,0.55); }
+    html.pv-dark .bp-tk-st { color: rgba(244,234,215,0.6); }
+    .bp-tk.won .bp-tk-st { color: var(--pv-green, #2a8f3f); }
+    .bp-tk.lost .bp-tk-st { color: var(--pv-red, #c0392b); }
+    .bp-tk-amt { font-family: 'Anton', Impact, sans-serif; font-size: 15px; color: var(--pv-charcoal); flex-shrink: 0; }
+    html.pv-dark .bp-tk-amt { color: var(--pv-bone); }
+    .bp-tk-amt small { font-size: 9px; letter-spacing: 0.2em; }
     .rank-row--click { cursor: pointer; }
     .rank-row--click:hover { background: rgba(215,100,20,0.08); }
     .mj-modal-close {

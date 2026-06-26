@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-ux4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-betprofile ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -9851,9 +9851,11 @@ function PlayerProfileModal({ nick, users, cs, bets, teamPlayers, mkDraw, mkScor
 function BetProfileModal({ nick, users, bets, cs, teamPlayers, onClose }) {
   if (!nick) return null;
   const u = (users || {})[nick] || {};
+  const rep = u.rep || {};
   const s = betProfileStats(nick, bets);
   const betKing = betKingChamps(nick, cs, bets || []);
-  const sign = (v) => (v > 0 ? '+' : '') + (v || 0).toLocaleString('pt-BR');
+  const sign = (v) => (v < 0 ? '-' : v > 0 ? '+' : '') + compactPC(v); // compacto (900K) com sinal
+  const recent = (bets || []).filter(b => b.user === nick).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 3);
   return (
     <div className="mj-modal-backdrop" onClick={onClose}>
       <div className="mj-modal pp-modal" onClick={e => e.stopPropagation()}>
@@ -9869,12 +9871,12 @@ function BetProfileModal({ nick, users, bets, cs, teamPlayers, onClose }) {
           <div className="card-head"><div className="title"><Icon name="ticket" size={15} /> PERFIL DE APOSTAS</div><div className="sub">{s.total} APOSTAS</div></div>
           <div className="card-body">
             <div className="dstats-grid">
-              <StatTile label="LUCRO" value={sign(s.lucro) + ' PC'} hl />
+              <StatTile label="LUCRO" value={sign(s.lucro)} hl />
               <StatTile label="APROVEITAMENTO" value={s.winRate + '%'} />
               <StatTile label="VITÓRIAS / DERROTAS" value={s.won + ' / ' + s.lost} />
               <StatTile label="ABERTAS" value={s.pend} />
-              <StatTile label="TOTAL APOSTADO" value={s.wagered.toLocaleString('pt-BR') + ' PC'} />
-              <StatTile label="MAIOR GANHO" value={'+' + s.biggest.toLocaleString('pt-BR')} />
+              <StatTile label="TOTAL APOSTADO" value={compactPC(s.wagered)} />
+              <StatTile label="MAIOR GANHO" value={'+' + compactPC(s.biggest)} />
               <StatTile label="MELHOR SEQ. V" value={s.bestStreak} hl />
               <StatTile label="CÓPIAS FEITAS" value={s.copies} />
             </div>
@@ -9883,6 +9885,38 @@ function BetProfileModal({ nick, users, bets, cs, teamPlayers, onClose }) {
             )}
           </div>
         </div>
+        <div className="card">
+          <div className="card-head"><div className="title"><Icon name="cards" size={15} /> REPUTAÇÃO DE DICAS</div></div>
+          <div className="card-body">
+            <div className="bp-rep">
+              <RepBadge user={u} />
+              <div className="bp-rep-stats">
+                <span><b>{rep.followersWon || 0}</b> seguidores ganharam</span>
+                <span><b>{rep.followersLost || 0}</b> perderam</span>
+                {rep.tips ? <span>gorjetas: <b>+{compactPC(rep.tips)} PC</b></span> : null}
+              </div>
+            </div>
+          </div>
+        </div>
+        {recent.length > 0 && (
+          <div className="card">
+            <div className="card-head"><div className="title"><Icon name="ticket" size={15} /> ÚLTIMOS TICKETS</div></div>
+            <div className="card-body">
+              <div className="bp-tklist">
+                {recent.map(t => (
+                  <div key={t.id} className={'bp-tk ' + t.status}>
+                    <span className="bp-tk-dot" />
+                    <span className="bp-tk-l">
+                      <span className="bp-tk-type">{(t.legs || []).length > 1 ? 'CASADA ' + t.legs.length : 'SIMPLES'} · {Number(t.combinedOdds || 0).toFixed(2)}x{t.copyOf ? ' · cópia' : ''}</span>
+                      <span className="bp-tk-st">{t.status === 'won' ? 'VENCEU · +' + compactPC(t.payout || 0) + ' PC' : t.status === 'lost' ? 'PERDEU' : 'EM ABERTO'}</span>
+                    </span>
+                    <span className="bp-tk-amt">{compactPC(t.amount)} <small>PC</small></span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
