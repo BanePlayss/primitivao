@@ -3609,6 +3609,9 @@
     .pp-head-info { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
     .pp-name { font-family: 'Anton', Impact, sans-serif; font-size: 26px; letter-spacing: 0.02em; color: var(--pv-charcoal); line-height: 1; }
     html.pv-dark .pp-name { color: var(--pv-bone); }
+    .bp-king { margin-top: 12px; display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: rgba(217,165,33,0.12); border: 1.5px solid #d9a521; font-weight: 800; font-size: 13px; letter-spacing: 0.04em; color: #8a6512; }
+    .rank-row--click { cursor: pointer; }
+    .rank-row--click:hover { background: rgba(215,100,20,0.08); }
     .mj-modal-close {
       position: absolute; top: 10px; right: 10px; z-index: 2;
       width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
@@ -4072,8 +4075,8 @@
     .mk-jogo-hint { margin: 8px 0 12px; font-size: 12.5px; line-height: 1.5; color: rgba(28,22,18,0.7); }
     .mk-jogo-empty { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: rgba(28,22,18,0.55); background: rgba(28,22,18,0.03); border: 1px dashed rgba(28,22,18,0.18); border-radius: 8px; padding: 14px; margin-top: 8px; }
     .mk-jogo-list { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 10px; max-width: 540px; }
-    .mk-jogo-card { border: 1.5px solid rgba(28,22,18,0.14); border-radius: 10px; padding: 11px 12px; background: #fff; }
-    .mk-jogo-card.is-mandante { border-color: rgba(215,100,20,0.5); box-shadow: inset 0 0 0 1px rgba(215,100,20,0.14); }
+    .mk-jogo-card { border: 2px solid var(--pv-charcoal); border-radius: 3px; padding: 11px 12px; background: var(--pv-bone); }
+    .mk-jogo-card.is-mandante { border-color: var(--pv-charcoal); }
     .mk-jogo-card.is-next { border-color: rgba(215,100,20,0.55); box-shadow: 0 0 0 3px rgba(215,100,20,0.13); }
     .mk-jogo-card.is-open { border-color: rgba(215,100,20,0.45); }
     .mk-jogo-card-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; width: 100%; background: transparent; border: 0; padding: 0; margin: 0; cursor: pointer; font: inherit; color: inherit; text-align: left; }
@@ -4109,9 +4112,10 @@
     .mk-jogo-wait { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: rgba(28,22,18,0.5); padding: 4px 0; }
 
     /* ─── CARD DE LUTA (MK character select): portraits + VS + FIGHT! ─── */
-    /* Visual PRIMITIVÃO: papel creme + tinta charcoal + laranja (sem neon escuro). */
-    .mk-fc { margin-top: 6px; border-radius: 4px; padding: 12px 14px;
-      background: var(--pv-bone); border: 2px solid var(--pv-charcoal); }
+    /* Visual PRIMITIVÃO: o card externo é o papel creme; o fight-card é um inset
+       sutil (sem virar "box dentro de box"), cantos retos. */
+    .mk-fc { margin-top: 8px; border-radius: 3px; padding: 11px 12px;
+      background: rgba(28,22,18,0.05); border: 1px solid rgba(28,22,18,0.14); }
     /* 1 partida por linha (full width) — bonecos grandes, nomes inteiros */
     .mk-fc-part { padding: 11px 0; }
     .mk-fc-part + .mk-fc-part { border-top: 1.5px dashed rgba(28,22,18,0.22); }
@@ -4124,9 +4128,9 @@
     .mk-fc-vs { flex-shrink: 0; align-self: center; display: flex; flex-direction: column; align-items: center; gap: 0; color: var(--pv-orange); font-family: 'Anton', Impact; font-size: 13px; letter-spacing: 0.04em; padding-top: 16px; }
     .mk-fc-chips { display: flex; gap: 8px; }
     .mk-fc-chip { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 9px 5px 7px;
-      border-radius: 4px; border: 1.5px solid rgba(28,22,18,0.2); background: rgba(28,22,18,0.02); cursor: pointer;
+      border-radius: 3px; border: 1.5px solid rgba(28,22,18,0.22); background: var(--pv-bone); cursor: pointer;
       transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease; }
-    .mk-fc-chip .mk-fc-mono { width: 52px; height: 52px; border-radius: 4px; font-size: 18px; }
+    .mk-fc-chip .mk-fc-mono { width: 52px; height: 52px; border-radius: 3px; font-size: 18px; }
     .mk-fc-chip:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--pv-orange); background: rgba(215,100,20,0.07); }
     .mk-fc-chip.on { border-color: var(--pv-orange); background: rgba(215,100,20,0.14); box-shadow: inset 0 0 0 1px var(--pv-orange); }
     .mk-fc-chip.locked { opacity: 0.32; cursor: not-allowed; filter: grayscale(0.7); }
@@ -4204,6 +4208,9 @@
 
     /* ── Tiers do BILHETE pela ODD do cupom (holo 15+ / dourado 10+ / brilhante 6+ / rasgado <2) ── */
     .mesa-card--holo, .mesa-card--gold, .mesa-card--shiny, .mesa-card--torn { position: relative; }
+    /* legibilidade: conteúdo SEMPRE acima do brilho/tinta (o sheen fica no fundo) */
+    .mesa-card--holo > *, .mesa-card--gold > *, .mesa-card--shiny > * { position: relative; z-index: 1; }
+    .mesa-card--holo::after, .mesa-card--gold::after, .mesa-card--shiny::after { z-index: 0; }
     /* HOLO: foil iridescente — moldura arco-íris + corpo que muda + brilho prismático */
     .mesa-card--holo {
       border: 3px solid #b59cff;
@@ -4432,7 +4439,7 @@
     .mk-fc-todo strong { color: var(--pv-orange); }
     .mk-fc-confirm { margin-top: 11px; width: 100%; cursor: pointer; border: 0;
       font-family: 'Anton', Impact, sans-serif; font-size: 14px; letter-spacing: 0.08em; color: #0e2a10;
-      background: linear-gradient(180deg, #54c46a, #2a8f3f); border-radius: 9px; padding: 11px;
+      background: linear-gradient(180deg, #54c46a, #2a8f3f); border-radius: 3px; padding: 11px;
       display: flex; align-items: center; justify-content: center; gap: 8px;
       box-shadow: 0 0 14px rgba(42,143,63,0.45); transition: transform 0.1s ease, box-shadow 0.15s ease; }
     .mk-fc-confirm:hover { transform: translateY(-1px); box-shadow: 0 0 22px rgba(42,143,63,0.7); }
@@ -4721,11 +4728,18 @@
     .mk-liberados-h { display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 12px; letter-spacing: 0.14em; color: var(--pv-orange); margin: 2px 0 14px; }
     .mk-liberados-c { background: var(--pv-orange); color: var(--pv-bone); font-size: 11px; padding: 1px 9px; border-radius: 999px; }
     .mk-bet-rod { font-size: 8.5px; font-weight: 800; letter-spacing: 0.14em; color: rgba(28,22,18,0.42); margin-bottom: 7px; }
-    .mk-bet-game.own { opacity: 0.72; }
+    /* SEU jogo = primário: destaque laranja (em vez de esmaecer). */
+    .mk-bet-game.own { border-color: var(--pv-orange); box-shadow: inset 0 0 0 1px var(--pv-orange); }
     .mk-bet-game.locked { border-color: #7a2222; }
     .mk-bet-game.closing { border-color: var(--pv-orange); box-shadow: 0 0 0 2px rgba(215,100,20,0.18); }
     .mk-bet-own { display: flex; align-items: center; gap: 5px; margin-bottom: 9px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; color: #fff; background: var(--pv-charcoal); padding: 4px 8px; }
     .mk-bet-own.lock { background: #7a2222; }
+    .mk-bet-own.seu { justify-content: space-between; gap: 8px; background: var(--pv-orange); color: var(--pv-bone); }
+    .mk-bet-own.seu > span { display: inline-flex; align-items: center; gap: 5px; }
+    .mk-bet-escalar { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; cursor: pointer;
+      background: var(--pv-bone); color: var(--pv-charcoal); border: 0; padding: 4px 10px; border-radius: 3px;
+      font-family: inherit; font-weight: 800; font-size: 9.5px; letter-spacing: 0.06em; }
+    .mk-bet-escalar:hover { background: var(--pv-charcoal); color: var(--pv-bone); }
     .mk-bet-locktoggle { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-bottom: 9px; }
     .mk-bet-lockbtn { display: inline-flex; align-items: center; gap: 6px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 9.5px; letter-spacing: 0.1em; padding: 5px 10px; border-radius: 4px; cursor: pointer; background: transparent; color: var(--pv-charcoal); border: 1.5px solid var(--pv-charcoal); }
     .mk-bet-lockbtn:hover { background: rgba(28,22,18,0.06); }

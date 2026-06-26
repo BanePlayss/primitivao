@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-fc-primitivao ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-ux4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2592,6 +2592,8 @@ function App() {
   const [meuJogoOpen, setMeuJogoOpen] = useState(false);
   // Perfil de outro jogador num modal (clicou no nome/foto nas apostas).
   const [profileNick, setProfileNick] = useState(null);
+  // Perfil SÓ DE APOSTAS (clicou no ranking de apostas).
+  const [betProfileNick, setBetProfileNick] = useState(null);
   // Barra lateral de campeonatos (em CAMPEONATOS): oculta por padrão, expande na seta.
   const [champRailOpen, setChampRailOpen] = useState(() => { try { return localStorage.getItem('pv-champrail') === '1'; } catch (e) { return false; } });
   const toggleChampRail = () => setChampRailOpen(o => { const n = !o; try { localStorage.setItem('pv-champrail', n ? '1' : '0'); } catch (e) {} return n; });
@@ -4326,6 +4328,7 @@ function App() {
                     onRemoveBet={removeMkBet}
                     onSetGameLock={setMkScoreField}
                     onOpenProfile={setProfileNick}
+                    onEscalar={() => setMeuJogoOpen(true)}
                     myNick={session.nick}
                     isAdmin={isAdmin} isMod={isMod}
                     balance={me?.pc ?? 0}
@@ -4348,7 +4351,7 @@ function App() {
                     A CLASSIFICAÇÃO do campeonato em si mora em CAMPEONATOS. */}
                 <aside className="apostas-rankcol">
                   <RankingView users={users} bets={bets} me={session.nick}
-                    teamPlayers={teamPlayers || {}} cs={cs} lockChamp={apostasChampId} compact />
+                    teamPlayers={teamPlayers || {}} cs={cs} lockChamp={apostasChampId} compact onOpenBetProfile={setBetProfileNick} />
                 </aside>
               </div>
               </>
@@ -4452,7 +4455,7 @@ function App() {
               <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} mkLineups={mkLineups} teamPlayers={teamPlayers || {}} onCancel={cancelBet} onPublish={publishTicket} onUnpublish={unpublishTicket} onGoApostas={() => setView('apostas')} />
             )}
             {view === 'ranking' && (
-              <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} cs={cs} />
+              <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} cs={cs} onOpenBetProfile={setBetProfileNick} />
             )}
             {view === 'meujogo' && (
               <MeuJogoView
@@ -4525,6 +4528,9 @@ function App() {
       {profileNick && (
         <PlayerProfileModal nick={profileNick} users={users} cs={cs} bets={bets} teamPlayers={teamPlayers || {}}
           mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} onClose={() => setProfileNick(null)} />
+      )}
+      {betProfileNick && (
+        <BetProfileModal nick={betProfileNick} users={users} bets={bets} cs={cs} teamPlayers={teamPlayers || {}} onClose={() => setBetProfileNick(null)} />
       )}
       {meuJogoOpen && (
         <div className="mj-modal-backdrop" onClick={() => setMeuJogoOpen(false)}>
@@ -7725,6 +7731,20 @@ function seasonBettingRanking(champId, bets) {
     .sort((a, b) => b.lucro - a.lucro || b.vit - a.vit || a.apostas - b.apostas);
 }
 
+// Resumo de apostas de um nick (TODAS as seasons) — pro perfil de apostas.
+function betProfileStats(nick, bets) {
+  const mine = (bets || []).filter(b => b.user === nick);
+  let won = 0, lost = 0, pend = 0, wagered = 0, retorno = 0, stakeResolvido = 0, biggest = 0, copies = 0;
+  mine.forEach(b => {
+    wagered += b.amount || 0;
+    if (b.status === 'won') { won++; retorno += b.payout || 0; stakeResolvido += b.amount || 0; biggest = Math.max(biggest, (b.payout || 0) - (b.amount || 0)); }
+    else if (b.status === 'lost') { lost++; stakeResolvido += b.amount || 0; }
+    else pend++;
+    if (b.copyOf) copies++;
+  });
+  const resolved = won + lost;
+  return { total: mine.length, won, lost, pend, wagered, lucro: retorno - stakeResolvido, winRate: resolved ? Math.round(won / resolved * 100) : 0, biggest, copies, bestStreak: maxBetStreak(bets, nick, 'won') };
+}
 // Posição do nick no ranking de apostas de cada SEASON ENCERRADA. Base dos
 // títulos de apostas (rei/vice/mico). Retorna [{ champId, pos, total, lucro,
 // apostas }] — uma entrada por season fechada em que o nick apostou.
@@ -9183,7 +9203,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
 // compartilhados (App). Cupom = palpites da MESMA rodada (2+ = casada). Só dá
 // pra apostar na rodada ABERTA (a anterior tem que ter fechado).
 function mkLegLabel(l) { return mkPickLabel(l.market, l.pick); }
-function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onOpenProfile, myNick, isAdmin, isMod, balance }) {
+function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onOpenProfile, onEscalar, myNick, isAdmin, isMod, balance }) {
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
@@ -9234,7 +9254,9 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   const metrics = computeMkPlayerMetrics(insc, oddsMatches);
   // LISTA ÚNICA "LIBERADOS": todo jogo que dá pra apostar AGORA (de qualquer rodada,
   // os 2 jogadores sem pendência atrás). Sem navegação por rodada.
-  const liberados = mkLiberadoGames(draw, scores);
+  // SEUS jogos primeiro (você está no confronto) — depois o resto, ordem estável.
+  const isMine = (g) => !!myNick && (g.home === myNick || g.away === myNick);
+  const liberados = [...mkLiberadoGames(draw, scores)].sort((a, b) => (isMine(a.g) ? 0 : 1) - (isMine(b.g) ? 0 : 1));
   // tira do cupom pernas de jogos que deixaram de estar liberados (foram lançados).
   const liberadoKeys = liberados.map(x => x.key).join('|');
   useEffect(() => {
@@ -9376,7 +9398,14 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             </div>
                           );
                         })()}
-                        {ownGame && <div className="mk-bet-own"><Icon name="lock" size={10} /> VOCÊ JOGA ESSE — não pode apostar</div>}
+                        {ownGame && (
+                          <div className="mk-bet-own seu">
+                            <span><Icon name="fist" size={11} /> SEU JOGO — você está nesse confronto</span>
+                            {g.home === myNick && onEscalar && (
+                              <button type="button" className="mk-bet-escalar" onClick={onEscalar}><Icon name="skull" size={11} /> ESCALAR MEU CARD</button>
+                            )}
+                          </div>
+                        )}
                         {gameLocked && !ownGame && <div className="mk-bet-own lock"><Icon name="lock" size={10} /> APOSTAS TRAVADAS</div>}
                         {/* #4: aviso de cronômetro pro APOSTADOR — última chamada antes de fechar */}
                         {counting && !gameLocked && !ownGame && (
@@ -9813,6 +9842,47 @@ function PlayerProfileModal({ nick, users, cs, bets, teamPlayers, mkDraw, mkScor
           </div>
         )}
         <DetailedStatsCard nick={nick} teamPlayers={teamPlayers} cs={cs} mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} />
+      </div>
+    </div>
+  );
+}
+
+// Perfil SÓ DE APOSTAS de um jogador (clicou no ranking de apostas).
+function BetProfileModal({ nick, users, bets, cs, teamPlayers, onClose }) {
+  if (!nick) return null;
+  const u = (users || {})[nick] || {};
+  const s = betProfileStats(nick, bets);
+  const betKing = betKingChamps(nick, cs, bets || []);
+  const sign = (v) => (v > 0 ? '+' : '') + (v || 0).toLocaleString('pt-BR');
+  return (
+    <div className="mj-modal-backdrop" onClick={onClose}>
+      <div className="mj-modal pp-modal" onClick={e => e.stopPropagation()}>
+        <button className="mj-modal-close" type="button" aria-label="Fechar" onClick={onClose}><Icon name="x" size={18} /></button>
+        <div className="pp-head">
+          <Avatar nick={nick} teamPlayers={teamPlayers} size={58} noBadge />
+          <div className="pp-head-info">
+            <div className="pp-name">{nick}</div>
+            <RepBadge user={u} />
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-head"><div className="title"><Icon name="ticket" size={15} /> PERFIL DE APOSTAS</div><div className="sub">{s.total} APOSTAS</div></div>
+          <div className="card-body">
+            <div className="dstats-grid">
+              <StatTile label="LUCRO" value={sign(s.lucro) + ' PC'} hl />
+              <StatTile label="APROVEITAMENTO" value={s.winRate + '%'} />
+              <StatTile label="VITÓRIAS / DERROTAS" value={s.won + ' / ' + s.lost} />
+              <StatTile label="ABERTAS" value={s.pend} />
+              <StatTile label="TOTAL APOSTADO" value={s.wagered.toLocaleString('pt-BR') + ' PC'} />
+              <StatTile label="MAIOR GANHO" value={'+' + s.biggest.toLocaleString('pt-BR')} />
+              <StatTile label="MELHOR SEQ. V" value={s.bestStreak} hl />
+              <StatTile label="CÓPIAS FEITAS" value={s.copies} />
+            </div>
+            {betKing.length > 0 && (
+              <div className="bp-king"><Icon name="tr-betking" size={22} /> REI DAS APOSTAS{betKing.length > 1 ? ' · ' + betKing.length : ''}</div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -11086,7 +11156,7 @@ function compactPC(n) {
   return s + units[i];
 }
 
-function RankingView({ users, bets, me, teamPlayers, cs, lockChamp, compact }) {
+function RankingView({ users, bets, me, teamPlayers, cs, lockChamp, compact, onOpenBetProfile }) {
   const withBets = new Set((bets || []).map(b => b.champId || 'fifa'));
   const champList = CHAMPIONSHIPS
     .filter(c => c.status === 'active' || withBets.has(c.id))
@@ -11126,11 +11196,14 @@ function RankingView({ users, bets, me, teamPlayers, cs, lockChamp, compact }) {
               const u = users[r.nick] || {};
               const rei = i === 0 && (r.lucro > 0 || r.vit > 0);
               return (
-                <div key={r.nick} className={'lb-row rank-row' + (r.nick === me ? ' me' : '') + (rei ? ' rei' : '')} style={{ gridTemplateColumns: '34px 42px 1fr auto', gap: 10 }}>
+                <div key={r.nick} role={onOpenBetProfile ? 'button' : undefined} tabIndex={onOpenBetProfile ? 0 : undefined}
+                  onClick={onOpenBetProfile ? () => onOpenBetProfile(r.nick) : undefined}
+                  title={onOpenBetProfile ? 'Ver perfil de apostas de ' + r.nick : undefined}
+                  className={'lb-row rank-row' + (r.nick === me ? ' me' : '') + (rei ? ' rei' : '') + (onOpenBetProfile ? ' rank-row--click' : '')} style={{ gridTemplateColumns: '34px 42px 1fr auto', gap: 10 }}>
                   <div className="lb-pos">{rei ? <Icon name="tr-betking" size={20} /> : i + 1}</div>
                   <Avatar nick={r.nick} teamPlayers={teamPlayers} cosmetics={u.cosmetics || {}} size={compact ? 36 : 42} />
                   <div style={{ minWidth: 0 }}>
-                    <div className="lb-nick">@{r.nick}{r.nick === me && <span className="lb-you">VOCÊ</span>}{u.title && <TitleBadge titleId={u.title} />}{rei && <span className="rank-rei-tag">REI</span>}</div>
+                    <div className="lb-nick">{r.nick}{r.nick === me && <span className="lb-you">VOCÊ</span>}{u.title && <TitleBadge titleId={u.title} />}{rei && <span className="rank-rei-tag">REI</span>}</div>
                     <div className="rank-row-stats">{r.apostas} apostas · <span style={{ color: 'var(--pv-green)' }}>{r.vit}V</span> · <span style={{ color: 'var(--pv-red)' }}>{r.der}D</span>{r.pend ? ' · ' + r.pend + ' aberta' + (r.pend > 1 ? 's' : '') : ''}</div>
                   </div>
                   <div className="rank-lucro" title={(r.lucro > 0 ? '+' : '') + r.lucro.toLocaleString('pt-BR') + ' PC'} style={{ color: r.lucro > 0 ? 'var(--pv-green)' : r.lucro < 0 ? 'var(--pv-red)' : 'rgba(28,22,18,0.45)' }}>
