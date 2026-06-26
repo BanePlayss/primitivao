@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-foil ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-tickets ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4446,7 +4446,7 @@ function App() {
               />
             )}
             {view === 'tickets' && (
-              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} teamPlayers={teamPlayers || {}} onCancel={cancelBet} onPublish={publishTicket} onUnpublish={unpublishTicket} onGoApostas={() => setView('apostas')} />
+              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} mkLineups={mkLineups} teamPlayers={teamPlayers || {}} onCancel={cancelBet} onPublish={publishTicket} onUnpublish={unpublishTicket} onGoApostas={() => setView('apostas')} />
             )}
             {view === 'ranking' && (
               <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} cs={cs} />
@@ -7384,7 +7384,8 @@ function RepBadge({ user, sm }) {
   const score = repScoreOf(user);
   const lv = repLevel(score);
   return (
-    <span className={'rep-badge' + (sm ? ' sm' : '')} style={{ '--rep-c': lv.color, color: lv.color, borderColor: lv.color }} title={'Reputação de cartola: ' + score}>
+    <span className={'rep-badge' + (sm ? ' sm' : '')} style={{ '--rep-c': lv.color, color: lv.color, borderColor: lv.color }}
+      title={'REPUTAÇÃO DE CARTOLA — ' + lv.name + ' (' + score + ')\nSua fama como palpiteiro. Sobe quando alguém COPIA seu cupom público e GANHA; cai se o seguidor perder.\nPublique bons cupons na MESA DOS CARTOLAS pra evoluir: NOVATO → PALPITEIRO → CARTOLA → CARTOLA OURO → ORÁCULO.'}>
       <Icon name={lv.icon} size={sm ? 10 : 12} /> {lv.name} <b>{score}</b>
     </span>
   );
@@ -7443,30 +7444,6 @@ function OpenTicketsFeed({ bets, users, teamPlayers, myNick, champId, balance, o
     <div className="card mesa-card-wrap">
       <div className="card-head"><div className="title"><Icon name="cards" size={16} /> MESA DOS CARTOLAS</div><div className="sub">{open.length} TICKET{open.length === 1 ? '' : 'S'} ABERTO{open.length === 1 ? '' : 'S'} · COPIE COM 10% DE CASHBACK</div></div>
       <div className="card-body">
-        {(() => {
-          // Pódio dos melhores cartolas por reputação (só quem já tem reputação).
-          const top = Object.entries(users || {})
-            .map(([nick, u]) => ({ nick, u, score: repScoreOf(u) }))
-            .filter(x => x.score > 0)
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 3);
-          if (!top.length) return null;
-          return (
-            <div className="cartola-podium">
-              <div className="cartola-podium-h"><Icon name="crown" size={13} /> MELHORES CARTOLAS</div>
-              <div className="cartola-podium-row">
-                {top.map((x, i) => (
-                  <div key={x.nick} className={'cartola-pod' + (i === 0 ? ' first' : '')}>
-                    <span className="cartola-pod-rank">{i + 1}</span>
-                    <Avatar nick={x.nick} teamPlayers={teamPlayers} size={i === 0 ? 40 : 32} noBadge />
-                    <span className="cartola-pod-nick">@{x.nick}</span>
-                    <RepBadge user={x.u} sm />
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
         <div className="mesa-grid">
           {open.map(t => (
             <OpenTicketCard key={t.id} t={t} owner={t.user} ownerUser={(users || {})[t.user]}
@@ -7518,17 +7495,8 @@ function TicketsMini({ bets, limit = 6, onOpen }) {
   );
 }
 
-function TicketsView({ bets, gamesById, cs, mkScores, teamPlayers, onCancel, onPublish, onUnpublish, limit, title, onGoApostas }) {
-  if (bets.length === 0) {
-    return <div className="card"><div className="card-head"><div className="title">{title || 'MEUS TICKETS'}</div></div><div className="card-body"><div className="empty">
-      <div className="e1">SEM TICKETS</div><div className="e2">Você ainda não apostou aqui.</div>
-      {onGoApostas && (
-        <button type="button" className="empty-cta" onClick={onGoApostas}>
-          <Icon name="ticket" size={14} /> IR PRAS APOSTAS
-        </button>
-      )}
-    </div></div></div>;
-  }
+function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, teamPlayers, onCancel, onPublish, onUnpublish, limit, title, onGoApostas }) {
+  const [showOld, setShowOld] = useState(false);
   // "22/05 14:32" — quando o ticket foi feito (auditoria pessoal).
   const fmtWhen = (ts) => {
     if (!ts) return null;
@@ -7546,89 +7514,121 @@ function TicketsView({ bets, gamesById, cs, mkScores, teamPlayers, onCancel, onP
     const g = rounds[p.ri]?.[p.gi];
     return g ? { ...g, id: fixtureId } : null;
   };
+  // Rótulo de rodada do ticket (MK traz roundN/phase; FIFA tira do jogo da 1ª perna).
+  const roundOf = (t) => {
+    if (t.roundN != null) return 'RODADA ' + String(t.roundN).padStart(2, '0') + (t.phase ? ' · ' + t.phase : '');
+    for (const l of (t.legs || [])) { const g = resolveGame(l.fixtureId); if (g && g.round != null) return 'RODADA ' + String(g.round).padStart(2, '0'); }
+    return null;
+  };
+  if (bets.length === 0) {
+    return <div className="card"><div className="card-head"><div className="title">{title || 'MEUS TICKETS'}</div></div><div className="card-body"><div className="empty">
+      <div className="e1">SEM TICKETS</div><div className="e2">Você ainda não apostou aqui.</div>
+      {onGoApostas && (
+        <button type="button" className="empty-cta" onClick={onGoApostas}>
+          <Icon name="ticket" size={14} /> IR PRAS APOSTAS
+        </button>
+      )}
+    </div></div></div>;
+  }
   const sortedAll = [...bets].sort((a, b) => b.createdAt - a.createdAt);
   const sorted = limit ? sortedAll.slice(0, limit) : sortedAll;
+  const renderTicket = (t) => {
+    const cls = t.status === 'won' ? 'ticket won' : t.status === 'lost' ? 'ticket lost' : 'ticket';
+    // Cancelar bloqueado se: já tem perna liquidada OU algum jogo do cupom foi
+    // travado (impede saída esperta antes da bola rolar).
+    const hasSettled = t.legs.some(l => !!l.result);
+    const hasLocked = t.legs.some(l => {
+      if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) return mkGameClosed((mkScores || {})[l.fixtureId.slice(3)]);
+      const g = resolveGame(l.fixtureId);
+      return !!(g && g.locked);
+    });
+    const blocked = hasSettled || hasLocked;
+    const multi = t.legs.length > 1;
+    const isCopy = !!t.copyOf;
+    const copies = (t.openMeta && t.openMeta.copies) || 0;
+    const rl = roundOf(t);
+    const when = fmtWhen(t.createdAt);
+    return (
+      <div key={t.id} className={cls + (isCopy ? ' ticket--copy' : t.open ? ' ticket--mine' : '')} style={{ gridTemplateColumns: '1fr auto' }}>
+        <div>
+          <div className="tk-head">
+            {isCopy
+              ? <span className="tk-chip copy"><Icon name="cards" size={10} /> CÓPIA DE @{t.copyOwner}</span>
+              : t.open
+                ? <span className="tk-chip mine"><Icon name="star" size={10} /> SEU · NA MESA · {copies} cópia{copies === 1 ? '' : 's'}</span>
+                : <span className="tk-chip mine"><Icon name="user" size={10} /> SEU CUPOM</span>}
+            {rl && <span className="tk-chip round"><Icon name="flag" size={9} /> {rl}</span>}
+            <span className="tk-chip soft">{multi ? 'CASADA ' + t.legs.length : 'SIMPLES'} · @{Number(t.combinedOdds).toFixed(2)}</span>
+            {when && <span className="tk-when">{when}</span>}
+          </div>
+          <div className="pick">
+            {t.legs.map((l, i) => {
+              const isMk = typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0;
+              const f = isMk ? null : resolveGame(l.fixtureId);
+              const lg = { ...l, _fix: f };
+              const iconName = l.result === 'win' ? 'check' : l.result === 'lose' ? 'x' : null;
+              const iconColor = l.result === 'win' ? '#3a7d2a' : l.result === 'lose' ? '#c33' : 'rgba(28,22,18,0.5)';
+              const lu = isMk ? (mkLineups || {})[l.fixtureId.slice(3)] : null;
+              const label = isMk
+                ? '@' + l.home + ' × @' + l.away + ' · ' + (MK_MARKET_TITLE[l.market] || l.market) + ' ' + mkPickLabel(l.market, l.pick)
+                : (f ? legLabel(lg, teamPlayers) : '(jogo removido)');
+              return (
+                <div key={i} className="tk-leg">
+                  <div className="tk-leg-main">
+                    {iconName ? <span style={{ color: iconColor, display: 'inline-flex' }}><Icon name={iconName} size={12} /></span> : <span style={{ color: iconColor }}>•</span>}
+                    <span>{label} <span style={{ color: 'var(--pv-orange)' }}>@{l.odds.toFixed(2)}</span></span>
+                  </div>
+                  {lu && (
+                    <span className="tk-chars">
+                      {['p1', 'p2'].map(p => (lu[p] && lu[p].home) ? <MkCharIcon key={'h' + p} name={lu[p].home} sm /> : null)}
+                      <i className="tk-chars-x">×</i>
+                      {['p1', 'p2'].map(p => (lu[p] && lu[p].away) ? <MkCharIcon key={'a' + p} name={lu[p].away} sm /> : null)}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className={'status ' + t.status}>
+            {t.status === 'pending' ? 'EM ABERTO' : t.status === 'won' ? `VENCEU · +${t.payout} PC` : 'PERDEU'}
+          </div>
+          {isCopy && t.cashback ? <div className="tk-sub"><Icon name="shield" size={10} /> seguro de {t.cashback} PC se perder</div> : null}
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div className="stake">{t.amount} <span style={{ fontSize: 10, fontFamily: 'Space Grotesk', letterSpacing: '0.2em' }}>PC</span></div>
+          {t.status === 'pending' && !blocked && (
+            <button onClick={() => onCancel(t.id)} style={{ marginTop: 8, padding: '6px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.18em', background: 'transparent', border: '1.5px solid var(--pv-charcoal)' }}>CANCELAR</button>
+          )}
+          {t.status === 'pending' && !blocked && !t.copyOf && (onPublish || onUnpublish) && (
+            <button onClick={() => t.open ? (onUnpublish && onUnpublish(t.id)) : (onPublish && onPublish(t.id))} style={{ marginTop: 8, marginLeft: 6, padding: '6px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', background: t.open ? 'transparent' : 'var(--pv-orange)', color: t.open ? 'var(--pv-charcoal)' : 'var(--pv-bone)', border: '1.5px solid var(--pv-orange)', cursor: 'pointer' }}>{t.open ? 'TIRAR DA MESA' : 'TORNAR PÚBLICO'}</button>
+          )}
+          {t.status === 'pending' && hasLocked && !hasSettled && (
+            <div style={{ marginTop: 8, fontSize: 9, letterSpacing: '0.16em', fontWeight: 800, color: '#c33', lineHeight: 1.3, maxWidth: 110, display: 'inline-flex', alignItems: 'flex-start', gap: 4 }}>
+              <Icon name="lock" size={10} /> <span>JOGO TRAVADO<br />NÃO DÁ PRA CANCELAR</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+  const active = sorted.filter(t => t.status === 'pending');
+  const old = sorted.filter(t => t.status !== 'pending');
   return (
     <div className="card">
-      <div className="card-head"><div className="title">{title || 'MEUS TICKETS'}</div><div className="sub">{limit ? `${sorted.length} DE ${bets.length}` : `${bets.length} TOTAL`}</div></div>
+      <div className="card-head"><div className="title">{title || 'MEUS TICKETS'}</div><div className="sub">{limit ? `${sorted.length} DE ${bets.length}` : `${active.length} EM ABERTO · ${bets.length} TOTAL`}</div></div>
       <div className="card-body">
-        {sorted.map(t => {
-          const cls = t.status === 'won' ? 'ticket won' : t.status === 'lost' ? 'ticket lost' : 'ticket';
-          // Cancelar bloqueado se: já tem perna liquidada OU algum jogo do
-          // cupom foi travado pelo admin (impede saída esperta antes da
-          // bola rolar).
-          const hasSettled = t.legs.some(l => !!l.result);
-          const hasLocked  = t.legs.some(l => {
-            if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) {
-              return mkGameClosed((mkScores || {})[l.fixtureId.slice(3)]);
-            }
-            const g = resolveGame(l.fixtureId);
-            return !!(g && g.locked);
-          });
-          const blocked = hasSettled || hasLocked;
-          const multi = t.legs.length > 1;
-          return (
-            <div key={t.id} className={cls} style={{ gridTemplateColumns: '1fr auto' }}>
-              <div>
-                <div className="pick">
-                  <small>{multi ? `CASADA · ${t.legs.length} PALPITES` : 'SIMPLES'} · @ {Number(t.combinedOdds).toFixed(2)}{t.createdAt ? ` · ${fmtWhen(t.createdAt)}` : ''}</small>
-                  {t.legs.map((l, i) => {
-                    const isMk = typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0;
-                    const f = isMk ? null : resolveGame(l.fixtureId);
-                    const lg = { ...l, _fix: f };
-                    const iconName = l.result === 'win' ? 'check' : l.result === 'lose' ? 'x' : null;
-                    const iconColor = l.result === 'win' ? '#3a7d2a' : l.result === 'lose' ? '#c33' : 'rgba(28,22,18,0.5)';
-                    const label = isMk
-                      ? 'MK · @' + l.home + '×@' + l.away + ': ' + (MK_MARKET_TITLE[l.market] || l.market) + ' ' + mkPickLabel(l.market, l.pick)
-                      : (f ? legLabel(lg, teamPlayers) : '(jogo removido)');
-                    return <div key={i} style={{ fontWeight: 700, fontSize: 13, marginTop: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
-                      {iconName ? <span style={{ color: iconColor, display: 'inline-flex' }}><Icon name={iconName} size={12} /></span> : <span style={{ color: iconColor }}>•</span>}
-                      <span>{label} <span style={{ color: 'var(--pv-orange)' }}>@{l.odds.toFixed(2)}</span></span>
-                    </div>;
-                  })}
-                </div>
-                <div className={'status ' + t.status}>
-                  {t.status === 'pending' ? 'EM ABERTO' : t.status === 'won' ? `VENCEU · +${t.payout} PC` : 'PERDEU'}
-                </div>
-                {t.copyOf && (
-                  <div style={{ marginTop: 4, fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--pv-orange)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <Icon name="cards" size={11} /> CÓPIA DE @{t.copyOwner}{t.cashback ? ' · cashback +' + t.cashback : ''}
-                  </div>
-                )}
-                {t.open && !t.copyOf && (
-                  <div style={{ marginTop: 4, fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--pv-orange)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <Icon name="cards" size={11} /> NA MESA · {(t.openMeta && t.openMeta.copies) || 0} cópia{((t.openMeta && t.openMeta.copies) || 0) === 1 ? '' : 's'}
-                  </div>
-                )}
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div className="stake">{t.amount} <span style={{ fontSize: 10, fontFamily: 'Space Grotesk', letterSpacing: '0.2em' }}>PC</span></div>
-                {t.status === 'pending' && !blocked && (
-                  <button onClick={() => onCancel(t.id)} style={{
-                    marginTop: 8, padding: '6px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.18em',
-                    background: 'transparent', border: '1.5px solid var(--pv-charcoal)',
-                  }}>CANCELAR</button>
-                )}
-                {t.status === 'pending' && !blocked && !t.copyOf && (onPublish || onUnpublish) && (
-                  <button onClick={() => t.open ? (onUnpublish && onUnpublish(t.id)) : (onPublish && onPublish(t.id))} style={{
-                    marginTop: 8, marginLeft: 6, padding: '6px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
-                    background: t.open ? 'transparent' : 'var(--pv-orange)', color: t.open ? 'var(--pv-charcoal)' : 'var(--pv-bone)',
-                    border: '1.5px solid var(--pv-orange)', cursor: 'pointer',
-                  }}>{t.open ? 'TIRAR DA MESA' : 'TORNAR PÚBLICO'}</button>
-                )}
-                {t.status === 'pending' && hasLocked && !hasSettled && (
-                  <div style={{
-                    marginTop: 8, fontSize: 9, letterSpacing: '0.16em', fontWeight: 800,
-                    color: '#c33', lineHeight: 1.3, maxWidth: 110,
-                    display: 'inline-flex', alignItems: 'flex-start', gap: 4,
-                  }}>
-                    <Icon name="lock" size={10} /> <span>JOGO TRAVADO<br />NÃO DÁ PRA CANCELAR</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {limit ? sorted.map(renderTicket) : (
+          <>
+            {active.length === 0 && <div className="tk-none">Nenhum ticket em aberto agora.</div>}
+            {active.map(renderTicket)}
+            {old.length > 0 && (
+              <button type="button" className="tk-old-toggle" onClick={() => setShowOld(s => !s)}>
+                <Icon name={showOld ? 'caret-up' : 'caret-down'} size={12} /> {showOld ? 'OCULTAR ANTIGOS' : 'VER TICKETS ANTIGOS (' + old.length + ')'}
+              </button>
+            )}
+            {showOld && old.map(renderTicket)}
+          </>
+        )}
       </div>
     </div>
   );
