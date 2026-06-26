@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-m8c-bracket ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-gorjeta-odd ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -934,16 +934,17 @@ const REP_LEVELS = [
 ];
 function repLevel(score) { let lv = REP_LEVELS[0]; for (const l of REP_LEVELS) if ((score || 0) >= l.min) lv = l; return lv; }
 function repScoreOf(user) { return Math.max(0, Math.round(((user && user.rep && user.rep.score) || 0))); }
-// Tier visual do BILHETE pela reputação do autor: alta = holográfico (CARTOLA+),
-// baixa = rasgado (histórico ruim: mais seguidores perderam que ganharam),
-// média = cupom normal (padrão, inclusive novato sem histórico).
-function repTier(user) {
-  const score = repScoreOf(user);
-  if (score >= 150) return 'high';
-  const r = (user && user.rep) || {};
-  if ((r.followersLost || 0) > (r.followersWon || 0) && (r.followersLost || 0) >= 2) return 'low';
-  return 'mid';
+// Tier visual do BILHETE pela ODD do cupom: odd alta = holográfico (call ousada/
+// rara), média = normal, baixa = rasgado (ticket "seguro"/baixo). Soma das pernas.
+function oddTier(odds) {
+  const o = Number(odds) || 0;
+  if (o >= 4) return 'high';
+  if (o >= 2) return 'mid';
+  return 'low';
 }
+// Gorjeta do Cartola: % do LUCRO do seguidor que vai pro autor da dica quando a
+// cópia vence. Quanto mais gente copia e ganha, mais o cartola fatura.
+const TIP_COMMISSION = 0.05;
 // Delta de reputação do DONO por cópia resolvida. Peso pelo stake do seguidor
 // (cap em 100 PC pra não dar pra inflar) + assimetria (perda pesa 1.3x).
 function repDeltaForCopy(copy, won) {
@@ -3103,10 +3104,13 @@ function App() {
                 if (!(rep.graded && rep.graded[b.id])) {
                   const repWon = newStatus === 'won';
                   const delta = repDeltaForCopy(b, repWon);
-                  newUsers[b.copyOwner] = { ...ow, rep: {
+                  // Gorjeta do Cartola: 5% do LUCRO do seguidor vai pro autor (só na vitória).
+                  const tip = repWon ? Math.max(0, Math.round(((newPayout || 0) - (b.amount || 0)) * TIP_COMMISSION)) : 0;
+                  newUsers[b.copyOwner] = { ...ow, pc: (ow.pc || 0) + tip, rep: {
                     score: Math.max(0, (rep.score || 0) + delta),
                     followersWon: (rep.followersWon || 0) + (repWon ? 1 : 0),
                     followersLost: (rep.followersLost || 0) + (repWon ? 0 : 1),
+                    tips: (rep.tips || 0) + tip,
                     graded: { ...(rep.graded || {}), [b.id]: 1 },
                   } };
                 }
@@ -3190,10 +3194,13 @@ function App() {
                 if (!(rep.graded && rep.graded[b.id])) {
                   const repWon = newStatus === 'won';
                   const delta = repDeltaForCopy(b, repWon);
-                  newUsers[b.copyOwner] = { ...ow, rep: {
+                  // Gorjeta do Cartola: 5% do LUCRO do seguidor vai pro autor (só na vitória).
+                  const tip = repWon ? Math.max(0, Math.round(((newPayout || 0) - (b.amount || 0)) * TIP_COMMISSION)) : 0;
+                  newUsers[b.copyOwner] = { ...ow, pc: (ow.pc || 0) + tip, rep: {
                     score: Math.max(0, (rep.score || 0) + delta),
                     followersWon: (rep.followersWon || 0) + (repWon ? 1 : 0),
                     followersLost: (rep.followersLost || 0) + (repWon ? 0 : 1),
+                    tips: (rep.tips || 0) + tip,
                     graded: { ...(rep.graded || {}), [b.id]: 1 },
                   } };
                 }
@@ -7375,11 +7382,11 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwn
   const cost = (amt || 0) - cashback;
   const nLegs = (t.legs || []).length;
   const doCopy = async () => { if (busy) return; setBusy(true); try { await onCopy(t.id, amt); } finally { setBusy(false); } };
-  // Bilhete muda pela reputação do autor: alta = holográfico, baixa = rasgado.
-  const tier = repTier(ownerUser);
+  // Bilhete muda pela ODD do cupom: odd alta = holográfico, baixa = rasgado.
+  const tier = oddTier(t.combinedOdds);
   return (
     <div className={'mesa-card mesa-card--' + tier}>
-      {tier === 'high' && <span className="mesa-holo-tag"><Icon name="sparkle" size={10} /> HOLOGRÁFICO</span>}
+      {tier === 'high' && <span className="mesa-holo-tag"><Icon name="sparkle" size={10} /> ODD ALTA</span>}
       <div className="mesa-card-h">
         <Avatar nick={owner} teamPlayers={teamPlayers} size={34} noBadge />
         <div className="mesa-card-who">
@@ -7393,7 +7400,10 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwn
         <span className="mesa-card-copies" title="cópias"><Icon name="user" size={10} /> {copies}</span>
       </div>
       {isOwner ? (
-        <div className="mesa-card-tag own"><Icon name="star" size={11} /> SEU TICKET · {copies} seguidor{copies === 1 ? '' : 'es'}</div>
+        <>
+          <div className="mesa-card-tag own"><Icon name="star" size={11} /> SEU TICKET · {copies} seguidor{copies === 1 ? '' : 'es'}</div>
+          <div className="mesa-tip-note"><Icon name="coin-fire" size={11} /> GORJETA: você fatura 5% do lucro de cada seguidor que acertar</div>
+        </>
       ) : alreadyCopied ? (
         <div className="mesa-card-tag done"><Icon name="check" size={11} /> JÁ NA SUA BANCA</div>
       ) : (
