@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-escalar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-confirmar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -8789,7 +8789,9 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
                                 );
                               })}
                               {filled === 4
-                                ? <div className="mk-fc-ready"><Icon name="skull" size={13} /> ESCALAÇÃO PRONTA — FIGHT!</div>
+                                ? <button type="button" className="mk-fc-confirm" onClick={() => { setCollapsed(c => ({ ...c, [mg.key]: true })); showToast('Escalação confirmada — FIGHT!', 'success'); }}>
+                                    <Icon name="check" size={14} /> CONFIRMAR ESCALAÇÃO
+                                  </button>
                                 : <div className="mk-fc-todo">Escala os 2 lados das 2 partidas · <strong>{filled}/4</strong></div>}
                             </div>
                           </div>
