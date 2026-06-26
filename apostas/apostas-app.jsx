@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-profile ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-escalar ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -8496,7 +8496,7 @@ function MkCharIcon({ name, sm }) {
 function MkFighterPick({ nick, chars, cur, taken, onPick, teamPlayers }) {
   return (
     <div className="mk-fc-side">
-      <div className="mk-fc-nick"><Avatar nick={nick} teamPlayers={teamPlayers} size={18} noBadge /> @{nick}</div>
+      <div className="mk-fc-nick"><Avatar nick={nick} teamPlayers={teamPlayers} size={20} noBadge /> {nick}</div>
       {chars.length === 0 ? (
         <div className="mk-fc-noelenco">sem elenco</div>
       ) : (
@@ -8523,7 +8523,7 @@ function MkFighterPick({ nick, chars, cur, taken, onPick, teamPlayers }) {
 function MkFighterShow({ nick, char, teamPlayers }) {
   return (
     <div className="mk-fc-side ro">
-      <div className="mk-fc-nick"><Avatar nick={nick} teamPlayers={teamPlayers} size={18} noBadge /> @{nick}</div>
+      <div className="mk-fc-nick"><Avatar nick={nick} teamPlayers={teamPlayers} size={20} noBadge /> {nick}</div>
       {char ? (
         <div className="mk-fc-chosen">
           <MkCharIcon name={char} />
@@ -8758,9 +8758,9 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
                             <span className={'mk-jogo-chev' + (open ? ' open' : '')}><Icon name="chevron-right" size={14} /></span>
                           </span>
                           <span className="mk-jogo-vs">
-                            <span className="mk-jogo-vs-side"><Avatar nick={target} teamPlayers={teamPlayers} size={22} noBadge /> @{target}</span>
+                            <span className="mk-jogo-vs-side"><Avatar nick={target} teamPlayers={teamPlayers} size={24} noBadge /> {target}</span>
                             <span className="mk-jogo-vs-x">×</span>
-                            <span className="mk-jogo-vs-side opp">@{opp} <Avatar nick={opp} teamPlayers={teamPlayers} size={22} noBadge /></span>
+                            <span className="mk-jogo-vs-side opp">{opp} <Avatar nick={opp} teamPlayers={teamPlayers} size={24} noBadge /></span>
                           </span>
                         </button>
 
