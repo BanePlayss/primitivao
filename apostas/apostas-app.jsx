@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-rep-bilhetes ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-m8c-bracket ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1655,6 +1655,56 @@ function generateBracket(seedOrder, opts) {
 function seedFromStandings(standings, n) {
   return (standings || []).slice(0, n).map(s => s.id || s.nick).filter(Boolean);
 }
+// Resolve o chaveamento: pra cada match calcula home/away (nick), placar agregado,
+// vencedor/perdedor e se precisa de pênaltis. Processa rodada a rodada (winner de
+// uma alimenta a próxima). Bye = o outro lado avança sem jogar.
+function resolveBracket(bracket) {
+  const info = {};
+  if (!bracket || !Array.isArray(bracket.rounds)) return info;
+  const seedOrder = bracket.seedOrder || [];
+  const resolveSlot = (slot) => {
+    if (!slot) return null;
+    if (slot.kind === 'bye') return null;
+    if (slot.kind === 'seed') return seedOrder[slot.ref - 1] || null;
+    if (slot.kind === 'winner') return info[slot.ref] ? info[slot.ref].winner : null;
+    if (slot.kind === 'loser') return info[slot.ref] ? info[slot.ref].loser : null;
+    return null;
+  };
+  const compute = (m) => {
+    const homeBye = !!(m.home && m.home.kind === 'bye');
+    const awayBye = !!(m.away && m.away.kind === 'bye');
+    const home = resolveSlot(m.home), away = resolveSlot(m.away);
+    let winner = null, loser = null, aggH = 0, aggA = 0, played = false, needsPen = false;
+    if (homeBye && !awayBye && away) { winner = away; played = true; }
+    else if (awayBye && !homeBye && home) { winner = home; played = true; }
+    else if (home && away) {
+      let allFilled = (m.legs || []).length > 0;
+      (m.legs || []).forEach(l => {
+        const gh = parseInt(l.gh, 10), ga = parseInt(l.ga, 10);
+        if (Number.isNaN(gh) || Number.isNaN(ga)) allFilled = false; else { aggH += gh; aggA += ga; }
+      });
+      if (allFilled) {
+        if (aggH > aggA) { winner = home; loser = away; played = true; }
+        else if (aggA > aggH) { winner = away; loser = home; played = true; }
+        else {
+          const ph = m.pen ? parseInt(m.pen.h, 10) : NaN, pa = m.pen ? parseInt(m.pen.a, 10) : NaN;
+          if (!Number.isNaN(ph) && !Number.isNaN(pa) && ph !== pa) { winner = ph > pa ? home : away; loser = ph > pa ? away : home; played = true; }
+          else needsPen = true;
+        }
+      }
+    }
+    info[m.id] = { home, away, winner, loser, aggH, aggA, played, needsPen, homeBye, awayBye };
+  };
+  bracket.rounds.forEach(rd => (rd.matches || []).forEach(compute));
+  if (bracket.thirdPlace) compute(bracket.thirdPlace);
+  return info;
+}
+function bracketChampion(bracket, info) {
+  const rounds = bracket && bracket.rounds;
+  if (!rounds || !rounds.length) return null;
+  const finalM = rounds[rounds.length - 1].matches[0];
+  return finalM && info[finalM.id] ? info[finalM.id].winner : null;
+}
 
 function computeStandings(rounds) {
   // Dinâmico: cria o registro a partir das CHAVES dos jogos (home/away). Assim
@@ -2609,6 +2659,25 @@ function App() {
     if (!c || !c.league || !Array.isArray(c.league.rounds)) return undefined;
     const rounds = c.league.rounds.map((r, i) => i !== ri ? r : r.map((m, j) => j === gi ? { ...m, ...patch } : m));
     return { ...c, league: { ...c.league, rounds } };
+  });
+  // M8c: lança placar de um jogo do mata-mata (legs/pênaltis) por id do match.
+  const setChampMatch = (champId, matchId, patch) => persistChamp(champId, (c) => {
+    if (!c || !c.bracket) return undefined;
+    const upd = (m) => m.id === matchId ? { ...m, ...patch } : m;
+    const rounds = (c.bracket.rounds || []).map(rd => ({ ...rd, matches: (rd.matches || []).map(upd) }));
+    const thirdPlace = c.bracket.thirdPlace ? upd(c.bracket.thirdPlace) : null;
+    return { ...c, bracket: { ...c.bracket, rounds, thirdPlace } };
+  });
+  // M8c: gera o mata-mata do CLÁSSICO+MATA-MATA a partir da classificação da liga.
+  const generateChampKnockout = async (champId) => persistChamp(champId, (c) => {
+    if (!c || c.format !== 'LEAGUE_KO' || !c.league || c.bracket) return undefined;
+    const standings = computeStandings(c.league.rounds);
+    const cfg = c.config || {};
+    const n = Math.min((cfg.koQualifiers || 8), standings.length);
+    const seeds = seedFromStandings(standings, n);
+    const bracket = generateBracket(seeds, { koLegs: cfg.koLegs, thirdPlace: cfg.thirdPlace });
+    if (!bracket) return undefined;
+    return { ...c, bracket };
   });
   const deleteChampionship = async (champId) => {
     if (!(await confirmModal({ title: 'APAGAR CAMPEONATO?', body: 'Remove o campeonato e seus jogos. Não dá pra desfazer.', confirmLabel: 'APAGAR', danger: true }))) return;
@@ -4394,7 +4463,9 @@ function App() {
                 {/* M8b: criar/gerir campeonatos lançados (liga round-robin + placar). */}
                 <ChampAdminPanel champs={champs} users={users} interests={interests || {}}
                                  isFullAdmin={isAdmin} teamPlayers={teamPlayers || {}}
-                                 onCreate={createChampionship} onScore={setChampScore} onDelete={deleteChampionship} />
+                                 onCreate={createChampionship} onScore={setChampScore}
+                                 onMatchScore={setChampMatch} onGenKnockout={generateChampKnockout}
+                                 onDelete={deleteChampionship} />
                 {/* TODAS as funções de admin agora vivem aqui (aba ADMIN removida). */}
                 <div style={{ height: 18 }} />
                 <AdminView
@@ -13189,11 +13260,81 @@ function CoinAdjuster({ label, value, accent, onApply }) {
 
 // ── ABA MOD: painel de moderação (Dia Oficial, e futuramente sorteio/placar) ──
 // ── M8b: campeonatos lançados (classificação da liga + placar editável) ─────
-function ChampLeagueView({ champ, teamPlayers, editable, onScore }) {
+// M8c: chaveamento do mata-mata. Resolve seeds/byes/vencedores e renderiza colunas
+// por rodada. Mod lança placar (por leg) + pênaltis no empate; o vencedor sobe.
+function ChampBracketView({ bracket, teamPlayers, editable, onMatchScore }) {
+  if (!bracket || !bracket.rounds || !bracket.rounds.length) return null;
+  const info = resolveBracket(bracket);
+  const champion = bracketChampion(bracket, info);
+  const setLeg = (m, li, fld, val) => {
+    const legs = (m.legs || []).map((l, i) => i === li ? { ...l, [fld]: val.replace(/\D/g, '').slice(0, 2) } : l);
+    onMatchScore(m.id, { legs });
+  };
+  const setPen = (m, side, val) => onMatchScore(m.id, { pen: { ...(m.pen || {}), [side]: val.replace(/\D/g, '').slice(0, 2) } });
+  const row = (m, side) => {
+    const inf = info[m.id] || {};
+    const bye = side === 'home' ? inf.homeBye : inf.awayBye;
+    const nick = inf[side];
+    const isWin = !!inf.winner && !!nick && inf.winner === nick;
+    const fld = side === 'home' ? 'gh' : 'ga';
+    return (
+      <div className={'bm-row' + (isWin ? ' win' : '')}>
+        <span className="bm-who">
+          {bye ? <span className="bm-bye">BYE</span>
+            : nick ? <><Avatar nick={nick} teamPlayers={teamPlayers} size={18} noBadge /><span className="bm-nick">@{nick}</span></>
+              : <span className="bm-tbd">a definir</span>}
+        </span>
+        {!bye && nick && (
+          <span className="bm-score">
+            {(m.legs || []).map((l, li) => editable
+              ? <input key={li} className="cscore-in xs" value={l[fld] || ''} placeholder="–" inputMode="numeric" onChange={e => setLeg(m, li, fld, e.target.value)} />
+              : <b key={li}>{(l[fld] === '' || l[fld] == null) ? '–' : l[fld]}</b>)}
+          </span>
+        )}
+      </div>
+    );
+  };
+  const matchBox = (m, key) => {
+    const inf = info[m.id] || {};
+    return (
+      <div className={'bm' + (inf.played ? ' done' : '')} key={key}>
+        {row(m, 'home')}
+        {row(m, 'away')}
+        {inf.needsPen && (editable
+          ? <div className="bm-pen"><span className="bm-pen-l">PÊNALTIS</span><input className="cscore-in xs" value={(m.pen && m.pen.h) || ''} inputMode="numeric" onChange={e => setPen(m, 'h', e.target.value)} /><i>×</i><input className="cscore-in xs" value={(m.pen && m.pen.a) || ''} inputMode="numeric" onChange={e => setPen(m, 'a', e.target.value)} /></div>
+          : <div className="bm-pen-need">empate — pênaltis pendentes</div>)}
+      </div>
+    );
+  };
+  return (
+    <div className="champ-bracket">
+      {champion && <div className="bracket-champ"><Icon name="trophy" size={14} /> CAMPEÃO: <b>@{champion}</b></div>}
+      <div className="bracket-cols">
+        {bracket.rounds.map((rd, ri) => (
+          <div className="bracket-col" key={ri}>
+            <div className="bracket-col-h">{rd.name}</div>
+            {(rd.matches || []).map((m, mi) => matchBox(m, mi))}
+          </div>
+        ))}
+        {bracket.thirdPlace && (
+          <div className="bracket-col" key="3p">
+            <div className="bracket-col-h">3º LUGAR</div>
+            {matchBox(bracket.thirdPlace, '3p')}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+function ChampLeagueView({ champ, teamPlayers, editable, onScore, onMatchScore, onGenKnockout }) {
   const rounds = (champ.league && champ.league.rounds) || [];
+  const hasLeague = rounds.length > 0;
   const standings = computeStandings(rounds);
   const [vr, setVr] = useState(0);
   const round = rounds[vr] || [];
+  const leagueComplete = hasLeague && rounds.every(rd => (rd || []).every(m => {
+    const a = parseInt(m.gh, 10), b = parseInt(m.ga, 10); return !Number.isNaN(a) && !Number.isNaN(b);
+  }));
   const fmtLabel = champ.format === 'CUP' ? 'COPA (MATA-MATA)' : champ.format === 'LEAGUE_KO' ? 'LIGA + MATA-MATA' : 'LIGA';
   return (
     <div className="card">
@@ -13202,9 +13343,7 @@ function ChampLeagueView({ champ, teamPlayers, editable, onScore }) {
         <div className="sub">{champ.season} · {fmtLabel}{champ.config && champ.config.doubleRound ? ' · IDA/VOLTA' : ''}</div>
       </div>
       <div className="card-body">
-        {rounds.length === 0 ? (
-          <div className="empty"><div className="e1">MATA-MATA</div><div className="e2">A visualização do chaveamento vem na próxima etapa. Os jogos já estão sorteados.</div></div>
-        ) : (
+        {hasLeague && (
           <>
             <div style={{ overflowX: 'auto' }}>
               <table className="std-table">
@@ -13248,6 +13387,21 @@ function ChampLeagueView({ champ, teamPlayers, editable, onScore }) {
               })}
             </div>
           </>
+        )}
+        {champ.format === 'LEAGUE_KO' && leagueComplete && !champ.bracket && editable && onGenKnockout && (
+          <button type="button" className="btn-primary" style={{ marginTop: 12 }} onClick={() => onGenKnockout(champ.id)}>
+            <Icon name="trophy" size={13} /> GERAR MATA-MATA (TOP {(champ.config && champ.config.koQualifiers) || 8})
+          </button>
+        )}
+        {champ.bracket && (
+          <>
+            <div className="champ-bracket-h"><Icon name="sword" size={13} /> CHAVEAMENTO — MATA-MATA</div>
+            <ChampBracketView bracket={champ.bracket} teamPlayers={teamPlayers} editable={editable}
+              onMatchScore={(mid, patch) => onMatchScore && onMatchScore(champ.id, mid, patch)} />
+          </>
+        )}
+        {!hasLeague && !champ.bracket && (
+          <div className="empty"><div className="e1">SEM JOGOS</div><div className="e2">Campeonato sem fase de liga nem chaveamento ainda.</div></div>
         )}
       </div>
     </div>
@@ -13325,7 +13479,7 @@ function ChampWizard({ users, interests, onCreate }) {
   );
 }
 
-function ChampAdminPanel({ champs, users, interests, isFullAdmin, teamPlayers, onCreate, onScore, onDelete }) {
+function ChampAdminPanel({ champs, users, interests, isFullAdmin, teamPlayers, onCreate, onScore, onMatchScore, onGenKnockout, onDelete }) {
   const list = Object.values(champs || {}).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   return (
     <div>
@@ -13335,7 +13489,7 @@ function ChampAdminPanel({ champs, users, interests, isFullAdmin, teamPlayers, o
         <div className="empty" style={{ marginTop: 12 }}><div className="e1">NENHUM CAMPEONATO</div><div className="e2">{isFullAdmin ? 'Crie o primeiro no formulário acima.' : 'Nenhum campeonato lançado ainda.'}</div></div>
       ) : list.map(c => (
         <div key={c.id} style={{ marginTop: 14 }}>
-          <ChampLeagueView champ={c} teamPlayers={teamPlayers} editable onScore={(ri, gi, patch) => onScore(c.id, ri, gi, patch)} />
+          <ChampLeagueView champ={c} teamPlayers={teamPlayers} editable onScore={(ri, gi, patch) => onScore(c.id, ri, gi, patch)} onMatchScore={onMatchScore} onGenKnockout={onGenKnockout} />
           {isFullAdmin && <button type="button" className="btn-danger" style={{ marginTop: 8 }} onClick={() => onDelete(c.id)}><Icon name="trash" size={13} /> APAGAR "{c.name}"</button>}
         </div>
       ))}

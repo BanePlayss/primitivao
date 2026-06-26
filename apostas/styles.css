@@ -4245,6 +4245,30 @@
     .champ-launched-h { font-family: 'Anton', Impact, sans-serif; font-size: 18px; letter-spacing: 0.04em; color: var(--pv-charcoal); display: flex; align-items: center; gap: 8px; margin-bottom: 10px; border-top: 2px solid rgba(28,22,18,0.12); padding-top: 16px; }
     .champ-launched .card { margin-bottom: 14px; }
 
+    /* ── M8c: chaveamento (bracket) do mata-mata ── */
+    .champ-bracket-h { margin-top: 16px; font-size: 10px; font-weight: 800; letter-spacing: 0.16em; color: var(--pv-orange); display: flex; align-items: center; gap: 6px; border-top: 1px solid rgba(28,22,18,0.12); padding-top: 12px; }
+    .bracket-champ { margin: 10px 0; padding: 8px 12px; background: rgba(217,165,33,0.12); border: 1.5px solid #d9a521; font-weight: 800; font-size: 13px; letter-spacing: 0.04em; display: flex; align-items: center; gap: 8px; color: var(--pv-charcoal); }
+    .bracket-champ b { color: #b8860b; }
+    .bracket-cols { display: flex; gap: 14px; overflow-x: auto; padding: 10px 2px 4px; align-items: flex-start; }
+    .bracket-col { display: flex; flex-direction: column; gap: 12px; min-width: 158px; flex: 0 0 auto; justify-content: space-around; }
+    .bracket-col-h { font-size: 9px; font-weight: 800; letter-spacing: 0.14em; color: rgba(28,22,18,0.5); text-align: center; }
+    .bm { border: 1.5px solid rgba(28,22,18,0.16); background: rgba(28,22,18,0.02); display: flex; flex-direction: column; }
+    .bm.done { border-color: rgba(215,100,20,0.4); }
+    .bm-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 8px; }
+    .bm-row + .bm-row { border-top: 1px dashed rgba(28,22,18,0.14); }
+    .bm-row.win { background: rgba(215,100,20,0.1); }
+    .bm-row.win .bm-nick { font-weight: 800; color: var(--pv-orange); }
+    .bm-who { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+    .bm-nick { font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 90px; }
+    .bm-bye, .bm-tbd { font-size: 10px; font-style: italic; color: rgba(28,22,18,0.4); letter-spacing: 0.06em; }
+    .bm-score { display: inline-flex; gap: 3px; align-items: center; flex: 0 0 auto; }
+    .bm-score b { font-family: 'JetBrains Mono', monospace; font-size: 13px; min-width: 12px; text-align: center; }
+    .cscore-in.xs { width: 26px; padding: 2px; font-size: 12px; text-align: center; }
+    .bm-pen { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-top: 1px dashed rgba(28,22,18,0.14); }
+    .bm-pen-l { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; color: rgba(28,22,18,0.5); }
+    .bm-pen i { font-style: normal; opacity: 0.4; }
+    .bm-pen-need { font-size: 9px; font-style: italic; color: var(--pv-red, #c0392b); padding: 4px 8px; border-top: 1px dashed rgba(28,22,18,0.14); }
+
     /* ── Round-dots do placar MK (estilo jogo de luta) ── */
     .mk-dots { display: flex; flex-direction: column; gap: 8px; }
     .mk-dots-legend { display: flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; color: rgba(28,22,18,0.5); }
