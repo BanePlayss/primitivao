@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-r1-brutality ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-rep-bilhetes ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -926,14 +926,24 @@ const OFFICIAL_DAY_MULT = 1.25;
 const CASHBACK_RATE = 0.10;
 const MAX_OPEN_TICKETS = 3; // tickets abertos simultâneos por dono (anti-flood)
 const REP_LEVELS = [
-  { min: 0,    name: 'NOVATO',       icon: 'ticket' },
-  { min: 50,   name: 'PALPITEIRO',   icon: 'target' },
-  { min: 150,  name: 'CARTOLA',      icon: 'crown' },
-  { min: 400,  name: 'CARTOLA OURO', icon: 'trophy' },
-  { min: 1000, name: 'ORÁCULO',      icon: 'sparkle' },
+  { min: 0,    name: 'NOVATO',       icon: 'ticket',  color: '#8c8478' },
+  { min: 50,   name: 'PALPITEIRO',   icon: 'target',  color: '#3f9e57' },
+  { min: 150,  name: 'CARTOLA',      icon: 'crown',   color: '#3a86c8' },
+  { min: 400,  name: 'CARTOLA OURO', icon: 'trophy',  color: '#d9a521' },
+  { min: 1000, name: 'ORÁCULO',      icon: 'sparkle', color: '#a64fd6' },
 ];
 function repLevel(score) { let lv = REP_LEVELS[0]; for (const l of REP_LEVELS) if ((score || 0) >= l.min) lv = l; return lv; }
 function repScoreOf(user) { return Math.max(0, Math.round(((user && user.rep && user.rep.score) || 0))); }
+// Tier visual do BILHETE pela reputação do autor: alta = holográfico (CARTOLA+),
+// baixa = rasgado (histórico ruim: mais seguidores perderam que ganharam),
+// média = cupom normal (padrão, inclusive novato sem histórico).
+function repTier(user) {
+  const score = repScoreOf(user);
+  if (score >= 150) return 'high';
+  const r = (user && user.rep) || {};
+  if ((r.followersLost || 0) > (r.followersWon || 0) && (r.followersLost || 0) >= 2) return 'low';
+  return 'mid';
+}
 // Delta de reputação do DONO por cópia resolvida. Peso pelo stake do seguidor
 // (cap em 100 PC pra não dar pra inflar) + assimetria (perda pesa 1.3x).
 function repDeltaForCopy(copy, won) {
@@ -7281,7 +7291,7 @@ function RepBadge({ user, sm }) {
   const score = repScoreOf(user);
   const lv = repLevel(score);
   return (
-    <span className={'rep-badge' + (sm ? ' sm' : '')} title={'Reputação de cartola: ' + score}>
+    <span className={'rep-badge' + (sm ? ' sm' : '')} style={{ '--rep-c': lv.color, color: lv.color, borderColor: lv.color }} title={'Reputação de cartola: ' + score}>
       <Icon name={lv.icon} size={sm ? 10 : 12} /> {lv.name} <b>{score}</b>
     </span>
   );
@@ -7294,8 +7304,11 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwn
   const cost = (amt || 0) - cashback;
   const nLegs = (t.legs || []).length;
   const doCopy = async () => { if (busy) return; setBusy(true); try { await onCopy(t.id, amt); } finally { setBusy(false); } };
+  // Bilhete muda pela reputação do autor: alta = holográfico, baixa = rasgado.
+  const tier = repTier(ownerUser);
   return (
-    <div className="mesa-card">
+    <div className={'mesa-card mesa-card--' + tier}>
+      {tier === 'high' && <span className="mesa-holo-tag"><Icon name="sparkle" size={10} /> HOLOGRÁFICO</span>}
       <div className="mesa-card-h">
         <Avatar nick={owner} teamPlayers={teamPlayers} size={34} noBadge />
         <div className="mesa-card-who">
@@ -7314,7 +7327,7 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwn
         <div className="mesa-card-tag done"><Icon name="check" size={11} /> JÁ NA SUA BANCA</div>
       ) : (
         <>
-          <div className="mesa-cashback"><Icon name="coin-fire" size={12} /> CASHBACK 10% — paga <b>{cost}</b>, volta <b>+{cashback}</b> na hora</div>
+          <div className="mesa-cashback"><Icon name="coin-fire" size={12} /> CASHBACK 10% — paga <b>{cost}</b> líquido, <b>+{cashback}</b> volta na liquidação</div>
           <div className="mesa-copyrow">
             <input className="mesa-stake" value={amt} inputMode="numeric" onChange={e => setAmt(Math.max(0, parseInt(e.target.value.replace(/\D/g, ''), 10) || 0))} />
             <button type="button" className="mesa-copybtn" disabled={busy || !amt || amt > balance} onClick={doCopy}>
@@ -7335,6 +7348,30 @@ function OpenTicketsFeed({ bets, users, teamPlayers, myNick, champId, balance, o
     <div className="card mesa-card-wrap">
       <div className="card-head"><div className="title"><Icon name="cards" size={16} /> MESA DOS CARTOLAS</div><div className="sub">{open.length} TICKET{open.length === 1 ? '' : 'S'} ABERTO{open.length === 1 ? '' : 'S'} · COPIE COM 10% DE CASHBACK</div></div>
       <div className="card-body">
+        {(() => {
+          // Pódio dos melhores cartolas por reputação (só quem já tem reputação).
+          const top = Object.entries(users || {})
+            .map(([nick, u]) => ({ nick, u, score: repScoreOf(u) }))
+            .filter(x => x.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 3);
+          if (!top.length) return null;
+          return (
+            <div className="cartola-podium">
+              <div className="cartola-podium-h"><Icon name="crown" size={13} /> MELHORES CARTOLAS</div>
+              <div className="cartola-podium-row">
+                {top.map((x, i) => (
+                  <div key={x.nick} className={'cartola-pod' + (i === 0 ? ' first' : '')}>
+                    <span className="cartola-pod-rank">{i + 1}</span>
+                    <Avatar nick={x.nick} teamPlayers={teamPlayers} size={i === 0 ? 40 : 32} noBadge />
+                    <span className="cartola-pod-nick">@{x.nick}</span>
+                    <RepBadge user={x.u} sm />
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
         <div className="mesa-grid">
           {open.map(t => (
             <OpenTicketCard key={t.id} t={t} owner={t.user} ownerUser={(users || {})[t.user]}
