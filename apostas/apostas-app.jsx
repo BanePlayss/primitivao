@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260625-m8a2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-cupub ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3137,7 +3137,8 @@ function App() {
 
   // PlaceBet via transação: debita PC + adiciona ticket atomicamente contra
   // o estado remoto (não permite ficar negativo nem perder o ticket).
-  const placeBet = async (amount) => {
+  const placeBet = async (amount, opts) => {
+    const asPublic = !!(opts && opts.open);
     if (!me || slip.length === 0) return;
     // Rede de segurança: se algum palpite ainda referencia jogo indisponível
     // (admin lançou placar ou travou bem na hora), removemos e avisamos sem bloquear.
@@ -3161,6 +3162,7 @@ function App() {
       champId: apostasChampId, // marca a season/campeonato pra ranking de apostas por edição
       combinedOdds: co,
       legs: slip.map(l => ({ fixtureId: l.fixtureId, market: l.market, pick: l.pick, odds: l.odds })),
+      ...(asPublic ? { open: true, openMeta: { publishedAt: Date.now(), copies: 0, stakeCopied: 0 } } : {}),
     };
     try {
       const result = await commitBetDocUpdate(remote => {
@@ -3171,6 +3173,11 @@ function App() {
         if (u.pc < amount) {
           return { __abort: true, result: { err: 'Saldo insuficiente (tem ' + u.pc + ' PC, aposta de ' + amount + ' PC).' } };
         }
+        // CUPOM PÚBLICO: respeita o teto de tickets abertos por dono.
+        if (asPublic) {
+          const openCount = (remote.bets || []).filter(b => b.user === session.nick && b.open && b.status === 'pending').length;
+          if (openCount >= MAX_OPEN_TICKETS) return { __abort: true, result: { err: 'Você já tem ' + MAX_OPEN_TICKETS + ' cupons na mesa. Tire um antes de publicar outro.' } };
+        }
         // Idempotência: se por algum motivo o ticket já foi gravado, não duplica.
         if ((remote.bets || []).some(b => b.id === ticket.id)) return null;
         const users = { ...remote.users, [session.nick]: { ...u, pc: u.pc - amount } };
@@ -3179,7 +3186,9 @@ function App() {
       });
       if (result && result.err) { showToast(result.err, 'error'); return; }
       setSlip([]);
-      showToast(`Aposta de ${amount} PC registrada — acompanha em MEUS TICKETS`, 'success');
+      showToast(asPublic
+        ? `Cupom de ${amount} PC publicado na MESA DOS CARTOLAS!`
+        : `Aposta de ${amount} PC registrada — acompanha em MEUS TICKETS`, 'success');
       return { ok: true };
     } catch (e) {
       console.warn('placeBet failed', e);
@@ -3307,6 +3316,7 @@ function App() {
     if (!nick || !payload || !Array.isArray(payload.legs) || payload.legs.length === 0) return { err: 'cupom inválido' };
     const stake = Math.floor(Number(payload.stake) || 0);
     if (!(stake > 0)) return { err: 'valor inválido' };
+    const asPublic = !!payload.open;
     const combined = +Number(payload.combined).toFixed(2);
     const ticket = {
       id: 'mkb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
@@ -3314,6 +3324,7 @@ function App() {
       champId: 'mk', combinedOdds: combined, casada: !!payload.casada,
       roundN: payload.roundN, phase: payload.phase,
       nick, stake, combined, // aliases (display)
+      ...(asPublic ? { open: true, openMeta: { publishedAt: Date.now(), copies: 0, stakeCopied: 0 } } : {}),
       legs: payload.legs.map(l => ({
         // cada perna leva a SUA rodada (phase/roundN/gi) — casada pode misturar
         // jogos de rodadas diferentes (jogos adiantados) e liquidar certo.
@@ -3328,10 +3339,15 @@ function App() {
         const u = (remote.users || {})[nick];
         if (!u) return { __abort: true, result: { err: 'Conta não sincronizada. Faz login de novo.' } };
         if ((u.pc || 0) < stake) return { __abort: true, result: { err: 'Saldo insuficiente (tem ' + (u.pc || 0) + ' PC).' } };
+        if (asPublic) {
+          const openCount = (remote.bets || []).filter(b => b.user === nick && b.open && b.status === 'pending').length;
+          if (openCount >= MAX_OPEN_TICKETS) return { __abort: true, result: { err: 'Você já tem ' + MAX_OPEN_TICKETS + ' cupons na mesa.' } };
+        }
         if ((remote.bets || []).some(b => b.id === ticket.id)) return null;
         return { ...remote, users: { ...remote.users, [nick]: { ...u, pc: u.pc - stake } }, bets: [ticket, ...(remote.bets || [])] };
       });
       if (res && res.err) { showToast(res.err, 'error'); return res; }
+      if (asPublic) showToast('Cupom publicado na MESA DOS CARTOLAS!', 'success');
       return { ok: true };
     } catch (e) { console.warn('placeMkBet failed', e); showToast('Erro ao apostar. Tenta de novo.', 'error'); return { err: String(e) }; }
   };
@@ -6750,8 +6766,8 @@ function ApostarView({ games, gamesById, bets, me, session, users,
             </button>
             <Cupom slip={slip} gamesById={gamesById} balance={me ? me.pc : 0} pruneMsg={slipPruneMsg} teamPlayers={teamPlayers}
                    onRemoveLeg={onRemoveLeg} onClearSlip={onClearSlip}
-                   onPlaceBet={async (amt) => {
-                     const r = await onPlaceBet(amt);
+                   onPlaceBet={async (amt, opts) => {
+                     const r = await onPlaceBet(amt, opts);
                      // Aposta entrou: fecha o bottom-sheet (mobile) pra voltar pros jogos.
                      if (r && r.ok) setCupomOpen(false);
                      return r;
@@ -6924,10 +6940,10 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
   const payout = Math.round(amt * combined);
   const valid = !busy && slip.length > 0 && amt > 0 && amt <= balance;
   const multi = slip.length > 1;
-  const handlePlace = async () => {
+  const handlePlace = async (opts) => {
     if (busy) return;
     setBusy(true);
-    try { await onPlaceBet(amt); }
+    try { await onPlaceBet(amt, opts); }
     finally { setBusy(false); }
   };
 
@@ -7005,10 +7021,15 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
 
             <div className="modal-btns">
               <button className="btn-secondary" onClick={onClearSlip} disabled={busy}>LIMPAR</button>
-              <button className="btn-primary" disabled={!valid} onClick={handlePlace}>
+              <button className="btn-primary" disabled={!valid} onClick={() => handlePlace()}>
                 {busy ? 'APOSTANDO…' : `APOSTAR ${amt} PC`}
               </button>
             </div>
+            {/* CUPOM PÚBLICO: aposta + publica na MESA DOS CARTOLAS num passo. */}
+            <button type="button" className="cupom-public-btn" disabled={!valid} onClick={() => handlePlace({ open: true })}
+                    title="Aposta e deixa o cupom público pros outros copiarem (você ganha reputação)">
+              <Icon name="cards" size={13} /> CUPOM PÚBLICO · MESA DOS CARTOLAS
+            </button>
             <button
               type="button"
               className="cupom-share"
@@ -8920,17 +8941,18 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   };
   const combined = cupom.reduce((p, l) => p + l.odd, 0); // SOMA, igual à FIFA
   const isCasada = cupom.length >= 2;
-  const place = async () => {
+  const place = async (opts) => {
     if (!cupom.length || !(stake > 0)) return;
     const first = cupom[0];
     const res = await onPlaceBet({
       nick: myNick, roundN: first.roundN, phase: first.phase,
       legs: cupom.map(({ key, ...l }) => l), stake, combined: +combined.toFixed(2), casada: isCasada,
+      open: !!(opts && opts.open),
     });
     if (res && res.err) return; // erro já avisado por toast
     setCupom([]);
     setCupomOpen(false);
-    showToast((isCasada ? 'Casada' : 'Aposta') + ' feita! ' + stake + ' PC', 'success');
+    if (!(opts && opts.open)) showToast((isCasada ? 'Casada' : 'Aposta') + ' feita! ' + stake + ' PC', 'success');
   };
   const betStatus = (bet) => {
     let pending = false;
@@ -9167,8 +9189,13 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                       )}
                       <div className="modal-btns">
                         <button className="btn-secondary" onClick={() => setCupom([])}>LIMPAR</button>
-                        <button className="btn-primary" disabled={!cupom.length || !(stake > 0) || (Number.isFinite(balance) && stake > balance)} onClick={place}>{Number.isFinite(balance) && stake > balance ? 'SALDO INSUFICIENTE' : 'APOSTAR ' + stake + ' PC'}</button>
+                        <button className="btn-primary" disabled={!cupom.length || !(stake > 0) || (Number.isFinite(balance) && stake > balance)} onClick={() => place()}>{Number.isFinite(balance) && stake > balance ? 'SALDO INSUFICIENTE' : 'APOSTAR ' + stake + ' PC'}</button>
                       </div>
+                      {/* CUPOM PÚBLICO: aposta + publica na MESA DOS CARTOLAS num passo. */}
+                      <button type="button" className="cupom-public-btn" disabled={!cupom.length || !(stake > 0) || (Number.isFinite(balance) && stake > balance)} onClick={() => place({ open: true })}
+                              title="Aposta e deixa o cupom público pros outros copiarem (você ganha reputação)">
+                        <Icon name="cards" size={13} /> CUPOM PÚBLICO · MESA DOS CARTOLAS
+                      </button>
                       <button type="button" className="cupom-share" onClick={() => {
                         const txt = 'Cupom MK: ' + cupom.map(l => MK_MARKET_TITLE[l.market] + ' ' + mkLegLabel(l) + ' @' + l.odd.toFixed(2)).join(' + ') + ' = ' + combined.toFixed(2) + 'x';
                         navigator.clipboard.writeText(txt).then(() => showToast('Cupom copiado!', 'success'), () => showToast('Falha ao copiar.', 'error'));

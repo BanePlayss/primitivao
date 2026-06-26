@@ -4170,6 +4170,16 @@
     .mesa-card-tag { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px; }
     .mesa-card-tag.own { color: var(--pv-orange); background: rgba(215,100,20,0.08); }
     .mesa-card-tag.done { color: var(--pv-green, #2a8f3f); background: rgba(42,143,63,0.08); }
+    /* Botão CUPOM PÚBLICO (aposta + publica na Mesa) — abaixo do APOSTAR */
+    .cupom-public-btn {
+      width: 100%; margin-top: 8px; padding: 9px 12px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      background: transparent; color: var(--pv-orange);
+      border: 1.5px dashed var(--pv-orange); font-family: inherit;
+      font-weight: 800; font-size: 11px; letter-spacing: 0.1em; cursor: pointer;
+    }
+    .cupom-public-btn:hover:not(:disabled) { background: var(--pv-orange); color: var(--pv-bone); }
+    .cupom-public-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     /* RODADAS ganham mais largura no desktop (classificação ~1fr, rodadas ~1.35fr,
        mín. 360px) — em tela larga a coluna cresce e cabem 2 jogos lado a lado. */
     .champ-main .mk-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, 1.35fr); }
