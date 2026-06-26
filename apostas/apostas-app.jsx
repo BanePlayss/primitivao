@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-dots ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-mod-resultado ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6978,14 +6978,15 @@ function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock, onSet
           </button>
         </div>
       )}
-      {/* M4: travou? aparecem as 2 caixinhas de placar (grava direto na classificação). */}
-      {canLock && isLocked && onSetScore && (
+      {/* Mod marca o resultado direto no card (sempre visível). Digitar o placar já
+          TRAVA as apostas — marcar resultado fecha o jogo. */}
+      {canLock && onSetScore && (
         <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 10, padding: '8px 10px', border: '1.5px solid var(--pv-orange)', background: 'rgba(215,100,20,0.06)' }}>
-          <span style={{ fontWeight: 800, fontSize: 10, letterSpacing: '0.14em', color: 'var(--pv-orange)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="football" size={12} /> LANÇAR PLACAR</span>
+          <span style={{ fontWeight: 800, fontSize: 10, letterSpacing: '0.14em', color: 'var(--pv-orange)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="football" size={12} /> MARCAR RESULTADO{!isLocked ? ' (trava as apostas)' : ''}</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <input className="cscore-in" value={game.gh ?? ''} placeholder="–" inputMode="numeric" onChange={e => onSetScore({ gh: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
+            <input className="cscore-in" value={game.gh ?? ''} placeholder="–" inputMode="numeric" onChange={e => onSetScore({ gh: e.target.value.replace(/\D/g, '').slice(0, 2), locked: true })} />
             <i style={{ fontStyle: 'normal', color: 'rgba(28,22,18,0.4)' }}>×</i>
-            <input className="cscore-in" value={game.ga ?? ''} placeholder="–" inputMode="numeric" onChange={e => onSetScore({ ga: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
+            <input className="cscore-in" value={game.ga ?? ''} placeholder="–" inputMode="numeric" onChange={e => onSetScore({ ga: e.target.value.replace(/\D/g, '').slice(0, 2), locked: true })} />
           </span>
         </div>
       )}
@@ -9175,13 +9176,14 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             )}
                           </div>
                         )}
-                        {/* M4: lançar placar aqui em JOGOS quando travado (mod). Grava direto no mkScores -> liquida. */}
-                        {isMod && gameLocked && onSetGameLock && (() => {
+                        {/* Mod marca o resultado direto no card (sempre visível). Tocar uma
+                            bolinha já TRAVA as apostas — marcar resultado fecha o jogo. */}
+                        {isMod && onSetGameLock && (() => {
                           const sc = scores[key] || {};
                           return (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, margin: '8px 0', padding: '8px 10px', border: '1.5px solid var(--pv-orange)', background: 'rgba(215,100,20,0.06)' }}>
-                              <span style={{ fontWeight: 800, fontSize: 10, letterSpacing: '0.14em', color: 'var(--pv-orange)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="skull" size={11} /> LANÇAR PLACAR — toque as bolinhas</span>
-                              <MkRoundDots sc={sc} onPatch={(patch) => onSetGameLock(key, patch)} />
+                            <div className="mk-bet-result-mod">
+                              <span className="mk-bet-result-l"><Icon name="skull" size={11} /> MARCAR RESULTADO — toque as bolinhas{!gameLocked ? ' (trava as apostas)' : ''}</span>
+                              <MkRoundDots sc={sc} onPatch={(patch) => onSetGameLock(key, { ...patch, locked: true, lockAt: null })} />
                             </div>
                           );
                         })()}

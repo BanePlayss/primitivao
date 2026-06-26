@@ -4228,6 +4228,9 @@
     .mk-dots-score i { font-style: normal; opacity: 0.35; }
     .mk-dots-score b.wh { color: var(--pv-orange); }
     .mk-dots-score b.wa { color: var(--pv-red, #c0392b); }
+    /* Painel do mod pra marcar resultado direto no card de aposta (MK) */
+    .mk-bet-result-mod { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 8px 0; padding: 9px 11px; border: 1.5px solid var(--pv-orange); background: rgba(215,100,20,0.06); }
+    .mk-bet-result-l { font-weight: 800; font-size: 10px; letter-spacing: 0.12em; color: var(--pv-orange); display: inline-flex; align-items: center; gap: 5px; }
     /* RODADAS ganham mais largura no desktop (classificação ~1fr, rodadas ~1.35fr,
        mín. 360px) — em tela larga a coluna cresce e cabem 2 jogos lado a lado. */
     .champ-main .mk-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, 1.35fr); }
