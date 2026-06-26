@@ -4158,36 +4158,53 @@
 
     /* ── Tiers do BILHETE pela ODD do cupom (holo 15+ / dourado 10+ / brilhante 6+ / rasgado <2) ── */
     .mesa-card--holo, .mesa-card--gold, .mesa-card--shiny, .mesa-card--torn { position: relative; }
-    /* HOLO: tinta iridescente animada + brilho passando + borda glow */
+    /* HOLO: foil iridescente — moldura arco-íris + corpo que muda + brilho prismático */
     .mesa-card--holo {
-      border-color: #b59cff;
-      background-image: linear-gradient(135deg, rgba(255,110,196,0.13), rgba(120,115,245,0.13), rgba(74,222,128,0.13), rgba(255,215,0,0.13));
-      background-size: 300% 300%; animation: holoShift 7s ease infinite;
-      box-shadow: 0 0 14px rgba(150,120,255,0.30), inset 0 0 22px rgba(255,255,255,0.05); overflow: hidden;
+      border: 3px solid #b59cff;
+      border-image: linear-gradient(120deg, #ff6ec4, #7873f5, #4ade80, #ffd86e, #ff6ec4) 1;
+      background-image:
+        linear-gradient(135deg, rgba(255,110,196,0.17), rgba(120,115,245,0.17) 35%, rgba(74,222,128,0.17) 65%, rgba(255,215,0,0.17)),
+        repeating-linear-gradient(115deg, rgba(255,255,255,0.06) 0 3px, transparent 3px 8px);
+      background-size: 300% 300%, auto;
+      animation: holoShift 7s ease infinite;
+      box-shadow: 0 0 16px rgba(150,120,255,0.42), inset 0 0 26px rgba(255,255,255,0.08); overflow: hidden;
     }
     .mesa-card--holo::after {
       content: ''; position: absolute; inset: 0; pointer-events: none;
-      background: linear-gradient(115deg, transparent 36%, rgba(255,255,255,0.30) 48%, rgba(170,255,255,0.20) 52%, transparent 64%);
-      background-size: 250% 250%; animation: holoSheen 5s linear infinite;
+      background: linear-gradient(115deg, transparent 33%, rgba(255,180,255,0.38) 44%, rgba(180,255,255,0.5) 50%, rgba(255,255,170,0.38) 56%, transparent 67%);
+      background-size: 280% 280%; animation: holoSheen 4.5s linear infinite;
     }
-    /* DOURADO: borda e brilho dourados */
+    /* DOURADO: textura de OURO — moldura metálica + escovado + reflexo passando */
     .mesa-card--gold {
-      border-color: #d9a521;
-      background-image: linear-gradient(135deg, rgba(217,165,33,0.16), rgba(255,215,0,0.05));
-      background-size: 200% 200%; animation: holoShift 8s ease infinite;
-      box-shadow: 0 0 12px rgba(217,165,33,0.32), inset 0 0 18px rgba(255,215,0,0.06); overflow: hidden;
+      border: 3px solid #d9a521;
+      border-image: linear-gradient(135deg, #7a5e15 0%, #f6dd8a 20%, #fffbe6 33%, #e6b733 46%, #b8860b 60%, #f6dd8a 80%, #7a5e15 100%) 1;
+      background-image:
+        linear-gradient(135deg, rgba(255,243,190,0.32) 0%, rgba(246,221,138,0.18) 40%, rgba(217,165,33,0.12) 55%, rgba(255,247,214,0.26) 100%),
+        repeating-linear-gradient(135deg, rgba(184,134,11,0.10) 0 2px, rgba(255,247,214,0.07) 2px 5px);
+      background-size: 220% 220%, auto;
+      animation: holoShift 8s ease infinite;
+      box-shadow: 0 0 16px rgba(217,165,33,0.48), inset 0 0 24px rgba(255,215,0,0.16); overflow: hidden;
     }
     .mesa-card--gold::after {
       content: ''; position: absolute; inset: 0; pointer-events: none;
-      background: linear-gradient(115deg, transparent 38%, rgba(255,240,180,0.40) 50%, transparent 62%);
-      background-size: 250% 250%; animation: holoSheen 6s linear infinite;
+      background: linear-gradient(115deg, transparent 36%, rgba(255,249,214,0.55) 47%, rgba(255,255,255,0.72) 51%, rgba(255,236,150,0.5) 55%, transparent 64%);
+      background-size: 250% 250%; animation: holoSheen 4s linear infinite;
     }
-    /* BRILHANTE: verniz prata leve passando */
-    .mesa-card--shiny { border-color: #9fb3c8; box-shadow: 0 0 9px rgba(159,179,200,0.30); overflow: hidden; }
+    /* BRILHANTE: foil PRATA — moldura metálica clara + reflexo escovado */
+    .mesa-card--shiny {
+      border: 3px solid #b8c6d6;
+      border-image: linear-gradient(135deg, #7e8c9c 0%, #e8f0f8 30%, #ffffff 45%, #c2cedb 60%, #7e8c9c 100%) 1;
+      background-image:
+        linear-gradient(135deg, rgba(232,240,248,0.22), rgba(160,178,200,0.10) 50%, rgba(232,240,248,0.18)),
+        repeating-linear-gradient(135deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 6px);
+      background-size: 220% 220%, auto;
+      animation: holoShift 9s ease infinite;
+      box-shadow: 0 0 12px rgba(159,179,200,0.42), inset 0 0 18px rgba(255,255,255,0.09); overflow: hidden;
+    }
     .mesa-card--shiny::after {
       content: ''; position: absolute; inset: 0; pointer-events: none;
-      background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.28) 50%, transparent 60%);
-      background-size: 250% 250%; animation: holoSheen 6.5s linear infinite;
+      background: linear-gradient(115deg, transparent 39%, rgba(255,255,255,0.5) 50%, transparent 61%);
+      background-size: 250% 250%; animation: holoSheen 5.5s linear infinite;
     }
     @keyframes holoShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
     @keyframes holoSheen { 0% { background-position: 130% 0%; } 100% { background-position: -30% 100%; } }
@@ -4195,11 +4212,11 @@
       position: absolute; top: 6px; right: 6px; z-index: 2;
       display: inline-flex; align-items: center; gap: 3px;
       font-size: 8px; font-weight: 800; letter-spacing: 0.12em;
-      background: rgba(255,255,255,0.6); padding: 2px 6px; border-radius: 999px;
+      padding: 2px 7px; border-radius: 999px; box-shadow: 0 1px 3px rgba(0,0,0,0.18);
     }
-    .mesa-tier-tag.tag-holo { color: #6a4fd0; }
-    .mesa-tier-tag.tag-gold { color: #9a6b00; }
-    .mesa-tier-tag.tag-shiny { color: #4a6076; }
+    .mesa-tier-tag.tag-holo { color: #5a3fc0; background: linear-gradient(120deg, #ffe3f5, #e3e0ff, #d8ffe8, #fff3cf); }
+    .mesa-tier-tag.tag-gold { color: #6e4e00; background: linear-gradient(135deg, #fff7d6, #f6dd8a 50%, #fffbe6); }
+    .mesa-tier-tag.tag-shiny { color: #3c4a5a; background: linear-gradient(135deg, #f0f5fb, #ffffff 50%, #d8e2ee); }
     @media (prefers-reduced-motion: reduce) { .mesa-card--holo, .mesa-card--gold, .mesa-card--shiny, .mesa-card--holo::after, .mesa-card--gold::after, .mesa-card--shiny::after { animation: none; } }
     /* RASGADO (<2x): borda tracejada, dessaturado e borda inferior em zigue-zague */
     .mesa-card--torn {
