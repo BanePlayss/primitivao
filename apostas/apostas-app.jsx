@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-stats3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-stats4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -9740,11 +9740,16 @@ function characterLeaderboard(players, draw, scores, lineups) {
   }).filter(x => x.best).sort((a, b) => b.totalApps - a.totalApps);
 }
 function CharacterLeaderboard({ players, mkDraw, mkScores, mkLineups, teamPlayers, onOpenProfile }) {
+  const [open, setOpen] = useState(false);
   const board = characterLeaderboard(players, mkDraw, mkScores, mkLineups);
   if (!board.length) return null;
   return (
     <div className="card">
-      <div className="card-head"><div className="title"><Icon name="skull" size={15} /> DOMÍNIO POR PERSONAGEM</div><div className="sub">QUEM JOGA MELHOR COM CADA UM</div></div>
+      <button type="button" className="charlb-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <span className="charlb-toggle-t"><Icon name="skull" size={15} /> DOMÍNIO POR PERSONAGEM</span>
+        <span className="charlb-toggle-r">{open ? 'OCULTAR' : 'VER DETALHES'} <Icon name={open ? 'caret-up' : 'caret-down'} size={13} /></span>
+      </button>
+      {open && (
       <div className="card-body">
         <div className="charlb">
           {board.map(x => {
@@ -9767,6 +9772,7 @@ function CharacterLeaderboard({ players, mkDraw, mkScores, mkLineups, teamPlayer
           })}
         </div>
       </div>
+      )}
     </div>
   );
 }
