@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-painel-result ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-result-chars ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -527,9 +527,9 @@ function mkMatchOutcome(sc) {
 // shape { p1h, p1a, p2h, p2a } (dígitos 0..2 como string) — liquidação/
 // classificação seguem iguais. A própria UI impede placar impossível (a partida
 // fecha quando um lado chega a 2).
-function MkRoundDots({ sc, onPatch, disabled }) {
+function MkRoundDots({ sc, onPatch, disabled, lineup }) {
   const g = (k) => { const n = parseInt(sc && sc[k], 10); return Number.isNaN(n) ? 0 : Math.max(0, Math.min(2, n)); };
-  const partidas = [{ n: 1, h: 'p1h', a: 'p1a' }, { n: 2, h: 'p2h', a: 'p2a' }];
+  const partidas = [{ n: 1, h: 'p1h', a: 'p1a', lu: 'p1' }, { n: 2, h: 'p2h', a: 'p2a', lu: 'p2' }];
   const click = (pa, side, idx) => {
     if (disabled) return;
     const cur = { h: g(pa.h), a: g(pa.a) };
@@ -557,12 +557,16 @@ function MkRoundDots({ sc, onPatch, disabled }) {
       {partidas.map(pa => {
         const h = g(pa.h), a = g(pa.a);
         const win = h === 2 ? 'h' : a === 2 ? 'a' : null;
+        const part = lineup && lineup[pa.lu];
+        const hc = part && part.home, ac = part && part.away;
         return (
           <div key={pa.n} className={'mk-dots-row' + (win ? ' decided' : '')}>
             <span className="mk-dots-lbl">P{pa.n}</span>
+            {hc ? <span className="mk-dots-char"><MkCharIcon name={hc} sm /></span> : null}
             {dots(pa, 'h', h)}
             <span className="mk-dots-score"><b className={win === 'h' ? 'wh' : ''}>{h}</b><i>×</i><b className={win === 'a' ? 'wa' : ''}>{a}</b></span>
             {dots(pa, 'a', a)}
+            {ac ? <span className="mk-dots-char"><MkCharIcon name={ac} sm /></span> : null}
           </div>
         );
       })}
@@ -573,7 +577,7 @@ function MkRoundDots({ sc, onPatch, disabled }) {
 // Painel LANÇAR RESULTADOS (só mod) — fica no topo de APOSTAS/JOGOS e lista APENAS
 // os jogos com apostas TRAVADAS que ainda não têm resultado. Some quando todos
 // forem lançados. MK usa as bolinhas de round; FIFA usa placar gh × ga.
-function ResultLauncherPanel({ champId, mkDraw, mkScores, onMkScore, cs, onFifaScore, teamPlayers }) {
+function ResultLauncherPanel({ champId, mkDraw, mkScores, mkLineups, onMkScore, cs, onFifaScore, teamPlayers }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   const head = (n) => (
@@ -601,7 +605,7 @@ function ResultLauncherPanel({ champId, mkDraw, mkScores, onMkScore, cs, onFifaS
                 <span className="rl-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase} · JOGO {String(gi + 1).padStart(2, '0')}</span>
                 <span className="rl-vs"><b>@{g.home}</b><i>×</i><b>@{g.away}</b></span>
               </div>
-              <MkRoundDots sc={sc} onPatch={(patch) => onMkScore(key, patch)} />
+              <MkRoundDots sc={sc} lineup={(mkLineups || {})[key]} onPatch={(patch) => onMkScore(key, patch)} />
             </div>
           ))}
         </div></div>
@@ -4156,7 +4160,7 @@ function App() {
               {/* LANÇAR RESULTADOS (só mod): jogos travados aguardando placar. */}
               {isMod && (
                 <ResultLauncherPanel champId={apostasChampId}
-                  mkDraw={mkDraw} mkScores={mkScores} onMkScore={setMkScoreField}
+                  mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} onMkScore={setMkScoreField}
                   cs={cs} onFifaScore={setFifaScore} teamPlayers={teamPlayers || {}} />
               )}
               {/* MESA DOS CARTOLAS (M9): tickets abertos pra copiar com cashback. */}
@@ -8959,7 +8963,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                       {isMod && (
                         <div className="mk-fx-admin-score">
                           <span className="mk-fx-admin-l"><Icon name="shield" size={10} /> LANÇAR PLACAR <span className="mk-fx-finish-adm">toque as bolinhas dos rounds</span></span>
-                          <MkRoundDots sc={sc} onPatch={(patch) => onScore(k, patch)} />
+                          <MkRoundDots sc={sc} lineup={(lineups || {})[k]} onPatch={(patch) => onScore(k, patch)} />
                         </div>
                       )}
                       {isMod && (
