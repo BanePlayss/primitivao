@@ -4643,6 +4643,19 @@
     .dchar-n { font-size: 12px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .dchar-s { font-size: 10px; font-weight: 700; color: rgba(28,22,18,0.6); }
     html.pv-dark .dchar-s { color: rgba(244,234,215,0.6); }
+    /* DOMÍNIO POR PERSONAGEM (quem joga melhor com cada boneco) */
+    .charlb { display: flex; flex-direction: column; gap: 8px; }
+    .charlb-row { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border: 1.5px solid rgba(28,22,18,0.12); background: rgba(28,22,18,0.02); }
+    .charlb-row .mk-fc-mono { width: 40px; height: 40px; border-radius: 4px; font-size: 14px; flex-shrink: 0; }
+    .charlb-info { flex: 1; min-width: 0; }
+    .charlb-char { font-weight: 800; font-size: 12px; letter-spacing: 0.04em; color: var(--pv-charcoal); }
+    html.pv-dark .charlb-char { color: var(--pv-bone); }
+    .charlb-best { display: inline-flex; align-items: center; gap: 5px; background: transparent; border: 0; padding: 2px 0 0; cursor: pointer; font: inherit; font-size: 11px; font-weight: 700; color: var(--pv-orange); }
+    .charlb-stat { text-align: right; flex-shrink: 0; }
+    .charlb-wr { font-family: 'Anton', Impact, sans-serif; font-size: 18px; color: var(--pv-orange); line-height: 1; }
+    .charlb-vd { font-size: 9.5px; font-weight: 700; color: rgba(28,22,18,0.55); }
+    html.pv-dark .charlb-vd { color: rgba(244,234,215,0.6); }
+    .charlb-apps { opacity: 0.7; }
     .stats-prof { min-width: 0; }
     .stats-tro-big { display: flex; flex-wrap: wrap; gap: 12px; }
     .stats-tro-name { font-weight: 800; font-size: 13px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid rgba(28,22,18,0.1); }

@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-betprofile ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-stats3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -9697,7 +9697,12 @@ function mkPlayerDetailedStats(nick, draw, scores, lineups) {
     const ln = (lineups || {})[gk(r, gi)] || {};
     const ch = (part, side) => (ln[part] && ln[part][side]) || null;
     const chars = [ch('p1', meHome ? 'home' : 'away'), ch('p2', meHome ? 'home' : 'away')].filter(Boolean);
-    out.push({ res, myConf, opConf, myRounds, opRounds, twoZero: myConf === 2 && opConf === 0, twoOne: myConf === 2 && opConf === 1, shutout: myConf > opConf && opRounds === 0, chars });
+    // 2×0 (lavada) e 2×1 (suado) são por PARTIDA (em rounds), não por confronto —
+    // o confronto só tem 2 partidas, então "2×1 de partidas" nem existe.
+    const myPart = meHome ? [[o.p1h, o.p1a], [o.p2h, o.p2a]] : [[o.p1a, o.p1h], [o.p2a, o.p2h]];
+    let lavadas = 0, suados = 0;
+    myPart.forEach(([mine, opp]) => { if (mine === 2 && opp === 0) lavadas++; else if (mine === 2 && opp === 1) suados++; });
+    out.push({ res, myConf, opConf, myRounds, opRounds, lavadas, suados, shutout: myConf > opConf && opRounds === 0, chars });
   }));
   const n = out.length;
   const wins = out.filter(m => m.res === 'V').length;
@@ -9715,10 +9720,55 @@ function mkPlayerDetailedStats(nick, draw, scores, lineups) {
   return {
     n, wins, draws, losses, rf, ra, sg: rf - ra, points,
     winRate: n ? wins / n * 100 : 0, ppg: n ? points / n : 0,
-    twoZero: out.filter(m => m.twoZero).length, twoOne: out.filter(m => m.twoOne).length,
+    twoZero: out.reduce((s, m) => s + m.lavadas, 0), twoOne: out.reduce((s, m) => s + m.suados, 0),
     shutouts, shutoutRate: n ? shutouts / n * 100 : 0,
     characters, bestWinStreak: bestW, curWinStreak: endW,
   };
+}
+// Ranking POR PERSONAGEM: pra cada boneco, quem tem o melhor aproveitamento.
+function characterLeaderboard(players, draw, scores, lineups) {
+  const byChar = {};
+  (players || []).forEach(nick => {
+    const m = mkPlayerDetailedStats(nick, draw, scores, lineups);
+    m.characters.forEach(c => {
+      (byChar[c.char] || (byChar[c.char] = { char: c.char, rows: [] })).rows.push({ nick, apps: c.apps, wins: c.wins });
+    });
+  });
+  return Object.values(byChar).map(cd => {
+    const ranked = cd.rows.slice().sort((a, b) => (b.wins / b.apps) - (a.wins / a.apps) || b.apps - a.apps);
+    return { char: cd.char, best: ranked[0], totalApps: cd.rows.reduce((s, r) => s + r.apps, 0) };
+  }).filter(x => x.best).sort((a, b) => b.totalApps - a.totalApps);
+}
+function CharacterLeaderboard({ players, mkDraw, mkScores, mkLineups, teamPlayers, onOpenProfile }) {
+  const board = characterLeaderboard(players, mkDraw, mkScores, mkLineups);
+  if (!board.length) return null;
+  return (
+    <div className="card">
+      <div className="card-head"><div className="title"><Icon name="skull" size={15} /> DOMÍNIO POR PERSONAGEM</div><div className="sub">QUEM JOGA MELHOR COM CADA UM</div></div>
+      <div className="card-body">
+        <div className="charlb">
+          {board.map(x => {
+            const b = x.best, losses = b.apps - b.wins, wr = Math.round(b.wins / b.apps * 100);
+            return (
+              <div key={x.char} className="charlb-row">
+                <MkCharIcon name={x.char} />
+                <div className="charlb-info">
+                  <div className="charlb-char">{x.char}</div>
+                  <button type="button" className="charlb-best" onClick={() => onOpenProfile && onOpenProfile(b.nick)} title={'Ver perfil de ' + b.nick}>
+                    <Avatar nick={b.nick} teamPlayers={teamPlayers} size={18} noBadge /> <span>{b.nick}</span>
+                  </button>
+                </div>
+                <div className="charlb-stat">
+                  <div className="charlb-wr">{wr}%</div>
+                  <div className="charlb-vd">{b.wins}V · {losses}D <span className="charlb-apps">· {x.totalApps} usos</span></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 function StatTile({ label, value, hl }) {
   return (
@@ -9828,7 +9878,10 @@ function PlayerProfileModal({ nick, users, cs, bets, teamPlayers, mkDraw, mkScor
                 {betKing.length > 0 && (
                   <div className="tr-betking">
                     <div className="tr-betking-art"><Icon name="tr-betking" size={42} /></div>
-                    <div className="tr-betking-txt"><div className="tr-betking-label">REI DAS APOSTAS{betKing.length > 1 ? ' · ' + betKing.length : ''}</div></div>
+                    <div className="tr-betking-txt">
+                      <div className="tr-betking-label">REI DAS APOSTAS{betKing.length > 1 ? ' · ' + betKing.length : ''}</div>
+                      <div className="tr-betking-eds">{betKing.map((b, i) => { const c = CHAMP_BY_ID[b.champId]; return <span key={i} className="tr-betking-ed">{(c ? c.tag : b.champId)} · {(c ? c.season : '')}</span>; })}</div>
+                    </div>
                   </div>
                 )}
                 {groups.map(kind => {
@@ -9881,7 +9934,7 @@ function BetProfileModal({ nick, users, bets, cs, teamPlayers, onClose }) {
               <StatTile label="CÓPIAS FEITAS" value={s.copies} />
             </div>
             {betKing.length > 0 && (
-              <div className="bp-king"><Icon name="tr-betking" size={22} /> REI DAS APOSTAS{betKing.length > 1 ? ' · ' + betKing.length : ''}</div>
+              <div className="bp-king"><Icon name="tr-betking" size={22} /> REI DAS APOSTAS · {betKing.map(b => { const c = CHAMP_BY_ID[b.champId]; return (c ? c.tag : b.champId) + ' ' + (c ? c.season.replace('Season ', 'S') : ''); }).join(' · ')}</div>
             )}
           </div>
         </div>
@@ -10065,6 +10118,8 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
         {sameProfile && (
           <DetailedStatsCard nick={left} teamPlayers={teamPlayers} cs={cs} mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} />
         )}
+
+        <CharacterLeaderboard players={players} mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} teamPlayers={teamPlayers} />
 
         {right && !sameProfile && (
           <div className="card">
