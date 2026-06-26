@@ -1524,6 +1524,15 @@
     .tk-leg-main { font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 5px; }
     .tk-chars { display: inline-flex; align-items: center; gap: 3px; margin: 3px 0 2px 17px; }
     .tk-chars-x { font-style: normal; opacity: 0.4; margin: 0 2px; font-size: 11px; }
+    .tk-side { display: inline-flex; align-items: center; gap: 3px; position: relative; }
+    .tk-side.lost { opacity: 0.4; }
+    .tk-side.won { filter: drop-shadow(0 0 3px rgba(58,125,42,0.5)); }
+    .tk-x { color: var(--pv-red, #c0392b); display: inline-flex; margin: 0 1px; }
+    .tk-res { display: inline-flex; }
+    .tk-leg.leg-won .tk-leg-main span:last-child b, .tk-leg.leg-lost .tk-leg-main { }
+    .tk-leg.leg-won { background: rgba(58,125,42,0.07); }
+    .tk-leg.leg-lost { background: rgba(192,57,43,0.06); }
+    .tk-leg.leg-won, .tk-leg.leg-lost { padding: 2px 6px; margin-left: -6px; border-radius: 4px; }
     .tk-sub { margin-top: 4px; font-size: 10px; font-weight: 700; color: #2f6ea8; display: inline-flex; align-items: center; gap: 4px; }
     .tk-none { font-size: 12px; color: rgba(28,22,18,0.55); padding: 6px 2px 12px; }
     html.pv-dark .tk-none { color: rgba(244,234,215,0.55); }
@@ -4096,9 +4105,13 @@
     /* ─── CARD DE LUTA (MK character select): portraits + VS + FIGHT! ─── */
     .mk-fc { margin-top: 4px; border-radius: 12px; padding: 11px 12px;
       background: radial-gradient(120% 90% at 50% 0%, #2c1518 0%, #161010 58%, #0d0a0a 100%);
-      border: 1px solid rgba(215,100,20,0.4); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 14px rgba(0,0,0,0.25); }
+      border: 1px solid rgba(215,100,20,0.4); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 14px rgba(0,0,0,0.25);
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 6px 14px; align-items: start; }
+    /* as 2 partidas ficam lado a lado (card mais baixo, dá pra montar vários de uma vez) */
     .mk-fc-part { padding: 8px 0; }
-    .mk-fc-part + .mk-fc-part { border-top: 1px dashed rgba(255,255,255,0.1); }
+    .mk-fc-part + .mk-fc-part { border-top: none; }
+    .mk-fc > .mk-fc-ready, .mk-fc > .mk-fc-todo, .mk-fc > .mk-fc-wait { grid-column: 1 / -1; }
+    @media (min-width: 560px) { .mk-fc-part:first-child { border-right: 1px dashed rgba(255,255,255,0.1); padding-right: 14px; } }
     .mk-fc-part-h { display: flex; align-items: center; gap: 7px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 10.5px; letter-spacing: 0.18em; color: rgba(255,255,255,0.72); text-transform: uppercase; margin-bottom: 9px; }
     .mk-fc-num { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(180deg, #f0b450, #d76414); color: #1a0f08; font-size: 11px; font-weight: 800; box-shadow: 0 0 8px rgba(215,100,20,0.5); }
     .mk-fc-row { display: flex; align-items: stretch; gap: 8px; }
