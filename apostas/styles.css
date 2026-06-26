@@ -3603,6 +3603,12 @@
       box-shadow: var(--sh-lg); padding: 16px; animation: shared-fade 0.2s var(--ease);
     }
     html.pv-dark .mj-modal { background: #1a130d; }
+    .pp-modal { max-width: 720px; }
+    .pp-head { display: flex; align-items: center; gap: 14px; padding: 4px 40px 16px 4px; margin-bottom: 14px; border-bottom: 2px solid rgba(28,22,18,0.12); }
+    html.pv-dark .pp-head { border-color: rgba(244,234,215,0.14); }
+    .pp-head-info { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .pp-name { font-family: 'Anton', Impact, sans-serif; font-size: 26px; letter-spacing: 0.02em; color: var(--pv-charcoal); line-height: 1; }
+    html.pv-dark .pp-name { color: var(--pv-bone); }
     .mj-modal-close {
       position: absolute; top: 10px; right: 10px; z-index: 2;
       width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
@@ -4770,8 +4776,11 @@
        lista pra ela não tapar os últimos jogos/aviso de tickets */
     .mk-betting--betbar > .card-body { padding-bottom: 84px; }
     .mk-bet-match { display: flex; align-items: flex-start; justify-content: center; gap: 10px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1.5px dashed rgba(28,22,18,0.2); }
-    .mk-bm-side { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; flex: 1; }
-    .mk-bm-side.right { align-items: flex-end; }
+    .mk-bm-side { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; background: transparent; border: 0; padding: 4px 6px; cursor: pointer; font: inherit; color: inherit; text-align: left; border-radius: 8px; }
+    .mk-bm-side:hover { background: rgba(215,100,20,0.08); }
+    .mk-bm-side.right { flex-direction: row; justify-content: flex-end; text-align: right; }
+    .mk-bm-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .mk-bm-side.right .mk-bm-info { align-items: flex-end; }
     .mk-bm-nick { max-width: 100%; font-weight: 800; font-size: 12px; color: var(--pv-charcoal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .mk-bm-nick.mand { color: var(--pv-orange); }
     .mk-bm-role { font-size: 7px; font-weight: 800; letter-spacing: 0.06em; color: rgba(28,22,18,0.4); }

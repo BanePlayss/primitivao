@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-tickets2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-profile ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2590,6 +2590,8 @@ function App() {
   const [championship, setChampionship] = useState('fifa');
   // MEU JOGO (escalar): abre como JANELA (modal) por cima de JOGOS ao clicar VER MEUS JOGOS.
   const [meuJogoOpen, setMeuJogoOpen] = useState(false);
+  // Perfil de outro jogador num modal (clicou no nome/foto nas apostas).
+  const [profileNick, setProfileNick] = useState(null);
   // Barra lateral de campeonatos (em CAMPEONATOS): oculta por padrão, expande na seta.
   const [champRailOpen, setChampRailOpen] = useState(() => { try { return localStorage.getItem('pv-champrail') === '1'; } catch (e) { return false; } });
   const toggleChampRail = () => setChampRailOpen(o => { const n = !o; try { localStorage.setItem('pv-champrail', n ? '1' : '0'); } catch (e) {} return n; });
@@ -4323,6 +4325,7 @@ function App() {
                     onPlaceBet={placeMkBet}
                     onRemoveBet={removeMkBet}
                     onSetGameLock={setMkScoreField}
+                    onOpenProfile={setProfileNick}
                     myNick={session.nick}
                     isAdmin={isAdmin} isMod={isMod}
                     balance={me?.pc ?? 0}
@@ -4518,6 +4521,10 @@ function App() {
             showToast(`${legs.length} palpite${legs.length === 1 ? '' : 's'} adicionado${legs.length === 1 ? '' : 's'} ao seu cupom`, 'success');
           }}
         />
+      )}
+      {profileNick && (
+        <PlayerProfileModal nick={profileNick} users={users} cs={cs} bets={bets} teamPlayers={teamPlayers || {}}
+          mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} onClose={() => setProfileNick(null)} />
       )}
       {meuJogoOpen && (
         <div className="mj-modal-backdrop" onClick={() => setMeuJogoOpen(false)}>
@@ -9174,7 +9181,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
 // compartilhados (App). Cupom = palpites da MESMA rodada (2+ = casada). Só dá
 // pra apostar na rodada ABERTA (a anterior tem que ter fechado).
 function mkLegLabel(l) { return mkPickLabel(l.market, l.pick); }
-function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, myNick, isAdmin, isMod, balance }) {
+function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onOpenProfile, myNick, isAdmin, isMod, balance }) {
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
@@ -9327,9 +9334,15 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                       <div key={key} className={'mk-bet-game' + (ownGame ? ' own' : '') + (gameLocked ? ' locked' : '') + (counting && !gameLocked ? ' closing' : '')}>
                         <div className="mk-bet-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase} · JOGO {String(gi + 1).padStart(2, '0')}</div>
                         <div className="mk-bet-match">
-                          <span className="mk-bm-side"><span className="mk-bm-nick mand">@{g.home}</span><span className="mk-bm-role mand">MANDANTE</span></span>
+                          <button type="button" className="mk-bm-side" onClick={() => onOpenProfile && onOpenProfile(g.home)} title={'Ver perfil de ' + g.home}>
+                            <Avatar nick={g.home} teamPlayers={teamPlayers} size={30} noBadge />
+                            <span className="mk-bm-info"><span className="mk-bm-nick mand">{g.home}</span><span className="mk-bm-role mand">MANDANTE</span></span>
+                          </button>
                           <span className="mk-bm-vs">×</span>
-                          <span className="mk-bm-side right"><span className="mk-bm-nick">@{g.away}</span><span className="mk-bm-role">VISITANTE</span></span>
+                          <button type="button" className="mk-bm-side right" onClick={() => onOpenProfile && onOpenProfile(g.away)} title={'Ver perfil de ' + g.away}>
+                            <span className="mk-bm-info"><span className="mk-bm-nick">{g.away}</span><span className="mk-bm-role">VISITANTE</span></span>
+                            <Avatar nick={g.away} teamPlayers={teamPlayers} size={30} noBadge />
+                          </button>
                         </div>
                         {(() => {
                           // CARD DE LUTA (#1): mostra pra TODO MUNDO os 2 jogos e os
@@ -9754,6 +9767,52 @@ function DetailedStatsCard({ nick, teamPlayers, cs, mkDraw, mkScores, mkLineups 
         <div className="card"><div className="card-body"><div className="empty"><div className="e1">SEM DADOS</div><div className="e2">@{nick} ainda não tem jogos lançados na FIFA nem no MK.</div></div></div></div>
       )}
     </>
+  );
+}
+
+// Perfil de QUALQUER jogador num modal (clicou no nome/foto nas apostas):
+// foto + nome + reputação + troféus + estatísticas detalhadas. Só leitura.
+function PlayerProfileModal({ nick, users, cs, bets, teamPlayers, mkDraw, mkScores, mkLineups, onClose }) {
+  if (!nick) return null;
+  const u = (users || {})[nick] || {};
+  const tro = trophiesForNick(nick, cs, teamPlayers || {});
+  const betKing = betKingChamps(nick, cs, bets || []);
+  const groups = ['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'];
+  return (
+    <div className="mj-modal-backdrop" onClick={onClose}>
+      <div className="mj-modal pp-modal" onClick={e => e.stopPropagation()}>
+        <button className="mj-modal-close" type="button" aria-label="Fechar" onClick={onClose}><Icon name="x" size={18} /></button>
+        <div className="pp-head">
+          <Avatar nick={nick} teamPlayers={teamPlayers} size={58} noBadge />
+          <div className="pp-head-info">
+            <div className="pp-name">{nick}</div>
+            <RepBadge user={u} />
+          </div>
+        </div>
+        {(tro.length > 0 || betKing.length > 0) && (
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div className="card-head"><div className="title"><Icon name="trophy" size={15} /> TROFÉUS</div><div className="sub">{tro.length + betKing.length}</div></div>
+            <div className="card-body">
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                {betKing.length > 0 && (
+                  <div className="tr-betking">
+                    <div className="tr-betking-art"><Icon name="tr-betking" size={42} /></div>
+                    <div className="tr-betking-txt"><div className="tr-betking-label">REI DAS APOSTAS{betKing.length > 1 ? ' · ' + betKing.length : ''}</div></div>
+                  </div>
+                )}
+                {groups.map(kind => {
+                  const group = tro.filter(t => t.kind === kind);
+                  if (!group.length) return null;
+                  const editions = group.map(t => { const cc = CHAMP_BY_ID[t.champId]; return { tag: cc && cc.tag, season: cc && cc.season }; });
+                  return <TrophyGroup key={kind} kind={kind} editions={editions} />;
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+        <DetailedStatsCard nick={nick} teamPlayers={teamPlayers} cs={cs} mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} />
+      </div>
+    </div>
   );
 }
 
