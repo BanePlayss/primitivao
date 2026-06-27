@@ -4787,6 +4787,10 @@
     .mk-bet-lockbtn.danger { color: #7a2222; border-color: #7a2222; }
     .mk-bet-lockbtn.danger:hover { background: #7a2222; color: #fff; }
     .mk-bet-lockbtn.ghost { color: rgba(28,22,18,0.55); border-color: rgba(28,22,18,0.3); }
+    /* LANÇAR RESULTADO dentro do card travado (mod) */
+    .mk-bet-launch { margin-bottom: 10px; padding: 10px; border: 1.5px solid var(--pv-orange); background: rgba(215,100,20,0.06); display: flex; flex-direction: column; gap: 10px; }
+    .mk-bet-launch-h { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; color: var(--pv-orange); }
+    .mk-bet-launch .rl-extras { gap: 14px; }
     /* #4: aviso de fechamento (cronômetro) pro apostador — barra laranja pulsante */
     .mk-bet-countdown { display: flex; align-items: center; gap: 6px; margin-bottom: 9px; padding: 5px 9px; border-radius: 5px; color: #fff; background: var(--pv-orange); font-weight: 800; animation: mkCdPulse 1s ease-in-out infinite; }
     .mk-cd-label { font-size: 8.5px; letter-spacing: 0.08em; opacity: 0.9; }

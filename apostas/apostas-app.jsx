@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260627-theme1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260627-rl1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4282,8 +4282,9 @@ function App() {
                 CAMPEONATOS (e o cancelamento no MEU PERFIL). */}
             {view === 'apostas' && (
               <>
-              {/* LANÇAR RESULTADOS (só mod): jogos travados aguardando placar. */}
-              {isMod && (
+              {/* LANÇAR RESULTADOS (só mod). No MK o lançamento fica DENTRO de cada
+                  card travado (ver MkBettingView); aqui só pra FIFA/ligas legadas. */}
+              {isMod && apostasChampId !== 'mk' && (
                 <ResultLauncherPanel champId={apostasChampId}
                   mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} onMkScore={setMkScoreField}
                   cs={cs} onFifaScore={setFifaScore} teamPlayers={teamPlayers || {}} />
@@ -4327,6 +4328,7 @@ function App() {
                     onPlaceBet={placeMkBet}
                     onRemoveBet={removeMkBet}
                     onSetGameLock={setMkScoreField}
+                    onMkScore={setMkScoreField}
                     onOpenProfile={setProfileNick}
                     onEscalar={() => setMeuJogoOpen(true)}
                     myNick={session.nick}
@@ -9226,7 +9228,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
 // compartilhados (App). Cupom = palpites da MESMA rodada (2+ = casada). Só dá
 // pra apostar na rodada ABERTA (a anterior tem que ter fechado).
 function mkLegLabel(l) { return mkPickLabel(l.market, l.pick); }
-function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onOpenProfile, onEscalar, myNick, isAdmin, isMod, balance }) {
+function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onMkScore, onOpenProfile, onEscalar, myNick, isAdmin, isMod, balance }) {
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
@@ -9467,8 +9469,25 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             )}
                           </div>
                         )}
-                        {/* O placar é lançado no painel LANÇAR RESULTADOS (topo), que lista
-                            os jogos travados aguardando resultado. Aqui o card só trava/destrava. */}
+                        {/* LANÇAR RESULTADO direto no card travado (só mod). #M4 */}
+                        {gameLocked && isMod && onMkScore && (
+                          <div className="mk-bet-launch">
+                            <div className="mk-bet-launch-h"><Icon name="whistle" size={12} /> LANÇAR RESULTADO</div>
+                            <MkRoundDots sc={scEntry || {}} lineup={(lineups || {})[key]} onPatch={(patch) => onMkScore(key, patch)} />
+                            <div className="rl-extras">
+                              <span className="rl-extra-grp">
+                                <span className="rl-extra-l">1º ROUND</span>
+                                <button type="button" className={'rl-pick home' + ((scEntry && scEntry.firstRound) === 'H' ? ' on' : '')} onClick={() => onMkScore(key, { firstRound: (scEntry && scEntry.firstRound) === 'H' ? '' : 'H' })}>{g.home}</button>
+                                <button type="button" className={'rl-pick away' + ((scEntry && scEntry.firstRound) === 'A' ? ' on' : '')} onClick={() => onMkScore(key, { firstRound: (scEntry && scEntry.firstRound) === 'A' ? '' : 'A' })}>{g.away}</button>
+                              </span>
+                              <span className="rl-extra-grp">
+                                <span className="rl-extra-l"><Icon name="skull" size={11} /> BRUTALITY</span>
+                                <button type="button" className={'rl-pick' + ((scEntry && scEntry.finisher1) === 'brutality' ? ' on' : '')} onClick={() => onMkScore(key, { finisher1: (scEntry && scEntry.finisher1) === 'brutality' ? '' : 'brutality' })}>P1</button>
+                                <button type="button" className={'rl-pick' + ((scEntry && scEntry.finisher2) === 'brutality' ? ' on' : '')} onClick={() => onMkScore(key, { finisher2: (scEntry && scEntry.finisher2) === 'brutality' ? '' : 'brutality' })}>P2</button>
+                              </span>
+                            </div>
+                          </div>
+                        )}
                         {visibleMarkets.map(mkt => (
                           <div key={mkt} className="mk-bet-mkt">
                             <div className="mk-bet-mkt-h">{MK_MARKET_TITLE[mkt]}</div>
