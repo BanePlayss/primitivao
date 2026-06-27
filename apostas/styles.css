@@ -1515,11 +1515,8 @@
     .tk-chip.mine { color: var(--pv-orange); background: rgba(215,100,20,0.12); }
     .tk-chip.copy { color: #2f6ea8; background: rgba(58,134,200,0.14); }
     .tk-chip.round { color: var(--pv-charcoal); background: rgba(28,22,18,0.08); }
-    html.pv-dark .tk-chip.round { color: var(--pv-bone); background: rgba(244,234,215,0.12); }
     .tk-chip.soft { color: rgba(28,22,18,0.55); background: rgba(28,22,18,0.05); }
-    html.pv-dark .tk-chip.soft { color: rgba(244,234,215,0.6); background: rgba(244,234,215,0.08); }
     .tk-when { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: rgba(28,22,18,0.4); margin-left: auto; }
-    html.pv-dark .tk-when { color: rgba(244,234,215,0.45); }
     .tk-leg { margin-top: 3px; }
     .tk-leg-main { font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 5px; }
     .tk-chars { display: inline-flex; align-items: center; gap: 3px; margin: 3px 0 2px 17px; }
@@ -1535,14 +1532,12 @@
     .tk-leg.leg-won, .tk-leg.leg-lost { padding: 2px 6px; margin-left: -6px; border-radius: 4px; }
     .tk-sub { margin-top: 4px; font-size: 10px; font-weight: 700; color: #2f6ea8; display: inline-flex; align-items: center; gap: 4px; }
     .tk-none { font-size: 12px; color: rgba(28,22,18,0.55); padding: 6px 2px 12px; }
-    html.pv-dark .tk-none { color: rgba(244,234,215,0.55); }
     .tk-old-toggle {
       width: 100%; margin: 4px 0 10px; padding: 8px; cursor: pointer;
       background: transparent; border: 1.5px dashed rgba(28,22,18,0.3);
       font-family: inherit; font-weight: 800; font-size: 10px; letter-spacing: 0.14em; color: rgba(28,22,18,0.6);
       display: inline-flex; align-items: center; justify-content: center; gap: 6px;
     }
-    html.pv-dark .tk-old-toggle { border-color: rgba(244,234,215,0.25); color: rgba(244,234,215,0.6); }
     .tk-old-toggle:hover { border-color: var(--pv-orange); color: var(--pv-orange); }
     .ticket .pick { font-weight: 800; }
     .ticket .pick small { font-weight: 700; color: var(--pv-orange); letter-spacing: 0.16em; font-size: 10px; display: block; margin-bottom: 2px; }
@@ -3613,9 +3608,7 @@
     .pp-modal .card { margin-bottom: 12px; }
     .bp-rep { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
     .bp-rep-stats { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; font-weight: 600; color: rgba(28,22,18,0.7); }
-    html.pv-dark .bp-rep-stats { color: rgba(244,234,215,0.7); }
     .bp-rep-stats b { color: var(--pv-charcoal); font-weight: 800; }
-    html.pv-dark .bp-rep-stats b { color: var(--pv-bone); }
     .bp-tklist { display: flex; flex-direction: column; gap: 8px; }
     .bp-tk { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1.5px solid rgba(28,22,18,0.14); background: rgba(28,22,18,0.02); }
     .bp-tk-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: var(--pv-charcoal); }
@@ -3624,13 +3617,10 @@
     .bp-tk.pending .bp-tk-dot { background: var(--pv-orange); }
     .bp-tk-l { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
     .bp-tk-type { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; color: var(--pv-charcoal); }
-    html.pv-dark .bp-tk-type { color: var(--pv-bone); }
     .bp-tk-st { font-size: 10px; font-weight: 700; color: rgba(28,22,18,0.55); }
-    html.pv-dark .bp-tk-st { color: rgba(244,234,215,0.6); }
     .bp-tk.won .bp-tk-st { color: var(--pv-green, #2a8f3f); }
     .bp-tk.lost .bp-tk-st { color: var(--pv-red, #c0392b); }
     .bp-tk-amt { font-family: 'Anton', Impact, sans-serif; font-size: 15px; color: var(--pv-charcoal); flex-shrink: 0; }
-    html.pv-dark .bp-tk-amt { color: var(--pv-bone); }
     .bp-tk-amt small { font-size: 9px; letter-spacing: 0.2em; }
     .rank-row--click { cursor: pointer; }
     .rank-row--click:hover { background: rgba(215,100,20,0.08); }
@@ -4646,24 +4636,19 @@
     .dstat-v { font-family: "Anton", Impact, sans-serif; font-size: 26px; line-height: 1; color: var(--pv-charcoal); }
     .dstat.hl .dstat-v { color: var(--pv-orange); }
     .dstat-l { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; color: rgba(28,22,18,0.55); margin-top: 5px; }
-    html.pv-dark .dstat-v { color: var(--pv-bone); }
-    html.pv-dark .dstat-l { color: rgba(244,234,215,0.6); }
     .dstats-sub { font-size: 11px; font-weight: 800; letter-spacing: 0.12em; color: var(--pv-orange); margin: 16px 0 8px; }
     .dstats-chars { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
     .dchar { display: flex; align-items: center; gap: 8px; background: rgba(28,22,18,0.04); border: 1px solid rgba(28,22,18,0.1); padding: 6px 8px; }
     .dchar-info { min-width: 0; }
     .dchar-n { font-size: 12px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .dchar-s { font-size: 10px; font-weight: 700; color: rgba(28,22,18,0.6); }
-    html.pv-dark .dchar-s { color: rgba(244,234,215,0.6); }
     /* DOMÍNIO POR PERSONAGEM (quem joga melhor com cada boneco) */
     .charlb-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 10px; padding: 14px 16px; background: transparent; border: 0; cursor: pointer; font: inherit; }
     .charlb-toggle-t { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: 14px; letter-spacing: 0.04em; color: var(--pv-charcoal); }
-    html.pv-dark .charlb-toggle-t { color: var(--pv-bone); }
     .charlb-toggle-r { display: inline-flex; align-items: center; gap: 5px; font-weight: 800; font-size: 10.5px; letter-spacing: 0.14em; color: var(--pv-orange); }
     .charlb-toggle:hover .charlb-toggle-r { text-decoration: underline; }
     /* modo inline: dentro do card MORTAL KOMBAT · DETALHADO, após PERSONAGENS */
     .charlb-inline { margin-top: 14px; border-top: 1px solid rgba(28,22,18,0.1); }
-    html.pv-dark .charlb-inline { border-top-color: rgba(244,234,215,0.12); }
     .charlb-toggle--inline { padding: 12px 0 4px; }
     .charlb-body { margin-top: 4px; }
     .charlb { display: flex; flex-direction: column; gap: 8px; }
@@ -4671,12 +4656,10 @@
     .charlb-row .mk-fc-mono { width: 40px; height: 40px; border-radius: 4px; font-size: 14px; flex-shrink: 0; }
     .charlb-info { flex: 1; min-width: 0; }
     .charlb-char { font-weight: 800; font-size: 12px; letter-spacing: 0.04em; color: var(--pv-charcoal); }
-    html.pv-dark .charlb-char { color: var(--pv-bone); }
     .charlb-best { display: inline-flex; align-items: center; gap: 5px; background: transparent; border: 0; padding: 2px 0 0; cursor: pointer; font: inherit; font-size: 11px; font-weight: 700; color: var(--pv-orange); }
     .charlb-stat { text-align: right; flex-shrink: 0; }
     .charlb-wr { font-family: 'Anton', Impact, sans-serif; font-size: 18px; color: var(--pv-orange); line-height: 1; }
     .charlb-vd { font-size: 9.5px; font-weight: 700; color: rgba(28,22,18,0.55); }
-    html.pv-dark .charlb-vd { color: rgba(244,234,215,0.6); }
     .charlb-apps { opacity: 0.7; }
     .stats-prof { min-width: 0; }
     .stats-tro-big { display: flex; flex-wrap: wrap; gap: 12px; }
