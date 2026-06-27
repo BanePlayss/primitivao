@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-mesa3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260627-stats5 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -9808,7 +9808,9 @@ function StatTile({ label, value, hl }) {
   );
 }
 // Detalhamento a fundo de UM jogador (quando o mesmo perfil é escolhido nos 2 lados).
-function DetailedStatsCard({ nick, teamPlayers, cs, mkDraw, mkScores, mkLineups }) {
+// `players` (opcional): se vier, mostra o DOMÍNIO POR PERSONAGEM (ranking global)
+// logo após a seção de personagens do jogador.
+function DetailedStatsCard({ nick, teamPlayers, cs, mkDraw, mkScores, mkLineups, players, onOpenProfile }) {
   const f = fifaPlayerDetailedStats(nick, teamPlayers, cs ? cs.rounds : []);
   const m = mkPlayerDetailedStats(nick, mkDraw, mkScores, mkLineups);
   const pct = (v) => Math.round(v) + '%';
@@ -9872,6 +9874,9 @@ function DetailedStatsCard({ nick, teamPlayers, cs, mkDraw, mkScores, mkLineups 
             )}
           </div>
         </div>
+      )}
+      {players && players.length > 0 && (
+        <CharacterLeaderboard players={players} mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} teamPlayers={teamPlayers} onOpenProfile={onOpenProfile} />
       )}
       {f.n === 0 && m.n === 0 && (
         <div className="card"><div className="card-body"><div className="empty"><div className="e1">SEM DADOS</div><div className="e2">@{nick} ainda não tem jogos lançados na FIFA nem no MK.</div></div></div></div>
@@ -10112,6 +10117,50 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
       {/* CENTRO — comparação */}
       <div className="stats-main">
         <div className="card">
+          <div className="card-head"><div className="title"><Icon name="trophy" size={16} /> TROFÉUS E CONQUISTAS</div></div>
+          <div className="card-body">
+            <div className={'stats-tro-cols' + (profiles.length > 1 ? '' : ' single')}>
+              {profiles.map((p, pi) => {
+                const tro = trophiesOf(p), tit = titlesOf(p), betKing = betKingOf(p);
+                const totalTro = tro.length + betKing.length;
+                return (
+                  <div key={p + pi} className="stats-prof">
+                    <div className={'stats-tro-name' + (p === nick ? ' me' : '')}>@{p}{p === nick && <span className="stats-you">VOCÊ</span>}</div>
+                    <div className="stats-tro-h">TROFÉUS · {totalTro}</div>
+                    {totalTro === 0 ? <div className="stats-none">Sem troféus ainda.</div> : (
+                      <>
+                        {betKing.length > 0 && (
+                          <div className="tr-betking" style={{ marginBottom: 12 }}>
+                            <div className="tr-betking-art"><Icon name="tr-betking" size={42} /></div>
+                            <div className="tr-betking-txt">
+                              <div className="tr-betking-label">REI DAS APOSTAS{betKing.length > 1 ? ' · ' + betKing.length : ''}</div>
+                              <div className="tr-betking-eds">{betKing.map((s, i) => <span key={i} className="tr-betking-ed">{s.tag} · {s.season}</span>)}</div>
+                            </div>
+                          </div>
+                        )}
+                        {tro.length > 0 && (
+                          <div className="stats-tro-big">
+                            {['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'].map(kind => {
+                              const group = tro.filter(t => t.kind === kind);
+                              if (!group.length) return null;
+                              const editions = group.map(t => { const cc = CHAMP_BY_ID[t.champId]; return { tag: (cc && cc.tag) || t.champId, season: (cc && cc.season) || '' }; });
+                              return <TrophyGroup key={kind} kind={kind} editions={editions} />;
+                            })}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    <div className="stats-tro-h" style={{ marginTop: 16 }}>CONQUISTAS · {tit.length} · {achievementScore(p, ctx)} PTS</div>
+                    {tit.length === 0 ? <div className="stats-none">Sem conquistas ainda.</div> : (
+                      <div className="stats-tro">{tit.map(t => <TitleBadge key={t.id} titleId={t.id} />)}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        <div className="card">
           <div className="card-head">
             <div className="title"><Icon name="medal" size={16} /> ESTATÍSTICAS</div>
             <div className="sub">COMPARAÇÃO · H2H</div>
@@ -10145,10 +10194,8 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
         </div>
 
         {sameProfile && (
-          <DetailedStatsCard nick={left} teamPlayers={teamPlayers} cs={cs} mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} />
+          <DetailedStatsCard nick={left} teamPlayers={teamPlayers} cs={cs} mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} players={players} />
         )}
-
-        <CharacterLeaderboard players={players} mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} teamPlayers={teamPlayers} />
 
         {right && !sameProfile && (
           <div className="card">
@@ -10208,51 +10255,6 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
             </div>
           </div>
         )}
-
-        <div className="card">
-          <div className="card-head"><div className="title">TROFÉUS E CONQUISTAS</div></div>
-          <div className="card-body">
-            <div className={'stats-tro-cols' + (profiles.length > 1 ? '' : ' single')}>
-              {profiles.map((p, pi) => {
-                const tro = trophiesOf(p), tit = titlesOf(p), betKing = betKingOf(p);
-                const totalTro = tro.length + betKing.length;
-                return (
-                  <div key={p + pi} className="stats-prof">
-                    <div className={'stats-tro-name' + (p === nick ? ' me' : '')}>@{p}{p === nick && <span className="stats-you">VOCÊ</span>}</div>
-                    <div className="stats-tro-h">TROFÉUS · {totalTro}</div>
-                    {totalTro === 0 ? <div className="stats-none">Sem troféus ainda.</div> : (
-                      <>
-                        {betKing.length > 0 && (
-                          <div className="tr-betking" style={{ marginBottom: 12 }}>
-                            <div className="tr-betking-art"><Icon name="tr-betking" size={42} /></div>
-                            <div className="tr-betking-txt">
-                              <div className="tr-betking-label">REI DAS APOSTAS{betKing.length > 1 ? ' · ' + betKing.length : ''}</div>
-                              <div className="tr-betking-eds">{betKing.map((s, i) => <span key={i} className="tr-betking-ed">{s.tag} · {s.season}</span>)}</div>
-                            </div>
-                          </div>
-                        )}
-                        {tro.length > 0 && (
-                          <div className="stats-tro-big">
-                            {['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'].map(kind => {
-                              const group = tro.filter(t => t.kind === kind);
-                              if (!group.length) return null;
-                              const editions = group.map(t => { const cc = CHAMP_BY_ID[t.champId]; return { tag: (cc && cc.tag) || t.champId, season: (cc && cc.season) || '' }; });
-                              return <TrophyGroup key={kind} kind={kind} editions={editions} />;
-                            })}
-                          </div>
-                        )}
-                      </>
-                    )}
-                    <div className="stats-tro-h" style={{ marginTop: 16 }}>CONQUISTAS · {tit.length} · {achievementScore(p, ctx)} PTS</div>
-                    {tit.length === 0 ? <div className="stats-none">Sem conquistas ainda.</div> : (
-                      <div className="stats-tro">{tit.map(t => <TitleBadge key={t.id} titleId={t.id} />)}</div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
 
         {/* HISTÓRICO DE PARTIDAS — FIFA (@nick) + MK (placares das partidas + personagens) */}
         <div className="card">
