@@ -4312,10 +4312,10 @@
     .mesa-card-meta { display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; color: rgba(28,22,18,0.6); }
     .mesa-card-odds { font-family: "Anton", Impact, sans-serif; font-size: 16px; color: var(--pv-orange); }
     .mesa-card-copies { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; }
-    html.pv-dark .mesa-card-meta { color: rgba(244,234,215,0.65); }
+    /* O card da Mesa é SEMPRE claro (cream), mesmo no tema escuro — NÃO usar
+       overrides html.pv-dark aqui (deixam texto claro sumindo no fundo claro). */
     .mesa-cashback { font-size: 10.5px; font-weight: 700; color: var(--pv-charcoal); background: rgba(215,100,20,0.1); border: 1px dashed var(--pv-orange); padding: 6px 8px; display: flex; align-items: center; gap: 5px; }
     .mesa-cashback b { color: var(--pv-orange); }
-    html.pv-dark .mesa-cashback { color: var(--pv-bone); }
     .mesa-copyrow { display: flex; gap: 6px; }
     .mesa-stake { flex: 1; min-width: 0; padding: 8px; font-family: "JetBrains Mono", monospace; font-weight: 700; text-align: center; border: 1.5px solid rgba(28,22,18,0.2); background: var(--pv-bone); color: var(--pv-charcoal); }
     .mesa-copybtn { flex-shrink: 0; padding: 8px 14px; font-weight: 800; font-size: 11px; letter-spacing: 0.1em; background: var(--pv-orange); color: var(--pv-bone); border: none; cursor: pointer; }
