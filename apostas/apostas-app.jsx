@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260627-pub1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260627-wal1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4561,13 +4561,14 @@ function TopBar({ nick, pc, cc, isAdmin, isMod, onLogout, view, onView, teamPlay
       </nav>
       <div className="wallet">
         {!isAdmin && (
-          <div className="pc-pill">
-            <div className="pc-coin">P</div>
-            <div>
-              <div className="pc-amt">{pc}</div>
-              <div className="pc-unit">PRIMITIVO COINS</div>
-            </div>
-          </div>
+          <button type="button" className="pc-pill" onClick={() => onView && onView('tickets')} title="Ver meus tickets">
+            <span className="pc-coin">P</span>
+            <span className="pc-info">
+              <span className="pc-amt">{Number(pc || 0).toLocaleString('pt-BR')}</span>
+              <span className="pc-unit">PRIMITIVO COINS</span>
+            </span>
+            <span className="pc-go" aria-hidden="true"><Icon name="ticket" size={13} /></span>
+          </button>
         )}
         {!isAdmin && !HIDE_CC && (
           <div className="pc-pill cc-pill" title="Campeão Coins — moeda da loja">
