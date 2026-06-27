@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260627-bk1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260627-pub1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3427,9 +3427,8 @@ function App() {
 
   // PlaceBet via transação: debita PC + adiciona ticket atomicamente contra
   // o estado remoto (não permite ficar negativo nem perder o ticket).
-  // TODO cupom agora nasce PÚBLICO (vai direto pra MESA DOS CARTOLAS). O usuário
-  // pode tirar da mesa depois em MEUS TICKETS (unpublishTicket). `opts` mantido
-  // por compatibilidade dos callers, mas a aposta sempre sai open.
+  // TODO cupom é PÚBLICO (vai direto pra MESA DOS CARTOLAS) e NÃO dá pra tirar —
+  // todo cupom pendente fica copiável. `opts` mantido por compat dos callers.
   const placeBet = async (amount, opts) => {
     if (!me || slip.length === 0) return;
     // Rede de segurança: se algum palpite ainda referencia jogo indisponível
@@ -3531,35 +3530,8 @@ function App() {
     const g = cs && cs.rounds && cs.rounds[p.ri] && cs.rounds[p.ri][p.gi];
     return !!(g && (g.locked || isGamePlayed(g)));
   });
-  const publishTicket = async (ticketId) => {
-    try {
-      const r = await commitBetDocUpdate(remote => {
-        const t = (remote.bets || []).find(b => b.id === ticketId);
-        if (!t) return null;
-        if (t.user !== session.nick) return { __abort: true, result: { err: 'Só o dono publica.' } };
-        if (t.copyOf) return { __abort: true, result: { err: 'Cópia não pode ir pra mesa.' } };
-        if (t.status !== 'pending') return { __abort: true, result: { err: 'Só cupom pendente vai pra mesa.' } };
-        if (legBusy(t.legs, remote)) return { __abort: true, result: { err: 'Algum jogo do cupom já travou/jogou.' } };
-        if (!t.open) {
-          const openCount = (remote.bets || []).filter(b => b.user === session.nick && b.open && b.status === 'pending').length;
-          if (openCount >= MAX_OPEN_TICKETS) return { __abort: true, result: { err: 'Máximo de ' + MAX_OPEN_TICKETS + ' tickets na mesa ao mesmo tempo.' } };
-        }
-        const bets = (remote.bets || []).map(b => b.id !== ticketId ? b : ({ ...b, open: true, openMeta: { publishedAt: Date.now(), copies: (b.openMeta && b.openMeta.copies) || 0, stakeCopied: (b.openMeta && b.openMeta.stakeCopied) || 0 } }));
-        return { ...remote, bets };
-      });
-      if (r && r.err) showToast(r.err, 'error'); else showToast('Ticket na MESA DOS CARTOLAS — os outros já podem copiar!', 'success');
-    } catch (e) { console.warn('publishTicket failed', e); }
-  };
-  const unpublishTicket = async (ticketId) => {
-    try {
-      await commitBetDocUpdate(remote => {
-        const t = (remote.bets || []).find(b => b.id === ticketId);
-        if (!t || t.user !== session.nick) return null;
-        return { ...remote, bets: (remote.bets || []).map(b => b.id !== ticketId ? b : ({ ...b, open: false })) };
-      });
-      showToast('Ticket tirado da mesa.', 'success');
-    } catch (e) { console.warn('unpublishTicket failed', e); }
-  };
+  // Publicar/despublicar na Mesa foi REMOVIDO: todo cupom é público sempre
+  // (nasce open:true; a Mesa lista todo cupom pendente que não é cópia).
   // Copia um ticket aberto: paga o stake. O cashback de 10% (da casa) NÃO é mais
   // creditado na hora — fica DIFERIDO pra liquidação (settle), pago 1x quando a
   // cópia resolve. Isso fecha o exploit (copiar+cancelar ficava com o cashback).
@@ -4454,7 +4426,7 @@ function App() {
               />
             )}
             {view === 'tickets' && (
-              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} mkLineups={mkLineups} teamPlayers={teamPlayers || {}} onCancel={cancelBet} onPublish={publishTicket} onUnpublish={unpublishTicket} onGoApostas={() => setView('apostas')} />
+              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} mkLineups={mkLineups} teamPlayers={teamPlayers || {}} onCancel={cancelBet} onGoApostas={() => setView('apostas')} />
             )}
             {view === 'ranking' && (
               <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} cs={cs} onOpenBetProfile={setBetProfileNick} />
@@ -7331,7 +7303,7 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
               </button>
             </div>
             {/* Todo cupom agora vai pra MESA DOS CARTOLAS automaticamente ao apostar. */}
-            <div className="cupom-public-note"><Icon name="cards" size={12} /> Toda aposta vai pra MESA DOS CARTOLAS — dá pra tirar depois em MEUS TICKETS.</div>
+            <div className="cupom-public-note"><Icon name="cards" size={12} /> Toda aposta é pública na MESA DOS CARTOLAS — os outros podem copiar.</div>
             <button
               type="button"
               className="cupom-share"
@@ -7468,7 +7440,8 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwn
 }
 function OpenTicketsFeed({ bets, users, teamPlayers, myNick, champId, balance, onCopy }) {
   const all = bets || [];
-  const open = all.filter(b => b.open && !b.copyOf && b.status === 'pending' && (b.champId || 'fifa') === champId)
+  // Todo cupom é PÚBLICO: lista todo pendente que não é cópia (ignora flag `open`).
+  const open = all.filter(b => !b.copyOf && b.status === 'pending' && (b.champId || 'fifa') === champId)
     .sort((a, b) => repScoreOf((users || {})[b.user]) - repScoreOf((users || {})[a.user]) || (b.openMeta?.publishedAt || 0) - (a.openMeta?.publishedAt || 0));
   if (!open.length) return null;
   return (
@@ -7533,7 +7506,7 @@ function TicketsMini({ bets, limit = 6, onOpen }) {
   );
 }
 
-function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, teamPlayers, onCancel, onPublish, onUnpublish, limit, title, onGoApostas }) {
+function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, teamPlayers, onCancel, limit, title, onGoApostas }) {
   const [showOld, setShowOld] = useState(false);
   // "22/05 14:32" — quando o ticket foi feito (auditoria pessoal).
   const fmtWhen = (ts) => {
@@ -7587,14 +7560,12 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, teamPlayers, on
     const rl = roundOf(t);
     const when = fmtWhen(t.createdAt);
     return (
-      <div key={t.id} className={cls + (isCopy ? ' ticket--copy' : t.open ? ' ticket--mine' : '')} style={{ gridTemplateColumns: '1fr auto' }}>
+      <div key={t.id} className={cls + (isCopy ? ' ticket--copy' : ' ticket--mine')} style={{ gridTemplateColumns: '1fr auto' }}>
         <div>
           <div className="tk-head">
             {isCopy
               ? <span className="tk-chip copy"><Icon name="cards" size={10} /> CÓPIA DE @{t.copyOwner}</span>
-              : t.open
-                ? <span className="tk-chip mine"><Icon name="star" size={10} /> SEU · NA MESA · {copies} cópia{copies === 1 ? '' : 's'}</span>
-                : <span className="tk-chip mine"><Icon name="user" size={10} /> SEU CUPOM</span>}
+              : <span className="tk-chip mine"><Icon name="star" size={10} /> SEU · NA MESA{copies > 0 ? ' · ' + copies + ' cópia' + (copies === 1 ? '' : 's') : ''}</span>}
             {rl && <span className="tk-chip round"><Icon name="flag" size={9} /> {rl}</span>}
             <span className="tk-chip soft">{multi ? 'CASADA ' + t.legs.length : 'SIMPLES'} · @{Number(t.combinedOdds).toFixed(2)}</span>
             {when && <span className="tk-when">{when}</span>}
@@ -7643,9 +7614,6 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, teamPlayers, on
           <div className="stake">{t.amount} <span style={{ fontSize: 10, fontFamily: 'Space Grotesk', letterSpacing: '0.2em' }}>PC</span></div>
           {t.status === 'pending' && !blocked && (
             <button onClick={() => onCancel(t.id)} style={{ marginTop: 8, padding: '6px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.18em', background: 'transparent', border: '1.5px solid var(--pv-charcoal)' }}>CANCELAR</button>
-          )}
-          {t.status === 'pending' && !blocked && !t.copyOf && (onPublish || onUnpublish) && (
-            <button onClick={() => t.open ? (onUnpublish && onUnpublish(t.id)) : (onPublish && onPublish(t.id))} style={{ marginTop: 8, marginLeft: 6, padding: '6px 10px', fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', background: t.open ? 'transparent' : 'var(--pv-orange)', color: t.open ? 'var(--pv-charcoal)' : 'var(--pv-bone)', border: '1.5px solid var(--pv-orange)', cursor: 'pointer' }}>{t.open ? 'TIRAR DA MESA' : 'TORNAR PÚBLICO'}</button>
           )}
           {t.status === 'pending' && hasLocked && !hasSettled && (
             <div style={{ marginTop: 8, fontSize: 9, letterSpacing: '0.16em', fontWeight: 800, color: '#c33', lineHeight: 1.3, maxWidth: 110, display: 'inline-flex', alignItems: 'flex-start', gap: 4 }}>
@@ -9580,7 +9548,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                         <button className="btn-primary" disabled={!cupom.length || !(stake > 0) || (Number.isFinite(balance) && stake > balance)} onClick={() => place()}>{Number.isFinite(balance) && stake > balance ? 'SALDO INSUFICIENTE' : 'APOSTAR ' + stake + ' PC'}</button>
                       </div>
                       {/* Todo cupom agora vai pra MESA DOS CARTOLAS automaticamente ao apostar. */}
-                      <div className="cupom-public-note"><Icon name="cards" size={12} /> Toda aposta vai pra MESA DOS CARTOLAS — dá pra tirar depois em MEUS TICKETS.</div>
+                      <div className="cupom-public-note"><Icon name="cards" size={12} /> Toda aposta é pública na MESA DOS CARTOLAS — os outros podem copiar.</div>
                       <button type="button" className="cupom-share" onClick={() => {
                         const txt = 'Cupom MK: ' + cupom.map(l => MK_MARKET_TITLE[l.market] + ' ' + mkLegLabel(l) + ' @' + l.odd.toFixed(2)).join(' + ') + ' = ' + combined.toFixed(2) + 'x';
                         navigator.clipboard.writeText(txt).then(() => showToast('Cupom copiado!', 'success'), () => showToast('Falha ao copiar.', 'error'));
