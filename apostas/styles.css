@@ -750,8 +750,11 @@
       font-family: "Anton", Impact, sans-serif; font-size: 13px;
       border: 2px solid var(--pv-bone);
     }
+    /* moeda PC (ícone novo, sem círculo de fundo — o ícone já é a moeda) */
+    .pc-coin-ic { display: inline-flex; align-items: center; justify-content: center; color: var(--pv-charcoal); flex-shrink: 0; }
+    .pc-coin-ic svg { width: 26px; height: 26px; }
     .pc-amt { font-family: "Anton", Impact, sans-serif; font-size: 20px; line-height: 1; }
-    .pc-unit { font-size: 9px; letter-spacing: 0.2em; font-weight: 800; opacity: 0.7; }
+    .pc-unit { font-size: 9px; letter-spacing: 0.2em; font-weight: 800; opacity: 0.72; }
 
     /* Pílula da CAMPEÃO COINS (loja) — dourado "champion", distinta do PC laranja. */
     .cc-pill { background: var(--pv-charcoal); color: #e9c24a; }
@@ -810,18 +813,20 @@
       letter-spacing: 0.1em; font-size: 13px;
     }
     .nick-btn {
-      background: transparent;
-      border: 1.5px solid transparent;
-      padding: 4px 8px;
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(244,234,215,0.1);
+      border: 1.5px solid rgba(244,234,215,0.18);
+      border-radius: 999px;
+      padding: 3px 13px 3px 3px;
       font: inherit; color: inherit;
       cursor: pointer;
-      transition: background 0.12s, border-color 0.12s;
+      transition: background 0.12s, border-color 0.12s, transform 0.12s;
     }
     .nick-btn:hover {
-      background: rgba(244,234,215,0.06);
-      border-color: rgba(244,234,215,0.25);
+      background: rgba(244,234,215,0.18);
+      border-color: var(--pv-orange);
     }
-    .nick-btn:active { transform: translate(1px, 1px); }
+    .nick-btn:active { transform: translate(0, 1px); }
     .nick-tag {
       display: inline-block;
       padding: 4px 8px;
@@ -838,7 +843,8 @@
     .logout-btn {
       background: transparent; color: var(--pv-bone);
       border: 1.5px solid rgba(244,234,215,0.35);
-      padding: 6px 12px; font-size: 11px; font-weight: 800;
+      border-radius: 999px;
+      padding: 6px 14px; font-size: 11px; font-weight: 800;
       letter-spacing: 0.2em;
     }
     .logout-btn:hover { background: var(--pv-orange); border-color: var(--pv-orange); color: var(--pv-charcoal); }

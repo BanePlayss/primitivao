@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260627-wal1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260627-wal2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4562,7 +4562,7 @@ function TopBar({ nick, pc, cc, isAdmin, isMod, onLogout, view, onView, teamPlay
       <div className="wallet">
         {!isAdmin && (
           <button type="button" className="pc-pill" onClick={() => onView && onView('tickets')} title="Ver meus tickets">
-            <span className="pc-coin">P</span>
+            <span className="pc-coin-ic"><Icon name="pcoin" size={26} /></span>
             <span className="pc-info">
               <span className="pc-amt">{Number(pc || 0).toLocaleString('pt-BR')}</span>
               <span className="pc-unit">PRIMITIVO COINS</span>
@@ -4585,9 +4585,9 @@ function TopBar({ nick, pc, cc, isAdmin, isMod, onLogout, view, onView, teamPlay
           onClick={() => { if (onView) onView('perfil'); }}
           title="Ir pro meu perfil"
         >
-          {!isAdmin && <Avatar nick={nick} teamPlayers={teamPlayers} cosmetics={myCosmetics} size={36} />}
+          {!isAdmin && <Avatar nick={nick} teamPlayers={teamPlayers} cosmetics={myCosmetics} size={32} />}
           {isAdmin && <span className="nick-tag" style={{ color: 'var(--pv-orange)', borderColor: 'var(--pv-orange)' }}>ADMIN</span>}
-          <span className={isAdmin ? 'nick-tag' : 'nick-name'}>@{nick}</span>
+          <span className={isAdmin ? 'nick-tag' : 'nick-name'}>{nick}</span>
         </button>
         <button className="logout-btn" onClick={onLogout}>SAIR</button>
       </div>
@@ -5084,6 +5084,15 @@ function Icon({ name, size = 20, strokeWidth, className = '' }) {
           <circle cx="12" cy="12" r="9" />
           <circle cx="12" cy="12" r="6.2" strokeDasharray="1.5 2" opacity="0.55" />
           <text x="12" y="15.4" textAnchor="middle" fontFamily="'JetBrains Mono', ui-monospace, monospace" fontSize="8.5" fontWeight="800" fill="currentColor" stroke="none">PC</text>
+        </svg>
+      );
+    case 'pcoin':
+      // moeda do Primitivão — disco cunhado + anel + estrela central
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="6.3" opacity="0.4" />
+          <path d="M12 7.8L12.97 10.67L15.99 10.7L13.57 12.51L14.47 15.4L12 13.65L9.53 15.4L10.43 12.51L8.01 10.7L11.03 10.67Z" fill="currentColor" stroke="none" />
         </svg>
       );
     case 'coin-stack':
