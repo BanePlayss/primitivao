@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260627-rl1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260627-tf1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -9781,10 +9781,58 @@ function characterLeaderboard(players, draw, scores, lineups) {
     return { char: cd.char, best: ranked[0], totalApps: cd.rows.reduce((s, r) => s + r.apps, 0) };
   }).filter(x => x.best).sort((a, b) => b.totalApps - a.totalApps);
 }
+// Ranking de TODOS os jogadores com UM personagem (clicou no boneco no domínio).
+function charPlayerRanking(char, players, draw, scores, lineups) {
+  const rows = [];
+  (players || []).forEach(nick => {
+    const m = mkPlayerDetailedStats(nick, draw, scores, lineups);
+    const c = m.characters.find(x => x.char === char);
+    if (c && c.apps > 0) rows.push({ nick, apps: c.apps, wins: c.wins, losses: c.apps - c.wins, winRate: c.wins / c.apps });
+  });
+  return rows.sort((a, b) => b.winRate - a.winRate || b.apps - a.apps || b.wins - a.wins);
+}
+function CharRankModal({ char, players, draw, scores, lineups, teamPlayers, onClose }) {
+  if (!char) return null;
+  const rows = charPlayerRanking(char, players, draw, scores, lineups);
+  return (
+    <div className="mj-modal-backdrop" onClick={onClose}>
+      <div className="mj-modal cr-modal" onClick={e => e.stopPropagation()}>
+        <button className="mj-modal-close" type="button" aria-label="Fechar" onClick={onClose}><Icon name="x" size={18} /></button>
+        <div className="cr-head">
+          <MkCharIcon name={char} />
+          <div className="cr-head-info">
+            <div className="cr-title">{char}</div>
+            <div className="cr-sub">RANKING POR PERSONAGEM · {rows.length} JOGADOR{rows.length === 1 ? '' : 'ES'}</div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-body">
+            {rows.length === 0 ? (
+              <div className="empty"><div className="e1">SEM DADOS</div><div className="e2">Ninguém usou {char} ainda.</div></div>
+            ) : (
+              <div className="cr-list">
+                {rows.map((r, i) => (
+                  <div key={r.nick} className={'cr-row' + (i === 0 ? ' top' : '')}>
+                    <span className={'cr-pos rank-' + (i + 1)}>{i + 1}</span>
+                    <Avatar nick={r.nick} teamPlayers={teamPlayers} size={26} noBadge />
+                    <span className="cr-nick">{r.nick}</span>
+                    <span className="cr-wr">{Math.round(r.winRate * 100)}%</span>
+                    <span className="cr-vd">{r.wins}V · {r.losses}D <small>· {r.apps} usos</small></span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 // `bare`: renderiza SEM o wrapper .card (pra encaixar dentro de outro card,
 // ex.: dentro do MORTAL KOMBAT · DETALHADO, logo após a seção PERSONAGENS).
 function CharacterLeaderboard({ players, mkDraw, mkScores, mkLineups, teamPlayers, onOpenProfile, bare }) {
   const [open, setOpen] = useState(false);
+  const [openChar, setOpenChar] = useState(null);
   const board = characterLeaderboard(players, mkDraw, mkScores, mkLineups);
   if (!board.length) return null;
   const inner = (
@@ -9799,19 +9847,20 @@ function CharacterLeaderboard({ players, mkDraw, mkScores, mkLineups, teamPlayer
             {board.map(x => {
               const b = x.best, losses = b.apps - b.wins, wr = Math.round(b.wins / b.apps * 100);
               return (
-                <div key={x.char} className="charlb-row">
+                <button type="button" key={x.char} className="charlb-row" onClick={() => setOpenChar(x.char)} title={'Ver ranking de ' + x.char}>
                   <MkCharIcon name={x.char} />
                   <div className="charlb-info">
                     <div className="charlb-char">{x.char}</div>
-                    <button type="button" className="charlb-best" onClick={() => onOpenProfile && onOpenProfile(b.nick)} title={'Ver perfil de ' + b.nick}>
+                    <span className="charlb-best">
                       <Avatar nick={b.nick} teamPlayers={teamPlayers} size={18} noBadge /> <span>{b.nick}</span>
-                    </button>
+                    </span>
                   </div>
                   <div className="charlb-stat">
                     <div className="charlb-wr">{wr}%</div>
                     <div className="charlb-vd">{b.wins}V · {losses}D <span className="charlb-apps">· {x.totalApps} usos</span></div>
                   </div>
-                </div>
+                  <Icon name="arrow-right" size={13} className="charlb-go" />
+                </button>
               );
             })}
           </div>
@@ -9819,7 +9868,10 @@ function CharacterLeaderboard({ players, mkDraw, mkScores, mkLineups, teamPlayer
       )}
     </>
   );
-  return bare ? <div className="charlb-inline">{inner}</div> : <div className="card">{inner}</div>;
+  const modal = <CharRankModal char={openChar} players={players} draw={mkDraw} scores={mkScores} lineups={mkLineups} teamPlayers={teamPlayers} onClose={() => setOpenChar(null)} />;
+  return bare
+    ? <><div className="charlb-inline">{inner}</div>{modal}</>
+    : <><div className="card">{inner}</div>{modal}</>;
 }
 function StatTile({ label, value, hl }) {
   return (
@@ -11232,30 +11284,46 @@ function AparenciaCard({ theme, onSetTheme, nick, teamPlayers, cosmetics, curren
 }
 
 // Um card por TIPO de troféu (campeão/vice/...), com a lista de edições embaixo.
+// Um card por TIPO de troféu, estilo FIGURINHA-MEDALHA de jornal: disco metálico
+// + faixa de raridade + textura de papel + plaquinha gravada. Vexame (penúltimo/
+// último) = selo tombado/rachado com carimbo "VEXAME". Cards sempre claros ->
+// texto sempre escuro (--tf-ink). Sem emoji, só <Icon/>. (redesign via ultracode)
 function TrophyGroup({ kind, editions }) {
   const meta = {
-    champion:   { icon: 'tr-champion',   label: 'CAMPEÃO',    color: '#d4af37', bg: '#fbf3d3' },
-    vice:       { icon: 'tr-vice',       label: 'VICE',       color: '#9aa3ad', bg: '#eef0f2' },
-    terceiro:   { icon: 'tr-terceiro',   label: 'TERCEIRO',   color: '#cd7f32', bg: '#f7e9da' },
-    participou: { icon: 'tr-participou', label: 'PARTICIPOU', color: '#5e7186', bg: '#eef1f4' },
-    penultimo:  { icon: 'tr-penultimo',  label: 'PENÚLTIMO',  color: '#6b4423', bg: '#f0e7df' },
-    lanterna:   { icon: 'tr-lanterna',   label: 'ÚLTIMO',     color: '#7a2222', bg: '#fce4e4' },
-  }[kind] || { icon: null, label: '', color: '#000', bg: '#eee' };
+    champion:   { icon: 'tr-champion',   label: 'CAMPEÃO',    rarity: 'OURO',     ink: '#5a3e00', metal: '#e9c64a', deep: '#9c7a16', frame: '#caa01f', bg: '#fbf3d3' },
+    vice:       { icon: 'tr-vice',       label: 'VICE',       rarity: 'PRATA',    ink: '#3a4049', metal: '#cfd6dd', deep: '#5f6770', frame: '#9aa3ad', bg: '#eef0f2' },
+    terceiro:   { icon: 'tr-terceiro',   label: 'TERCEIRO',   rarity: 'BRONZE',   ink: '#5e3411', metal: '#e0a468', deep: '#8a5320', frame: '#bd7d3c', bg: '#f7e9da' },
+    participou: { icon: 'tr-participou', label: 'PARTICIPOU', rarity: 'PRESENÇA', ink: '#5a3410', metal: '#e6a463', deep: '#a85f1c', frame: '#d76414', bg: '#f6ece0' },
+    penultimo:  { icon: 'tr-penultimo',  label: 'PENÚLTIMO',  rarity: 'VEXAME',   ink: '#3f2812', metal: '#cbb8a6', deep: '#6b4423', frame: '#9d8267', bg: '#f0e7df' },
+    lanterna:   { icon: 'tr-lanterna',   label: 'ÚLTIMO',     rarity: 'VEXAME',   ink: '#5c1717', metal: '#d8a0a0', deep: '#7a2222', frame: '#b56b6b', bg: '#fce4e4' },
+  }[kind] || { icon: null, label: '', rarity: '', ink: '#1c1612', metal: '#ddd', deep: '#999', frame: '#bbb', bg: '#eee' };
   const shame = kind === 'lanterna' || kind === 'penultimo';
+  const champ = kind === 'champion';
+  const multi = editions.length > 1;
+  const cls = 'tf tf-' + kind + (shame ? ' tf-shame' : '') + (champ ? ' tf-champ' : '');
   return (
-    <div className={'tr-card tr-' + kind} style={{
-      flex: '0 0 calc(50% - 6px)', maxWidth: 240,
-      background: meta.bg, border: `2px solid ${meta.color}`,
-      padding: 12, textAlign: 'center',
-    }}>
-      <div className={'tr-art' + (shame ? ' shame' : '')} style={{ lineHeight: 1, color: meta.color, display: 'flex', justifyContent: 'center' }}>
-        {meta.icon && <Icon name={meta.icon} size={44} />}
+    <div className={cls} style={{ '--tf-metal': meta.metal, '--tf-deep': meta.deep, '--tf-frame': meta.frame, '--tf-bg': meta.bg, '--tf-ink': meta.ink }}>
+      <span className="tf-ribbon" aria-hidden="true"><span>{meta.rarity}</span></span>
+      <div className="tf-stage">
+        {multi && <span className="tf-count">{editions.length}x</span>}
+        <span className="tf-disc">
+          <span className="tf-disc-face">{meta.icon && <Icon name={meta.icon} size={38} />}</span>
+          {shame && <span className="tf-crack" aria-hidden="true" />}
+        </span>
+        {shame && <span className="tf-overprint">VEXAME</span>}
+        <span className="tf-floor" aria-hidden="true" />
       </div>
-      <div style={{ marginTop: 5, fontSize: 11, letterSpacing: '0.2em', fontWeight: 800, color: meta.color }}>
-        {meta.label}{editions.length > 1 ? ` ·${editions.length}` : ''}
-      </div>
-      <div className="tr-eds">
-        {editions.map((e, i) => <div key={i} className="tr-ed">{e.tag} · {e.season}</div>)}
+      <div className="tf-plate">
+        <div className="tf-label">{meta.label}</div>
+        <div className="tf-eds">
+          {editions.map((e, i) => (
+            <div key={i} className="tf-ed">
+              <span className="tf-ed-tag">{e.tag}</span>
+              <span className="tf-ed-dot" />
+              <span className="tf-ed-season">{e.season}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
