@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260626-mesa1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260626-mesa2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -7448,16 +7448,16 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwn
       )}
       {copyList.length > 0 && (
         <div className="mesa-copiers">
-          <div className="mesa-copiers-h"><Icon name="user" size={10} /> QUEM COPIOU · {copyList.length}</div>
+          <div className="mesa-copiers-h"><Icon name="heart" size={11} /> QUEM TÁ CONFIANDO · {copyList.length}</div>
           <div className="mesa-copiers-list">
             {copyList.slice(0, 8).map((c, i) => (
               <div key={c.nick + i} className="mesa-copier">
-                <Avatar nick={c.nick} teamPlayers={teamPlayers} size={16} noBadge />
+                <Avatar nick={c.nick} teamPlayers={teamPlayers} size={18} noBadge />
                 <span className="mesa-copier-n">{c.nick}</span>
-                <span className="mesa-copier-a">{compactPC(c.amount)} <small>PC</small></span>
+                <span className="mesa-copier-a">{compactPC(c.amount)}<small> PC</small></span>
               </div>
             ))}
-            {copyList.length > 8 && <div className="mesa-copier-more">+{copyList.length - 8} mais</div>}
+            {copyList.length > 8 && <div className="mesa-copier-more">+{copyList.length - 8} confiando também</div>}
           </div>
         </div>
       )}

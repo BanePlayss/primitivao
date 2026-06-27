@@ -4324,19 +4324,18 @@
     .mesa-card-tag.own { color: var(--pv-orange); background: rgba(215,100,20,0.08); }
     .mesa-tip-note { font-size: 9.5px; font-weight: 700; color: var(--pv-orange); display: flex; align-items: center; gap: 5px; padding: 5px 7px; background: rgba(217,165,33,0.1); border: 1px dashed #d9a521; line-height: 1.3; }
     .mesa-card-tag.done { color: var(--pv-green, #2a8f3f); background: rgba(42,143,63,0.08); }
-    /* Lista de quem copiou o cupom (nome + quanto apostou) */
+    /* Lista de quem está confiando no cupom (nome + quanto apostou) — 1 por linha.
+       O card da Mesa é SEMPRE claro (cream), mesmo no tema escuro, então o texto
+       aqui é sempre charcoal — NÃO usar overrides html.pv-dark (some no fundo claro). */
     .mesa-copiers { margin-top: 8px; padding-top: 8px; border-top: 1.5px dashed rgba(28,22,18,0.16); }
-    html.pv-dark .mesa-copiers { border-top-color: rgba(244,234,215,0.18); }
-    .mesa-copiers-h { font-size: 9px; font-weight: 800; letter-spacing: 0.16em; color: rgba(28,22,18,0.55); display: flex; align-items: center; gap: 5px; margin-bottom: 6px; }
-    html.pv-dark .mesa-copiers-h { color: rgba(244,234,215,0.6); }
-    .mesa-copiers-list { display: flex; flex-direction: column; gap: 4px; }
-    .mesa-copier { display: flex; align-items: center; gap: 6px; font-size: 11px; }
-    .mesa-copier-n { font-weight: 700; color: var(--pv-charcoal); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    html.pv-dark .mesa-copier-n { color: var(--pv-bone); }
-    .mesa-copier-a { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--pv-orange); flex-shrink: 0; }
-    .mesa-copier-a small { font-size: 8px; letter-spacing: 0.1em; opacity: 0.8; }
-    .mesa-copier-more { font-size: 9.5px; font-weight: 700; color: rgba(28,22,18,0.5); padding-left: 22px; }
-    html.pv-dark .mesa-copier-more { color: rgba(244,234,215,0.5); }
+    .mesa-copiers-h { font-size: 9px; font-weight: 800; letter-spacing: 0.14em; color: rgba(28,22,18,0.55); display: flex; align-items: center; gap: 5px; margin-bottom: 7px; }
+    .mesa-copiers-list { display: flex; flex-direction: column; gap: 5px; }
+    .mesa-copier { display: flex; align-items: center; gap: 7px; width: 100%; font-size: 11.5px; padding: 5px 7px; background: rgba(28,22,18,0.04); border-radius: 3px; box-sizing: border-box; }
+    .mesa-copier > .avatar, .mesa-copier > .avatar-framed { flex: 0 0 auto; }
+    .mesa-copier-n { font-weight: 700; color: var(--pv-charcoal); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mesa-copier-a { font-family: 'JetBrains Mono', monospace; font-weight: 800; color: var(--pv-orange); flex: 0 0 auto; margin-left: auto; white-space: nowrap; }
+    .mesa-copier-a small { font-size: 8px; letter-spacing: 0.08em; opacity: 0.75; }
+    .mesa-copier-more { font-size: 9.5px; font-weight: 700; color: rgba(28,22,18,0.5); padding: 2px 7px; }
     /* Nota: todo cupom vai pra MESA DOS CARTOLAS automaticamente — abaixo do APOSTAR */
     .cupom-public-note {
       margin-top: 8px; padding: 7px 10px;
