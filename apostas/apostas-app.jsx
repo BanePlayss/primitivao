@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260627-tf1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260627-bk1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -9984,13 +9984,7 @@ function PlayerProfileModal({ nick, users, cs, bets, teamPlayers, mkDraw, mkScor
             <div className="card-body">
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                 {betKing.length > 0 && (
-                  <div className="tr-betking">
-                    <div className="tr-betking-art"><Icon name="tr-betking" size={42} /></div>
-                    <div className="tr-betking-txt">
-                      <div className="tr-betking-label">REI DAS APOSTAS{betKing.length > 1 ? ' · ' + betKing.length : ''}</div>
-                      <div className="tr-betking-eds">{betKing.map((b, i) => { const c = CHAMP_BY_ID[b.champId]; return <span key={i} className="tr-betking-ed">{(c ? c.tag : b.champId)} · {(c ? c.season : '')}</span>; })}</div>
-                    </div>
-                  </div>
+                  <TrophyGroup kind="betking" editions={betKing.map(b => { const c = CHAMP_BY_ID[b.champId]; return { tag: c ? c.tag : b.champId, season: c ? c.season : '' }; })} />
                 )}
                 {groups.map(kind => {
                   const group = tro.filter(t => t.kind === kind);
@@ -10236,17 +10230,9 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
                     <div className="stats-tro-h">TROFÉUS · {totalTro}</div>
                     {totalTro === 0 ? <div className="stats-none">Sem troféus ainda.</div> : (
                       <>
-                        {betKing.length > 0 && (
-                          <div className="tr-betking" style={{ marginBottom: 12 }}>
-                            <div className="tr-betking-art"><Icon name="tr-betking" size={42} /></div>
-                            <div className="tr-betking-txt">
-                              <div className="tr-betking-label">REI DAS APOSTAS{betKing.length > 1 ? ' · ' + betKing.length : ''}</div>
-                              <div className="tr-betking-eds">{betKing.map((s, i) => <span key={i} className="tr-betking-ed">{s.tag} · {s.season}</span>)}</div>
-                            </div>
-                          </div>
-                        )}
-                        {tro.length > 0 && (
+                        {(betKing.length > 0 || tro.length > 0) && (
                           <div className="stats-tro-big">
+                            {betKing.length > 0 && <TrophyGroup kind="betking" editions={betKing} />}
                             {['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'].map(kind => {
                               const group = tro.filter(t => t.kind === kind);
                               if (!group.length) return null;
@@ -10590,26 +10576,9 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
               {previewTrophies.length > 0 && (
                 <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="lock" size={11} /> Prévia (admin): todos os troféus pra você conferir o visual. Cada jogador vê só os que conquistou.</div>
               )}
-              {showBetKing && (
-                <div className="tr-betking">
-                  <div className="tr-betking-art"><Icon name="tr-betking" size={42} /></div>
-                  <div className="tr-betking-txt">
-                    <div className="tr-betking-label">REI DAS APOSTAS{betKingSeasons.length > 1 ? ` · ${betKingSeasons.length}` : ''}</div>
-                    <div className="tr-betking-eds">
-                      {betKingSeasons.map((s, i) => <span key={i} className="tr-betking-ed">{s.tag} · {s.season}</span>)}
-                    </div>
-                  </div>
-                </div>
-              )}
-              {showTrophies.length === 0 ? (
-                !showBetKing && (
-                  <div className="empty">
-                    <div className="e1">VITRINE VAZIA</div>
-                    <div className="e2">Você ainda não conquistou nenhum campeonato encerrado.</div>
-                  </div>
-                )
-              ) : (
+              {(showBetKing || showTrophies.length > 0) ? (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                  {showBetKing && <TrophyGroup kind="betking" editions={betKingSeasons} />}
                   {['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'].map(kind => {
                     const group = showTrophies.filter(t => t.kind === kind);
                     if (!group.length) return null;
@@ -10619,6 +10588,11 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
                     });
                     return <TrophyGroup key={kind} kind={kind} editions={editions} />;
                   })}
+                </div>
+              ) : (
+                <div className="empty">
+                  <div className="e1">VITRINE VAZIA</div>
+                  <div className="e2">Você ainda não conquistou nenhum campeonato encerrado.</div>
                 </div>
               )}
             </div>
@@ -11296,9 +11270,10 @@ function TrophyGroup({ kind, editions }) {
     participou: { icon: 'tr-participou', label: 'PARTICIPOU', rarity: 'PRESENÇA', ink: '#5a3410', metal: '#e6a463', deep: '#a85f1c', frame: '#d76414', bg: '#f6ece0' },
     penultimo:  { icon: 'tr-penultimo',  label: 'PENÚLTIMO',  rarity: 'VEXAME',   ink: '#3f2812', metal: '#cbb8a6', deep: '#6b4423', frame: '#9d8267', bg: '#f0e7df' },
     lanterna:   { icon: 'tr-lanterna',   label: 'ÚLTIMO',     rarity: 'VEXAME',   ink: '#5c1717', metal: '#d8a0a0', deep: '#7a2222', frame: '#b56b6b', bg: '#fce4e4' },
+    betking:    { icon: 'tr-betking',    label: 'REI DAS APOSTAS', rarity: 'APOSTAS', ink: '#6b4e0a', metal: '#f4d65a', deep: '#a6810f', frame: '#d4af37', bg: '#fbf1cf' },
   }[kind] || { icon: null, label: '', rarity: '', ink: '#1c1612', metal: '#ddd', deep: '#999', frame: '#bbb', bg: '#eee' };
   const shame = kind === 'lanterna' || kind === 'penultimo';
-  const champ = kind === 'champion';
+  const champ = kind === 'champion' || kind === 'betking';
   const multi = editions.length > 1;
   const cls = 'tf tf-' + kind + (shame ? ' tf-shame' : '') + (champ ? ' tf-champ' : '');
   return (

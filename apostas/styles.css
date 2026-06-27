@@ -4796,6 +4796,8 @@
     .tf-crack { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; background: linear-gradient(118deg, transparent calc(50% - 1px), rgba(28,22,18,0.42) 50%, transparent calc(50% + 1px)), linear-gradient(152deg, transparent calc(62% - 0.8px), rgba(28,22,18,0.26) 62%, transparent calc(62% + 0.8px)); }
     .tf-overprint { position: absolute; top: 32px; left: 50%; transform: translate(-50%, -50%) rotate(-13deg); z-index: 3; white-space: nowrap; pointer-events: none; font-family: 'Anton', Impact, sans-serif; font-size: 15px; letter-spacing: 0.08em; color: var(--pv-red); border: 2.5px solid var(--pv-red); border-radius: 3px; padding: 1px 6px 0; opacity: 0.85; box-shadow: 0 0 0 1px rgba(255,255,255,0.35); text-shadow: 0 1px 0 rgba(255,255,255,0.35); }
     .tf-shame .tf-label { color: var(--pv-red); }
+    /* REI DAS APOSTAS: label longo -> aperta um pouco pra caber bonito */
+    .tf-betking .tf-label { font-size: 12px; letter-spacing: 0.06em; }
     @keyframes tfDeal { from { opacity: 0; transform: scale(0.84) translateY(11px) rotate(-3deg); } to { opacity: 1; transform: none; } }
     @keyframes tfFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
     @keyframes tfGlow { 0%, 100% { filter: drop-shadow(0 0 3px rgba(212,175,55,0.35)); } 50% { filter: drop-shadow(0 0 12px rgba(212,175,55,0.9)); } }
