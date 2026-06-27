@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260627-stats5 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260627-stats6 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -9762,42 +9762,45 @@ function characterLeaderboard(players, draw, scores, lineups) {
     return { char: cd.char, best: ranked[0], totalApps: cd.rows.reduce((s, r) => s + r.apps, 0) };
   }).filter(x => x.best).sort((a, b) => b.totalApps - a.totalApps);
 }
-function CharacterLeaderboard({ players, mkDraw, mkScores, mkLineups, teamPlayers, onOpenProfile }) {
+// `bare`: renderiza SEM o wrapper .card (pra encaixar dentro de outro card,
+// ex.: dentro do MORTAL KOMBAT · DETALHADO, logo após a seção PERSONAGENS).
+function CharacterLeaderboard({ players, mkDraw, mkScores, mkLineups, teamPlayers, onOpenProfile, bare }) {
   const [open, setOpen] = useState(false);
   const board = characterLeaderboard(players, mkDraw, mkScores, mkLineups);
   if (!board.length) return null;
-  return (
-    <div className="card">
-      <button type="button" className="charlb-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+  const inner = (
+    <>
+      <button type="button" className={'charlb-toggle' + (bare ? ' charlb-toggle--inline' : '')} onClick={() => setOpen(o => !o)} aria-expanded={open}>
         <span className="charlb-toggle-t"><Icon name="skull" size={15} /> DOMÍNIO POR PERSONAGEM</span>
         <span className="charlb-toggle-r">{open ? 'OCULTAR' : 'VER DETALHES'} <Icon name={open ? 'caret-up' : 'caret-down'} size={13} /></span>
       </button>
       {open && (
-      <div className="card-body">
-        <div className="charlb">
-          {board.map(x => {
-            const b = x.best, losses = b.apps - b.wins, wr = Math.round(b.wins / b.apps * 100);
-            return (
-              <div key={x.char} className="charlb-row">
-                <MkCharIcon name={x.char} />
-                <div className="charlb-info">
-                  <div className="charlb-char">{x.char}</div>
-                  <button type="button" className="charlb-best" onClick={() => onOpenProfile && onOpenProfile(b.nick)} title={'Ver perfil de ' + b.nick}>
-                    <Avatar nick={b.nick} teamPlayers={teamPlayers} size={18} noBadge /> <span>{b.nick}</span>
-                  </button>
+        <div className={bare ? 'charlb-body' : 'card-body'}>
+          <div className="charlb">
+            {board.map(x => {
+              const b = x.best, losses = b.apps - b.wins, wr = Math.round(b.wins / b.apps * 100);
+              return (
+                <div key={x.char} className="charlb-row">
+                  <MkCharIcon name={x.char} />
+                  <div className="charlb-info">
+                    <div className="charlb-char">{x.char}</div>
+                    <button type="button" className="charlb-best" onClick={() => onOpenProfile && onOpenProfile(b.nick)} title={'Ver perfil de ' + b.nick}>
+                      <Avatar nick={b.nick} teamPlayers={teamPlayers} size={18} noBadge /> <span>{b.nick}</span>
+                    </button>
+                  </div>
+                  <div className="charlb-stat">
+                    <div className="charlb-wr">{wr}%</div>
+                    <div className="charlb-vd">{b.wins}V · {losses}D <span className="charlb-apps">· {x.totalApps} usos</span></div>
+                  </div>
                 </div>
-                <div className="charlb-stat">
-                  <div className="charlb-wr">{wr}%</div>
-                  <div className="charlb-vd">{b.wins}V · {losses}D <span className="charlb-apps">· {x.totalApps} usos</span></div>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
       )}
-    </div>
+    </>
   );
+  return bare ? <div className="charlb-inline">{inner}</div> : <div className="card">{inner}</div>;
 }
 function StatTile({ label, value, hl }) {
   return (
@@ -9872,11 +9875,11 @@ function DetailedStatsCard({ nick, teamPlayers, cs, mkDraw, mkScores, mkLineups,
                 </div>
               </>
             )}
+            {players && players.length > 0 && (
+              <CharacterLeaderboard bare players={players} mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} teamPlayers={teamPlayers} onOpenProfile={onOpenProfile} />
+            )}
           </div>
         </div>
-      )}
-      {players && players.length > 0 && (
-        <CharacterLeaderboard players={players} mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} teamPlayers={teamPlayers} onOpenProfile={onOpenProfile} />
       )}
       {f.n === 0 && m.n === 0 && (
         <div className="card"><div className="card-body"><div className="empty"><div className="e1">SEM DADOS</div><div className="e2">@{nick} ainda não tem jogos lançados na FIFA nem no MK.</div></div></div></div>
