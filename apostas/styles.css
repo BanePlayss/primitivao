@@ -730,18 +730,38 @@
       white-space: pre-wrap; word-wrap: break-word;
     }
     .pc-pill {
+      position: relative; overflow: hidden;
       background: var(--pv-orange); color: var(--pv-charcoal);
-      padding: 5px 12px 5px 7px;
-      display: flex; align-items: center; gap: 9px;
-      font-weight: 800; border: 0; border-radius: 7px; font-family: inherit;
-      box-shadow: 0 2px 0 rgba(28,22,18,0.22);
+      padding: 6px 13px 6px 8px;
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 800; border: 0; border-radius: 9px; font-family: inherit;
+      box-shadow: 0 2px 0 rgba(28,22,18,0.25), inset 0 1px 0 rgba(255,255,255,0.28);
     }
+    .pc-pill > * { position: relative; z-index: 1; }
+    /* textura: leve hachura metálica + lustro no topo */
+    .pc-pill::before {
+      content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 46%),
+        repeating-linear-gradient(118deg, rgba(28,22,18,0.07) 0 2px, transparent 2px 7px);
+    }
+    /* brilho diagonal que passa de tempos em tempos */
+    .pc-pill::after {
+      content: ""; position: absolute; top: -25%; bottom: -25%; left: -70%; width: 45%; z-index: 2; pointer-events: none;
+      background: linear-gradient(100deg, transparent, rgba(255,255,255,0.55), transparent);
+      transform: skewX(-16deg);
+      animation: pcSheen 5s ease-in-out infinite;
+    }
+    @keyframes pcSheen { 0% { left: -70%; } 22% { left: 135%; } 100% { left: 135%; } }
     button.pc-pill { cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
-    button.pc-pill:hover { transform: translateY(-1px); box-shadow: 0 4px 0 rgba(28,22,18,0.28); }
+    button.pc-pill:hover { transform: translateY(-1px); box-shadow: 0 4px 0 rgba(28,22,18,0.3), inset 0 1px 0 rgba(255,255,255,0.32); }
     button.pc-pill:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(28,22,18,0.22); }
+    .pc-coin-ic { transition: transform .55s cubic-bezier(0.4,0.1,0.2,1); }
+    button.pc-pill:hover .pc-coin-ic { transform: rotateY(360deg); }
     .pc-info { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; }
     .pc-go { display: inline-flex; align-items: center; opacity: 0.5; margin-left: 1px; }
     button.pc-pill:hover .pc-go { opacity: 0.95; }
+    @media (prefers-reduced-motion: reduce) { .pc-pill::after { display: none; } button.pc-pill:hover .pc-coin-ic { transform: none; } }
     .pc-coin {
       width: 24px; height: 24px;
       background: var(--pv-charcoal); color: var(--pv-orange);
