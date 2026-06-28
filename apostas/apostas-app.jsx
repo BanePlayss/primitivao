@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260628-golf4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260628-golf5 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4883,6 +4883,7 @@ function ChampSidebar({ value, onChange, cs, interests, mode }) {
 // Mortal Kombat acabar. Aqui só mora a apresentação (regras + calendário); o
 // motor de pontuação real entra quando o campeonato virar 'active'.
 const GWYF_MAX_STROKES = 12; // teto de tacadas por mapa (não-completou conta o teto)
+const GWYF_HOLES = 18;       // todo mapa do Golf With Your Friends tem 18 buracos
 const GWYF_SCHEDULE = [
   { n: 1, map: 'Beginners Burrow',      kind: 'named'  },
   { n: 2, map: 'Cecky Golf #11',        kind: 'named'  },
@@ -5031,31 +5032,42 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
                 {inscritos.length === 0 ? (
                   <div className="empty" style={{ padding: '18px 12px' }}><div className="e1">SEM INSCRITOS</div></div>
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="std-table">
+                  <div className="golf-scorecard-wrap">
+                    <table className="golf-scorecard">
                       <thead>
-                        <tr><th>#</th><th style={{ textAlign: 'left' }}>JOGADOR</th><th>TAC</th><th>PTS</th></tr>
+                        <tr>
+                          <th className="gsc-pos">#</th>
+                          <th className="gsc-name">JOGADOR</th>
+                          {Array.from({ length: GWYF_HOLES }, (_, h) => (
+                            <th key={h} className="gsc-hole">{h + 1}</th>
+                          ))}
+                          <th className="gsc-tot">TAC</th>
+                          <th className="gsc-pts">PTS</th>
+                        </tr>
                       </thead>
                       <tbody>
                         {rows.map(r => (
                           <tr key={r.nick}>
-                            <td className="std-pos">{String(r.pos).padStart(2, '0')}</td>
-                            <td>
-                              <div className="tnm" style={{ flexWrap: 'wrap' }}>
-                                <Avatar nick={r.nick} teamPlayers={teamPlayers} size={22} />
+                            <td className="gsc-pos std-pos">{String(r.pos).padStart(2, '0')}</td>
+                            <td className="gsc-name">
+                              <div className="tnm">
+                                <Avatar nick={r.nick} teamPlayers={teamPlayers} size={20} />
                                 <span>@{r.nick}</span>
                                 {r.nick === session.nick && <span className="stats-rail-you">VOCÊ</span>}
                               </div>
                             </td>
-                            <td style={{ color: 'rgba(28,22,18,0.45)' }}>—</td>
-                            <td style={{ fontFamily: 'Anton, Impact', fontSize: 15 }}>0</td>
+                            {Array.from({ length: GWYF_HOLES }, (_, h) => (
+                              <td key={h} className="gsc-hole">—</td>
+                            ))}
+                            <td className="gsc-tot">—</td>
+                            <td className="gsc-pts">0</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 )}
-                <div className="mk-legend" style={{ marginTop: 8 }}>Sem resultado ainda — quando o mapa rolar, entram as <strong>TAC</strong> (tacadas) de cada um e os <strong>PTS</strong> do mapa (menos tacadas = mais pontos; teto {GWYF_MAX_STROKES}).</div>
+                <div className="mk-legend" style={{ marginTop: 8 }}>Scorecard do mapa: <strong>{GWYF_HOLES} buracos</strong> por jogador. <strong>TAC</strong> = total de tacadas (teto {GWYF_MAX_STROKES}/mapa); <strong>PTS</strong> = pontos do mapa (menos tacadas = mais pontos). Vazio até o mapa rolar.</div>
               </div>
             </div>
           </div>
