@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260627-wal3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260628-wc2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -414,6 +414,56 @@ function resolveWcSlot(rawSlot, standingsByGroup) {
   if (!st.every(t => t.J === 3)) return null;
   const t = st[pos - 1];
   return { name: t.name, flag: t.flag };
+}
+
+// Aloca os 8 melhores TERCEIROS colocados (formato 2026: 12 grupos) nos slots
+// "3A/B/C/D/F" da Round of 32. Cada slot aceita o 3º de um conjunto de grupos;
+// resolve por matching bipartido (cada 3º classificado -> um slot permitido).
+// Retorna { "3A/B/C/D/F": {name,flag}, ... } ou {} se a fase de grupos não
+// terminou / formato inesperado. FIFA usa uma tabela fixa; aqui qualquer
+// alocação VÁLIDA e completa serve pro bolão (ninguém fica sem adversário).
+function computeWcThirdAssignment(standingsByGroup, fixtures) {
+  const groups = Object.keys(standingsByGroup);
+  if (!groups.length) return {};
+  // todos os grupos completos (cada time com 3 jogos)?
+  if (!groups.every(g => (standingsByGroup[g] || []).length >= 3 && standingsByGroup[g].every(t => t.J === 3))) return {};
+  // 3º de cada grupo, ranqueados (P > SG > GP > nome) — os 8 melhores classificam
+  const thirds = groups.map(g => ({ group: g, t: standingsByGroup[g][2] })).filter(x => x.t);
+  thirds.sort((a, b) => {
+    const A = a.t, B = b.t;
+    if (B.P !== A.P) return B.P - A.P;
+    const sgA = A.GP - A.GC, sgB = B.GP - B.GC; if (sgB !== sgA) return sgB - sgA;
+    if (B.GP !== A.GP) return B.GP - A.GP;
+    return A.name.localeCompare(B.name);
+  });
+  const qualGroups = thirds.slice(0, 8).map(x => x.group);
+  // slots de terceiro presentes no chaveamento ("3A/B/C/D/F")
+  const slotStrings = Array.from(new Set(
+    fixtures.flatMap(m => [m.rawSlotHome, m.rawSlotAway]).filter(s => /^3[A-Z](\/[A-Z])+$/.test(String(s || '')))
+  ));
+  if (slotStrings.length !== qualGroups.length) return {};
+  const slotSets = slotStrings.map(s => ({ slot: s, allowed: s.slice(1).split('/') }));
+  // matching bipartido por backtracking: cada grupo classificado -> um slot
+  const assign = {}, used = {};
+  const bt = (i) => {
+    if (i === qualGroups.length) return true;
+    const g = qualGroups[i];
+    for (const ss of slotSets) {
+      if (!used[ss.slot] && ss.allowed.includes(g)) {
+        used[ss.slot] = true; assign[ss.slot] = g;
+        if (bt(i + 1)) return true;
+        used[ss.slot] = false; delete assign[ss.slot];
+      }
+    }
+    return false;
+  };
+  if (!bt(0)) return {};
+  const out = {};
+  for (const slot in assign) {
+    const t = standingsByGroup[assign[slot]][2];
+    out[slot] = { name: t.name, flag: t.flag };
+  }
+  return out;
 }
 
 function scoreWcPick(real, pick) {
@@ -3808,7 +3858,10 @@ function App() {
     }
   };
 
-  const setWorldcupResult = async (matchId, gh, ga) => {
+  // `pen` (opcional): 'H'/'A' = quem passou nos pênaltis quando o mata-mata
+  // empata em 90/prorrogação. Não afeta a pontuação do bolão (que olha gh/ga),
+  // só serve pra resolver o vencedor e liberar a próxima fase do bracket.
+  const setWorldcupResult = async (matchId, gh, ga, pen) => {
     if (!isAdmin) return;
     const ref = BET_DOC();
     let newState = null;
@@ -3825,7 +3878,7 @@ function App() {
           const pgh = parseInt(gh, 10), pga = parseInt(ga, 10);
           if (Number.isNaN(pgh) || Number.isNaN(pga)) return;
           if (pgh < 0 || pga < 0) return;
-          results[matchId] = { gh: pgh, ga: pga, at: Date.now() };
+          results[matchId] = { gh: pgh, ga: pga, at: Date.now(), ...(pen === 'H' || pen === 'A' ? { pen } : {}) };
         }
         const next = { results, picks: cur.picks || {} };
         newState = next;
@@ -5841,19 +5894,58 @@ function resolveWcFixtures(fixtures, results) {
   const groups = Array.from(new Set(fixtures.filter(m => !m.isKnockout && m.group).map(m => m.group)));
   const standingsByGroup = {};
   for (const g of groups) standingsByGroup[g] = computeWcGroupStandings(g, fixtures, results);
-  return fixtures.map(m => {
-    if (!m.slotHome && !m.slotAway) return m;
+  // Alocação dos 8 melhores terceiros (slots "3A/B/C/D/F") quando os grupos acabam.
+  const thirdMap = computeWcThirdAssignment(standingsByGroup, fixtures);
+  // Passo 1: resolve slots de grupo (1A/2B) + terceiros.
+  const out = fixtures.map(m => {
+    if (!m.slotHome && !m.slotAway) return { ...m };
     const next = { ...m };
     if (m.slotHome && m.rawSlotHome) {
-      const r = resolveWcSlot(m.rawSlotHome, standingsByGroup);
+      const r = resolveWcSlot(m.rawSlotHome, standingsByGroup) || thirdMap[m.rawSlotHome];
       if (r) { next.home = r.name; next.flagHome = r.flag; next.slotHome = false; next.resolvedHome = true; }
     }
     if (m.slotAway && m.rawSlotAway) {
-      const r = resolveWcSlot(m.rawSlotAway, standingsByGroup);
+      const r = resolveWcSlot(m.rawSlotAway, standingsByGroup) || thirdMap[m.rawSlotAway];
       if (r) { next.away = r.name; next.flagAway = r.flag; next.slotAway = false; next.resolvedAway = true; }
     }
     return next;
   });
+  // Passo 2: resolve slots W/L (vencedor/perdedor do jogo N) conforme os placares
+  // saem — em passadas, pra cobrir a cadeia R32 -> R16 -> quartas -> semi -> final.
+  const byId = {};
+  out.forEach(m => { byId[m.id] = m; });
+  const sideTeam = (m, side) => side === 'home'
+    ? { name: m.home, flag: m.flagHome }
+    : { name: m.away, flag: m.flagAway };
+  const wlResolve = (letter, num) => {
+    const mm = byId['wc-' + num];
+    if (!mm || mm.slotHome || mm.slotAway) return null; // jogo ainda sem os 2 times
+    const r = results[mm.id]; if (!r) return null;
+    const gh = parseInt(r.gh, 10), ga = parseInt(r.ga, 10);
+    if (Number.isNaN(gh) || Number.isNaN(ga)) return null;
+    // empate no tempo normal -> decide pelos pênaltis (r.pen = 'H'/'A')
+    const homeWon = gh > ga || (gh === ga && r.pen === 'H');
+    const awayWon = ga > gh || (gh === ga && r.pen === 'A');
+    if (!homeWon && !awayWon) return null; // empate sem pênaltis definidos
+    const winSide = homeWon ? 'home' : 'away';
+    const loseSide = homeWon ? 'away' : 'home';
+    return sideTeam(mm, letter === 'W' ? winSide : loseSide);
+  };
+  for (let pass = 0; pass < 6; pass++) {
+    let changed = false;
+    for (const m of out) {
+      if (m.slotHome && m.rawSlotHome) {
+        const wl = String(m.rawSlotHome).match(/^([WL])(\d+)$/);
+        if (wl) { const r = wlResolve(wl[1], wl[2]); if (r) { m.home = r.name; m.flagHome = r.flag; m.slotHome = false; m.resolvedHome = true; changed = true; } }
+      }
+      if (m.slotAway && m.rawSlotAway) {
+        const wl = String(m.rawSlotAway).match(/^([WL])(\d+)$/);
+        if (wl) { const r = wlResolve(wl[1], wl[2]); if (r) { m.away = r.name; m.flagAway = r.flag; m.slotAway = false; m.resolvedAway = true; changed = true; } }
+      }
+    }
+    if (!changed) break;
+  }
+  return out;
 }
 
 function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePick, onSetResult }) {
@@ -5902,7 +5994,7 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePi
       )}
 
       {subTab === 'bracket' && (
-        <CopaBracket fixtures={fixtures || []} results={results} />
+        <CopaBracket fixtures={fixtures || []} results={results} isAdmin={isAdmin} onSetResult={onSetResult} />
       )}
 
       {subTab === 'ranking' && (
@@ -6555,11 +6647,63 @@ function CopaPicksModal({ nick, picks, fixtures, results, myNick, onClose }) {
   );
 }
 
+// Um confronto do bracket. Mod lança o placar DIRETO aqui (e quem passou nos
+// pênaltis se empatar); ao salvar, a próxima fase libera sozinha (W/L resolve).
+// Times ainda indefinidos (vencedor de jogo não jogado) ficam "trancados".
+function BracketMatch({ m, result, isAdmin, onSetResult }) {
+  const ready = !m.slotHome && !m.slotAway;
+  const played = !!result;
+  const [gh, setGh] = useState(played ? String(result.gh) : '');
+  const [ga, setGa] = useState(played ? String(result.ga) : '');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setGh(played ? String(result.gh) : ''); setGa(played ? String(result.ga) : ''); }, [result && result.gh, result && result.ga]);
+  const tie = played && result.gh === result.ga;
+  const homeWon = played && (result.gh > result.ga || (tie && result.pen === 'H'));
+  const awayWon = played && (result.ga > result.gh || (tie && result.pen === 'A'));
+  const canEdit = isAdmin && ready;
+  const save = async (pen) => {
+    if (busy) return; setBusy(true);
+    try { await onSetResult(m.id, gh, ga, pen !== undefined ? pen : (result && result.pen)); } finally { setBusy(false); }
+  };
+  const clear = async () => { setBusy(true); try { await onSetResult(m.id, '', ''); setGh(''); setGa(''); } finally { setBusy(false); } };
+  return (
+    <div className={'bracket-match' + (played ? ' played' : '') + (ready ? '' : ' locked')}>
+      <div className="bracket-date">{m.date} · {m.time}</div>
+      <div className={'bracket-team' + (homeWon ? ' winner' : '') + (m.slotHome ? ' slot' : '')}>
+        <TeamFlag flag={m.flagHome} size={16} />
+        <span className="bracket-team-name">{m.home}</span>
+        {tie && result.pen === 'H' && <span className="bracket-pen">P</span>}
+        {canEdit
+          ? <input className="bracket-in" value={gh} inputMode="numeric" onChange={e => setGh(e.target.value.replace(/\D/g, '').slice(0, 2))} onBlur={() => save()} aria-label={'Gols ' + m.home} />
+          : <span className="bracket-score">{played ? result.gh : '–'}</span>}
+      </div>
+      <div className={'bracket-team' + (awayWon ? ' winner' : '') + (m.slotAway ? ' slot' : '')}>
+        <TeamFlag flag={m.flagAway} size={16} />
+        <span className="bracket-team-name">{m.away}</span>
+        {tie && result.pen === 'A' && <span className="bracket-pen">P</span>}
+        {canEdit
+          ? <input className="bracket-in" value={ga} inputMode="numeric" onChange={e => setGa(e.target.value.replace(/\D/g, '').slice(0, 2))} onBlur={() => save()} aria-label={'Gols ' + m.away} />
+          : <span className="bracket-score">{played ? result.ga : '–'}</span>}
+      </div>
+      {canEdit && tie && (
+        <div className="bracket-pens">
+          <span className="bracket-pens-l">PÊNALTIS:</span>
+          <button type="button" className={'bracket-pen-btn' + (result.pen === 'H' ? ' on' : '')} onClick={() => save('H')}>{m.home}</button>
+          <button type="button" className={'bracket-pen-btn' + (result.pen === 'A' ? ' on' : '')} onClick={() => save('A')}>{m.away}</button>
+        </div>
+      )}
+      {canEdit && played && <button type="button" className="bracket-clear" onClick={clear} title="Limpar resultado"><Icon name="x" size={11} /></button>}
+    </div>
+  );
+}
+
 // Bracket visual do mata-mata: organiza os jogos knockout em colunas por fase
-// (32avos / oitavas / quartas / semis / 3o lugar + final). Cada match card
-// mostra times + placar, fica destacado quando ja tem resultado.
-function CopaBracket({ fixtures, results }) {
-  const knockoutMatches = useMemo(() => fixtures.filter(m => m.isKnockout), [fixtures]);
+// (32avos / oitavas / quartas / semis / 3o lugar + final). Mod lança o resultado
+// direto em cada card; a fase seguinte libera conforme as partidas terminam.
+function CopaBracket({ fixtures, results, isAdmin, onSetResult }) {
+  // Resolve os slots (1A/2B, terceiros 3A/B/C/D, vencedor/perdedor WN/LN) antes
+  // de montar o chaveamento — senão aparece "1º G A" / "time sem adversário".
+  const knockoutMatches = useMemo(() => resolveWcFixtures(fixtures, results).filter(m => m.isKnockout), [fixtures, results]);
   if (knockoutMatches.length === 0) {
     return (
       <div className="card"><div className="card-body"><div className="empty">
@@ -6597,29 +6741,9 @@ function CopaBracket({ fixtures, results }) {
           {phasesWithGames.map(p => (
             <div key={p.key} className="bracket-col">
               <div className="bracket-col-head">{p.label}</div>
-              {byPhase[p.key].map(m => {
-                const r = results[m.id];
-                const played = !!r;
-                const winnerHome = played && r.gh > r.ga;
-                const winnerAway = played && r.ga > r.gh;
-                const isPlaceholderHome = !!m.slotHome;
-                const isPlaceholderAway = !!m.slotAway;
-                return (
-                  <div key={m.id} className={'bracket-match ' + (played ? 'played' : '')}>
-                    <div className="bracket-date">{m.date} · {m.time}</div>
-                    <div className={'bracket-team ' + (winnerHome ? 'winner' : '') + (isPlaceholderHome ? ' slot' : '')}>
-                      <TeamFlag flag={m.flagHome} size={16} />
-                      <span className="bracket-team-name">{m.home}</span>
-                      <span className="bracket-score">{played ? r.gh : '–'}</span>
-                    </div>
-                    <div className={'bracket-team ' + (winnerAway ? 'winner' : '') + (isPlaceholderAway ? ' slot' : '')}>
-                      <TeamFlag flag={m.flagAway} size={16} />
-                      <span className="bracket-team-name">{m.away}</span>
-                      <span className="bracket-score">{played ? r.ga : '–'}</span>
-                    </div>
-                  </div>
-                );
-              })}
+              {byPhase[p.key].map(m => (
+                <BracketMatch key={m.id} m={m} result={results[m.id]} isAdmin={isAdmin} onSetResult={onSetResult} />
+              ))}
             </div>
           ))}
         </div>

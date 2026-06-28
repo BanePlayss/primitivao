@@ -3595,6 +3595,23 @@
       font-weight: 800; font-size: 14px;
       min-width: 18px; text-align: right;
     }
+    /* lançamento de resultado direto no bracket (mod) + pênaltis + bloqueio */
+    .bracket-match { position: relative; border-radius: 3px; }
+    .bracket-match.locked { opacity: 0.65; border-style: dashed; }
+    .bracket-team.winner .bracket-team-name { font-weight: 800; }
+    .bracket-pen { font-size: 8px; font-weight: 800; color: var(--pv-bone); background: var(--pv-charcoal); border-radius: 999px; padding: 0 4px; line-height: 1.5; flex-shrink: 0; }
+    .bracket-in {
+      width: 28px; flex-shrink: 0; text-align: center;
+      font-family: "JetBrains Mono", monospace; font-weight: 800; font-size: 13px;
+      padding: 3px 0; border: 1.5px solid rgba(28,22,18,0.28); background: #fff; color: var(--pv-charcoal); border-radius: 3px;
+    }
+    .bracket-in:focus { outline: none; border-color: var(--pv-orange); box-shadow: 0 0 0 2px rgba(215,100,20,0.18); }
+    .bracket-pens { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(28,22,18,0.2); }
+    .bracket-pens-l { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; color: rgba(28,22,18,0.55); }
+    .bracket-pen-btn { font-size: 9px; font-weight: 800; padding: 2px 6px; border: 1.5px solid rgba(28,22,18,0.28); background: transparent; color: var(--pv-charcoal); border-radius: 3px; cursor: pointer; max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bracket-pen-btn.on { background: var(--pv-charcoal); color: var(--pv-bone); border-color: var(--pv-charcoal); }
+    .bracket-clear { position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; color: rgba(28,22,18,0.4); cursor: pointer; }
+    .bracket-clear:hover { color: var(--pv-red, #c0392b); }
 
     /* ──── SHARE CUPOM ──── */
     .cupom-share {
