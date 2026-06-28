@@ -601,6 +601,14 @@
       font-family: inherit;
     }
     .wc-admin-clear { background: transparent; color: var(--pv-charcoal); border: 1.5px solid var(--pv-charcoal); }
+    .wc-admin-pens { display: inline-flex; align-items: center; gap: 6px; padding-left: 8px; margin-left: 2px; border-left: 1px dashed rgba(28,22,18,0.25); }
+    .wc-admin-pens-l { font-size: 9px; font-weight: 800; letter-spacing: 0.14em; color: var(--pv-orange); display: inline-flex; align-items: center; gap: 3px; }
+    /* palpite de pênaltis do usuário (empate no mata-mata) */
+    .wc-pens-row { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding: 7px 8px; background: rgba(215,100,20,0.07); border: 1px dashed var(--pv-orange); }
+    .wc-pens-l { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; color: var(--pv-orange); display: inline-flex; align-items: center; gap: 4px; }
+    .wc-pen-in { width: 40px; height: 36px; }
+    .wc-pens-hint { font-size: 9px; font-weight: 700; letter-spacing: 0.04em; color: rgba(28,22,18,0.5); }
+    html.pv-dark .wc-pens-hint { color: rgba(244,234,215,0.5); }
 
     .wc-rank-row {
       display: grid;
@@ -3606,7 +3614,9 @@
       padding: 3px 0; border: 1.5px solid rgba(28,22,18,0.28); background: #fff; color: var(--pv-charcoal); border-radius: 3px;
     }
     .bracket-in:focus { outline: none; border-color: var(--pv-orange); box-shadow: 0 0 0 2px rgba(215,100,20,0.18); }
-    .bracket-pens { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(28,22,18,0.2); }
+    .bracket-pens { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(28,22,18,0.2); }
+    .bracket-pens .bracket-pen-in { width: 26px; }
+    .bracket-pen-x { opacity: 0.5; font-weight: 700; }
     .bracket-pens-l { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; color: rgba(28,22,18,0.55); }
     .bracket-pen-btn { font-size: 9px; font-weight: 800; padding: 2px 6px; border: 1.5px solid rgba(28,22,18,0.28); background: transparent; color: var(--pv-charcoal); border-radius: 3px; cursor: pointer; max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .bracket-pen-btn.on { background: var(--pv-charcoal); color: var(--pv-bone); border-color: var(--pv-charcoal); }

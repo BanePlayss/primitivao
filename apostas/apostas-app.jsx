@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260628-wc3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260628-pen1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -488,16 +488,36 @@ function computeWcThirdAssignment(standingsByGroup, fixtures, overrides) {
   return out;
 }
 
-function scoreWcPick(real, pick) {
+// Bônus de PÊNALTIS (só no mata-mata empatado): +3 cravando o placar dos
+// pênaltis, +1 acertando só quem passou, 0 errando. NÃO tira os pontos do
+// placar do tempo normal. Vale só se o admin já lançou os pênaltis E o usuário
+// palpitou os pênaltis (que só aparece quando ele palpita empate num mata-mata).
+function scoreWcPens(real, pick, isKnockout) {
+  if (!isKnockout || !real || !pick) return 0;
+  const rgh = parseInt(real.gh, 10), rga = parseInt(real.ga, 10);
+  if (Number.isNaN(rgh) || Number.isNaN(rga) || rgh !== rga) return 0; // só empate vai pra pênaltis
+  const pdh = parseInt(pick.gh, 10), pda = parseInt(pick.ga, 10);
+  if (pdh !== pda) return 0; // só pontua pênaltis quem palpitou empate
+  const rh = parseInt(real.penH, 10), ra = parseInt(real.penA, 10);
+  const ph = parseInt(pick.penH, 10), pa = parseInt(pick.penA, 10);
+  if ([rh, ra, ph, pa].some(Number.isNaN)) return 0;
+  if (rh === ph && ra === pa) return 3; // placar exato dos pênaltis
+  if (ph !== pa && rh !== ra && (ph > pa) === (rh > ra)) return 1; // só quem passou
+  return 0;
+}
+function scoreWcPick(real, pick, isKnockout) {
   if (!real || !pick) return 0;
   const rgh = parseInt(real.gh, 10), rga = parseInt(real.ga, 10);
   const pgh = parseInt(pick.gh, 10), pga = parseInt(pick.ga, 10);
   if ([rgh, rga, pgh, pga].some(Number.isNaN)) return 0;
-  if (rgh === pgh && rga === pga) return 3; // placar exato
-  const r = rgh > rga ? 'H' : rgh < rga ? 'A' : 'D';
-  const p = pgh > pga ? 'H' : pgh < pga ? 'A' : 'D';
-  if (r === p) return 1; // só o resultado
-  return 0;
+  let pts = 0;
+  if (rgh === pgh && rga === pga) pts = 3; // placar exato
+  else {
+    const r = rgh > rga ? 'H' : rgh < rga ? 'A' : 'D';
+    const p = pgh > pga ? 'H' : pgh < pga ? 'A' : 'D';
+    if (r === p) pts = 1; // só o resultado
+  }
+  return pts + scoreWcPens(real, pick, isKnockout); // + bônus pênaltis
 }
 const CHAMP_BY_ID = Object.fromEntries(CHAMPIONSHIPS.map(c => [c.id, c]));
 
@@ -3840,7 +3860,7 @@ function App() {
   // ── COPA DO MUNDO (bolão) ─────────────────────────────────────────────────
   // Mesmo padrão de top-level field + transação atômica.
   // worldcup: { results: { matchId: {gh,ga,at} }, picks: { nick: { matchId: {gh,ga,at} } } }
-  const saveWorldcupPick = async (matchId, gh, ga) => {
+  const saveWorldcupPick = async (matchId, gh, ga, penH, penA) => {
     if (!session || !session.nick) return;
     const nick = session.nick;
     const pgh = parseInt(gh, 10), pga = parseInt(ga, 10);
@@ -3867,7 +3887,11 @@ function App() {
         if (cur.results && cur.results[matchId]) throw new Error('RESULTADO_JA_LANCADO');
         const picks = { ...(cur.picks || {}) };
         const userPicks = { ...(picks[nick] || {}) };
-        userPicks[matchId] = { gh: pgh, ga: pga, at: Date.now() };
+        const ph = parseInt(penH, 10), pa = parseInt(penA, 10);
+        // só guarda palpite de pênaltis se o palpite do tempo normal é empate
+        const pens = (pgh === pga && !Number.isNaN(ph) && !Number.isNaN(pa) && ph >= 0 && pa >= 0 && ph !== pa)
+          ? { penH: ph, penA: pa } : {};
+        userPicks[matchId] = { gh: pgh, ga: pga, at: Date.now(), ...pens };
         picks[nick] = userPicks;
         const next = { results: cur.results || {}, picks, thirds: cur.thirds || {} };
         newState = next;
@@ -3880,10 +3904,10 @@ function App() {
     }
   };
 
-  // `pen` (opcional): 'H'/'A' = quem passou nos pênaltis quando o mata-mata
-  // empata em 90/prorrogação. Não afeta a pontuação do bolão (que olha gh/ga),
-  // só serve pra resolver o vencedor e liberar a próxima fase do bracket.
-  const setWorldcupResult = async (matchId, gh, ga, pen) => {
+  // `penH`/`penA` (opcional): placar dos pênaltis quando o mata-mata empata em
+  // 90/prorrogação. Resolve o vencedor (libera a próxima fase) E vale pontos no
+  // bolão (placar exato +3 / só quem passou +1). Guardado só se o jogo empatou.
+  const setWorldcupResult = async (matchId, gh, ga, penH, penA) => {
     if (!isAdmin) return;
     const ref = BET_DOC();
     let newState = null;
@@ -3900,7 +3924,10 @@ function App() {
           const pgh = parseInt(gh, 10), pga = parseInt(ga, 10);
           if (Number.isNaN(pgh) || Number.isNaN(pga)) return;
           if (pgh < 0 || pga < 0) return;
-          results[matchId] = { gh: pgh, ga: pga, at: Date.now(), ...(pen === 'H' || pen === 'A' ? { pen } : {}) };
+          const ph = parseInt(penH, 10), pa = parseInt(penA, 10);
+          const pens = (pgh === pga && !Number.isNaN(ph) && !Number.isNaN(pa) && ph >= 0 && pa >= 0 && ph !== pa)
+            ? { penH: ph, penA: pa } : {};
+          results[matchId] = { gh: pgh, ga: pga, at: Date.now(), ...pens };
         }
         const next = { results, picks: cur.picks || {}, thirds: cur.thirds || {} };
         newState = next;
@@ -5974,9 +6001,10 @@ function resolveWcFixtures(fixtures, results, thirds) {
     const r = results[mm.id]; if (!r) return null;
     const gh = parseInt(r.gh, 10), ga = parseInt(r.ga, 10);
     if (Number.isNaN(gh) || Number.isNaN(ga)) return null;
-    // empate no tempo normal -> decide pelos pênaltis (r.pen = 'H'/'A')
-    const homeWon = gh > ga || (gh === ga && r.pen === 'H');
-    const awayWon = ga > gh || (gh === ga && r.pen === 'A');
+    // empate no tempo normal -> decide pelo placar dos pênaltis (penH/penA)
+    const ph = parseInt(r.penH, 10), pa = parseInt(r.penA, 10);
+    const homeWon = gh > ga || (gh === ga && ph > pa);
+    const awayWon = ga > gh || (gh === ga && pa > ph);
     if (!homeWon && !awayWon) return null; // empate sem pênaltis definidos
     const winSide = homeWon ? 'home' : 'away';
     const loseSide = homeWon ? 'away' : 'home';
@@ -6226,7 +6254,7 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, thir
                 const gp = nicks
                   .map(n => ({ n, p: (allPicks[n] || {})[m.id] }))
                   .filter(x => x.p)
-                  .map(x => ({ ...x, pts: scoreWcPick(r, x.p) }))
+                  .map(x => ({ ...x, pts: scoreWcPick(r, x.p, m.isKnockout) }))
                   .sort((a, b) => b.pts - a.pts || a.n.localeCompare(b.n, 'pt-BR'));
                 return (
                   <div key={m.id} className="copa-fin-game">
@@ -6303,19 +6331,27 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
   const started = !closed && match.kickoffTs != null && (now || Date.now()) >= match.kickoffTs;
   const [gh, setGh] = useState(myPick ? String(myPick.gh) : '');
   const [ga, setGa] = useState(myPick ? String(myPick.ga) : '');
+  const [penGh, setPenGh] = useState(myPick && myPick.penH != null ? String(myPick.penH) : '');
+  const [penGa, setPenGa] = useState(myPick && myPick.penA != null ? String(myPick.penA) : '');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg]   = useState('');
 
   // Admin pra setar resultado
   const [adminGh, setAdminGh] = useState(result ? String(result.gh) : '');
   const [adminGa, setAdminGa] = useState(result ? String(result.ga) : '');
+  const [adminPenGh, setAdminPenGh] = useState(result && result.penH != null ? String(result.penH) : '');
+  const [adminPenGa, setAdminPenGa] = useState(result && result.penA != null ? String(result.penA) : '');
   const [adminBusy, setAdminBusy] = useState(false);
+
+  // Empate num mata-mata -> abre os pênaltis (palpite e resultado)
+  const myDrawKO = match.isKnockout && gh !== '' && ga !== '' && gh === ga;
+  const adminDrawKO = match.isKnockout && adminGh !== '' && adminGa !== '' && String(adminGh) === String(adminGa);
 
   const handleSave = async () => {
     if (busy || closed || started || isPlaceholder) return;
     setBusy(true); setMsg('');
     try {
-      await onSavePick(match.id, gh, ga);
+      await onSavePick(match.id, gh, ga, myDrawKO ? penGh : '', myDrawKO ? penGa : '');
       setMsg('palpite salvo');
       setTimeout(() => setMsg(''), 2000);
     } catch (e) {
@@ -6330,7 +6366,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
   const handleSetResult = async () => {
     if (adminBusy) return;
     setAdminBusy(true);
-    try { await onSetResult(match.id, adminGh, adminGa); }
+    try { await onSetResult(match.id, adminGh, adminGa, adminDrawKO ? adminPenGh : '', adminDrawKO ? adminPenGa : ''); }
     finally { setAdminBusy(false); }
   };
   const handleClearResult = async () => {
@@ -6338,7 +6374,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
     setAdminBusy(true);
     try {
       await onSetResult(match.id, '', '');
-      setAdminGh(''); setAdminGa('');
+      setAdminGh(''); setAdminGa(''); setAdminPenGh(''); setAdminPenGa('');
     } finally { setAdminBusy(false); }
   };
 
@@ -6348,7 +6384,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
   );
 
   let myScore = null;
-  if (result && myPick) myScore = scoreWcPick(result, myPick);
+  if (result && myPick) myScore = scoreWcPick(result, myPick, match.isKnockout);
 
   const tagPrefix = match.isKnockout ? match.roundLabel : `GRUPO ${match.group}`;
 
@@ -6391,6 +6427,17 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
         </div>
       </div>
 
+      {/* Empate no mata-mata: palpite do placar dos PÊNALTIS (placar exato +3 / só quem passou +1) */}
+      {myDrawKO && !closed && !started && canBet && !isPlaceholder && (
+        <div className="wc-pens-row">
+          <span className="wc-pens-l"><Icon name="target" size={11} /> PÊNALTIS</span>
+          <input className="wc-score-in wc-pen-in" type="number" min="0" max="20" value={penGh} onChange={e => setPenGh(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.home} />
+          <span className="wc-x">×</span>
+          <input className="wc-score-in wc-pen-in" type="number" min="0" max="20" value={penGa} onChange={e => setPenGa(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.away} />
+          <span className="wc-pens-hint">+3 exato · +1 só quem passou</span>
+        </div>
+      )}
+
       {isPlaceholder && !closed && (
         <div className="wc-placeholder-note">
           Times ainda não definidos — dependem dos resultados das fases anteriores.
@@ -6409,10 +6456,10 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
       {closed && (
         <div className="wc-result-strip">
           <span className="wc-result-label">RESULTADO REAL:</span>
-          <span className="wc-result-score">{result.gh} × {result.ga}</span>
+          <span className="wc-result-score">{result.gh} × {result.ga}{result.penH != null ? ` (pên ${result.penH}×${result.penA})` : ''}</span>
           {myPick && (
-            <span className={'wc-myscore wc-myscore-' + myScore}>
-              SEU PALPITE: {myPick.gh}×{myPick.ga} · {myScore} pt{myScore === 1 ? '' : 's'}
+            <span className={'wc-myscore wc-myscore-' + Math.min(myScore, 3)}>
+              SEU PALPITE: {myPick.gh}×{myPick.ga}{myPick.penH != null ? ` (pên ${myPick.penH}×${myPick.penA})` : ''} · {myScore} pt{myScore === 1 ? '' : 's'}
             </span>
           )}
         </div>
@@ -6448,6 +6495,14 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
             onChange={e => setAdminGa(e.target.value)}
             placeholder="–"
           />
+          {adminDrawKO && (
+            <span className="wc-admin-pens">
+              <span className="wc-admin-pens-l"><Icon name="target" size={11} /> PÊN</span>
+              <input className="wc-score-in wc-admin-in" type="number" min="0" max="20" value={adminPenGh} onChange={e => setAdminPenGh(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.home} />
+              <span className="wc-x">×</span>
+              <input className="wc-score-in wc-admin-in" type="number" min="0" max="20" value={adminPenGa} onChange={e => setAdminPenGa(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.away} />
+            </span>
+          )}
           <button className="wc-admin-btn" onClick={handleSetResult} disabled={adminBusy}>
             {result ? 'ATUALIZAR' : 'LANÇAR'}
           </button>
@@ -6551,10 +6606,10 @@ function CopaRanking({ users, fixtures, results, picks, myNick }) {
       const p = up[m.id];
       if (p) palpitados++;
       if (r && p) {
-        const s = scoreWcPick(r, p);
-        pts += s;
-        if (s === 3) exactos++;
-        else if (s === 1) certos++;
+        pts += scoreWcPick(r, p, m.isKnockout); // total (inclui bônus de pênaltis)
+        const base = scoreWcPick(r, p); // só o placar do tempo normal (pro tally)
+        if (base === 3) exactos++;
+        else if (base === 1) certos++;
         else errados++;
       }
     }
@@ -6632,7 +6687,7 @@ function CopaPicksModal({ nick, picks, fixtures, results, myNick, onClose }) {
   let totalPts = 0;
   fixtures.forEach(m => {
     const r = results[m.id]; const p = picks[m.id];
-    if (r && p) totalPts += scoreWcPick(r, p);
+    if (r && p) totalPts += scoreWcPick(r, p, m.isKnockout);
   });
 
   return (
@@ -6662,7 +6717,7 @@ function CopaPicksModal({ nick, picks, fixtures, results, myNick, onClose }) {
                 {pickedInFase.map(m => {
                   const p = picks[m.id];
                   const r = results[m.id];
-                  const pts = r ? scoreWcPick(r, p) : null;
+                  const pts = r ? scoreWcPick(r, p, m.isKnockout) : null;
                   const cor = pts === 3 ? '#3a7d2a' : pts === 1 ? '#c98a14' : pts === 0 ? '#c33' : 'rgba(28,22,18,0.5)';
                   return (
                     <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, padding: '7px 0', borderBottom: '1px dashed rgba(28,22,18,0.12)', alignItems: 'center', fontSize: 12 }}>
@@ -6708,41 +6763,46 @@ function BracketMatch({ m, result, isAdmin, onSetResult }) {
   const played = !!result;
   const [gh, setGh] = useState(played ? String(result.gh) : '');
   const [ga, setGa] = useState(played ? String(result.ga) : '');
+  const [pgh, setPgh] = useState(played && result.penH != null ? String(result.penH) : '');
+  const [pga, setPga] = useState(played && result.penA != null ? String(result.penA) : '');
   const [busy, setBusy] = useState(false);
-  useEffect(() => { setGh(played ? String(result.gh) : ''); setGa(played ? String(result.ga) : ''); }, [result && result.gh, result && result.ga]);
+  useEffect(() => {
+    setGh(played ? String(result.gh) : ''); setGa(played ? String(result.ga) : '');
+    setPgh(played && result.penH != null ? String(result.penH) : ''); setPga(played && result.penA != null ? String(result.penA) : '');
+  }, [result && result.gh, result && result.ga, result && result.penH, result && result.penA]);
   const tie = played && result.gh === result.ga;
-  const homeWon = played && (result.gh > result.ga || (tie && result.pen === 'H'));
-  const awayWon = played && (result.ga > result.gh || (tie && result.pen === 'A'));
+  const homeWon = played && (result.gh > result.ga || (tie && result.penH > result.penA));
+  const awayWon = played && (result.ga > result.gh || (tie && result.penA > result.penH));
+  const editTie = gh !== '' && ga !== '' && gh === ga; // empate digitado -> abre pênaltis
   const canEdit = isAdmin && ready;
-  const save = async (pen) => {
-    if (busy) return; setBusy(true);
-    try { await onSetResult(m.id, gh, ga, pen !== undefined ? pen : (result && result.pen)); } finally { setBusy(false); }
-  };
-  const clear = async () => { setBusy(true); try { await onSetResult(m.id, '', ''); setGh(''); setGa(''); } finally { setBusy(false); } };
+  const num = (s) => s.replace(/\D/g, '').slice(0, 2);
+  const save = async () => { if (busy) return; setBusy(true); try { await onSetResult(m.id, gh, ga, pgh, pga); } finally { setBusy(false); } };
+  const clear = async () => { setBusy(true); try { await onSetResult(m.id, '', ''); setGh(''); setGa(''); setPgh(''); setPga(''); } finally { setBusy(false); } };
   return (
     <div className={'bracket-match' + (played ? ' played' : '') + (ready ? '' : ' locked')}>
       <div className="bracket-date">{m.date} · {m.time}</div>
       <div className={'bracket-team' + (homeWon ? ' winner' : '') + (m.slotHome ? ' slot' : '')}>
         <TeamFlag flag={m.flagHome} size={16} />
         <span className="bracket-team-name">{m.home}</span>
-        {tie && result.pen === 'H' && <span className="bracket-pen">P</span>}
+        {tie && result.penH != null && <span className="bracket-pen">{result.penH}</span>}
         {canEdit
-          ? <input className="bracket-in" value={gh} inputMode="numeric" onChange={e => setGh(e.target.value.replace(/\D/g, '').slice(0, 2))} onBlur={() => save()} aria-label={'Gols ' + m.home} />
+          ? <input className="bracket-in" value={gh} inputMode="numeric" onChange={e => setGh(num(e.target.value))} onBlur={save} aria-label={'Gols ' + m.home} />
           : <span className="bracket-score">{played ? result.gh : '–'}</span>}
       </div>
       <div className={'bracket-team' + (awayWon ? ' winner' : '') + (m.slotAway ? ' slot' : '')}>
         <TeamFlag flag={m.flagAway} size={16} />
         <span className="bracket-team-name">{m.away}</span>
-        {tie && result.pen === 'A' && <span className="bracket-pen">P</span>}
+        {tie && result.penA != null && <span className="bracket-pen">{result.penA}</span>}
         {canEdit
-          ? <input className="bracket-in" value={ga} inputMode="numeric" onChange={e => setGa(e.target.value.replace(/\D/g, '').slice(0, 2))} onBlur={() => save()} aria-label={'Gols ' + m.away} />
+          ? <input className="bracket-in" value={ga} inputMode="numeric" onChange={e => setGa(num(e.target.value))} onBlur={save} aria-label={'Gols ' + m.away} />
           : <span className="bracket-score">{played ? result.ga : '–'}</span>}
       </div>
-      {canEdit && tie && (
+      {canEdit && editTie && (
         <div className="bracket-pens">
-          <span className="bracket-pens-l">PÊNALTIS:</span>
-          <button type="button" className={'bracket-pen-btn' + (result.pen === 'H' ? ' on' : '')} onClick={() => save('H')}>{m.home}</button>
-          <button type="button" className={'bracket-pen-btn' + (result.pen === 'A' ? ' on' : '')} onClick={() => save('A')}>{m.away}</button>
+          <span className="bracket-pens-l">PÊNALTIS</span>
+          <input className="bracket-in bracket-pen-in" value={pgh} inputMode="numeric" onChange={e => setPgh(num(e.target.value))} onBlur={save} aria-label={'Pênaltis ' + m.home} />
+          <span className="bracket-pen-x">×</span>
+          <input className="bracket-in bracket-pen-in" value={pga} inputMode="numeric" onChange={e => setPga(num(e.target.value))} onBlur={save} aria-label={'Pênaltis ' + m.away} />
         </div>
       )}
       {canEdit && played && <button type="button" className="bracket-clear" onClick={clear} title="Limpar resultado"><Icon name="x" size={11} /></button>}
@@ -11649,6 +11709,8 @@ function buildShowcase(view, standings, users, teamPlayers) {
 function computeCopaStandings(worldcup, wcFixtures) {
   const picks = (worldcup && worldcup.picks) || {};
   const results = (worldcup && worldcup.results) || {};
+  const koById = {};
+  (wcFixtures || []).forEach(f => { koById[f.id] = !!f.isKnockout; });
   const nicks = Object.keys(picks);
   const resultCount = Object.keys(results).length;
   if (nicks.length < 2 || resultCount === 0) return { status: 'soon', ranking: [] };
@@ -11659,9 +11721,9 @@ function computeCopaStandings(worldcup, wcFixtures) {
       palpitados++;
       const r = results[fid];
       if (r) {
-        const s = scoreWcPick(r, up[fid]);
-        pts += s;
-        if (s === 3) exatos++; else if (s === 1) certos++; else errados++;
+        pts += scoreWcPick(r, up[fid], koById[fid]); // total (com bônus pênaltis)
+        const base = scoreWcPick(r, up[fid]); // só placar normal (tally)
+        if (base === 3) exatos++; else if (base === 1) certos++; else errados++;
       }
     }
     return { nick, pts, exatos, certos, errados, palpitados };
