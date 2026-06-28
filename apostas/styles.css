@@ -5141,49 +5141,43 @@
     .golf-insc-count { font-size: 10px; letter-spacing: 0.18em; font-weight: 800; color: rgba(244,234,215,0.6); }
     .golf-insc-err { display: inline-flex; align-items: center; gap: 5px; color: #e8a; font-size: 11px; font-weight: 700; }
 
-    .golf-rounds { display: flex; flex-direction: column; gap: 7px; }
-    .golf-round {
-      display: flex; align-items: center; gap: 11px; padding: 10px 12px; width: 100%;
+    /* Abas das rodadas (grade): número + nome do mapa. Clicar mostra a
+       classificação daquela rodada no painel abaixo. */
+    .golf-rtabs { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 7px; }
+    .golf-rtab {
+      display: flex; align-items: center; gap: 8px; padding: 8px 10px; width: 100%; min-width: 0;
       border: 1.5px solid rgba(28,22,18,0.14); background: rgba(28,22,18,0.03);
       font-family: inherit; color: var(--pv-charcoal); text-align: left; cursor: pointer;
       transition: border-color var(--dur, .18s) var(--ease, ease), background var(--dur, .18s) var(--ease, ease);
     }
-    .golf-round:hover { border-color: var(--golf); }
-    .golf-round.sel { border-color: var(--golf); background: rgba(111,155,31,0.12); box-shadow: inset 4px 0 0 var(--golf); }
-    .golf-round.rnd { border-style: dashed; }
-    .golf-round-n {
-      font-family: "JetBrains Mono", monospace; font-weight: 800; font-size: 13px;
-      width: 28px; height: 28px; border-radius: 6px; background: var(--golf); color: #fff;
+    .golf-rtab:hover { border-color: var(--golf); }
+    .golf-rtab.sel { border-color: var(--golf); background: rgba(111,155,31,0.12); box-shadow: inset 4px 0 0 var(--golf); }
+    .golf-rtab.rnd { border-style: dashed; }
+    .golf-rtab-n {
+      font-family: "JetBrains Mono", monospace; font-weight: 800; font-size: 12px;
+      width: 24px; height: 24px; border-radius: 5px; background: var(--golf); color: #fff;
       display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
-    .golf-round.rnd .golf-round-n { background: rgba(28,22,18,0.4); }
-    .golf-round-ic { color: var(--golf); display: inline-flex; flex-shrink: 0; }
-    .golf-round.rnd .golf-round-ic { color: rgba(28,22,18,0.4); }
-    .golf-round-map { flex: 1 1 auto; min-width: 0; font-weight: 800; font-size: 13.5px; color: var(--pv-charcoal); }
-    .golf-round.rnd .golf-round-map { font-weight: 600; font-style: italic; color: rgba(28,22,18,0.6); }
-    .golf-round-tag {
-      font-size: 9px; font-weight: 800; letter-spacing: 0.12em; color: var(--golf);
-      border: 1px solid var(--golf); padding: 2px 6px; flex-shrink: 0;
-    }
-    .golf-round.rnd .golf-round-tag { color: rgba(28,22,18,0.5); border-color: rgba(28,22,18,0.3); }
+    .golf-rtab.rnd .golf-rtab-n { background: rgba(28,22,18,0.4); }
+    .golf-rtab-m { min-width: 0; font-weight: 800; font-size: 12px; color: var(--pv-charcoal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .golf-rtab.rnd .golf-rtab-m { font-weight: 600; font-style: italic; color: rgba(28,22,18,0.6); }
     .golf-round-st { font-size: 9px; font-weight: 800; letter-spacing: 0.12em; color: rgba(28,22,18,0.4); flex-shrink: 0; }
 
-    /* Classificação do mapa selecionado (dentro do card de RODADAS). */
+    /* Painel da rodada selecionada: cabeçalho do mapa + classificação dele. */
     .golf-map-class { margin-top: 16px; padding-top: 14px; border-top: 2px solid rgba(28,22,18,0.12); }
     .golf-map-class-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
     .golf-map-class-n {
       font-family: "JetBrains Mono", monospace; font-weight: 800; font-size: 13px;
-      width: 30px; height: 30px; border-radius: 6px; color: #fff; flex-shrink: 0;
+      width: 32px; height: 32px; border-radius: 6px; color: #fff; flex-shrink: 0;
       display: inline-flex; align-items: center; justify-content: center;
     }
     .golf-map-class-tt { display: flex; flex-direction: column; min-width: 0; }
     .golf-map-class-k { font-size: 9px; font-weight: 800; letter-spacing: 0.18em; color: rgba(28,22,18,0.5); }
     .golf-map-class-m {
-      font-family: "Anton", Impact, sans-serif; font-size: 17px; line-height: 1.05; letter-spacing: 0.01em;
+      font-family: "Anton", Impact, sans-serif; font-size: 18px; line-height: 1.05; letter-spacing: 0.01em;
       color: var(--pv-charcoal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     @media (max-width: 560px) {
-      .golf-round-st { display: none; }
       .golf-banner-tt { font-size: 24px; }
     }
     .mk-admin-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }

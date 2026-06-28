@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260628-golf3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260628-golf4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5000,31 +5000,30 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
               <div className="sub">CALENDÁRIO · AGUARDANDO</div>
             </div>
             <div className="card-body">
-              <div className="mk-admin-note" style={{ width: '100%', marginBottom: 12 }}><span style={accIco}><Icon name="pin" size={12} /></span> Cada rodada é um mapa: no dia, todos entram juntos. Clica num mapa pra ver a classificação dele. <strong>6 fixos + 3 aleatórios</strong>, nesta ordem.</div>
-              <div className="golf-rounds">
+              <div className="mk-admin-note" style={{ width: '100%', marginBottom: 12 }}><span style={accIco}><Icon name="pin" size={12} /></span> Clica numa rodada pra ver o mapa e a classificação dele. <strong>6 fixos + 3 aleatórios</strong>, nesta ordem.</div>
+              <div className="golf-rtabs" role="tablist" aria-label="Rodadas do golfe">
                 {GWYF_SCHEDULE.map((r, i) => (
                   <button
                     key={r.n}
                     type="button"
-                    className={'golf-round' + (r.kind === 'random' ? ' rnd' : '') + (i === selMap ? ' sel' : '')}
+                    role="tab"
+                    aria-selected={i === selMap}
+                    className={'golf-rtab' + (r.kind === 'random' ? ' rnd' : '') + (i === selMap ? ' sel' : '')}
                     onClick={() => setSelMap(i)}
-                    aria-pressed={i === selMap}
+                    title={'Rodada ' + String(r.n).padStart(2, '0') + ' · ' + r.map}
                   >
-                    <span className="golf-round-n">{String(r.n).padStart(2, '0')}</span>
-                    <span className="golf-round-ic"><Icon name={r.kind === 'random' ? 'dice' : 'pin'} size={15} /></span>
-                    <span className="golf-round-map">{r.map}</span>
-                    <span className="golf-round-tag">{r.kind === 'random' ? 'ALEATÓRIO' : 'FIXO'}</span>
-                    <span className="golf-round-st">AGUARDANDO</span>
+                    <span className="golf-rtab-n">{String(r.n).padStart(2, '0')}</span>
+                    <span className="golf-rtab-m">{r.map}</span>
                   </button>
                 ))}
               </div>
 
-              {/* CLASSIFICAÇÃO DO MAPA SELECIONADO (zerada — pré-lançamento) */}
+              {/* CLASSIFICAÇÃO DA RODADA SELECIONADA (zerada — pré-lançamento) */}
               <div className="golf-map-class">
                 <div className="golf-map-class-h">
-                  <span className="golf-map-class-n" style={{ background: accent }}>{String(GWYF_SCHEDULE[selMap].n).padStart(2, '0')}</span>
+                  <span className="golf-map-class-n" style={{ background: GWYF_SCHEDULE[selMap].kind === 'random' ? 'rgba(28,22,18,0.4)' : accent }}>{String(GWYF_SCHEDULE[selMap].n).padStart(2, '0')}</span>
                   <span className="golf-map-class-tt">
-                    <span className="golf-map-class-k">CLASSIFICAÇÃO DO MAPA</span>
+                    <span className="golf-map-class-k">RODADA {String(GWYF_SCHEDULE[selMap].n).padStart(2, '0')} · {GWYF_SCHEDULE[selMap].kind === 'random' ? 'MAPA ALEATÓRIO' : 'MAPA FIXO'}</span>
                     <span className="golf-map-class-m">{GWYF_SCHEDULE[selMap].map}</span>
                   </span>
                   <span className="golf-round-st" style={{ marginLeft: 'auto' }}>AGUARDANDO</span>
