@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260628-mkcard1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260628-golf6 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5009,7 +5009,7 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
                         <td>
                           <div className="tnm" style={{ flexWrap: 'wrap' }}>
                             <Avatar nick={r.nick} teamPlayers={teamPlayers} size={24} />
-                            <span>@{r.nick}</span>
+                            <span>{r.nick}</span>
                             {r.nick === session.nick && <span className="stats-rail-you">VOCÊ</span>}
                           </div>
                         </td>
@@ -5088,7 +5088,7 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
                             <td className="gsc-name">
                               <div className="tnm">
                                 <Avatar nick={r.nick} teamPlayers={teamPlayers} size={20} />
-                                <span>@{r.nick}</span>
+                                <span>{r.nick}</span>
                                 {r.nick === session.nick && <span className="stats-rail-you">VOCÊ</span>}
                               </div>
                             </td>
