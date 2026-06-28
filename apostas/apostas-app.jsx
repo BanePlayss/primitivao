@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260628-golf5 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260628-mkcard1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -763,6 +763,34 @@ function mkLockSecondsLeft(scEntry, nowMs) {
   return left > 0 ? left : 0;
 }
 const MK_LOCK_COUNTDOWN_S = 30; // duração padrão do cronômetro de fechamento
+
+// Limpa dos cards (mkLineups) os bonecos que o jogador NÃO tem mais no elenco
+// (mkChars) — ex.: o cara montou o card e DEPOIS trocou de elenco; o slot fica
+// com personagem velho. Roda na LEITURA do doc (não-destrutivo): o card aparece
+// limpo e o mandante remonta. Só mexe em jogo NÃO jogado — concluído é histórico.
+// Cada slot de `home`/`away` tem que estar no mkChars do jogador daquele lado.
+function mkSanitizeLineups(lineups, draw, scores, users) {
+  if (!lineups || !draw) return lineups || {};
+  const charsOf = (n) => ((users || {})[n] || {}).mkChars || [];
+  const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  let changed = false;
+  const out = { ...lineups };
+  draw.forEach(r => (r.games || []).forEach((g, gi) => {
+    const key = gKey(r, gi);
+    const lu = lineups[key];
+    if (!lu) return;
+    if (mkMatchOutcome((scores || {})[key] || {})) return; // já jogado: preserva o card
+    const hv = charsOf(g.home), av = charsOf(g.away);
+    let dirty = false;
+    const nlu = { ...lu, p1: { ...(lu.p1 || {}) }, p2: { ...(lu.p2 || {}) } };
+    ['p1', 'p2'].forEach(p => {
+      if (nlu[p].home && hv.indexOf(nlu[p].home) === -1) { delete nlu[p].home; dirty = true; }
+      if (nlu[p].away && av.indexOf(nlu[p].away) === -1) { delete nlu[p].away; dirty = true; }
+    });
+    if (dirty) { out[key] = nlu; changed = true; }
+  }));
+  return changed ? out : lineups;
+}
 
 // Classificação — vitória 3, empate (1×1) 1, derrota 0. Desempate: pontos ->
 // saldo de rounds -> vitórias -> rounds pró -> nome. matches: [{home, away, sc}].
@@ -2992,9 +3020,17 @@ function App() {
         });
         // Estado oficial do MK (campo `mk` do mesmo doc). Source of truth remoto.
         const mk = (remote.mk && typeof remote.mk === 'object') ? remote.mk : {};
-        setMkDraw(Array.isArray(mk.draw) ? mk.draw : null);
-        setMkScores(mk.scores && typeof mk.scores === 'object' ? mk.scores : {});
-        setMkLineups(mk.lineups && typeof mk.lineups === 'object' ? mk.lineups : {});
+        const mkUsers = remote.users && typeof remote.users === 'object' ? remote.users : {};
+        const mkDrawVal = Array.isArray(mk.draw) ? mk.draw : null;
+        const mkScoresVal = mk.scores && typeof mk.scores === 'object' ? mk.scores : {};
+        setMkDraw(mkDrawVal);
+        setMkScores(mkScoresVal);
+        // Saneia os cards na leitura: remove bonecos que saíram do elenco do jogador
+        // (montou o card e depois trocou de elenco). Não toca jogo já concluído.
+        setMkLineups(mkSanitizeLineups(
+          mk.lineups && typeof mk.lineups === 'object' ? mk.lineups : {},
+          mkDrawVal, mkScoresVal, mkUsers
+        ));
         setMkLocked(!!mk.locked);
         setOfficialDayState(remote.officialDay && typeof remote.officialDay === 'object' ? remote.officialDay : null);
         hasLoadedRef.current = true; setSynced(true);
