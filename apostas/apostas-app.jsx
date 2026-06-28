@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260628-golf2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260628-golf3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4937,6 +4937,7 @@ function GolfBanner({ accent, interested, count, onToggleInterest }) {
 // (lançar tacadas por mapa) entra quando o golf virar 'active', depois do MK.
 function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
   const accent = tabloidTheme('gwyf').color;
+  const [selMap, setSelMap] = useState(0); // rodada/mapa selecionado (índice no GWYF_SCHEDULE)
   const reg = (interests && interests.gwyf) || {};
   const inscritos = Object.keys(reg).sort();
   const interested = !!(session && reg[session.nick]);
@@ -4991,7 +4992,7 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
           </div>
         </div>
 
-        {/* RODADAS / CALENDÁRIO DE MAPAS */}
+        {/* RODADAS / CALENDÁRIO DE MAPAS — clica num mapa pra ver a classificação dele */}
         <aside>
           <div className="card mk-card mk-rodada-card">
             <div className="card-head">
@@ -4999,17 +5000,63 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
               <div className="sub">CALENDÁRIO · AGUARDANDO</div>
             </div>
             <div className="card-body">
-              <div className="mk-admin-note" style={{ width: '100%', marginBottom: 12 }}><span style={accIco}><Icon name="pin" size={12} /></span> Cada rodada é um mapa: no dia, todos entram juntos. <strong>6 fixos + 3 aleatórios</strong>, nesta ordem.</div>
+              <div className="mk-admin-note" style={{ width: '100%', marginBottom: 12 }}><span style={accIco}><Icon name="pin" size={12} /></span> Cada rodada é um mapa: no dia, todos entram juntos. Clica num mapa pra ver a classificação dele. <strong>6 fixos + 3 aleatórios</strong>, nesta ordem.</div>
               <div className="golf-rounds">
-                {GWYF_SCHEDULE.map(r => (
-                  <div key={r.n} className={'golf-round' + (r.kind === 'random' ? ' rnd' : '')}>
+                {GWYF_SCHEDULE.map((r, i) => (
+                  <button
+                    key={r.n}
+                    type="button"
+                    className={'golf-round' + (r.kind === 'random' ? ' rnd' : '') + (i === selMap ? ' sel' : '')}
+                    onClick={() => setSelMap(i)}
+                    aria-pressed={i === selMap}
+                  >
                     <span className="golf-round-n">{String(r.n).padStart(2, '0')}</span>
                     <span className="golf-round-ic"><Icon name={r.kind === 'random' ? 'dice' : 'pin'} size={15} /></span>
                     <span className="golf-round-map">{r.map}</span>
                     <span className="golf-round-tag">{r.kind === 'random' ? 'ALEATÓRIO' : 'FIXO'}</span>
                     <span className="golf-round-st">AGUARDANDO</span>
-                  </div>
+                  </button>
                 ))}
+              </div>
+
+              {/* CLASSIFICAÇÃO DO MAPA SELECIONADO (zerada — pré-lançamento) */}
+              <div className="golf-map-class">
+                <div className="golf-map-class-h">
+                  <span className="golf-map-class-n" style={{ background: accent }}>{String(GWYF_SCHEDULE[selMap].n).padStart(2, '0')}</span>
+                  <span className="golf-map-class-tt">
+                    <span className="golf-map-class-k">CLASSIFICAÇÃO DO MAPA</span>
+                    <span className="golf-map-class-m">{GWYF_SCHEDULE[selMap].map}</span>
+                  </span>
+                  <span className="golf-round-st" style={{ marginLeft: 'auto' }}>AGUARDANDO</span>
+                </div>
+                {inscritos.length === 0 ? (
+                  <div className="empty" style={{ padding: '18px 12px' }}><div className="e1">SEM INSCRITOS</div></div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="std-table">
+                      <thead>
+                        <tr><th>#</th><th style={{ textAlign: 'left' }}>JOGADOR</th><th>TAC</th><th>PTS</th></tr>
+                      </thead>
+                      <tbody>
+                        {rows.map(r => (
+                          <tr key={r.nick}>
+                            <td className="std-pos">{String(r.pos).padStart(2, '0')}</td>
+                            <td>
+                              <div className="tnm" style={{ flexWrap: 'wrap' }}>
+                                <Avatar nick={r.nick} teamPlayers={teamPlayers} size={22} />
+                                <span>@{r.nick}</span>
+                                {r.nick === session.nick && <span className="stats-rail-you">VOCÊ</span>}
+                              </div>
+                            </td>
+                            <td style={{ color: 'rgba(28,22,18,0.45)' }}>—</td>
+                            <td style={{ fontFamily: 'Anton, Impact', fontSize: 15 }}>0</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <div className="mk-legend" style={{ marginTop: 8 }}>Sem resultado ainda — quando o mapa rolar, entram as <strong>TAC</strong> (tacadas) de cada um e os <strong>PTS</strong> do mapa (menos tacadas = mais pontos; teto {GWYF_MAX_STROKES}).</div>
               </div>
             </div>
           </div>

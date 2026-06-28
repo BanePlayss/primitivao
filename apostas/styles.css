@@ -5143,9 +5143,13 @@
 
     .golf-rounds { display: flex; flex-direction: column; gap: 7px; }
     .golf-round {
-      display: flex; align-items: center; gap: 11px; padding: 10px 12px;
+      display: flex; align-items: center; gap: 11px; padding: 10px 12px; width: 100%;
       border: 1.5px solid rgba(28,22,18,0.14); background: rgba(28,22,18,0.03);
+      font-family: inherit; color: var(--pv-charcoal); text-align: left; cursor: pointer;
+      transition: border-color var(--dur, .18s) var(--ease, ease), background var(--dur, .18s) var(--ease, ease);
     }
+    .golf-round:hover { border-color: var(--golf); }
+    .golf-round.sel { border-color: var(--golf); background: rgba(111,155,31,0.12); box-shadow: inset 4px 0 0 var(--golf); }
     .golf-round.rnd { border-style: dashed; }
     .golf-round-n {
       font-family: "JetBrains Mono", monospace; font-weight: 800; font-size: 13px;
@@ -5163,6 +5167,21 @@
     }
     .golf-round.rnd .golf-round-tag { color: rgba(28,22,18,0.5); border-color: rgba(28,22,18,0.3); }
     .golf-round-st { font-size: 9px; font-weight: 800; letter-spacing: 0.12em; color: rgba(28,22,18,0.4); flex-shrink: 0; }
+
+    /* Classificação do mapa selecionado (dentro do card de RODADAS). */
+    .golf-map-class { margin-top: 16px; padding-top: 14px; border-top: 2px solid rgba(28,22,18,0.12); }
+    .golf-map-class-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .golf-map-class-n {
+      font-family: "JetBrains Mono", monospace; font-weight: 800; font-size: 13px;
+      width: 30px; height: 30px; border-radius: 6px; color: #fff; flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .golf-map-class-tt { display: flex; flex-direction: column; min-width: 0; }
+    .golf-map-class-k { font-size: 9px; font-weight: 800; letter-spacing: 0.18em; color: rgba(28,22,18,0.5); }
+    .golf-map-class-m {
+      font-family: "Anton", Impact, sans-serif; font-size: 17px; line-height: 1.05; letter-spacing: 0.01em;
+      color: var(--pv-charcoal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
     @media (max-width: 560px) {
       .golf-round-st { display: none; }
       .golf-banner-tt { font-size: 24px; }
