@@ -5105,6 +5105,68 @@
 
     .mk-admin-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
     .mk-admin-row .mk-admin-note { margin-bottom: 0; }
+
+    /* ─── GOLF WITH YOUR FRIENDS (gwyf) — pré-lançamento ──────────────────────
+       Reusa o layout do MK (.mk-champ/.mk-grid/.mk-card/.std-table). Só o banner
+       de topo e a lista de rodadas (mapas) têm visual próprio. --golf = acento. */
+    .golf-champ { --golf: #6f9b1f; }
+    .golf-banner {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+      background: var(--pv-charcoal); border: 2px solid var(--pv-charcoal); box-shadow: var(--sh-md);
+      padding: 16px 18px; margin-bottom: 16px;
+    }
+    .golf-banner-main { flex: 1 1 320px; min-width: 0; }
+    .golf-banner-tag {
+      display: inline-flex; align-items: center; gap: 6px; background: var(--golf); color: #fff;
+      font-weight: 800; letter-spacing: 0.2em; font-size: 10px; padding: 3px 10px;
+    }
+    .golf-banner-tag svg { color: #fff; flex-shrink: 0; }
+    .golf-banner-tt {
+      font-family: "Anton", Impact, sans-serif; font-size: 30px; line-height: 1; letter-spacing: 0.02em;
+      margin-top: 10px; color: var(--pv-bone);
+    }
+    .golf-banner-sub { font-size: 12.5px; line-height: 1.5; margin: 8px 0 0; color: rgba(244,234,215,0.82); max-width: 540px; }
+    .golf-banner-sub b { color: var(--pv-bone); }
+    .golf-banner-side { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; flex-shrink: 0; }
+    .golf-btn {
+      background: var(--golf); color: #fff; border: none; padding: 11px 22px; font-family: inherit;
+      font-weight: 800; letter-spacing: 0.16em; font-size: 12px; cursor: pointer; box-shadow: 4px 4px 0 rgba(0,0,0,0.35);
+    }
+    .golf-btn:hover { filter: brightness(1.08); }
+    .golf-btn:active { transform: translate(2px, 2px); box-shadow: none; }
+    .golf-btn:disabled { opacity: 0.6; cursor: wait; }
+    .golf-btn-out { background: transparent; border: 1.5px solid var(--pv-bone); color: var(--pv-bone); box-shadow: none; padding: 8px 16px; font-size: 11px; }
+    .golf-insc-ok { display: inline-flex; align-items: center; gap: 6px; color: #9bd36a; font-weight: 800; letter-spacing: 0.16em; font-size: 11px; }
+    .golf-insc-ok svg { color: #9bd36a; flex-shrink: 0; }
+    .golf-insc-count { font-size: 10px; letter-spacing: 0.18em; font-weight: 800; color: rgba(244,234,215,0.6); }
+    .golf-insc-err { display: inline-flex; align-items: center; gap: 5px; color: #e8a; font-size: 11px; font-weight: 700; }
+
+    .golf-rounds { display: flex; flex-direction: column; gap: 7px; }
+    .golf-round {
+      display: flex; align-items: center; gap: 11px; padding: 10px 12px;
+      border: 1.5px solid rgba(28,22,18,0.14); background: rgba(28,22,18,0.03);
+    }
+    .golf-round.rnd { border-style: dashed; }
+    .golf-round-n {
+      font-family: "JetBrains Mono", monospace; font-weight: 800; font-size: 13px;
+      width: 28px; height: 28px; border-radius: 6px; background: var(--golf); color: #fff;
+      display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .golf-round.rnd .golf-round-n { background: rgba(28,22,18,0.4); }
+    .golf-round-ic { color: var(--golf); display: inline-flex; flex-shrink: 0; }
+    .golf-round.rnd .golf-round-ic { color: rgba(28,22,18,0.4); }
+    .golf-round-map { flex: 1 1 auto; min-width: 0; font-weight: 800; font-size: 13.5px; color: var(--pv-charcoal); }
+    .golf-round.rnd .golf-round-map { font-weight: 600; font-style: italic; color: rgba(28,22,18,0.6); }
+    .golf-round-tag {
+      font-size: 9px; font-weight: 800; letter-spacing: 0.12em; color: var(--golf);
+      border: 1px solid var(--golf); padding: 2px 6px; flex-shrink: 0;
+    }
+    .golf-round.rnd .golf-round-tag { color: rgba(28,22,18,0.5); border-color: rgba(28,22,18,0.3); }
+    .golf-round-st { font-size: 9px; font-weight: 800; letter-spacing: 0.12em; color: rgba(28,22,18,0.4); flex-shrink: 0; }
+    @media (max-width: 560px) {
+      .golf-round-st { display: none; }
+      .golf-banner-tt { font-size: 24px; }
+    }
     .mk-admin-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .mk-preview-note { display: inline-flex; align-items: center; gap: 5px; margin: 9px 0 2px; font-size: 10.5px; font-weight: 700; color: var(--pv-orange); }
     .mk-preview-note svg { color: var(--pv-orange); flex-shrink: 0; }

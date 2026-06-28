@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260628-golf1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260628-golf2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4484,6 +4484,15 @@ function App() {
                       scores={mkScores} onScore={setMkScoreField} lineups={mkLineups}
                       isAdmin={false} isMod={false} locked={mkLocked} myNick={session.nick}
                     />
+                  ) : active.id === 'gwyf' ? (
+                    // GOLF: CLASSIFICAÇÃO + RODADAS (mapas), igual ao MK. Pré-lançamento
+                    // (segue 'soon' — não vira apostável; inscrições seguem abertas).
+                    <GolfView
+                      interests={interests || {}}
+                      teamPlayers={teamPlayers || {}}
+                      session={session}
+                      onToggleInterest={() => toggleInterest('gwyf')}
+                    />
                   ) : showPlaceholder ? (
                 <ChampionshipPlaceholder
                   champ={active}
@@ -4886,66 +4895,126 @@ const GWYF_SCHEDULE = [
   { n: 9, map: 'Trickshotopia',         kind: 'named'  },
 ];
 
-// Bloco de regras + calendário do golf. Renderiza no lugar do "EM BREVE"
-// genérico quando o campeonato selecionado é o GWYF (pré-lançamento).
-function GolfPreview() {
-  const accent = tabloidTheme('gwyf').color;
-  const ico = { color: accent, display: 'inline-flex', flexShrink: 0 };
-  const wrap = { textAlign: 'left', maxWidth: 660, margin: '0 auto' };
-  const sec = { marginTop: 26 };
-  const secH = { fontFamily: 'Anton, Impact, sans-serif', fontSize: 19, letterSpacing: '0.05em', textTransform: 'uppercase', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 9, color: 'var(--pv-charcoal)' };
-  const p = { fontSize: 14, lineHeight: 1.65, margin: '0 0 8px' };
-  const rowS = { fontSize: 14, lineHeight: 1.55, margin: '0 0 8px', display: 'flex', gap: 9, alignItems: 'flex-start' };
-  const bullet = <span style={{ ...ico, marginTop: 5 }}><Icon name="square-filled" size={8} /></span>;
+// Banner de pré-lançamento + inscrição (topo da GolfView). A inscrição é o mesmo
+// toggle dos campeonatos "em breve" (campo TOP-LEVEL interests.gwyf, fora do json).
+function GolfBanner({ accent, interested, count, onToggleInterest }) {
+  const [busy, setBusy] = useState(false);
+  const [errMsg, setErrMsg] = useState('');
+  const click = async () => {
+    if (busy) return;
+    setBusy(true); setErrMsg('');
+    try { await onToggleInterest(); }
+    catch (e) { setErrMsg('Não consegui registrar. Tenta de novo em alguns segundos.'); }
+    finally { setBusy(false); }
+  };
   return (
-    <div style={wrap}>
-      <div style={{ textAlign: 'center' }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 14px', borderRadius: 999, background: accent, color: '#fff', fontWeight: 800, letterSpacing: '0.2em', fontSize: 11 }}>
-          <Icon name="flag" size={13} /> PRÉ-LANÇAMENTO · PREVIEW
-        </span>
-        <div style={{ fontFamily: 'Anton, Impact, sans-serif', fontSize: 40, lineHeight: 1.03, letterSpacing: '0.02em', marginTop: 14, color: 'var(--pv-charcoal)' }}>
-          GOLF WITH YOUR FRIENDS
-        </div>
-        <p style={{ ...p, maxWidth: 540, margin: '12px auto 0', color: 'rgba(28,22,18,0.78)' }}>
-          O campeonato já tem regras e calendário definidos — mas isto ainda é uma
-          prévia. As inscrições estão <b>abertas</b>; a temporada oficial só começa
-          quando o <b>Mortal Kombat</b> terminar. Garante teu lugar.
-        </p>
+    <div className="golf-banner" style={{ '--golf': accent }}>
+      <div className="golf-banner-main">
+        <span className="golf-banner-tag"><Icon name="flag" size={12} /> PRÉ-LANÇAMENTO</span>
+        <div className="golf-banner-tt">GOLF WITH YOUR FRIENDS</div>
+        <p className="golf-banner-sub">Inscrições <b>abertas</b> — abaixo já dá pra ver a classificação e as rodadas. A temporada oficial começa quando o <b>Mortal Kombat</b> acabar.</p>
       </div>
-
-      <div style={sec}>
-        <h3 style={secH}><span style={ico}><Icon name="target" size={18} /></span> COMO VAI FUNCIONAR</h3>
-        <p style={p}>Cada <b>rodada é um mapa</b>. No dia marcado, todos os inscritos entram no <b>mesmo mapa</b> e jogam juntos. Cada mapa tem a sua própria classificação.</p>
+      <div className="golf-banner-side">
+        {interested ? (
+          <>
+            <span className="golf-insc-ok"><Icon name="check" size={13} /> INSCRITO</span>
+            <button className="golf-btn golf-btn-out" onClick={click} disabled={busy}>{busy ? 'AGUARDE…' : 'CANCELAR'}</button>
+          </>
+        ) : (
+          <button className="golf-btn" onClick={click} disabled={busy}>{busy ? 'AGUARDE…' : 'QUERO PARTICIPAR'}</button>
+        )}
+        <span className="golf-insc-count">{count} {count === 1 ? 'INSCRITO' : 'INSCRITOS'}</span>
+        {errMsg && <span className="golf-insc-err"><Icon name="x" size={12} /> {errMsg}</span>}
       </div>
+    </div>
+  );
+}
 
-      <div style={sec}>
-        <h3 style={secH}><span style={ico}><Icon name="medal" size={18} /></span> PONTUAÇÃO</h3>
-        <div style={rowS}>{bullet}<span>A pontuação de cada mapa depende de quantos jogam. Com <b>N jogadores</b>: o <b>1º leva N pontos</b>, o 2º N−1, o 3º N−2… e o último fica com 1 ponto.</span></div>
-        <div style={rowS}>{bullet}<span>Ex.: com <b>15 jogadores</b> → 1º = <b>15 pts</b>, 2º = 14, 3º = 13, e por aí vai.</span></div>
-        <div style={rowS}><span style={{ ...ico, marginTop: 2 }}><Icon name="trophy" size={15} /></span><span>O <b>vencedor de cada mapa</b> ainda ganha uma pontuação extra, que conta no geral.</span></div>
-      </div>
+// View do GOLF — espelha o MK: CLASSIFICAÇÃO (esquerda) + RODADAS/CALENDÁRIO
+// (direita), em grid de 2 colunas. Ainda é pré-lançamento: sem resultados, a
+// classificação lista os inscritos zerados e as 9 rodadas ficam "AGUARDANDO".
+// Mantém o campeonato como 'soon' (não vira apostável) — o motor de pontuação
+// (lançar tacadas por mapa) entra quando o golf virar 'active', depois do MK.
+function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
+  const accent = tabloidTheme('gwyf').color;
+  const reg = (interests && interests.gwyf) || {};
+  const inscritos = Object.keys(reg).sort();
+  const interested = !!(session && reg[session.nick]);
+  // Sem resultados ainda: todos zerados, ordem alfabética.
+  const rows = inscritos.map((nick, i) => ({ pos: i + 1, nick, pts: 0, tac: null, wins: 0 }));
+  const accIco = { color: accent, display: 'inline-flex', flexShrink: 0 };
+  return (
+    <div className="mk-champ golf-champ" style={{ '--golf': accent }}>
+      <GolfBanner accent={accent} interested={interested} count={inscritos.length} onToggleInterest={onToggleInterest} />
+      <div className="grid mk-grid">
 
-      <div style={sec}>
-        <h3 style={secH}><span style={ico}><Icon name="flag" size={18} /></span> TACADAS &amp; DESEMPATE</h3>
-        <div style={rowS}>{bullet}<span>Cada mapa tem um <b>limite de {GWYF_MAX_STROKES} tacadas</b>.</span></div>
-        <div style={rowS}>{bullet}<span>Quem <b>não completar</b> o mapa fica com o teto: <b>+{GWYF_MAX_STROKES}</b> tacadas.</span></div>
-        <div style={rowS}>{bullet}<span>As <b>tacadas</b> são o 1º critério de desempate — <b>quanto menos, melhor</b>.</span></div>
-        <div style={rowS}>{bullet}<span>Persistindo o empate, decide o <b>bônus de vencedor do mapa</b>.</span></div>
-      </div>
-
-      <div style={sec}>
-        <h3 style={secH}><span style={ico}><Icon name="pin" size={18} /></span> CALENDÁRIO DE MAPAS</h3>
-        <p style={{ ...p, color: 'rgba(28,22,18,0.7)' }}>Nove rodadas: <b>6 mapas fixos</b> + <b>3 aleatórios</b> (sorteados na hora).</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
-          {GWYF_SCHEDULE.map(r => (
-            <div key={r.n} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', borderRadius: 8, background: 'rgba(28,22,18,0.04)', border: '1px solid rgba(28,22,18,0.08)' }}>
-              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 13, width: 26, height: 26, borderRadius: 6, background: accent, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{r.n}</span>
-              <span style={{ color: r.kind === 'random' ? 'rgba(28,22,18,0.4)' : accent, display: 'inline-flex', flexShrink: 0 }}><Icon name={r.kind === 'random' ? 'dice' : 'pin'} size={16} /></span>
-              <span style={{ flex: 1, fontWeight: r.kind === 'random' ? 600 : 800, fontStyle: r.kind === 'random' ? 'italic' : 'normal', color: r.kind === 'random' ? 'rgba(28,22,18,0.6)' : 'var(--pv-charcoal)' }}>{r.map}</span>
-              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', color: r.kind === 'random' ? 'rgba(28,22,18,0.5)' : accent }}>{r.kind === 'random' ? 'ALEATÓRIO' : 'FIXO'}</span>
+        {/* CLASSIFICAÇÃO GERAL */}
+        <div className="card mk-card">
+          <div className="card-head">
+            <div className="title"><span style={accIco}><Icon name="flag" size={16} /></span> CLASSIFICAÇÃO GERAL</div>
+            <div className="sub">{inscritos.length} INSCRITOS · {GWYF_SCHEDULE.length} RODADAS</div>
+          </div>
+          <div className="card-body">
+            <div className="mk-admin-note" style={{ width: '100%', marginBottom: 12 }}><span style={accIco}><Icon name="flag" size={12} /></span> Classificação geral — soma os pontos de cada mapa. Ainda sem resultados (pré-lançamento).</div>
+            {inscritos.length === 0 ? (
+              <div className="empty"><div className="e1">SEM INSCRITOS</div><div className="e2">Ninguém inscrito no golfe ainda. Seja o primeiro no botão acima.</div></div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="std-table">
+                  <thead>
+                    <tr><th>#</th><th style={{ textAlign: 'left' }}>JOGADOR</th><th>PTS</th><th>TAC</th><th>V</th></tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(r => (
+                      <tr key={r.nick}>
+                        <td className="std-pos">{String(r.pos).padStart(2, '0')}</td>
+                        <td>
+                          <div className="tnm" style={{ flexWrap: 'wrap' }}>
+                            <Avatar nick={r.nick} teamPlayers={teamPlayers} size={24} />
+                            <span>@{r.nick}</span>
+                            {r.nick === session.nick && <span className="stats-rail-you">VOCÊ</span>}
+                          </div>
+                        </td>
+                        <td style={{ fontFamily: 'Anton, Impact', fontSize: 16 }}>{r.pts}</td>
+                        <td style={{ color: 'rgba(28,22,18,0.45)' }}>{r.tac == null ? '—' : r.tac}</td>
+                        <td>{r.wins}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="mk-legend">
+              <strong>PTS</strong> = pontos somados nos mapas. Em cada mapa, com <strong>N jogadores</strong>: 1º leva <strong>N</strong>, 2º N−1, 3º N−2… e o último 1. O <strong>vencedor do mapa</strong> ganha pontuação extra.
+              <br /><strong>TAC</strong> = total de tacadas — desempate, quanto menos melhor. Limite de <strong>{GWYF_MAX_STROKES}</strong> por mapa; quem não completa conta <strong>+{GWYF_MAX_STROKES}</strong>. <strong>V</strong> = mapas vencidos.
             </div>
-          ))}
+          </div>
         </div>
+
+        {/* RODADAS / CALENDÁRIO DE MAPAS */}
+        <aside>
+          <div className="card mk-card mk-rodada-card">
+            <div className="card-head">
+              <div className="title">RODADAS</div>
+              <div className="sub">CALENDÁRIO · AGUARDANDO</div>
+            </div>
+            <div className="card-body">
+              <div className="mk-admin-note" style={{ width: '100%', marginBottom: 12 }}><span style={accIco}><Icon name="pin" size={12} /></span> Cada rodada é um mapa: no dia, todos entram juntos. <strong>6 fixos + 3 aleatórios</strong>, nesta ordem.</div>
+              <div className="golf-rounds">
+                {GWYF_SCHEDULE.map(r => (
+                  <div key={r.n} className={'golf-round' + (r.kind === 'random' ? ' rnd' : '')}>
+                    <span className="golf-round-n">{String(r.n).padStart(2, '0')}</span>
+                    <span className="golf-round-ic"><Icon name={r.kind === 'random' ? 'dice' : 'pin'} size={15} /></span>
+                    <span className="golf-round-map">{r.map}</span>
+                    <span className="golf-round-tag">{r.kind === 'random' ? 'ALEATÓRIO' : 'FIXO'}</span>
+                    <span className="golf-round-st">AGUARDANDO</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </aside>
+
       </div>
     </div>
   );
@@ -4966,29 +5035,24 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
       setBusy(false);
     }
   };
-  const isGolf = champ.id === 'gwyf';
   return (
     <div className="card">
       <div className="card-head">
         <div className="title">{champ.name.toUpperCase()}</div>
-        <div className="sub">{champ.season} · {isGolf ? 'PRÉ-LANÇAMENTO' : 'EM BREVE'}</div>
+        <div className="sub">{champ.season} · EM BREVE</div>
       </div>
-      <div className="card-body" style={{ textAlign: 'center', padding: isGolf ? '28px 20px 40px' : '40px 20px' }}>
-        {isGolf ? <GolfPreview /> : (
-          <>
-            <div style={{
-              fontFamily: 'Anton, Impact', fontSize: 48,
-              color: 'var(--pv-orange)', letterSpacing: '0.04em', lineHeight: 1,
-            }}>
-              EM BREVE
-            </div>
-            <p style={{ marginTop: 14, fontSize: 14, lineHeight: 1.6, maxWidth: 520, marginLeft: 'auto', marginRight: 'auto' }}>
-              Esse campeonato ainda não começou. Se você tem interesse em participar,
-              deixa sua inscrição abaixo — quanto mais gente, mais cedo a temporada sai
-              do papel.
-            </p>
-          </>
-        )}
+      <div className="card-body" style={{ textAlign: 'center', padding: '40px 20px' }}>
+        <div style={{
+          fontFamily: 'Anton, Impact', fontSize: 48,
+          color: 'var(--pv-orange)', letterSpacing: '0.04em', lineHeight: 1,
+        }}>
+          EM BREVE
+        </div>
+        <p style={{ marginTop: 14, fontSize: 14, lineHeight: 1.6, maxWidth: 520, marginLeft: 'auto', marginRight: 'auto' }}>
+          Esse campeonato ainda não começou. Se você tem interesse em participar,
+          deixa sua inscrição abaixo — quanto mais gente, mais cedo a temporada sai
+          do papel.
+        </p>
 
         <div style={{ marginTop: 24 }}>
           {interested ? (
