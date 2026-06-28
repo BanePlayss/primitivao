@@ -3612,6 +3612,13 @@
     .bracket-pen-btn.on { background: var(--pv-charcoal); color: var(--pv-bone); border-color: var(--pv-charcoal); }
     .bracket-clear { position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; color: rgba(28,22,18,0.4); cursor: pointer; }
     .bracket-clear:hover { color: var(--pv-red, #c0392b); }
+    /* painel do mod pra definir os 8 melhores terceiros (vagas 3A/B/C/D) */
+    .wc-thirds-panel { margin-bottom: 14px; }
+    .wc-thirds-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
+    .wc-third-row { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border: 1.5px solid rgba(28,22,18,0.12); background: rgba(28,22,18,0.02); }
+    .wc-third-opp { font-weight: 800; font-size: 12px; color: var(--pv-charcoal); flex-shrink: 0; max-width: 108px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wc-third-vs { opacity: 0.45; font-weight: 700; flex-shrink: 0; }
+    .wc-third-sel { flex: 1; min-width: 0; padding: 5px 6px; font: inherit; font-size: 12px; font-weight: 700; border: 1.5px solid rgba(28,22,18,0.25); background: var(--pv-bone); color: var(--pv-charcoal); border-radius: 3px; cursor: pointer; }
 
     /* ──── SHARE CUPOM ──── */
     .cupom-share {

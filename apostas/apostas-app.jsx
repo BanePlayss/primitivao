@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260628-wc2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260628-wc3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -422,12 +422,12 @@ function resolveWcSlot(rawSlot, standingsByGroup) {
 // Retorna { "3A/B/C/D/F": {name,flag}, ... } ou {} se a fase de grupos não
 // terminou / formato inesperado. FIFA usa uma tabela fixa; aqui qualquer
 // alocação VÁLIDA e completa serve pro bolão (ninguém fica sem adversário).
-function computeWcThirdAssignment(standingsByGroup, fixtures) {
+// Os 8 melhores TERCEIROS colocados (formato 2026: 12 grupos). Só quando a fase
+// de grupos termina. Retorna { complete, qualGroups:[...], byGroup:{g:{name,flag}} }.
+function wcThirdsInfo(standingsByGroup) {
   const groups = Object.keys(standingsByGroup);
-  if (!groups.length) return {};
-  // todos os grupos completos (cada time com 3 jogos)?
-  if (!groups.every(g => (standingsByGroup[g] || []).length >= 3 && standingsByGroup[g].every(t => t.J === 3))) return {};
-  // 3º de cada grupo, ranqueados (P > SG > GP > nome) — os 8 melhores classificam
+  const complete = groups.length > 0 && groups.every(g => (standingsByGroup[g] || []).length >= 3 && standingsByGroup[g].every(t => t.J === 3));
+  if (!complete) return { complete: false, qualGroups: [], byGroup: {} };
   const thirds = groups.map(g => ({ group: g, t: standingsByGroup[g][2] })).filter(x => x.t);
   thirds.sort((a, b) => {
     const A = a.t, B = b.t;
@@ -436,19 +436,41 @@ function computeWcThirdAssignment(standingsByGroup, fixtures) {
     if (B.GP !== A.GP) return B.GP - A.GP;
     return A.name.localeCompare(B.name);
   });
-  const qualGroups = thirds.slice(0, 8).map(x => x.group);
-  // slots de terceiro presentes no chaveamento ("3A/B/C/D/F")
-  const slotStrings = Array.from(new Set(
+  const top = thirds.slice(0, 8);
+  const byGroup = {};
+  top.forEach(x => { byGroup[x.group] = { name: x.t.name, flag: x.t.flag }; });
+  return { complete: true, qualGroups: top.map(x => x.group), byGroup };
+}
+function wcThirdSlots(fixtures) {
+  return Array.from(new Set(
     fixtures.flatMap(m => [m.rawSlotHome, m.rawSlotAway]).filter(s => /^3[A-Z](\/[A-Z])+$/.test(String(s || '')))
-  ));
-  if (slotStrings.length !== qualGroups.length) return {};
-  const slotSets = slotStrings.map(s => ({ slot: s, allowed: s.slice(1).split('/') }));
-  // matching bipartido por backtracking: cada grupo classificado -> um slot
-  const assign = {}, used = {};
+  )).map(s => ({ slot: s, allowed: s.slice(1).split('/') }));
+}
+// Aloca os 8 melhores terceiros nos slots "3A/B/C/D/F" da Round of 32. A FIFA usa
+// uma tabela fixa de 495 combinações; aqui o MOD pode fixar cada vaga em
+// `overrides` (slot -> letra do grupo) e o resto é completado por matching.
+function computeWcThirdAssignment(standingsByGroup, fixtures, overrides) {
+  const info = wcThirdsInfo(standingsByGroup);
+  if (!info.complete) return {};
+  const qualGroups = info.qualGroups;
+  const slotSets = wcThirdSlots(fixtures);
+  if (slotSets.length !== qualGroups.length) return {};
+  // 1) aplica os overrides do mod (válidos: grupo classificado e permitido no slot)
+  const assign = {}, used = {}, usedGroup = {};
+  const ov = overrides || {};
+  for (const ss of slotSets) {
+    const g = ov[ss.slot];
+    if (g && qualGroups.includes(g) && ss.allowed.includes(g) && !usedGroup[g]) {
+      assign[ss.slot] = g; used[ss.slot] = true; usedGroup[g] = true;
+    }
+  }
+  // 2) completa o resto por matching bipartido
+  const remGroups = qualGroups.filter(g => !usedGroup[g]);
+  const remSlots = slotSets.filter(ss => !used[ss.slot]);
   const bt = (i) => {
-    if (i === qualGroups.length) return true;
-    const g = qualGroups[i];
-    for (const ss of slotSets) {
+    if (i === remGroups.length) return true;
+    const g = remGroups[i];
+    for (const ss of remSlots) {
       if (!used[ss.slot] && ss.allowed.includes(g)) {
         used[ss.slot] = true; assign[ss.slot] = g;
         if (bt(i + 1)) return true;
@@ -457,7 +479,7 @@ function computeWcThirdAssignment(standingsByGroup, fixtures) {
     }
     return false;
   };
-  if (!bt(0)) return {};
+  bt(0); // se não fechar 100% (override impossível), preenche o que der
   const out = {};
   for (const slot in assign) {
     const t = standingsByGroup[assign[slot]][2];
@@ -1374,7 +1396,7 @@ async function downloadFullBackup() {
         : (apostasData.comments || {});
       // Copa do Mundo (CRITICO — palpites do bolão)
       apostasData.worldcup = (topLevelWorldcup && typeof topLevelWorldcup === 'object')
-        ? { results: topLevelWorldcup.results || {}, picks: topLevelWorldcup.picks || {} }
+        ? { results: topLevelWorldcup.results || {}, picks: topLevelWorldcup.picks || {}, thirds: topLevelWorldcup.thirds || {} }
         : (apostasData.worldcup || { results: {}, picks: {} });
       if (Array.isArray(topLevelNews)) apostasData.news = topLevelNews;
       if (typeof topLevelWebhook === 'string') apostasData.discord_webhook = topLevelWebhook;
@@ -1462,7 +1484,7 @@ async function restoreFromBackup(payload) {
         } catch (e) { console.warn('restore: preservar mk ao vivo falhou', e); }
       }
       const wcSafe = (worldcup && typeof worldcup === 'object')
-        ? { results: worldcup.results || {}, picks: worldcup.picks || {} }
+        ? { results: worldcup.results || {}, picks: worldcup.picks || {}, thirds: worldcup.thirds || {} }
         : { results: {}, picks: {} };
       const setPayload = {
         json: JSON.stringify(rest),
@@ -2932,7 +2954,7 @@ function App() {
         const comments = (topComments && typeof topComments === 'object') ? topComments : {};
         const topWc = docData.worldcup;
         const worldcup = (topWc && typeof topWc === 'object')
-          ? { results: topWc.results || {}, picks: topWc.picks || {} }
+          ? { results: topWc.results || {}, picks: topWc.picks || {}, thirds: topWc.thirds || {} }
           : { results: {}, picks: {} };
         // Discord webhook URL e lista de news também são top-level
         // (admin atualiza via painel; toda tab recebe via snapshot).
@@ -3847,7 +3869,7 @@ function App() {
         const userPicks = { ...(picks[nick] || {}) };
         userPicks[matchId] = { gh: pgh, ga: pga, at: Date.now() };
         picks[nick] = userPicks;
-        const next = { results: cur.results || {}, picks };
+        const next = { results: cur.results || {}, picks, thirds: cur.thirds || {} };
         newState = next;
         tx.set(ref, { worldcup: next, updatedAt: Date.now() }, { merge: true });
       });
@@ -3880,13 +3902,40 @@ function App() {
           if (pgh < 0 || pga < 0) return;
           results[matchId] = { gh: pgh, ga: pga, at: Date.now(), ...(pen === 'H' || pen === 'A' ? { pen } : {}) };
         }
-        const next = { results, picks: cur.picks || {} };
+        const next = { results, picks: cur.picks || {}, thirds: cur.thirds || {} };
         newState = next;
         tx.set(ref, { worldcup: next, updatedAt: Date.now() }, { merge: true });
       });
       if (newState) setShared(s => ({ ...s, worldcup: newState }));
     } catch (e) {
       console.warn('setWorldcupResult failed', e);
+      throw e;
+    }
+  };
+
+  // Mod define qual 3º colocado vai em cada vaga "3A/B/C/D/F" da R32 (pra bater
+  // com a tabela oficial da FIFA). worldcup.thirds = { slot: letraDoGrupo }.
+  // group vazio/null = volta pro automático.
+  const setWorldcupThird = async (slot, group) => {
+    if (!isAdmin || !slot) return;
+    const ref = BET_DOC();
+    let newState = null;
+    try {
+      await window.db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const cur = (snap.exists && snap.data().worldcup && typeof snap.data().worldcup === 'object')
+          ? snap.data().worldcup : { results: {}, picks: {} };
+        const thirds = { ...(cur.thirds || {}) };
+        // tira o grupo de qualquer outra vaga (cada 3º só em um lugar)
+        if (group) for (const s in thirds) if (thirds[s] === group) delete thirds[s];
+        if (group) thirds[slot] = group; else delete thirds[slot];
+        const next = { results: cur.results || {}, picks: cur.picks || {}, thirds };
+        newState = next;
+        tx.set(ref, { worldcup: next, updatedAt: Date.now() }, { merge: true });
+      });
+      if (newState) setShared(s => ({ ...s, worldcup: newState }));
+    } catch (e) {
+      console.warn('setWorldcupThird failed', e);
       throw e;
     }
   };
@@ -4296,6 +4345,7 @@ function App() {
                 fixtures={wcData.matches}
                 onSavePick={saveWorldcupPick}
                 onSetResult={setWorldcupResult}
+                onSetThird={setWorldcupThird}
               />
             )}
             {view === 'hall' && (
@@ -5890,12 +5940,13 @@ const WC_STAGE_ORDER = [
 
 // Resolve os slots de mata-mata ("1A","2B","3A/B/C") pro nome real do time
 // quando a fase de grupos já decidiu. Compartilhado por JOGOS e ENCERRADOS.
-function resolveWcFixtures(fixtures, results) {
+function resolveWcFixtures(fixtures, results, thirds) {
   const groups = Array.from(new Set(fixtures.filter(m => !m.isKnockout && m.group).map(m => m.group)));
   const standingsByGroup = {};
   for (const g of groups) standingsByGroup[g] = computeWcGroupStandings(g, fixtures, results);
-  // Alocação dos 8 melhores terceiros (slots "3A/B/C/D/F") quando os grupos acabam.
-  const thirdMap = computeWcThirdAssignment(standingsByGroup, fixtures);
+  // Alocação dos 8 melhores terceiros (slots "3A/B/C/D/F") quando os grupos acabam;
+  // `thirds` = overrides do mod (slot -> grupo) pra bater com a tabela oficial.
+  const thirdMap = computeWcThirdAssignment(standingsByGroup, fixtures, thirds);
   // Passo 1: resolve slots de grupo (1A/2B) + terceiros.
   const out = fixtures.map(m => {
     if (!m.slotHome && !m.slotAway) return { ...m };
@@ -5948,8 +5999,9 @@ function resolveWcFixtures(fixtures, results) {
   return out;
 }
 
-function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePick, onSetResult }) {
+function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePick, onSetResult, onSetThird }) {
   const [subTab, setSubTab] = useState('jogos'); // 'jogos' | 'ranking'
+  const thirds = worldcup?.thirds || {};
   const results = worldcup?.results || {};
   const picks   = worldcup?.picks   || {};
   const myNick  = session?.nick;
@@ -5984,6 +6036,7 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePi
           allPicks={picks}
           myNick={myNick}
           isAdmin={isAdmin}
+          thirds={thirds}
           onSavePick={onSavePick}
           onSetResult={onSetResult}
         />
@@ -5994,7 +6047,7 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePi
       )}
 
       {subTab === 'bracket' && (
-        <CopaBracket fixtures={fixtures || []} results={results} isAdmin={isAdmin} onSetResult={onSetResult} />
+        <CopaBracket fixtures={fixtures || []} results={results} isAdmin={isAdmin} thirds={thirds} onSetResult={onSetResult} onSetThird={onSetThird} />
       )}
 
       {subTab === 'ranking' && (
@@ -6010,7 +6063,7 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePi
   );
 }
 
-function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSavePick, onSetResult }) {
+function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, thirds, onSavePick, onSetResult }) {
   // States dos filtros (precisam vir antes de qualquer return)
   const [stageFilter, setStageFilter] = useState('all'); // 'all' | 'group' | 'knockout'
   const [teamFilter, setTeamFilter]   = useState('');     // nome PT do time, '' = todos
@@ -6027,7 +6080,7 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, onSa
   const [openMap, setOpenMap] = useState({});
 
   // Resolve slots de mata-mata pro nome real quando a fase de grupos decidir.
-  const resolvedFixtures = useMemo(() => resolveWcFixtures(fixtures, results), [fixtures, results]);
+  const resolvedFixtures = useMemo(() => resolveWcFixtures(fixtures, results, thirds), [fixtures, results, thirds]);
 
   // Loading se ainda não carregou os dados
   if (!fixtures || fixtures.length === 0) {
@@ -6700,10 +6753,22 @@ function BracketMatch({ m, result, isAdmin, onSetResult }) {
 // Bracket visual do mata-mata: organiza os jogos knockout em colunas por fase
 // (32avos / oitavas / quartas / semis / 3o lugar + final). Mod lança o resultado
 // direto em cada card; a fase seguinte libera conforme as partidas terminam.
-function CopaBracket({ fixtures, results, isAdmin, onSetResult }) {
+function CopaBracket({ fixtures, results, isAdmin, thirds, onSetResult, onSetThird }) {
   // Resolve os slots (1A/2B, terceiros 3A/B/C/D, vencedor/perdedor WN/LN) antes
   // de montar o chaveamento — senão aparece "1º G A" / "time sem adversário".
-  const knockoutMatches = useMemo(() => resolveWcFixtures(fixtures, results).filter(m => m.isKnockout), [fixtures, results]);
+  const resolved = useMemo(() => resolveWcFixtures(fixtures, results, thirds), [fixtures, results, thirds]);
+  const knockoutMatches = useMemo(() => resolved.filter(m => m.isKnockout), [resolved]);
+  // Dados pro painel "ajustar terceiros" (mod): standings -> 8 melhores 3os +
+  // as vagas (slots) + a alocação atual (override ou automática).
+  const thAux = useMemo(() => {
+    const groups = Array.from(new Set(fixtures.filter(m => !m.isKnockout && m.group).map(m => m.group)));
+    const sb = {}; groups.forEach(g => { sb[g] = computeWcGroupStandings(g, fixtures, results); });
+    const info = wcThirdsInfo(sb);
+    const slots = wcThirdSlots(fixtures);
+    const assign = computeWcThirdAssignment(sb, fixtures, thirds); // slot -> {name,flag}
+    const groupForName = {}; info.qualGroups.forEach(g => { groupForName[info.byGroup[g].name] = g; });
+    return { info, slots, assign, groupForName };
+  }, [fixtures, results, thirds]);
   if (knockoutMatches.length === 0) {
     return (
       <div className="card"><div className="card-body"><div className="empty">
@@ -6731,6 +6796,36 @@ function CopaBracket({ fixtures, results, isAdmin, onSetResult }) {
   const phasesWithGames = PHASES.filter(p => byPhase[p.key].length > 0);
 
   return (
+    <>
+    {isAdmin && onSetThird && thAux.info.complete && thAux.slots.length > 0 && (
+      <div className="card wc-thirds-panel">
+        <div className="card-head">
+          <div className="title"><Icon name="flag" size={15} /> AJUSTAR MELHORES TERCEIROS</div>
+          <div className="sub">DEFINA QUEM VAI EM CADA VAGA (USE O CHAVEAMENTO OFICIAL)</div>
+        </div>
+        <div className="card-body">
+          <div className="wc-thirds-list">
+            {thAux.slots.map(ss => {
+              const match = knockoutMatches.find(m => m.rawSlotHome === ss.slot || m.rawSlotAway === ss.slot);
+              const oppName = match ? (match.rawSlotHome === ss.slot ? match.away : match.home) : '—';
+              const eligible = ss.allowed.filter(g => thAux.info.qualGroups.includes(g)).map(g => ({ g, name: thAux.info.byGroup[g].name }));
+              const curName = thAux.assign[ss.slot] && thAux.assign[ss.slot].name;
+              const val = thirds[ss.slot] || (curName ? thAux.groupForName[curName] : '') || '';
+              return (
+                <div key={ss.slot} className="wc-third-row">
+                  <span className="wc-third-opp">{oppName}</span>
+                  <span className="wc-third-vs">×</span>
+                  <select className="wc-third-sel" value={val} onChange={e => onSetThird(ss.slot, e.target.value || null)}>
+                    <option value="">Automático</option>
+                    {eligible.map(o => <option key={o.g} value={o.g}>{o.name} (3º {o.g})</option>)}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    )}
     <div className="card">
       <div className="card-head">
         <div className="title"><Icon name="trophy" size={16} /> BRACKET DO MATA-MATA</div>
@@ -6749,6 +6844,7 @@ function CopaBracket({ fixtures, results, isAdmin, onSetResult }) {
         </div>
       </div>
     </div>
+    </>
   );
 }
 
