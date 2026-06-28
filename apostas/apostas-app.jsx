@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260628-golf6 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260628-noat1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -695,14 +695,14 @@ function ResultLauncherPanel({ champId, mkDraw, mkScores, mkLineups, onMkScore, 
             <div className="rl-row rl-row--mk" key={key}>
               <div className="rl-match">
                 <span className="rl-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase} · JOGO {String(gi + 1).padStart(2, '0')}</span>
-                <span className="rl-vs"><b>@{g.home}</b><i>×</i><b>@{g.away}</b></span>
+                <span className="rl-vs"><b>{g.home}</b><i>×</i><b>{g.away}</b></span>
               </div>
               <MkRoundDots sc={sc} lineup={(mkLineups || {})[key]} onPatch={(patch) => onMkScore(key, patch)} />
               <div className="rl-extras">
                 <span className="rl-extra-grp">
                   <span className="rl-extra-l">1º ROUND</span>
-                  <button type="button" className={'rl-pick home' + (sc.firstRound === 'H' ? ' on' : '')} onClick={() => onMkScore(key, { firstRound: sc.firstRound === 'H' ? '' : 'H' })}>@{g.home}</button>
-                  <button type="button" className={'rl-pick away' + (sc.firstRound === 'A' ? ' on' : '')} onClick={() => onMkScore(key, { firstRound: sc.firstRound === 'A' ? '' : 'A' })}>@{g.away}</button>
+                  <button type="button" className={'rl-pick home' + (sc.firstRound === 'H' ? ' on' : '')} onClick={() => onMkScore(key, { firstRound: sc.firstRound === 'H' ? '' : 'H' })}>{g.home}</button>
+                  <button type="button" className={'rl-pick away' + (sc.firstRound === 'A' ? ' on' : '')} onClick={() => onMkScore(key, { firstRound: sc.firstRound === 'A' ? '' : 'A' })}>{g.away}</button>
                 </span>
                 <span className="rl-extra-grp">
                   <span className="rl-extra-l"><Icon name="skull" size={11} /> BRUTALITY</span>
@@ -732,7 +732,7 @@ function ResultLauncherPanel({ champId, mkDraw, mkScores, mkLineups, onMkScore, 
           <div className="rl-row" key={ri + '-' + gi}>
             <div className="rl-match">
               <span className="rl-rod">RODADA {String((m.round != null ? m.round : ri + 1)).padStart(2, '0')}</span>
-              <span className="rl-vs"><b>@{fifaUserOf(m.home, teamPlayers)}</b><i>×</i><b>@{fifaUserOf(m.away, teamPlayers)}</b></span>
+              <span className="rl-vs"><b>{fifaUserOf(m.home, teamPlayers)}</b><i>×</i><b>{fifaUserOf(m.away, teamPlayers)}</b></span>
             </div>
             <span className="rl-fifa">
               <input className="cscore-in" value={m.gh ?? ''} placeholder="–" inputMode="numeric" onChange={e => onFifaScore(ri, gi, { gh: e.target.value.replace(/\D/g, '').slice(0, 2) })} />
@@ -1652,8 +1652,8 @@ function ticketStatusFromLegs(legs) {
 function legLabel(leg, teamPlayers) {
   const fx = leg._fix;
   if (!fx) return '—';
-  const h = '@' + fifaUserOf(fx.home, teamPlayers);
-  const a = '@' + fifaUserOf(fx.away, teamPlayers);
+  const h = fifaUserOf(fx.home, teamPlayers);
+  const a = fifaUserOf(fx.away, teamPlayers);
   const sn = leg.pick === 'Y' ? 'SIM' : 'NÃO';
   switch (leg.market) {
     case 'BTTS': return `${h}×${a} · AMBOS MARCAM: ${sn}`;
@@ -5185,7 +5185,7 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
         </div>
         {isAdmin && list && list.length > 0 && (
           <div style={{ marginTop: 12, fontSize: 12, color: 'rgba(28,22,18,0.7)' }}>
-            {list.map(n => '@' + n).join(' · ')}
+            {list.map(n => n).join(' · ')}
           </div>
         )}
       </div>
@@ -5316,7 +5316,7 @@ function ProfileSidebar({ nick, me, cs, bets, users, teamPlayers, worldcup, inte
         <div className="ap-avatar">
           {myTeamId ? <Avatar teamId={myTeamId} nick={nick} cosmetics={me?.cosmetics} size={94} /> : <div className="ap-avatar-fb">{String(nick).slice(0, 2).toUpperCase()}</div>}
         </div>
-        <div className="ap-nick">@{nick}</div>
+        <div className="ap-nick">{nick}</div>
         <div className="ap-title">{titleDef ? <><Icon name={titleDef.icon} size={11} /> {titleDef.name}</> : (isAdmin ? 'ADMIN' : 'sem conquista')}</div>
       </button>
       <div className="ap-stats">
@@ -6518,8 +6518,8 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, thir
                       {gp.length === 0
                         ? <span className="copa-enc-nopick">sem palpites</span>
                         : gp.map(({ n, p, pts }) => (
-                            <span key={n} className={'copa-enc-pick pts-' + pts + (n === myNick ? ' me' : '')} title={'@' + n + ' palpitou ' + p.gh + '×' + p.ga}>
-                              <span className="copa-enc-pn">@{n}</span>
+                            <span key={n} className={'copa-enc-pick pts-' + pts + (n === myNick ? ' me' : '')} title={n + ' palpitou ' + p.gh + '×' + p.ga}>
+                              <span className="copa-enc-pn">{n}</span>
                               <span className="copa-enc-pp">{p.gh}×{p.ga}</span>
                               <span className="copa-enc-pts">{pts === 3 ? 'EXATO' : pts === 1 ? 'CERTO' : 'ERROU'}</span>
                             </span>
@@ -6887,7 +6887,7 @@ function CopaRanking({ users, fixtures, results, picks, myNick }) {
               type="button"
             >
               <div className="wc-rank-pos">{i + 1}</div>
-              <div className="wc-rank-nick">@{r.nick}</div>
+              <div className="wc-rank-nick">{r.nick}</div>
               <div className="wc-rank-stats">
                 <span title="Placares exatos (3 pts)">{r.exactos} <small>×3</small></span>
                 <span title="Resultados certos (1 pt)">{r.certos} <small>×1</small></span>
@@ -6944,7 +6944,7 @@ function CopaPicksModal({ nick, picks, fixtures, results, myNick, onClose }) {
           <div>
             <div style={{ fontSize: 10, letterSpacing: '0.28em', fontWeight: 800, color: 'var(--pv-orange)' }}>PALPITES DO BOLÃO</div>
             <div style={{ fontFamily: 'Bungee Inline, Impact, sans-serif', fontSize: 22, letterSpacing: '0.04em', marginTop: 4 }}>
-              @{nick}
+              {nick}
             </div>
             <div style={{ fontSize: 11, marginTop: 4, opacity: 0.85 }}>
               {myPickCount} palpite{myPickCount === 1 ? '' : 's'} · {totalPts} pt{totalPts === 1 ? '' : 's'}
@@ -6993,7 +6993,7 @@ function CopaPicksModal({ nick, picks, fixtures, results, myNick, onClose }) {
           )}
           {myPickCount === 0 && (
             <div className="empty">
-              <div className="e2">@{nick} ainda não palpitou em nenhum jogo.</div>
+              <div className="e2">{nick} ainda não palpitou em nenhum jogo.</div>
             </div>
           )}
         </div>
@@ -7329,7 +7329,7 @@ function Comments({ newsId, list, sessionNick, isAdmin, onAdd, onDelete }) {
             <div className="comment-form">
               <textarea
                 className="comment-input"
-                placeholder={`Comentar como @${sessionNick}…`}
+                placeholder={`Comentar como ${sessionNick}…`}
                 value={text}
                 onChange={e => setText(e.target.value)}
                 maxLength={500}
@@ -7360,7 +7360,7 @@ function Comments({ newsId, list, sessionNick, isAdmin, onAdd, onDelete }) {
             return (
               <div key={c.id} className="comment">
                 <div className="comment-head">
-                  <span className="comment-nick">@{c.nick}</span>
+                  <span className="comment-nick">{c.nick}</span>
                   <span className="comment-when">{when}</span>
                   {canDel && (
                     <button
@@ -7669,12 +7669,12 @@ function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock, onSet
         <div className="fixture-match">
           <div className="fixture-team">
             <ClubCrest nick={game.home} teamPlayers={teamPlayers} size={42} />
-            <div className="team-info"><div className="nm">@{homeNick}</div><div className="sh">MANDANTE</div></div>
+            <div className="team-info"><div className="nm">{homeNick}</div><div className="sh">MANDANTE</div></div>
           </div>
           <div className="vs"><span style={{ color: 'var(--pv-orange)' }}>×</span></div>
           <div className="fixture-team away">
             <ClubCrest nick={game.away} teamPlayers={teamPlayers} size={42} />
-            <div className="team-info"><div className="nm">@{awayNick}</div><div className="sh">VISITANTE</div></div>
+            <div className="team-info"><div className="nm">{awayNick}</div><div className="sh">VISITANTE</div></div>
           </div>
         </div>
         <div style={{
@@ -7891,7 +7891,7 @@ function ChampStandingsCard({ champId, cs, users, teamPlayers, mkDraw, mkScores,
             <div key={r.nick} className={'apo-stand-row' + (r.nick === myNick ? ' me' : '') + (r.pos <= 3 ? ' top' : '')}>
               <span className="apo-stand-pos">{r.pos}</span>
               <Avatar nick={r.nick} teamPlayers={teamPlayers} size={22} noBadge />
-              <span className="apo-stand-nick">@{r.nick}</span>
+              <span className="apo-stand-nick">{r.nick}</span>
               <span className="apo-stand-rec">{r.v}-{r.e}-{r.d}</span>
               <span className="apo-stand-sg">{r.sg >= 0 ? '+' : ''}{r.sg}</span>
               <span className="apo-stand-pts">{r.p}</span>
@@ -7930,7 +7930,7 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwn
       <div className="mesa-card-h">
         <Avatar nick={owner} teamPlayers={teamPlayers} size={34} noBadge />
         <div className="mesa-card-who">
-          <div className="mesa-card-nick">@{owner}</div>
+          <div className="mesa-card-nick">{owner}</div>
           <RepBadge user={ownerUser} sm />
         </div>
       </div>
@@ -8101,7 +8101,7 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, teamPlayers, on
         <div>
           <div className="tk-head">
             {isCopy
-              ? <span className="tk-chip copy"><Icon name="cards" size={10} /> CÓPIA DE @{t.copyOwner}</span>
+              ? <span className="tk-chip copy"><Icon name="cards" size={10} /> CÓPIA DE {t.copyOwner}</span>
               : <span className="tk-chip mine"><Icon name="star" size={10} /> SEU · NA MESA{copies > 0 ? ' · ' + copies + ' cópia' + (copies === 1 ? '' : 's') : ''}</span>}
             {rl && <span className="tk-chip round"><Icon name="flag" size={9} /> {rl}</span>}
             <span className="tk-chip soft">{multi ? 'CASADA ' + t.legs.length : 'SIMPLES'} · @{Number(t.combinedOdds).toFixed(2)}</span>
@@ -8117,7 +8117,7 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, teamPlayers, on
               const lu = isMk ? (mkLineups || {})[l.fixtureId.slice(3)] : null;
               const out = isMk ? mkMatchOutcome((mkScores || {})[l.fixtureId.slice(3)] || {}) : null; // {winner H/A/D} ou null
               const label = isMk
-                ? '@' + l.home + ' × @' + l.away + ' · ' + (MK_MARKET_TITLE[l.market] || l.market) + ' ' + mkPickLabel(l.market, l.pick)
+                ? l.home + ' × ' + l.away + ' · ' + (MK_MARKET_TITLE[l.market] || l.market) + ' ' + mkPickLabel(l.market, l.pick)
                 : (f ? legLabel(lg, teamPlayers) : '(jogo removido)');
               return (
                 <div key={i} className={'tk-leg' + (l.result === 'win' ? ' leg-won' : l.result === 'lose' ? ' leg-lost' : '')}>
@@ -9137,7 +9137,7 @@ function MeuJogoMini({ nick, users, interests, draw, scores, lineups, teamPlayer
                 <Avatar nick={nick} teamPlayers={teamPlayers} size={18} noBadge />
                 <span className="mj-mini-x">×</span>
                 <Avatar nick={myGame.opp} teamPlayers={teamPlayers} size={18} noBadge />
-                <span className="mj-mini-opp">@{myGame.opp}</span>
+                <span className="mj-mini-opp">{myGame.opp}</span>
               </div>
               <div className="mj-mini-parts">
                 {['p1', 'p2'].map((p, pi) => {
@@ -9185,7 +9185,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
     try {
       const res = await onSave(target, sel);
       if (res && res.err) { showToast(res.err, 'error'); return; }
-      showToast('Elenco salvo pra @' + target + '!', 'success');
+      showToast('Elenco salvo pra ' + target + '!', 'success');
     }
     catch (e) { showToast('Falha ao salvar.', 'error'); }
     finally { setBusy(false); }
@@ -9230,7 +9230,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
             <span className="tp-fld-label">Testar como (jogador inscrito no MK)</span>
             <select value={target} onChange={e => setTarget(e.target.value)} className="tp-input tp-select">
               {inscritos.length === 0 && <option value="">— ninguém inscrito —</option>}
-              {inscritos.map(n => <option key={n} value={n}>@{n}</option>)}
+              {inscritos.map(n => <option key={n} value={n}>{n}</option>)}
             </select>
           </label>
         )}
@@ -9274,7 +9274,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
               {!draw ? (
                 <div className="mk-jogo-empty"><Icon name="dice" size={20} /> As rodadas ainda não foram sorteadas. {isAdmin ? 'Sorteie em CAMPEONATOS.' : 'Aguarde o sorteio.'}</div>
               ) : myGames.length === 0 ? (
-                <div className="mk-jogo-empty"><Icon name="trophy" size={18} /> {isAdmin ? '@' + target + ' já jogou' : 'Você já jogou'} todos os jogos do turno. Nada pra escalar agora.</div>
+                <div className="mk-jogo-empty"><Icon name="trophy" size={18} /> {isAdmin ? target + ' já jogou' : 'Você já jogou'} todos os jogos do turno. Nada pra escalar agora.</div>
               ) : (
                 <div className="mk-jogo-list">
                   {myGames.map(mg => {
@@ -9347,7 +9347,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
                           </div>
                         ) : (
                           <div className="mk-jogo-arr ro">
-                            <div className="mk-jogo-arr-hint"><Icon name="eye" size={11} /> @{mg.g.home} (mandante) monta o card — você só vê.</div>
+                            <div className="mk-jogo-arr-hint"><Icon name="eye" size={11} /> {mg.g.home} (mandante) monta o card — você só vê.</div>
                             <div className="mk-fc ro">
                               {arranged ? ['p1', 'p2'].map((p, pi) => {
                                 const h = (lu[p] || {}).home, a = (lu[p] || {}).away;
@@ -9362,7 +9362,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
                                   </div>
                                 );
                               }) : (
-                                <div className="mk-fc-wait"><Icon name="refresh" size={13} /> Aguardando @{mg.g.home} montar o card de luta.</div>
+                                <div className="mk-fc-wait"><Icon name="refresh" size={13} /> Aguardando {mg.g.home} montar o card de luta.</div>
                               )}
                             </div>
                           </div>
@@ -9515,7 +9515,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                         <td>
                           <div className="tnm" style={{ flexWrap: 'wrap' }}>
                             <Avatar nick={s.nick} teamPlayers={teamPlayers} size={24} />
-                            <span>@{s.nick}</span>
+                            <span>{s.nick}</span>
                             {chars.length > 0 && <span className="mk-row-chars">{chars.join(' · ')}</span>}
                           </div>
                         </td>
@@ -9640,7 +9640,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                         <div className="mk-fx-side home">
                           <Avatar nick={g.home} teamPlayers={teamPlayers} size={28} noBadge />
                           <div className="mk-fx-id">
-                            <div className="mk-fx-nick">@{g.home}</div>
+                            <div className="mk-fx-nick">{g.home}</div>
                             <div className="mk-fx-role mandante">MANDANTE</div>
                           </div>
                         </div>
@@ -9670,7 +9670,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                         <div className="mk-fx-side away">
                           <Avatar nick={g.away} teamPlayers={teamPlayers} size={28} noBadge />
                           <div className="mk-fx-id">
-                            <div className="mk-fx-nick">@{g.away}</div>
+                            <div className="mk-fx-nick">{g.away}</div>
                             <div className="mk-fx-role visitante">VISITANTE</div>
                           </div>
                         </div>
@@ -9904,7 +9904,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                           const lu = (lineups || {})[key] || null;
                           const arranged = !!lu && ['p1', 'p2'].every(p => (lu[p] || {}).home && (lu[p] || {}).away);
                           if (!arranged) {
-                            return <div className="mk-bet-fc empty"><Icon name="refresh" size={10} /> @{g.home} ainda não montou o card de luta</div>;
+                            return <div className="mk-bet-fc empty"><Icon name="refresh" size={10} /> {g.home} ainda não montou o card de luta</div>;
                           }
                           return (
                             <div className="mk-bet-fc">
@@ -10046,7 +10046,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                         <div key={l.key} className="cupom-leg">
                           <div className="cupom-leg-txt">
                             <div className="cupom-leg-mkt">{MK_MARKET_TITLE[l.market]}</div>
-                            <div className="cupom-leg-pick">@{l.home}×@{l.away} - <strong>{mkLegLabel(l)}</strong></div>
+                            <div className="cupom-leg-pick">{l.home}×{l.away} - <strong>{mkLegLabel(l)}</strong></div>
                           </div>
                           <div className="cupom-leg-odd mono">{l.odd.toFixed(2)}</div>
                           <button className="cupom-leg-x" onClick={() => setCupom(p => p.filter(x => x.key !== l.key))}><Icon name="x" size={12} /></button>
@@ -10458,7 +10458,7 @@ function DetailedStatsCard({ nick, teamPlayers, cs, mkDraw, mkScores, mkLineups,
         </div>
       )}
       {f.n === 0 && m.n === 0 && (
-        <div className="card"><div className="card-body"><div className="empty"><div className="e1">SEM DADOS</div><div className="e2">@{nick} ainda não tem jogos lançados na FIFA nem no MK.</div></div></div></div>
+        <div className="card"><div className="card-body"><div className="empty"><div className="e1">SEM DADOS</div><div className="e2">{nick} ainda não tem jogos lançados na FIFA nem no MK.</div></div></div></div>
       )}
     </>
   );
@@ -10647,7 +10647,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   const playerIc = (n, game) => game === 'fifa'
     ? <ClubCrest nick={n} teamPlayers={teamPlayers} size={30} />
     : <Avatar nick={n} teamPlayers={teamPlayers} size={28} noBadge />;
-  const sideLabel = (n) => n === nick ? 'VOCÊ' : '@' + n;
+  const sideLabel = (n) => n === nick ? 'VOCÊ' : n;
   const better = (a, b, dir) => {
     if (a == null && b == null) return 0;
     if (a == null) return 1; if (b == null) return -1;
@@ -10680,7 +10680,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
           {players.map(n => (
             <button key={n} type="button" className={'stats-rail-item' + (left === n ? ' on' : '')} onClick={() => setLeft(n)}>
               <Avatar nick={n} teamPlayers={teamPlayers} size={28} noBadge />
-              <span className="stats-rail-nick">@{n}</span>
+              <span className="stats-rail-nick">{n}</span>
               {n === nick && <span className="stats-rail-you">VOCÊ</span>}
             </button>
           ))}
@@ -10698,7 +10698,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
             <div className="stats-vs">
               <div className={'stats-vs-side' + (left === nick ? ' me' : '')}>
                 <Avatar nick={left} teamPlayers={teamPlayers} size={64} />
-                <span className="stats-vs-nick">@{left}</span><small>{sideLabel(left)}</small>
+                <span className="stats-vs-nick">{left}</span><small>{sideLabel(left)}</small>
               </div>
               <div className="stats-vs-mid">
                 {sameProfile ? (
@@ -10713,7 +10713,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
               {right ? (
                 <div className={'stats-vs-side' + (right === nick ? ' me' : '')}>
                   <Avatar nick={right} teamPlayers={teamPlayers} size={64} />
-                  <span className="stats-vs-nick">@{right}</span><small>{sideLabel(right)}</small>
+                  <span className="stats-vs-nick">{right}</span><small>{sideLabel(right)}</small>
                 </div>
               ) : (
                 <div className="stats-vs-empty">Escolha um jogador na lista da <strong>direita</strong> pra comparar.</div>
@@ -10731,7 +10731,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
                 const totalTro = tro.length + betKing.length;
                 return (
                   <div key={p + pi} className="stats-prof">
-                    <div className={'stats-tro-name' + (p === nick ? ' me' : '')}>@{p}{p === nick && <span className="stats-you">VOCÊ</span>}</div>
+                    <div className={'stats-tro-name' + (p === nick ? ' me' : '')}>{p}{p === nick && <span className="stats-you">VOCÊ</span>}</div>
                     <div className="stats-tro-h">TROFÉUS · {totalTro}</div>
                     {totalTro === 0 ? <div className="stats-none">Sem troféus ainda.</div> : (
                       <>
@@ -10764,7 +10764,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
             <div className="card-head"><div className="title">COMPARAÇÃO</div></div>
             <div className="card-body" style={{ overflowX: 'auto' }}>
               <table className="stats-cmp">
-                <thead><tr><th></th><th className={left === nick ? 'me' : ''}>@{left}{left === nick && <span className="stats-you">VOCÊ</span>}</th><th className={right === nick ? 'me' : ''}>@{right}{right === nick && <span className="stats-you">VOCÊ</span>}</th></tr></thead>
+                <thead><tr><th></th><th className={left === nick ? 'me' : ''}>{left}{left === nick && <span className="stats-you">VOCÊ</span>}</th><th className={right === nick ? 'me' : ''}>{right}{right === nick && <span className="stats-you">VOCÊ</span>}</th></tr></thead>
                 <tbody>
                   {cmpRows.map(r => {
                     const c = better(r.a, r.b, r.dir);
@@ -10788,7 +10788,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
             <div className="card-head"><div className="title"><Icon name="sword" size={15} /> CONFRONTOS DIRETOS</div><div className="sub">{list.length} JOGO{list.length === 1 ? '' : 'S'}</div></div>
             <div className="card-body">
               {list.length === 0 ? (
-                <div className="empty"><div className="e1">SEM CONFRONTOS</div><div className="e2">@{left} e @{right} ainda não se enfrentaram em nenhum jogo lançado.</div></div>
+                <div className="empty"><div className="e1">SEM CONFRONTOS</div><div className="e2">{left} e {right} ainda não se enfrentaram em nenhum jogo lançado.</div></div>
               ) : (
                 <div className="mk-fixtures">
                   {list.map((x, i) => {
@@ -10797,7 +10797,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
                     const youWon = x.winner === nick;
                     const youLost = youIn && !draw && !youWon;
                     const resClass = draw ? 'd' : youWon ? 'w' : youLost ? 'l' : 'n';
-                    const resText = draw ? 'EMPATE' : (youWon ? 'VOCÊ VENCEU' : '@' + x.winner + ' VENCEU');
+                    const resText = draw ? 'EMPATE' : (youWon ? 'VOCÊ VENCEU' : x.winner + ' VENCEU');
                     return (
                       <div key={i} className={'mk-fx done' + (youWon ? ' mine' : '')}>
                         <div className="mk-fx-top">
@@ -10805,9 +10805,9 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
                           <span className={'h2h-res ' + resClass}>{resText}</span>
                         </div>
                         <div className="mk-fx-body">
-                          <div className="mk-fx-side home">{playerIc(x.home, x.game)}<div className="mk-fx-id"><div className="mk-fx-nick">@{x.homeLabel}</div></div></div>
+                          <div className="mk-fx-side home">{playerIc(x.home, x.game)}<div className="mk-fx-id"><div className="mk-fx-nick">{x.homeLabel}</div></div></div>
                           <div className="fifa-fx-score"><span className="fifa-fx-sc">{x.sh} × {x.sa}</span></div>
-                          <div className="mk-fx-side away">{playerIc(x.away, x.game)}<div className="mk-fx-id"><div className="mk-fx-nick">@{x.awayLabel}</div></div></div>
+                          <div className="mk-fx-side away">{playerIc(x.away, x.game)}<div className="mk-fx-id"><div className="mk-fx-nick">{x.awayLabel}</div></div></div>
                         </div>
                       </div>
                     );
@@ -10829,7 +10829,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
                 const inMk = mkPlayers.includes(p);
                 return (
                   <div key={'h' + p + pi} className="stats-prof">
-                    <div className={'stats-tro-name' + (p === nick ? ' me' : '')}>@{p}{p === nick && <span className="stats-you">VOCÊ</span>}</div>
+                    <div className={'stats-tro-name' + (p === nick ? ' me' : '')}>{p}{p === nick && <span className="stats-you">VOCÊ</span>}</div>
                     <div className="stats-tro-h">FIFA · {fifaPlayed.length} JOGOS</div>
                     {fifaPlayed.length === 0
                       ? <div className="stats-none">Sem jogos na FIFA.</div>
@@ -10855,7 +10855,7 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
           {players.map(n => (
             <button key={n} type="button" className={'stats-rail-item' + (right === n ? ' on' : '')} onClick={() => setRight(right === n ? null : n)}>
               <Avatar nick={n} teamPlayers={teamPlayers} size={28} noBadge />
-              <span className="stats-rail-nick">@{n}</span>
+              <span className="stats-rail-nick">{n}</span>
             </button>
           ))}
         </div>
@@ -11001,7 +11001,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
         {myTeamId
           ? <Avatar teamId={myTeamId} nick={nick} cosmetics={me?.cosmetics} size={92} className="perfil-id-avatar" />
           : <div className="perfil-id-avatar-fb">{String(nick).slice(0, 2).toUpperCase()}</div>}
-        <div className="perfil-id-nick">@{nick}</div>
+        <div className="perfil-id-nick">{nick}</div>
         {me?.title && <TitleBadge titleId={me.title} size="lg" />}
         <div className="perfil-id-meta">
           {myTeam
@@ -11135,13 +11135,13 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
             <div className="card" style={{ marginBottom: 14 }}>
               <div className="card-head">
                 <div className="title">FIFA</div>
-                <div className="sub">@{nick}</div>
+                <div className="sub">{nick}</div>
               </div>
               <div className="card-body">
                 <div className="perfil-team-hero">
                   <ClubCrest nick={nick} teamPlayers={teamPlayers} size={72} />
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontFamily: 'Anton, Impact', fontSize: 28, lineHeight: 1 }}>@{nick}</div>
+                    <div style={{ fontFamily: 'Anton, Impact', fontSize: 28, lineHeight: 1 }}>{nick}</div>
                     {myResult && (
                       <div className="perfil-team-result" style={{ color: myResult.color }}>
                         <Icon name={myResult.icon} size={15} /> {myPos}º de {totalTeams} · {myResult.label}
@@ -11177,7 +11177,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
                 <div className="perfil-team-hero">
                   <div className="perfil-mk-badge"><Icon name="fist" size={34} /></div>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontFamily: 'Anton, Impact', fontSize: 24, lineHeight: 1 }}>@{nick}</div>
+                    <div style={{ fontFamily: 'Anton, Impact', fontSize: 24, lineHeight: 1 }}>{nick}</div>
                     <div className="perfil-team-result" style={{ color: mkResult ? mkResult.color : 'var(--pv-orange)' }}>
                       <Icon name={mkResult ? mkResult.icon : 'fist'} size={15} /> {myMkPos ? `${myMkPos}º de ${mkStand.length}` : '—'}{mkResult ? ` · ${mkResult.label}` : ''}
                     </div>
@@ -11221,7 +11221,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                         <span style={{ fontSize: 8.5, fontWeight: 800, color: 'var(--pv-orange)', letterSpacing: '0.04em' }}>{m.mandante ? 'MANDANTE' : 'VISITANTE'}</span>
                         <span style={{ color: 'rgba(28,22,18,0.4)' }}>vs</span>
-                        <span style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{m.opp}</span>
+                        <span style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.opp}</span>
                       </div>
                       <div style={{ fontSize: 13, fontWeight: 800, color: o ? 'var(--pv-orange)' : 'rgba(28,22,18,0.4)' }}>{scoreLabel}</div>
                       <div style={{ width: 22, textAlign: 'center', fontWeight: 800, color: resColor }}>{res || '·'}</div>
@@ -11287,7 +11287,7 @@ function MatchRow({ g, myTeamId, teamPlayers }) {
       <span className="mh-round">R{String(g.round).padStart(2, '0')}</span>
       <span className="mh-res" title={resLabel}>{outcome || '·'}</span>
       <ClubCrest nick={oppNick} teamPlayers={teamPlayers} size={20} />
-      <span className="mh-opp">@{oppNick}</span>
+      <span className="mh-opp">{oppNick}</span>
       {played
         ? <span className="mh-score">{myG}<i>×</i>{oppG}</span>
         : <span className="mh-date">{g.day} {g.date}</span>}
@@ -11328,7 +11328,7 @@ function MkMatchHistory({ nick, draw, scores, lineups }) {
         <div key={m.key} className={'mkh-row ' + (m.res === 'V' ? 'win' : m.res === 'D' ? 'loss' : 'draw')}>
           <div className="mkh-head">
             <span className="mkh-res" title={resLabel(m.res)}>{m.res}</span>
-            <span className="mkh-opp">vs @{m.oppNick}</span>
+            <span className="mkh-opp">vs {m.oppNick}</span>
             <span className="mkh-phase">{m.phase} {m.n}</span>
           </div>
           <div className="mkh-partidas">
@@ -11989,7 +11989,7 @@ function buildCopaShowcase(view, ranking, users, teamPlayers) {
     return null;
   };
   const mk = (r, pos, label) => ({
-    pos, label, name: '@' + r.nick, nick: null,
+    pos, label, name: r.nick, nick: null,
     teamId: teamIdFor(r.nick), copaNick: r.nick,
     cosmetics: (users && users[r.nick]?.cosmetics) || null,
     statsOverride: [
@@ -12048,7 +12048,7 @@ function ShowcaseItem({ item, theme, rank, season, status }) {
       </div>
       <div className="showcase-ficha">
         <div className="showcase-name">{item.name}</div>
-        {item.nick && <div className="showcase-nick">@{item.nick}</div>}
+        {item.nick && <div className="showcase-nick">{item.nick}</div>}
         <div className="showcase-stats">
           {stats.map((s, i) => (
             <div key={i}><strong>{s.val}</strong><span>{s.label}</span></div>
@@ -12105,7 +12105,7 @@ function TrophyShowcase({ champ, items, theme, status, sideRanking, myNick, side
                 <div key={r.nick} className={'showcase-side-row' + (r.nick === myNick ? ' me' : '')}>
                   <span className="showcase-side-pos">{i + 1}</span>
                   <Avatar nick={r.nick} teamPlayers={r._tp} cosmetics={r.cosmetics} size={26} noBadge />
-                  <span className="showcase-side-nick">@{r.nick}</span>
+                  <span className="showcase-side-nick">{r.nick}</span>
                   <span className="showcase-side-pc">{r.signed && r.pc >= 0 ? '+' : ''}{r.pc.toLocaleString('pt-BR')}<small>PC</small></span>
                 </div>
               ))}
@@ -12245,7 +12245,7 @@ function CacadoresView({ ctx, teamPlayers, myNick }) {
             <div key={r.nick} className={'cacador-pod-slot pos' + rank + (r.nick === myNick ? ' me' : '')}>
               <div className="cacador-pod-medal" style={{ color: medalColor[rank - 1] }}><Icon name="medal" size={20} /> {rank}º</div>
               <Avatar nick={r.nick} teamPlayers={teamPlayers} cosmetics={cosmOf(r.nick)} size={54} />
-              <div className="cacador-pod-nick">@{r.nick}</div>
+              <div className="cacador-pod-nick">{r.nick}</div>
               <div className="cacador-pod-score">{r.score} <span>PTS</span></div>
               <div className="cacador-pod-count">{r.count} conquistas</div>
             </div>
@@ -12266,7 +12266,7 @@ function CacadoresView({ ctx, teamPlayers, myNick }) {
                 <div key={r.nick} className={'cacador-row' + (r.nick === myNick ? ' me' : '')}>
                   <span className="cacador-row-pos">{String(i + 1).padStart(2, '0')}</span>
                   <Avatar nick={r.nick} teamPlayers={teamPlayers} cosmetics={cosmOf(r.nick)} size={30} noBadge />
-                  <span className="cacador-row-nick">@{r.nick}{r.nick === myNick ? ' (você)' : ''}</span>
+                  <span className="cacador-row-nick">{r.nick}{r.nick === myNick ? ' (você)' : ''}</span>
                   <span className="cacador-row-bar"><span className="cacador-row-fill" style={{ width: pct + '%' }} /></span>
                   <span className="cacador-row-count">{r.count}</span>
                   <span className="cacador-row-score">{r.score} PTS</span>
@@ -12354,7 +12354,7 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
                       <td>
                         <div className="tnm" style={{ flexWrap: 'wrap' }}>
                           <ClubCrest nick={s.id} teamPlayers={teamPlayers} size={24} />
-                          <span>@{pNick}</span>
+                          <span>{pNick}</span>
                           {playerTitle && <TitleBadge titleId={playerTitle} />}
                         </div>
                       </td>
@@ -12434,8 +12434,8 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
                           <ClubCrest nick={m.home} teamPlayers={teamPlayers} size={32} />
                           <div className="mk-fx-id">
                             {isAdmin
-                              ? <select className="cteam-sel" value={m.home} onChange={e => patchMatch(gi, { home: e.target.value })}>{Object.keys(teamPlayers || {}).map(k => <option key={k} value={k}>@{fifaUserOf(k, teamPlayers)}</option>)}</select>
-                              : <div className="mk-fx-nick">@{fifaUserOf(m.home, teamPlayers)}</div>}
+                              ? <select className="cteam-sel" value={m.home} onChange={e => patchMatch(gi, { home: e.target.value })}>{Object.keys(teamPlayers || {}).map(k => <option key={k} value={k}>{fifaUserOf(k, teamPlayers)}</option>)}</select>
+                              : <div className="mk-fx-nick">{fifaUserOf(m.home, teamPlayers)}</div>}
                             <div className="mk-fx-role mandante">MANDANTE</div>
                           </div>
                         </div>
@@ -12454,8 +12454,8 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
                           <ClubCrest nick={m.away} teamPlayers={teamPlayers} size={32} />
                           <div className="mk-fx-id">
                             {isAdmin
-                              ? <select className="cteam-sel" value={m.away} onChange={e => patchMatch(gi, { away: e.target.value })}>{Object.keys(teamPlayers || {}).map(k => <option key={k} value={k}>@{fifaUserOf(k, teamPlayers)}</option>)}</select>
-                              : <div className="mk-fx-nick">@{fifaUserOf(m.away, teamPlayers)}</div>}
+                              ? <select className="cteam-sel" value={m.away} onChange={e => patchMatch(gi, { away: e.target.value })}>{Object.keys(teamPlayers || {}).map(k => <option key={k} value={k}>{fifaUserOf(k, teamPlayers)}</option>)}</select>
+                              : <div className="mk-fx-nick">{fifaUserOf(m.away, teamPlayers)}</div>}
                             <div className="mk-fx-role visitante">VISITANTE</div>
                           </div>
                         </div>
@@ -12532,7 +12532,7 @@ function computeStreaks(rounds) {
 function detectJournalistEvents({ cs, bets, users, teamPlayers }) {
   const events = [];
   const rounds = (cs && cs.rounds) || [];
-  const nm = (id) => '@' + fifaUserOf(id, teamPlayers); // nome p/ texto: @nick (sem times)
+  const nm = (id) => fifaUserOf(id, teamPlayers); // nome p/ texto: @nick (sem times)
   const now = new Date();
 
   // 1. Proximos jogos (proximas 24h)
@@ -12654,7 +12654,7 @@ function formatEventForPrompt(e) {
     case 'rout':
       return `GOLEADA: ${e.winner} ${Math.max(e.gh, e.ga)}×${Math.min(e.gh, e.ga)} ${e.loser} (diferença de ${e.diff} gols)`;
     case 'big_win':
-      return `APOSTA GORDA: @${e.user} acertou ${e.legCount} palpite${e.legCount > 1 ? 's' : ''} e levou ${e.payout} PC (apostou ${e.stake} PC, odds ${e.odds.toFixed(2)}x)`;
+      return `APOSTA GORDA: ${e.user} acertou ${e.legCount} palpite${e.legCount > 1 ? 's' : ''} e levou ${e.payout} PC (apostou ${e.stake} PC, odds ${e.odds.toFixed(2)}x)`;
     case 'streak':
       return `SEQUÊNCIA: ${e.team} ${e.kind === 'win' ? 'venceu' : 'perdeu'} ${e.count} jogos seguidos`;
     case 'season_end':
@@ -12777,7 +12777,7 @@ function TpTeamSelect({ value, onChange, teamPlayers }) {
   return (
     <select value={value || ''} onChange={e => onChange(e.target.value)} className="tp-input tp-select">
       <option value="">— sem jogador —</option>
-      {keys.map(k => <option key={k} value={k}>@{fifaUserOf(k, tp)}</option>)}
+      {keys.map(k => <option key={k} value={k}>{fifaUserOf(k, tp)}</option>)}
     </select>
   );
 }
@@ -13038,10 +13038,10 @@ function buildTabloidData(ctx, champId, type) {
       ...base,
       headline: 'COMO TÁ O BOLÃO',
       champion: lead
-        ? { nick: lead.nick, teamId: tf(lead.nick), crown: true, title: `@${lead.nick.toUpperCase()} LIDERA O BOLÃO!`, stats: [{ k: 'PTS', v: String(lead.pts) }, { k: 'EXATOS', v: String(lead.exatos) }, { k: 'CERTOS', v: String(lead.certos) }, { k: 'PALPITES', v: String(lead.palpitados) }], note: '' }
+        ? { nick: lead.nick, teamId: tf(lead.nick), crown: true, title: `${lead.nick.toUpperCase()} LIDERA O BOLÃO!`, stats: [{ k: 'PTS', v: String(lead.pts) }, { k: 'EXATOS', v: String(lead.exatos) }, { k: 'CERTOS', v: String(lead.certos) }, { k: 'PALPITES', v: String(lead.palpitados) }], note: '' }
         : base.champion,
       sideBlocks: (worst && lead && worst.nick !== lead.nick)
-        ? [{ nick: worst.nick, teamId: tf(worst.nick), kicker: '@' + worst.nick, title: 'BOLA MURCHA', text: `${worst.pts} pts. Chuta de olho fechado.`, tone: 'bad', stats: [] }]
+        ? [{ nick: worst.nick, teamId: tf(worst.nick), kicker: worst.nick, title: 'BOLA MURCHA', text: `${worst.pts} pts. Chuta de olho fechado.`, tone: 'bad', stats: [] }]
         : [],
       midStrip: { title: 'O PELOTÃO DO BOLÃO', players: ranking.slice(1, 5).map(r => ({ nick: r.nick, teamId: tf(r.nick), label: r.pts + ' PTS' })) },
       matchups: [],
@@ -13118,7 +13118,7 @@ function TabloidPoster({ data, teamPlayers }) {
   const champTheme = tabloidTheme(d.championship) || {};
   const champIcon = champTheme.icon || 'star';
   const champColor = champTheme.color || '#b3401a';
-  const teamName = (id) => (id ? '@' + fifaUserOf(id, teamPlayers) : '');
+  const teamName = (id) => (id ? fifaUserOf(id, teamPlayers) : '');
   const matchups = (d.matchups || []).filter(m => m && (m.homeId || m.awayId));
   return (
     <div className={'tp tp-type-' + t} style={{ '--tp-accent': champColor }}>
@@ -13198,7 +13198,7 @@ function TabloidPoster({ data, teamPlayers }) {
             {d.midStrip.players.filter(p => p && (p.teamId || p.nick)).map((p, i) => (
               <div key={i} className="tp-strip-player">
                 <Avatar teamId={p.teamId} nick={p.nick} teamPlayers={teamPlayers} size={66} />
-                <span className="tp-strip-name">{p.nick ? '@' + p.nick : teamName(p.teamId)}</span>
+                <span className="tp-strip-name">{p.nick ? p.nick : teamName(p.teamId)}</span>
                 {p.label && <span className="tp-strip-label">{p.label}</span>}
               </div>
             ))}
@@ -13964,11 +13964,11 @@ function AdminBetsPanel({ bets, users, teamPlayers, cs, onVoidBet }) {
   const [busyId, setBusyId] = useState(null);
 
   const legMatchup = (l) => {
-    if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) return '@' + l.home + ' x @' + l.away;
+    if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) return l.home + ' x ' + l.away;
     const p = parseGameId(l.fixtureId);
     if (p && cs && cs.rounds && cs.rounds[p.ri] && cs.rounds[p.ri][p.gi]) {
       const g = cs.rounds[p.ri][p.gi];
-      return '@' + ((teamPlayers || {})[g.home] || g.home) + ' x @' + ((teamPlayers || {})[g.away] || g.away);
+      return ((teamPlayers || {})[g.home] || g.home) + ' x ' + ((teamPlayers || {})[g.away] || g.away);
     }
     return l.fixtureId || '?';
   };
@@ -13997,14 +13997,14 @@ function AdminBetsPanel({ bets, users, teamPlayers, cs, onVoidBet }) {
   const doVoid = async (b) => {
     const head = b.status === 'won' ? 'ANULAR APOSTA VENCEDORA?' : b.status === 'lost' ? 'ANULAR APOSTA PERDIDA?' : 'CANCELAR APOSTA?';
     const extra = b.status === 'won'
-      ? 'ATENÇÃO: essa aposta de @' + b.user + ' JÁ GANHOU. Anular ESTORNA o prêmio (' + (b.payout || 0) + ' PC) e devolve o valor apostado (' + (b.amount || 0) + ' PC).'
-      : 'Devolve ' + (b.amount || 0) + ' PC pro @' + b.user + '.';
+      ? 'ATENÇÃO: essa aposta de ' + b.user + ' JÁ GANHOU. Anular ESTORNA o prêmio (' + (b.payout || 0) + ' PC) e devolve o valor apostado (' + (b.amount || 0) + ' PC).'
+      : 'Devolve ' + (b.amount || 0) + ' PC pro ' + b.user + '.';
     if (!(await confirmModal({ title: head, body: extra, confirmLabel: b.status === 'pending' ? 'CANCELAR APOSTA' : 'ANULAR', danger: true }))) return;
     setBusyId(b.id);
     try {
       const r = await onVoidBet(b.id);
       if (r && r.err) showToast(r.err, 'error');
-      else showToast('Aposta anulada — valor devolvido pro @' + b.user + '.', 'success');
+      else showToast('Aposta anulada — valor devolvido pro ' + b.user + '.', 'success');
     } finally { setBusyId(null); }
   };
 
@@ -14042,7 +14042,7 @@ function AdminBetsPanel({ bets, users, teamPlayers, cs, onVoidBet }) {
             <div key={b.id} className="lb-row" style={{ gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', borderLeft: '3px solid ' + stColor, paddingLeft: 8 }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <span className="lb-nick">@{b.user}</span>
+                  <span className="lb-nick">{b.user}</span>
                   <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: 'var(--pv-orange)' }}>{champTag}</span>
                   <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: stColor }}>{stLabel}</span>
                   {b.legs && b.legs.length > 1 && <span style={{ fontSize: 9, fontWeight: 700, color: 'rgba(28,22,18,0.5)' }}>CASADA {b.legs.length}</span>}
@@ -14132,7 +14132,7 @@ function ChampBracketView({ bracket, teamPlayers, editable, onMatchScore }) {
       <div className={'bm-row' + (isWin ? ' win' : '')}>
         <span className="bm-who">
           {bye ? <span className="bm-bye">BYE</span>
-            : nick ? <><Avatar nick={nick} teamPlayers={teamPlayers} size={18} noBadge /><span className="bm-nick">@{nick}</span></>
+            : nick ? <><Avatar nick={nick} teamPlayers={teamPlayers} size={18} noBadge /><span className="bm-nick">{nick}</span></>
               : <span className="bm-tbd">a definir</span>}
         </span>
         {!bye && nick && (
@@ -14159,7 +14159,7 @@ function ChampBracketView({ bracket, teamPlayers, editable, onMatchScore }) {
   };
   return (
     <div className="champ-bracket">
-      {champion && <div className="bracket-champ"><Icon name="trophy" size={14} /> CAMPEÃO: <b>@{champion}</b></div>}
+      {champion && <div className="bracket-champ"><Icon name="trophy" size={14} /> CAMPEÃO: <b>{champion}</b></div>}
       <div className="bracket-cols">
         {bracket.rounds.map((rd, ri) => (
           <div className="bracket-col" key={ri}>
@@ -14206,7 +14206,7 @@ function ChampLeagueView({ champ, teamPlayers, editable, onScore, onMatchScore, 
                     return (
                       <tr key={s.id} className={cls}>
                         <td className="std-pos">{String(i + 1).padStart(2, '0')}</td>
-                        <td><div className="tnm" style={{ flexWrap: 'wrap' }}><Avatar nick={s.id} teamPlayers={teamPlayers} size={22} noBadge /><span>@{s.id}</span></div></td>
+                        <td><div className="tnm" style={{ flexWrap: 'wrap' }}><Avatar nick={s.id} teamPlayers={teamPlayers} size={22} noBadge /><span>{s.id}</span></div></td>
                         <td>{s.j}</td><td style={{ fontWeight: 800 }}>{s.v}</td><td>{s.e}</td><td style={{ color: 'rgba(28,22,18,0.45)' }}>{s.d}</td><td>{sg > 0 ? '+' + sg : sg}</td>
                         <td style={{ fontFamily: 'Anton, Impact', fontSize: 16 }}>{s.p}</td>
                       </tr>
@@ -14225,13 +14225,13 @@ function ChampLeagueView({ champ, teamPlayers, editable, onScore, onMatchScore, 
                 return (
                   <div key={gi} className={'mk-fx' + (played ? ' done' : '')}>
                     <div className="mk-fx-body">
-                      <div className="mk-fx-side home"><Avatar nick={m.home} teamPlayers={teamPlayers} size={28} noBadge /><div className="mk-fx-id"><div className="mk-fx-nick">@{m.home}</div></div></div>
+                      <div className="mk-fx-side home"><Avatar nick={m.home} teamPlayers={teamPlayers} size={28} noBadge /><div className="mk-fx-id"><div className="mk-fx-nick">{m.home}</div></div></div>
                       <div className="fifa-fx-score">
                         {editable
                           ? <><input className="cscore-in" value={m.gh} placeholder="–" inputMode="numeric" onChange={e => onScore(vr, gi, { gh: e.target.value.replace(/\D/g, '').slice(0, 2) })} /><span className="fifa-fx-x">×</span><input className="cscore-in" value={m.ga} placeholder="–" inputMode="numeric" onChange={e => onScore(vr, gi, { ga: e.target.value.replace(/\D/g, '').slice(0, 2) })} /></>
                           : <span className="fifa-fx-sc" style={{ color: played ? 'var(--pv-orange)' : 'rgba(28,22,18,0.3)' }}>{played ? ghN + ' × ' + gaN : '– × –'}</span>}
                       </div>
-                      <div className="mk-fx-side away"><Avatar nick={m.away} teamPlayers={teamPlayers} size={28} noBadge /><div className="mk-fx-id"><div className="mk-fx-nick">@{m.away}</div></div></div>
+                      <div className="mk-fx-side away"><Avatar nick={m.away} teamPlayers={teamPlayers} size={28} noBadge /><div className="mk-fx-id"><div className="mk-fx-nick">{m.away}</div></div></div>
                     </div>
                   </div>
                 );
@@ -14320,7 +14320,7 @@ function ChampWizard({ users, interests, onCreate }) {
         <div className="cw-parts">
           {allNicks.map(n => (
             <button key={n} type="button" className={'cw-part' + (parts[n] ? ' on' : '')} onClick={() => toggle(n)}>
-              <Avatar nick={n} size={22} noBadge /> @{n}{parts[n] && <Icon name="check" size={12} />}
+              <Avatar nick={n} size={22} noBadge /> {n}{parts[n] && <Icon name="check" size={12} />}
             </button>
           ))}
         </div>
@@ -14378,7 +14378,7 @@ function ModView({ officialDay, onSetOfficialDay, myNick }) {
             Em dias oficiais de jogos, ligue o bônus pra que <strong>toda aposta vencedora pague +25%</strong> de Primitivo Coins. Vale só pras apostas liquidadas <strong>enquanto estiver ligado</strong> — não retroage as já pagas.
           </p>
           {active && officialDay && officialDay.by && (
-            <div style={{ fontSize: 11, color: 'rgba(28,22,18,0.6)', marginBottom: 10 }}>Ligado por @{officialDay.by}.</div>
+            <div style={{ fontSize: 11, color: 'rgba(28,22,18,0.6)', marginBottom: 10 }}>Ligado por {officialDay.by}.</div>
           )}
           <button onClick={toggle} disabled={busy} style={{ background: active ? 'var(--pv-charcoal)' : 'var(--pv-orange)', color: 'var(--pv-bone)', border: 'none', padding: '10px 18px', fontWeight: 800, fontSize: 13, letterSpacing: '0.1em', cursor: busy ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             <Icon name={active ? 'x' : 'coin-fire'} size={14} /> {busy ? 'SALVANDO…' : (active ? 'DESLIGAR DIA OFICIAL' : 'LIGAR DIA OFICIAL (+25%)')}
@@ -14492,7 +14492,7 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, s
   const resetPassword = async (nick) => {
     const ok = await confirmModal({
       title: 'RESETAR SENHA?',
-      body: 'Gera uma senha temporária pra @' + nick + '. A senha antiga para de funcionar na hora.',
+      body: 'Gera uma senha temporária pra ' + nick + '. A senha antiga para de funcionar na hora.',
       confirmLabel: 'GERAR SENHA', danger: true,
     });
     if (!ok) return;
@@ -14507,7 +14507,7 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, s
       if (r && r.err) { showToast(r.err, 'error'); return; }
       await confirmModal({
         title: 'SENHA TEMPORÁRIA GERADA',
-        body: '@' + nick + ' agora entra com a senha:  ' + temp + '  — manda pra ele e sugere trocar em MEU PERFIL → TROCAR SENHA.',
+        body: nick + ' agora entra com a senha:  ' + temp + '  — manda pra ele e sugere trocar em MEU PERFIL → TROCAR SENHA.',
         confirmLabel: 'ANOTEI', infoOnly: true,
       });
     } catch (e) {
@@ -14580,7 +14580,7 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, s
               return (
                 <div key={nick} className="lb-row" style={{ gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center' }}>
                   <div>
-                    <div className="lb-nick">@{nick}</div>
+                    <div className="lb-nick">{nick}</div>
                     <button type="button" className="admin-reset-pass" onClick={() => resetPassword(nick)}>
                       <Icon name="lock" size={11} /> RESETAR SENHA
                     </button>
