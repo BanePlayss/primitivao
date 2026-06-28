@@ -5200,7 +5200,7 @@
     .golf-scorecard thead .gsc-name { background: var(--pv-bone-2, #e6dbc4); }
     .golf-scorecard tbody tr:nth-child(even) .gsc-pos,
     .golf-scorecard tbody tr:nth-child(even) .gsc-name { background: #efe2cb; }
-    .golf-scorecard .gsc-name .tnm { gap: 6px; font-size: 12px; }
+    .golf-scorecard .gsc-name .tnm { display: flex; align-items: center; gap: 6px; font-size: 12px; }
     .golf-scorecard .gsc-hole { width: 24px; color: rgba(28,22,18,0.4); }
     .golf-scorecard .gsc-tot { font-weight: 800; color: var(--pv-charcoal); border-left: 1.5px solid rgba(28,22,18,0.15); }
     .golf-scorecard .gsc-pts { font-family: "Anton", Impact, sans-serif; font-size: 14px; color: var(--pv-charcoal); }
