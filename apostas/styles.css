@@ -1562,11 +1562,13 @@
     .tk-leg-main { font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 5px; }
     .tk-chars { display: inline-flex; align-items: center; gap: 3px; margin: 3px 0 2px 17px; }
     .tk-chars-x { font-style: normal; opacity: 0.4; margin: 0 2px; font-size: 11px; }
-    .tk-side { display: inline-flex; align-items: center; gap: 3px; position: relative; }
+    /* borda transparente no estado normal pra os dois lados ficarem do mesmo tamanho
+       (a moldura do lado escolhido só troca a cor). */
+    .tk-side { display: inline-flex; align-items: center; gap: 3px; position: relative; border: 2px solid transparent; border-radius: 7px; padding: 2px 4px; }
     .tk-side.lost { opacity: 0.4; }
     .tk-side.won { filter: drop-shadow(0 0 3px rgba(58,125,42,0.5)); }
-    /* lado que VOCÊ escolheu no VENCEDOR/1º ROUND (contorno laranja + opacidade cheia) */
-    .tk-side.picked { outline: 1.5px dashed var(--pv-orange); outline-offset: 2px; border-radius: 5px; opacity: 1; }
+    /* MOLDURA no lado/pessoa que VOCÊ escolheu (VENCEDOR/1º ROUND). */
+    .tk-side.picked { border-color: var(--pv-orange); background: rgba(215,100,20,0.12); opacity: 1; box-shadow: 0 1px 5px rgba(215,100,20,0.3); }
     /* nome do jogador escolhido no leg (pílula laranja com check) */
     .tk-mk-name { font-weight: 700; color: var(--pv-charcoal); }
     .tk-mk-name.pk { display: inline-flex; align-items: center; gap: 2px; color: var(--pv-orange); font-weight: 800; background: rgba(215,100,20,0.15); padding: 0 6px; border-radius: 5px; }
