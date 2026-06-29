@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260629-tkpick2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260629-tkpick3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -8117,12 +8117,12 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, teamPlayers, on
                 <div key={i} className={'tk-leg' + (l.result === 'win' ? ' leg-won' : l.result === 'lose' ? ' leg-lost' : '')}>
                   <div className="tk-leg-main">
                     {iconName ? <span className="tk-res" style={{ color: iconColor }}><Icon name={iconName} size={12} /></span> : <span style={{ color: iconColor }}>•</span>}
-                    {sidePick ? (
-                      <span className="tk-mk-pick">
-                        <b className={'tk-mk-name' + (sidePick === 'home' ? ' pk' : '')}>{sidePick === 'home' && <Icon name="check" size={9} />}{l.home}</b>
-                        <i className="tk-mk-vs">×</i>
-                        <b className={'tk-mk-name' + (sidePick === 'away' ? ' pk' : '')}>{sidePick === 'away' && <Icon name="check" size={9} />}{l.away}</b>
-                        <span className="tk-mk-mkt"> · {l.market === 'R1' ? 'VENCE 1º ROUND' : 'VENCEDOR'}</span>{' '}
+                    {isMk ? (
+                      <span>
+                        <span className={sidePick === 'home' ? 'tk-pickn' : undefined}>{l.home}</span>
+                        {' × '}
+                        <span className={sidePick === 'away' ? 'tk-pickn' : undefined}>{l.away}</span>
+                        {' · ' + (MK_MARKET_TITLE[l.market] || l.market) + ' ' + (mkPickLabel(l.market, l.pick) || '')}{' '}
                         <span style={{ color: 'var(--pv-orange)' }}>@{l.odds.toFixed(2)}</span>
                       </span>
                     ) : (
