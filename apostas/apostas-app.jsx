@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260629-peidao1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260629-verme1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4919,7 +4919,6 @@ function ChampSidebar({ value, onChange, cs, interests, mode }) {
 // Mortal Kombat acabar. Aqui só mora a apresentação (regras + calendário); o
 // motor de pontuação real entra quando o campeonato virar 'active'.
 const GWYF_MAX_STROKES = 12; // teto de tacadas por mapa (não-completou conta o teto)
-const GWYF_HOLES = 18;       // todo mapa do Golf With Your Friends tem 18 buracos
 const GWYF_SCHEDULE = [
   { n: 1, map: 'Beginners Burrow',      kind: 'named'  },
   { n: 2, map: 'Cecky Golf #11',        kind: 'named'  },
@@ -4931,6 +4930,9 @@ const GWYF_SCHEDULE = [
   { n: 8, map: 'Super Stuger World DX', kind: 'named'  },
   { n: 9, map: 'Trickshotopia',         kind: 'named'  },
 ];
+// Os mapas FIXOS ficam OCULTOS (surpresa) — só revelamos que é fixo ou aleatório,
+// nunca o nome. (O nome real segue no schedule pro dia do jogo.)
+const gwyfMapLabel = (r) => (r && r.kind === 'random') ? 'Mapa aleatório' : 'Mapa oculto';
 
 // Banner de pré-lançamento + inscrição (topo da GolfView). A inscrição é o mesmo
 // toggle dos campeonatos "em breve" (campo TOP-LEVEL interests.gwyf, fora do json).
@@ -5037,7 +5039,7 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
               <div className="sub">CALENDÁRIO · AGUARDANDO</div>
             </div>
             <div className="card-body">
-              <div className="mk-admin-note" style={{ width: '100%', marginBottom: 12 }}><span style={accIco}><Icon name="pin" size={12} /></span> Clica numa rodada pra ver o mapa e a classificação dele. <strong>6 fixos + 3 aleatórios</strong>, nesta ordem.</div>
+              <div className="mk-admin-note" style={{ width: '100%', marginBottom: 12 }}><span style={accIco}><Icon name="pin" size={12} /></span> Clica numa rodada pra ver a classificação dela. Os mapas ficam <strong>ocultos</strong> até o dia — <strong>6 fixos + 3 aleatórios</strong>.</div>
               <div className="golf-rtabs" role="tablist" aria-label="Rodadas do golfe">
                 {GWYF_SCHEDULE.map((r, i) => (
                   <button
@@ -5047,10 +5049,10 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
                     aria-selected={i === selMap}
                     className={'golf-rtab' + (r.kind === 'random' ? ' rnd' : '') + (i === selMap ? ' sel' : '')}
                     onClick={() => setSelMap(i)}
-                    title={'Rodada ' + String(r.n).padStart(2, '0') + ' · ' + r.map}
+                    title={'Rodada ' + String(r.n).padStart(2, '0') + ' · ' + gwyfMapLabel(r)}
                   >
                     <span className="golf-rtab-n">{String(r.n).padStart(2, '0')}</span>
-                    <span className="golf-rtab-m">{r.map}</span>
+                    <span className="golf-rtab-m">{gwyfMapLabel(r)}</span>
                   </button>
                 ))}
               </div>
@@ -5061,49 +5063,38 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
                   <span className="golf-map-class-n" style={{ background: GWYF_SCHEDULE[selMap].kind === 'random' ? 'rgba(28,22,18,0.4)' : accent }}>{String(GWYF_SCHEDULE[selMap].n).padStart(2, '0')}</span>
                   <span className="golf-map-class-tt">
                     <span className="golf-map-class-k">RODADA {String(GWYF_SCHEDULE[selMap].n).padStart(2, '0')} · {GWYF_SCHEDULE[selMap].kind === 'random' ? 'MAPA ALEATÓRIO' : 'MAPA FIXO'}</span>
-                    <span className="golf-map-class-m">{GWYF_SCHEDULE[selMap].map}</span>
+                    <span className="golf-map-class-m">{gwyfMapLabel(GWYF_SCHEDULE[selMap])}</span>
                   </span>
                   <span className="golf-round-st" style={{ marginLeft: 'auto' }}>AGUARDANDO</span>
                 </div>
                 {inscritos.length === 0 ? (
                   <div className="empty" style={{ padding: '18px 12px' }}><div className="e1">SEM INSCRITOS</div></div>
                 ) : (
-                  <div className="golf-scorecard-wrap">
-                    <table className="golf-scorecard">
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="std-table">
                       <thead>
-                        <tr>
-                          <th className="gsc-pos">#</th>
-                          <th className="gsc-name">JOGADOR</th>
-                          {Array.from({ length: GWYF_HOLES }, (_, h) => (
-                            <th key={h} className="gsc-hole">{h + 1}</th>
-                          ))}
-                          <th className="gsc-tot">TAC</th>
-                          <th className="gsc-pts">PTS</th>
-                        </tr>
+                        <tr><th>#</th><th style={{ textAlign: 'left' }}>JOGADOR</th><th>TAC</th><th>PTS</th></tr>
                       </thead>
                       <tbody>
                         {rows.map(r => (
                           <tr key={r.nick}>
-                            <td className="gsc-pos std-pos">{String(r.pos).padStart(2, '0')}</td>
-                            <td className="gsc-name">
+                            <td className="std-pos">{String(r.pos).padStart(2, '0')}</td>
+                            <td>
                               <div className="tnm">
-                                <Avatar nick={r.nick} teamPlayers={teamPlayers} size={20} />
+                                <Avatar nick={r.nick} teamPlayers={teamPlayers} size={22} />
                                 <span>{r.nick}</span>
                                 {r.nick === session.nick && <span className="stats-rail-you">VOCÊ</span>}
                               </div>
                             </td>
-                            {Array.from({ length: GWYF_HOLES }, (_, h) => (
-                              <td key={h} className="gsc-hole">—</td>
-                            ))}
-                            <td className="gsc-tot">—</td>
-                            <td className="gsc-pts">0</td>
+                            <td style={{ color: 'rgba(28,22,18,0.45)' }}>—</td>
+                            <td style={{ fontFamily: 'Anton, Impact', fontSize: 15 }}>0</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 )}
-                <div className="mk-legend" style={{ marginTop: 8 }}>Scorecard do mapa: <strong>{GWYF_HOLES} buracos</strong> por jogador. <strong>TAC</strong> = total de tacadas (teto {GWYF_MAX_STROKES}/mapa); <strong>PTS</strong> = pontos do mapa (menos tacadas = mais pontos). Vazio até o mapa rolar.</div>
+                <div className="mk-legend" style={{ marginTop: 8 }}>Classificação do mapa: <strong>TAC</strong> = total de tacadas (teto {GWYF_MAX_STROKES}); <strong>PTS</strong> = pontos do mapa (menos tacadas = mais pontos). Vazio até o mapa rolar.</div>
               </div>
             </div>
           </div>
@@ -5713,13 +5704,12 @@ function Icon({ name, size = 20, strokeWidth, className = '' }) {
           <path d="M15 9v-2.5M17 9v-2.5M16 9v-2.5" />
         </svg>
       );
-    case 'fart': // nuvem de gás — troféu PEIDÃO (não participou)
+    case 'worm': // minhoca — troféu VERME (não participou)
       return (
         <svg {...common}>
-          <circle cx="11" cy="14" r="5" />
-          <circle cx="16.5" cy="11.5" r="3.2" />
-          <circle cx="15.5" cy="17" r="2.4" />
-          <path d="M4 6q2 1.5 0 3M6.5 4.5q2 1.5 0 3" />
+          <path d="M2 15q2-5 4 0t4 0t4 0" strokeLinecap="round" />
+          <circle cx="17" cy="14" r="3" />
+          <circle cx="18.2" cy="13.2" r="0.7" fill="currentColor" stroke="none" />
         </svg>
       );
     // ── Ícones da VITRINE DE TROFÉUS (cheios, com brilho/sombra, reutilizáveis) ──
@@ -8366,7 +8356,7 @@ function participationCount(nick, interests) {
   return Object.values(interests || {}).filter(m => m && m[nick]).length;
 }
 
-// ── PEIDÃO ("não participou") ────────────────────────────────────────────────
+// ── VERME ("não participou") — id interno segue 'peidao' (estável) ───────────
 // Participantes de um campeonato: inscritos (interests[id]) + casos especiais —
 // FIFA tem os 8 jogadores fixos/times; Copa conta quem palpitou no bolão.
 function champParticipantsSet(champId, ctx) {
@@ -8382,7 +8372,7 @@ function champParticipantsSet(champId, ctx) {
   return set;
 }
 // Campeonatos COM participantes em que o nick NÃO participou (= "fugiu").
-// Retorna [{ id, game, gameName, season }] — base do troféu PEIDÃO.
+// Retorna [{ id, game, gameName, season }] — base do troféu VERME.
 function champsNotParticipated(nick, ctx) {
   const n = String(nick || '').toLowerCase();
   const all = CHAMPIONSHIPS.concat([{ id: 'copa', tag: 'COPA', name: 'Copa do Mundo', season: 'Copa do Mundo 2026' }]);
@@ -8560,8 +8550,8 @@ const ACHIEVEMENTS = [
     desc: 'Jogou a primeira temporada do Primitivão (FIFA 2026 Season 1).', check: ACH.betaTester, rewards: { badge: 'badge-beta' } },
   { id: 'veterano', name: 'VETERANO', icon: 'shield', color: '#6b4423', cat: 'participacao', rarity: 'rara',
     desc: 'Se inscreveu em 3 campeonatos ou mais. Já é da casa.', check: ACH.veteran },
-  { id: 'peidao', name: 'PEIDÃO', icon: 'fart', color: '#8a9a3f', cat: 'participacao', rarity: 'comum',
-    desc: 'NÃO PARTICIPOU. Ficou de fora de pelo menos um campeonato — soltou um peidão e saiu de fininho. Covarde também tem troféu. (Veja abaixo de quais você fugiu.)', check: ACH.peidao },
+  { id: 'peidao', name: 'VERME', icon: 'worm', color: '#8a6d3b', cat: 'participacao', rarity: 'comum',
+    desc: 'NÃO PARTICIPOU DO CAMPEONATO. Rastejou pra fora e ficou de fora de pelo menos um. Verme também tem troféu. (Veja abaixo de quais você fugiu.)', check: ACH.peidao },
   // ── CAMPEONATO (FIFA) ──
   { id: 'campeao', name: 'CAMPEÃO DA FIFA', icon: 'trophy', color: '#d4af37', cat: 'campeonato', rarity: 'lendaria',
     desc: 'Terminou uma temporada da FIFA em PRIMEIRO lugar. Leva o troféu pra casa.', check: ACH.champion, rewards: { badge: 'badge-campeao', frame: 'frame-gold' } },

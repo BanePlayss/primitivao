@@ -5185,32 +5185,6 @@
       color: var(--pv-charcoal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
-    /* Scorecard do mapa: jogadores × 18 buracos + TAC/PTS. As colunas # e JOGADOR
-       ficam fixas (sticky) e os buracos rolam na horizontal. */
-    .golf-scorecard-wrap { overflow-x: auto; border: 1.5px solid rgba(28,22,18,0.14); }
-    .golf-scorecard { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 11px; }
-    .golf-scorecard th, .golf-scorecard td {
-      padding: 6px 5px; text-align: center; white-space: nowrap;
-      border-bottom: 1px dashed rgba(28,22,18,0.16);
-    }
-    .golf-scorecard thead th {
-      font-family: "Space Grotesk", sans-serif; font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
-      color: rgba(28,22,18,0.6); background: var(--pv-bone-2, #e6dbc4); border-bottom: 1.5px solid rgba(28,22,18,0.2);
-    }
-    .golf-scorecard tbody tr:nth-child(even) td { background: rgba(199,84,24,0.04); }
-    .golf-scorecard .gsc-pos { position: sticky; left: 0; z-index: 2; width: 34px; background: var(--pv-bone); }
-    .golf-scorecard thead .gsc-pos { background: var(--pv-bone-2, #e6dbc4); }
-    .golf-scorecard .gsc-name {
-      position: sticky; left: 34px; z-index: 2; text-align: left; min-width: 128px;
-      background: var(--pv-bone); box-shadow: 6px 0 6px -4px rgba(28,22,18,0.12);
-    }
-    .golf-scorecard thead .gsc-name { background: var(--pv-bone-2, #e6dbc4); }
-    .golf-scorecard tbody tr:nth-child(even) .gsc-pos,
-    .golf-scorecard tbody tr:nth-child(even) .gsc-name { background: #efe2cb; }
-    .golf-scorecard .gsc-name .tnm { display: flex; align-items: center; gap: 6px; font-size: 12px; }
-    .golf-scorecard .gsc-hole { width: 24px; color: rgba(28,22,18,0.4); }
-    .golf-scorecard .gsc-tot { font-weight: 800; color: var(--pv-charcoal); border-left: 1.5px solid rgba(28,22,18,0.15); }
-    .golf-scorecard .gsc-pts { font-family: "Anton", Impact, sans-serif; font-size: 14px; color: var(--pv-charcoal); }
     @media (max-width: 560px) {
       .golf-banner-tt { font-size: 24px; }
     }
