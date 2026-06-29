@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260629-verme2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260629-verme3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -8371,13 +8371,15 @@ function champParticipantsSet(champId, ctx) {
   }
   return set;
 }
-// Campeonatos COM participantes em que o nick NÃO participou (= "fugiu").
-// Retorna [{ id, game, gameName, season }] — base do troféu VERME.
+// Campeonatos em que o nick NÃO participou (= "fugiu"). Só conta campeonato que
+// está ACONTECENDO ou JÁ ACONTECEU (status active/closed) — os "EM BREVE" (soon)
+// NÃO contam. Retorna [{ id, game, gameName, season }] — base do troféu VERME.
 function champsNotParticipated(nick, ctx) {
   const n = String(nick || '').toLowerCase();
-  const all = CHAMPIONSHIPS.concat([{ id: 'copa', tag: 'COPA', name: 'Copa do Mundo', season: 'Copa do Mundo 2026' }]);
+  const all = CHAMPIONSHIPS.concat([{ id: 'copa', tag: 'COPA', name: 'Copa do Mundo', season: 'Copa do Mundo 2026', status: 'active' }]);
   const out = [];
   all.forEach(c => {
+    if (c.status === 'soon') return; // EM BREVE não conta
     const parts = champParticipantsSet(c.id, ctx);
     if (parts.size === 0 || parts.has(n)) return; // sem ninguém OU ele participou
     const gameName = String(c.name || c.tag).replace(/^Primitivão\s*—\s*/, '').replace(/\s*20\d\d$/, '').trim();
