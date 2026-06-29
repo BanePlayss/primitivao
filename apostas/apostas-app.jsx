@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260629-verme3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260629-noverme ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5704,14 +5704,6 @@ function Icon({ name, size = 20, strokeWidth, className = '' }) {
           <path d="M15 9v-2.5M17 9v-2.5M16 9v-2.5" />
         </svg>
       );
-    case 'worm': // minhoca — troféu VERME (não participou)
-      return (
-        <svg {...common}>
-          <path d="M2 15q2-5 4 0t4 0t4 0" strokeLinecap="round" />
-          <circle cx="17" cy="14" r="3" />
-          <circle cx="18.2" cy="13.2" r="0.7" fill="currentColor" stroke="none" />
-        </svg>
-      );
     // ── Ícones da VITRINE DE TROFÉUS (cheios, com brilho/sombra, reutilizáveis) ──
     case 'tr-champion': // troféu — campeão da edição (1º)
       return (
@@ -8356,38 +8348,6 @@ function participationCount(nick, interests) {
   return Object.values(interests || {}).filter(m => m && m[nick]).length;
 }
 
-// ── VERME ("não participou") — troféu (vitrine), não conquista ───────────────
-// Participantes de um campeonato: inscritos (interests[id]) + casos especiais —
-// FIFA tem os 8 jogadores fixos/times; Copa conta quem palpitou no bolão.
-function champParticipantsSet(champId, ctx) {
-  const interests = (ctx && ctx.interests) || {};
-  const set = new Set(Object.keys(interests[champId] || {}).map(n => String(n).toLowerCase()));
-  if (champId === 'fifa') {
-    NICKS_FOR_FIFA.forEach(n => set.add(n));
-    Object.values((ctx && ctx.teamPlayers) || {}).forEach(n => set.add(String(n).toLowerCase()));
-  }
-  if (champId === 'copa') {
-    Object.keys(((ctx && ctx.worldcup) || {}).picks || {}).forEach(n => set.add(String(n).toLowerCase()));
-  }
-  return set;
-}
-// Campeonatos em que o nick NÃO participou (= "fugiu"). Só conta campeonato que
-// está ACONTECENDO ou JÁ ACONTECEU (status active/closed) — os "EM BREVE" (soon)
-// NÃO contam. Retorna [{ id, game, gameName, season }] — base do troféu VERME.
-function champsNotParticipated(nick, ctx) {
-  const n = String(nick || '').toLowerCase();
-  const all = CHAMPIONSHIPS.concat([{ id: 'copa', tag: 'COPA', name: 'Copa do Mundo', season: 'Copa do Mundo 2026', status: 'active' }]);
-  const out = [];
-  all.forEach(c => {
-    if (c.status === 'soon') return; // EM BREVE não conta
-    const parts = champParticipantsSet(c.id, ctx);
-    if (parts.size === 0 || parts.has(n)) return; // sem ninguém OU ele participou
-    const gameName = String(c.name || c.tag).replace(/^Primitivão\s*—\s*/, '').replace(/\s*20\d\d$/, '').trim();
-    out.push({ id: c.id, game: c.tag, gameName, season: c.season });
-  });
-  return out;
-}
-
 // Estatísticas do MK pro nick a partir do ctx.mk { draw, scores } + ctx.interests.
 //   won      = nº de confrontos vencidos (concluídos)
 //   flawless = venceu ALGUM confronto sem ceder nenhum round (2×0 / 2×0)
@@ -10639,8 +10599,6 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   const mkPos = (n) => { const i = mkStand.findIndex(s => s.nick === n); return i < 0 ? null : i + 1; };
 
   const trophiesOf = (n) => trophiesForNick(n, cs, teamPlayers || {});
-  // Troféu VERME ("não participou"): editions = jogo + season de cada campeonato que o cara ficou de fora.
-  const naoPartOf = (n) => champsNotParticipated(n, ctx).map(s => ({ tag: s.gameName, season: s.season }));
   const titlesOf = (n) => titlesForNick(n, ctx);
   const pcOf = (n) => Math.round(((users || {})[n] || {}).pc || 0);
   // REI DAS APOSTAS — campeão da season de apostas (por campeonato fechado).
@@ -10760,8 +10718,8 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
           <div className="card-body">
             <div className={'stats-tro-cols' + (profiles.length > 1 ? '' : ' single')}>
               {profiles.map((p, pi) => {
-                const tro = trophiesOf(p), betKing = betKingOf(p), naoPart = naoPartOf(p);
-                const totalTro = tro.length + betKing.length + naoPart.length;
+                const tro = trophiesOf(p), betKing = betKingOf(p);
+                const totalTro = tro.length + betKing.length;
                 return (
                   <div key={p + pi} className="stats-prof">
                     <div className={'stats-tro-name' + (p === nick ? ' me' : '')}>{p}{p === nick && <span className="stats-you">VOCÊ</span>}</div>
@@ -10775,7 +10733,6 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
                           const editions = group.map(t => { const cc = CHAMP_BY_ID[t.champId]; return { tag: (cc && cc.tag) || t.champId, season: (cc && cc.season) || '' }; });
                           return <TrophyGroup key={kind} kind={kind} editions={editions} />;
                         })}
-                        {naoPart.length > 0 && <TrophyGroup kind="nao_participou" editions={naoPart} />}
                       </div>
                     )}
                   </div>
@@ -10949,8 +10906,6 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
   const totalReturn = wonBets.reduce((s, b) => s + (b.payout || 0), 0);
 
   const myTrophies = trophiesForNick(nick, cs, teamPlayers);
-  // Troféu VERME ("não participou"): campeonatos (jogo + season) que o cara ficou de fora.
-  const naoPartTro = champsNotParticipated(nick, ctx || {}).map(s => ({ tag: s.gameName, season: s.season }));
   // Admin não tem time -> vitrine vazia. DEMO: como se tivesse jogado todas as
   // S1 + algumas S2 e S3, com tipos variados (só pra ver a vitrine cheia).
   const previewTrophies = (isAdmin && myTrophies.length === 0) ? (() => {
@@ -11107,13 +11062,13 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
           <div className="card" style={{ marginBottom: 14 }}>
             <div className="card-head">
               <div className="title"><Icon name="trophy" size={16} /> MEUS TROFÉUS</div>
-              <div className="sub">{myTrophies.length ? myTrophies.length : (previewTrophies.length ? 'PRÉVIA' : ((showBetKing ? betKingSeasons.length : 0) + naoPartTro.length))}</div>
+              <div className="sub">{myTrophies.length ? myTrophies.length : (previewTrophies.length ? 'PRÉVIA' : (showBetKing ? betKingSeasons.length : 0))}</div>
             </div>
             <div className="card-body">
               {previewTrophies.length > 0 && (
                 <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="lock" size={11} /> Prévia (admin): todos os troféus pra você conferir o visual. Cada jogador vê só os que conquistou.</div>
               )}
-              {(showBetKing || showTrophies.length > 0 || naoPartTro.length > 0) ? (
+              {(showBetKing || showTrophies.length > 0) ? (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                   {showBetKing && <TrophyGroup kind="betking" editions={betKingSeasons} />}
                   {['champion', 'vice', 'terceiro', 'participou', 'penultimo', 'lanterna'].map(kind => {
@@ -11125,7 +11080,6 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
                     });
                     return <TrophyGroup key={kind} kind={kind} editions={editions} />;
                   })}
-                  {naoPartTro.length > 0 && <TrophyGroup kind="nao_participou" editions={naoPartTro} />}
                 </div>
               ) : (
                 <div className="empty">
@@ -11809,7 +11763,6 @@ function TrophyGroup({ kind, editions }) {
     penultimo:  { icon: 'tr-penultimo',  label: 'PENÚLTIMO',  rarity: 'VEXAME',   ink: '#3f2812', metal: '#cbb8a6', deep: '#6b4423', frame: '#9d8267', bg: '#f0e7df' },
     lanterna:   { icon: 'tr-lanterna',   label: 'ÚLTIMO',     rarity: 'VEXAME',   ink: '#5c1717', metal: '#d8a0a0', deep: '#7a2222', frame: '#b56b6b', bg: '#fce4e4' },
     betking:    { icon: 'tr-betking',    label: 'REI DAS APOSTAS', rarity: 'APOSTAS', ink: '#6b4e0a', metal: '#f4d65a', deep: '#a6810f', frame: '#d4af37', bg: '#fbf1cf' },
-    nao_participou: { icon: 'worm', label: 'NÃO PARTICIPOU', rarity: 'VERME', ink: '#4a3a1c', metal: '#b7a06d', deep: '#6b5a30', frame: '#8a6d3b', bg: '#ece2cc' },
   }[kind] || { icon: null, label: '', rarity: '', ink: '#1c1612', metal: '#ddd', deep: '#999', frame: '#bbb', bg: '#eee' };
   const shame = kind === 'lanterna' || kind === 'penultimo';
   const champ = kind === 'champion' || kind === 'betking';

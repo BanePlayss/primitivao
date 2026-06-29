@@ -19,7 +19,7 @@ caret-up, caret-down, x, warning, lock, unlock, flag, question, medal,
 gift, menu, skull, fire, book, newspaper, dice, user, gamepad, phone,
 chart, pin, square-filled, chat, ticket, flask, tag, trash, toilet,
 toothbrush, crown, bolt, heart, football, sword, whistle, snowflake,
-rocket, crosshair, fist, chess, pokeball, cards, crab, worm`
+rocket, crosshair, fist, chess, pokeball, cards, crab`
 
 > A galeria completa renderizada fica em **ADMIN → CATÁLOGO** (todos os
 > ícones, títulos, distintivos e molduras num lugar só, pra QA).
