@@ -1565,6 +1565,13 @@
     .tk-side { display: inline-flex; align-items: center; gap: 3px; position: relative; }
     .tk-side.lost { opacity: 0.4; }
     .tk-side.won { filter: drop-shadow(0 0 3px rgba(58,125,42,0.5)); }
+    /* lado que VOCÊ escolheu no VENCEDOR/1º ROUND (contorno laranja + opacidade cheia) */
+    .tk-side.picked { outline: 1.5px dashed var(--pv-orange); outline-offset: 2px; border-radius: 5px; opacity: 1; }
+    /* nome do jogador escolhido no leg (pílula laranja com check) */
+    .tk-mk-name { font-weight: 700; color: var(--pv-charcoal); }
+    .tk-mk-name.pk { display: inline-flex; align-items: center; gap: 2px; color: var(--pv-orange); font-weight: 800; background: rgba(215,100,20,0.15); padding: 0 6px; border-radius: 5px; }
+    .tk-mk-vs { font-style: normal; color: rgba(28,22,18,0.4); margin: 0 5px; }
+    .tk-mk-mkt { color: rgba(28,22,18,0.55); font-weight: 700; }
     .tk-x { color: var(--pv-red, #c0392b); display: inline-flex; margin: 0 1px; }
     .tk-res { display: inline-flex; }
     .tk-leg.leg-won .tk-leg-main span:last-child b, .tk-leg.leg-lost .tk-leg-main { }

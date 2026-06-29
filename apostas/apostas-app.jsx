@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260629-noverme ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260629-tkpick1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -8107,6 +8107,9 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, teamPlayers, on
               const iconColor = l.result === 'win' ? '#3a7d2a' : l.result === 'lose' ? '#c33' : 'rgba(28,22,18,0.5)';
               const lu = isMk ? (mkLineups || {})[l.fixtureId.slice(3)] : null;
               const out = isMk ? mkMatchOutcome((mkScores || {})[l.fixtureId.slice(3)] || {}) : null; // {winner H/A/D} ou null
+              // Mercado de LADO (VENCEDOR / 1º ROUND): o palpite é um JOGADOR (H/A).
+              // Destaca quem você escolheu — fica claro de relance o que foi apostado.
+              const sidePick = isMk && (l.market === 'VENC' || l.market === 'R1') ? (l.pick === 'H' ? 'home' : l.pick === 'A' ? 'away' : null) : null;
               const label = isMk
                 ? l.home + ' × ' + l.away + ' · ' + (MK_MARKET_TITLE[l.market] || l.market) + ' ' + mkPickLabel(l.market, l.pick)
                 : (f ? legLabel(lg, teamPlayers) : '(jogo removido)');
@@ -8114,16 +8117,26 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, teamPlayers, on
                 <div key={i} className={'tk-leg' + (l.result === 'win' ? ' leg-won' : l.result === 'lose' ? ' leg-lost' : '')}>
                   <div className="tk-leg-main">
                     {iconName ? <span className="tk-res" style={{ color: iconColor }}><Icon name={iconName} size={12} /></span> : <span style={{ color: iconColor }}>•</span>}
-                    <span>{label} <span style={{ color: 'var(--pv-orange)' }}>@{l.odds.toFixed(2)}</span></span>
+                    {sidePick ? (
+                      <span className="tk-mk-pick">
+                        <b className={'tk-mk-name' + (sidePick === 'home' ? ' pk' : '')}>{sidePick === 'home' && <Icon name="check" size={9} />}{l.home}</b>
+                        <i className="tk-mk-vs">×</i>
+                        <b className={'tk-mk-name' + (sidePick === 'away' ? ' pk' : '')}>{sidePick === 'away' && <Icon name="check" size={9} />}{l.away}</b>
+                        <span className="tk-mk-mkt"> · {l.market === 'R1' ? 'VENCE 1º ROUND' : 'VENCEDOR'}</span>{' '}
+                        <span style={{ color: 'var(--pv-orange)' }}>@{l.odds.toFixed(2)}</span>
+                      </span>
+                    ) : (
+                      <span>{label} <span style={{ color: 'var(--pv-orange)' }}>@{l.odds.toFixed(2)}</span></span>
+                    )}
                   </div>
                   {lu && (
                     <span className="tk-chars">
-                      <span className={'tk-side' + (out ? (out.winner === 'H' ? ' won' : out.winner === 'A' ? ' lost' : '') : '')}>
+                      <span className={'tk-side' + (out ? (out.winner === 'H' ? ' won' : out.winner === 'A' ? ' lost' : '') : '') + (sidePick === 'home' ? ' picked' : '')}>
                         {['p1', 'p2'].map(p => (lu[p] && lu[p].home) ? <MkCharIcon key={'h' + p} name={lu[p].home} sm /> : null)}
                         {out && out.winner === 'A' && <span className="tk-x"><Icon name="x" size={11} /></span>}
                       </span>
                       <i className="tk-chars-x">×</i>
-                      <span className={'tk-side' + (out ? (out.winner === 'A' ? ' won' : out.winner === 'H' ? ' lost' : '') : '')}>
+                      <span className={'tk-side' + (out ? (out.winner === 'A' ? ' won' : out.winner === 'H' ? ' lost' : '') : '') + (sidePick === 'away' ? ' picked' : '')}>
                         {out && out.winner === 'H' && <span className="tk-x"><Icon name="x" size={11} /></span>}
                         {['p1', 'p2'].map(p => (lu[p] && lu[p].away) ? <MkCharIcon key={'a' + p} name={lu[p].away} sm /> : null)}
                       </span>
