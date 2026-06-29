@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260628-noat2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260629-peidao1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5713,6 +5713,15 @@ function Icon({ name, size = 20, strokeWidth, className = '' }) {
           <path d="M15 9v-2.5M17 9v-2.5M16 9v-2.5" />
         </svg>
       );
+    case 'fart': // nuvem de gás — troféu PEIDÃO (não participou)
+      return (
+        <svg {...common}>
+          <circle cx="11" cy="14" r="5" />
+          <circle cx="16.5" cy="11.5" r="3.2" />
+          <circle cx="15.5" cy="17" r="2.4" />
+          <path d="M4 6q2 1.5 0 3M6.5 4.5q2 1.5 0 3" />
+        </svg>
+      );
     // ── Ícones da VITRINE DE TROFÉUS (cheios, com brilho/sombra, reutilizáveis) ──
     case 'tr-champion': // troféu — campeão da edição (1º)
       return (
@@ -8357,6 +8366,36 @@ function participationCount(nick, interests) {
   return Object.values(interests || {}).filter(m => m && m[nick]).length;
 }
 
+// ── PEIDÃO ("não participou") ────────────────────────────────────────────────
+// Participantes de um campeonato: inscritos (interests[id]) + casos especiais —
+// FIFA tem os 8 jogadores fixos/times; Copa conta quem palpitou no bolão.
+function champParticipantsSet(champId, ctx) {
+  const interests = (ctx && ctx.interests) || {};
+  const set = new Set(Object.keys(interests[champId] || {}).map(n => String(n).toLowerCase()));
+  if (champId === 'fifa') {
+    NICKS_FOR_FIFA.forEach(n => set.add(n));
+    Object.values((ctx && ctx.teamPlayers) || {}).forEach(n => set.add(String(n).toLowerCase()));
+  }
+  if (champId === 'copa') {
+    Object.keys(((ctx && ctx.worldcup) || {}).picks || {}).forEach(n => set.add(String(n).toLowerCase()));
+  }
+  return set;
+}
+// Campeonatos COM participantes em que o nick NÃO participou (= "fugiu").
+// Retorna [{ id, game, gameName, season }] — base do troféu PEIDÃO.
+function champsNotParticipated(nick, ctx) {
+  const n = String(nick || '').toLowerCase();
+  const all = CHAMPIONSHIPS.concat([{ id: 'copa', tag: 'COPA', name: 'Copa do Mundo', season: 'Copa do Mundo 2026' }]);
+  const out = [];
+  all.forEach(c => {
+    const parts = champParticipantsSet(c.id, ctx);
+    if (parts.size === 0 || parts.has(n)) return; // sem ninguém OU ele participou
+    const gameName = String(c.name || c.tag).replace(/^Primitivão\s*—\s*/, '').replace(/\s*20\d\d$/, '').trim();
+    out.push({ id: c.id, game: c.tag, gameName, season: c.season });
+  });
+  return out;
+}
+
 // Estatísticas do MK pro nick a partir do ctx.mk { draw, scores } + ctx.interests.
 //   won      = nº de confrontos vencidos (concluídos)
 //   flawless = venceu ALGUM confronto sem ceder nenhum round (2×0 / 2×0)
@@ -8484,6 +8523,7 @@ const ACH = {
   copaMarathon:({ nick, worldcup }) => Object.keys((worldcup && worldcup.picks && worldcup.picks[nick]) || {}).length >= 10,
   copaTrio:    ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 3,
   veteran:     ({ nick, interests }) => participationCount(nick, interests) >= 3,
+  peidao:      (ctx) => champsNotParticipated(ctx.nick, ctx).length > 0,
   mkChamp:     (ctx) => mkStatsFor(ctx.nick, ctx).champion,
   mkFlawless:  (ctx) => mkStatsFor(ctx.nick, ctx).flawless,
   mkVice:      (ctx) => { const s = mkStatsFor(ctx.nick, ctx); return s.pos === 2 && s.total >= 3; },
@@ -8520,6 +8560,8 @@ const ACHIEVEMENTS = [
     desc: 'Jogou a primeira temporada do Primitivão (FIFA 2026 Season 1).', check: ACH.betaTester, rewards: { badge: 'badge-beta' } },
   { id: 'veterano', name: 'VETERANO', icon: 'shield', color: '#6b4423', cat: 'participacao', rarity: 'rara',
     desc: 'Se inscreveu em 3 campeonatos ou mais. Já é da casa.', check: ACH.veteran },
+  { id: 'peidao', name: 'PEIDÃO', icon: 'fart', color: '#8a9a3f', cat: 'participacao', rarity: 'comum',
+    desc: 'NÃO PARTICIPOU. Ficou de fora de pelo menos um campeonato — soltou um peidão e saiu de fininho. Covarde também tem troféu. (Veja abaixo de quais você fugiu.)', check: ACH.peidao },
   // ── CAMPEONATO (FIFA) ──
   { id: 'campeao', name: 'CAMPEÃO DA FIFA', icon: 'trophy', color: '#d4af37', cat: 'campeonato', rarity: 'lendaria',
     desc: 'Terminou uma temporada da FIFA em PRIMEIRO lugar. Leva o troféu pra casa.', check: ACH.champion, rewards: { badge: 'badge-campeao', frame: 'frame-gold' } },
@@ -11585,6 +11627,22 @@ function TitulosCard({ nick, ctx, selectedTitle, onSelectTitle, onSeeRanking }) 
           </div>
           <div className="achv-rarity">{RARITY_LABEL[t.rarity]}{isLocked ? ' · BLOQUEADA' : ' · CONQUISTADA'}</div>
           <div className="achv-desc">{t.desc}</div>
+          {t.id === 'peidao' && !isLocked && (() => {
+            const skipped = champsNotParticipated(nick, ctx || {});
+            if (!skipped.length) return null;
+            return (
+              <div className="peidao-list">
+                <div className="peidao-list-h">FUGIU DE {skipped.length} {skipped.length === 1 ? 'CAMPEONATO' : 'CAMPEONATOS'}</div>
+                {skipped.map(s => (
+                  <div key={s.id} className="peidao-row">
+                    <Icon name={tabloidTheme(s.id).icon} size={13} />
+                    <span className="peidao-game">{s.gameName}</span>
+                    <span className="peidao-season">{s.season}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
           <div className="achv-foot">
             {isLocked ? (
               <span className="achv-owners">{own.length ? (own.length + (own.length === 1 ? ' já tem' : ' já têm')) : 'ninguém tem ainda'}</span>
