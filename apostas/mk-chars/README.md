@@ -34,6 +34,7 @@ Ou seja: **é só jogar os PNG aqui nesta pasta com o nome exato abaixo** e pron
 | Quan Chi | `quan-chi.png` |
 | Raiden | `raiden.png` |
 | Rain | `rain.png` |
+| Reiko | `reiko.png` |
 | Reptile | `reptile.png` |
 | Scorpion | `scorpion.png` |
 | Sektor | `sektor.png` |

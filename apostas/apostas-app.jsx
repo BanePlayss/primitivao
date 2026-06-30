@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260630-mesaleg2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260630-reiko1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -529,7 +529,7 @@ const MK_CHARACTERS = [
   'Ashrah', 'Baraka', 'Conan', 'Cyrax', 'Ermac', 'General Shao', 'Geras',
   'Ghostface', 'Havik', 'Homelander', 'Johnny Cage', 'Kenshi', 'Kitana',
   'Kung Lao', 'Li Mei', 'Liu Kang', 'Mileena', 'Nitara', 'Noob Saibot',
-  'Omni-Man', 'Peacemaker', 'Quan Chi', 'Raiden', 'Rain', 'Reptile',
+  'Omni-Man', 'Peacemaker', 'Quan Chi', 'Raiden', 'Rain', 'Reiko', 'Reptile',
   'Scorpion', 'Sektor', 'Shang Tsung', 'Sindel', 'Smoke', 'Sub-Zero',
   'T-1000', 'Takeda', 'Tanya',
 ];

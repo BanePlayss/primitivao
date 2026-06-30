@@ -35,7 +35,7 @@ const MAP = {
   'Kitana': 'fan', 'Kung Lao': 'disc', 'Li Mei': 'star', 'Liu Kang': 'flame',
   'Mileena': 'blade', 'Nitara': 'drop', 'Noob Saibot': 'skull', 'Omni-Man': 'bolt',
   'Peacemaker': 'disc', 'Quan Chi': 'skull', 'Raiden': 'bolt', 'Rain': 'drop',
-  'Reptile': 'claw', 'Scorpion': 'flame', 'Sektor': 'robot', 'Shang Tsung': 'skull',
+  'Reiko': 'star', 'Reptile': 'claw', 'Scorpion': 'flame', 'Sektor': 'robot', 'Shang Tsung': 'skull',
   'Sindel': 'star', 'Smoke': 'cloud', 'Sub-Zero': 'ice', 'T-1000': 'robot',
   'Takeda': 'bolt', 'Tanya': 'blade',
 };
