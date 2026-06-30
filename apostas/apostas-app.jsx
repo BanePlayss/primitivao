@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260630-mesaleg1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260630-mesaleg2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -7920,6 +7920,7 @@ function RepBadge({ user, sm }) {
 function OpenTicketCard({ t, owner, ownerUser, teamPlayers, gamesById, alreadyCopied, isOwner, balance, onCopy, copiers }) {
   const [amt, setAmt] = useState(50);
   const [busy, setBusy] = useState(false);
+  const [showLegs, setShowLegs] = useState(false); // resumo dos palpites começa minimizado
   const copyList = copiers || [];
   const copies = copyList.length; // contagem real (cancelar remove o bet)
   const insurance = Math.round((amt || 0) * CASHBACK_RATE); // volta SE perder (seguro)
@@ -7942,16 +7943,24 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, gamesById, alreadyCo
         <span className="mesa-card-odds">{Number(t.combinedOdds || 0).toFixed(2)}x</span>
         <span className="mesa-card-copies" title="cópias"><Icon name="user" size={10} /> {copies}</span>
       </div>
-      {/* RESUMO da aposta — quem vai confiar vê exatamente o que está copiando. */}
+      {/* RESUMO da aposta (minimizado) — quem vai confiar abre e vê o que está copiando. */}
       {nLegs > 0 && (
-        <ul className="mesa-legs">
-          {(t.legs || []).map((l, i) => (
-            <li key={i} className="mesa-leg">
-              <span className="mesa-leg-dot">•</span>
-              <span className="mesa-leg-txt">{legSummary(l, teamPlayers, gamesById)} <b>@{Number(l.odds || 0).toFixed(2)}</b></span>
-            </li>
-          ))}
-        </ul>
+        <div className="mesa-legs-wrap">
+          <button type="button" className="mesa-legs-toggle" onClick={() => setShowLegs(s => !s)} aria-expanded={showLegs}>
+            <Icon name={showLegs ? 'caret-up' : 'caret-down'} size={11} />
+            {showLegs ? 'MINIMIZAR PALPITES' : 'VER ' + (nLegs === 1 ? 'O PALPITE' : 'OS ' + nLegs + ' PALPITES')}
+          </button>
+          {showLegs && (
+            <ul className="mesa-legs">
+              {(t.legs || []).map((l, i) => (
+                <li key={i} className="mesa-leg">
+                  <span className="mesa-leg-dot">•</span>
+                  <span className="mesa-leg-txt">{legSummary(l, teamPlayers, gamesById)} <b>@{Number(l.odds || 0).toFixed(2)}</b></span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
       {isOwner ? (
         <>
