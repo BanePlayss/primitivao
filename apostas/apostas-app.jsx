@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260629-tkpick3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260630-mesaleg1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1666,6 +1666,18 @@ function legLabel(leg, teamPlayers) {
       return `${h}×${a} · ${who}`;
     }
   }
+}
+
+// Resumo curto de UMA perna pra MESA DOS CARTOLAS (quem vai copiar vê o que é).
+// MK traz home/away/market/pick na própria perna; FIFA precisa do jogo (gamesById).
+function legSummary(leg, teamPlayers, gamesById) {
+  if (!leg) return '—';
+  const isMk = typeof leg.fixtureId === 'string' && leg.fixtureId.indexOf('mk:') === 0;
+  if (isMk) {
+    return leg.home + ' × ' + leg.away + ' · ' + (MK_MARKET_TITLE[leg.market] || leg.market) + ' ' + (mkPickLabel(leg.market, leg.pick) || '');
+  }
+  const fx = gamesById && gamesById[leg.fixtureId];
+  return fx ? legLabel({ ...leg, _fix: fx }, teamPlayers) : '—';
 }
 
 // ─── CLASSIFICAÇÃO: geração de tabela ────────────────────────────────────────
@@ -4429,7 +4441,7 @@ function App() {
               )}
               {/* MESA DOS CARTOLAS (M9): tickets abertos pra copiar com cashback. */}
               {!isAdmin && (
-                <OpenTicketsFeed bets={bets} users={users} teamPlayers={teamPlayers || {}}
+                <OpenTicketsFeed bets={bets} users={users} teamPlayers={teamPlayers || {}} gamesById={gamesById}
                   myNick={session.nick} champId={apostasChampId} balance={me ? me.pc : 0} onCopy={copyOpenTicket} />
               )}
               <div className="champ-layout champ-layout--apostas">
@@ -7905,7 +7917,7 @@ function RepBadge({ user, sm }) {
     </span>
   );
 }
-function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwner, balance, onCopy, copiers }) {
+function OpenTicketCard({ t, owner, ownerUser, teamPlayers, gamesById, alreadyCopied, isOwner, balance, onCopy, copiers }) {
   const [amt, setAmt] = useState(50);
   const [busy, setBusy] = useState(false);
   const copyList = copiers || [];
@@ -7930,6 +7942,17 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwn
         <span className="mesa-card-odds">{Number(t.combinedOdds || 0).toFixed(2)}x</span>
         <span className="mesa-card-copies" title="cópias"><Icon name="user" size={10} /> {copies}</span>
       </div>
+      {/* RESUMO da aposta — quem vai confiar vê exatamente o que está copiando. */}
+      {nLegs > 0 && (
+        <ul className="mesa-legs">
+          {(t.legs || []).map((l, i) => (
+            <li key={i} className="mesa-leg">
+              <span className="mesa-leg-dot">•</span>
+              <span className="mesa-leg-txt">{legSummary(l, teamPlayers, gamesById)} <b>@{Number(l.odds || 0).toFixed(2)}</b></span>
+            </li>
+          ))}
+        </ul>
+      )}
       {isOwner ? (
         <>
           <div className="mesa-card-tag own"><Icon name="star" size={11} /> SEU TICKET · {copies} seguidor{copies === 1 ? '' : 'es'}</div>
@@ -7966,7 +7989,7 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, alreadyCopied, isOwn
     </div>
   );
 }
-function OpenTicketsFeed({ bets, users, teamPlayers, myNick, champId, balance, onCopy }) {
+function OpenTicketsFeed({ bets, users, teamPlayers, gamesById, myNick, champId, balance, onCopy }) {
   const all = bets || [];
   // Todo cupom é PÚBLICO: lista todo pendente que não é cópia (ignora flag `open`).
   const open = all.filter(b => !b.copyOf && b.status === 'pending' && (b.champId || 'fifa') === champId)
@@ -7985,7 +8008,7 @@ function OpenTicketsFeed({ bets, users, teamPlayers, myNick, champId, balance, o
               .sort((a, b) => b.amount - a.amount);
             return (
               <OpenTicketCard key={t.id} t={t} owner={t.user} ownerUser={(users || {})[t.user]}
-                teamPlayers={teamPlayers} isOwner={t.user === myNick} copiers={copiers}
+                teamPlayers={teamPlayers} gamesById={gamesById} isOwner={t.user === myNick} copiers={copiers}
                 alreadyCopied={all.some(b => b.copyOf === t.id && b.user === myNick)}
                 balance={balance} onCopy={onCopy} />
             );
