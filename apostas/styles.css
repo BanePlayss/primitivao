@@ -10,6 +10,13 @@
       --pv-red-bright: #c33;
       --pv-red-soft:   #ff8a8a;
       --pv-red-deep:   #3a0e0e;
+      /* ── tinta de texto (contraste) ──
+         ink-soft: texto secundário LEGÍVEL (hints, metas, labels) — ≈4.8:1
+         sobre o bone, passa WCAG AA pra texto pequeno.
+         ink-faint: só decoração/estados apagados — NÃO usar em texto
+         informativo pequeno. */
+      --pv-ink-soft:  rgba(28,22,18,0.66);
+      --pv-ink-faint: rgba(28,22,18,0.5);
       /* ── design tokens (polish global) ── */
       --sh-sm:  3px 3px 0 var(--pv-charcoal);
       --sh-md:  6px 6px 0 var(--pv-charcoal);
@@ -343,7 +350,7 @@
     .copa-enc-tn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .copa-enc-score { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; font-family: 'Anton', Impact, sans-serif; font-size: 18px; line-height: 1; color: var(--pv-charcoal); }
     .copa-enc-x { color: var(--pv-orange); font-size: 13px; }
-    .copa-enc-meta { font-size: 10px; color: rgba(28,22,18,0.5); font-weight: 700; letter-spacing: 0.03em; margin-top: 6px; }
+    .copa-enc-meta { font-size: 10px; color: var(--pv-ink-soft); font-weight: 700; letter-spacing: 0.03em; margin-top: 6px; }
     .copa-enc-picks { display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; }
     .copa-enc-pick { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; font-size: 11px; border: 1.5px solid transparent; background: rgba(28,22,18,0.05); white-space: nowrap; }
     .copa-enc-pick.pts-3 { background: rgba(58,125,42,0.12); border-color: rgba(58,125,42,0.45); color: #2c5f20; }
@@ -370,7 +377,7 @@
     .copa-fin-game:first-child { border-top: 1px solid rgba(28,22,18,0.12); }
     .copa-fin-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
     .copa-fin-round { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; color: var(--pv-orange); }
-    .copa-fin-date { font-size: 9.5px; font-weight: 700; color: rgba(28,22,18,0.45); }
+    .copa-fin-date { font-size: 9.5px; font-weight: 700; color: var(--pv-ink-soft); }
     .copa-fin-teams { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
     .copa-fin-team { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-weight: 700; font-size: 12px; color: var(--pv-charcoal); }
     .copa-fin-team.away { justify-content: flex-end; text-align: right; }
@@ -611,7 +618,7 @@
     .wc-pens-row { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding: 7px 8px; background: rgba(215,100,20,0.07); border: 1px dashed var(--pv-orange); }
     .wc-pens-l { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; color: var(--pv-orange); display: inline-flex; align-items: center; gap: 4px; }
     .wc-pen-in { width: 40px; height: 36px; }
-    .wc-pens-hint { font-size: 9px; font-weight: 700; letter-spacing: 0.04em; color: rgba(28,22,18,0.5); }
+    .wc-pens-hint { font-size: 9px; font-weight: 700; letter-spacing: 0.04em; color: var(--pv-ink-soft); }
     html.pv-dark .wc-pens-hint { color: rgba(244,234,215,0.5); }
 
     .wc-rank-row {
@@ -1492,7 +1499,7 @@
     .rank-season-sub { font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; color: rgba(28,22,18,0.5); text-transform: uppercase; }
     .rank-row.rei { background: linear-gradient(90deg, rgba(212,175,55,0.18), rgba(212,175,55,0.04)); border-radius: 8px; padding-left: 6px; padding-right: 6px; }
     .rank-row.rei .lb-pos { color: #b8901f; }
-    .rank-row-stats { font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em; color: rgba(28,22,18,0.55); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rank-row-stats { font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em; color: var(--pv-ink-soft); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .rank-lucro { font-family: 'Anton', Impact, sans-serif; font-size: 17px; text-align: right; white-space: nowrap; }
     .rank-lucro small { font-family: 'Space Grotesk', sans-serif; font-size: 9px; letter-spacing: 0.2em; margin-left: 3px; opacity: 0.7; }
     .rank-rei-tag { margin-left: 6px; font-family: 'Space Grotesk', sans-serif; font-size: 8px; font-weight: 800; letter-spacing: 0.12em; color: #fff; background: #d4af37; padding: 1px 5px; border-radius: 3px; vertical-align: middle; }
@@ -1561,7 +1568,7 @@
     .tk-chip.copy { color: #2f6ea8; background: rgba(58,134,200,0.14); }
     .tk-chip.round { color: var(--pv-charcoal); background: rgba(28,22,18,0.08); }
     .tk-chip.soft { color: rgba(28,22,18,0.55); background: rgba(28,22,18,0.05); }
-    .tk-when { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: rgba(28,22,18,0.4); margin-left: auto; }
+    .tk-when { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--pv-ink-soft); margin-left: auto; }
     .tk-leg { margin-top: 3px; }
     .tk-leg-main { font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 5px; }
     .tk-chars { display: inline-flex; align-items: center; gap: 3px; margin: 3px 0 2px 17px; }
@@ -1581,7 +1588,7 @@
     .tk-leg.leg-lost { background: rgba(192,57,43,0.06); }
     .tk-leg.leg-won, .tk-leg.leg-lost { padding: 2px 6px; margin-left: -6px; border-radius: 4px; }
     .tk-sub { margin-top: 4px; font-size: 10px; font-weight: 700; color: #2f6ea8; display: inline-flex; align-items: center; gap: 4px; }
-    .tk-none { font-size: 12px; color: rgba(28,22,18,0.55); padding: 6px 2px 12px; }
+    .tk-none { font-size: 12px; color: var(--pv-ink-soft); padding: 6px 2px 12px; }
     .tk-old-toggle {
       width: 100%; margin: 4px 0 10px; padding: 8px; cursor: pointer;
       background: transparent; border: 1.5px dashed rgba(28,22,18,0.3);
@@ -1797,7 +1804,7 @@
     }
     .login-btn:hover { background: var(--pv-charcoal); color: var(--pv-bone); }
     .login-msg { margin-top: 14px; font-size: 12px; color: var(--pv-red); font-weight: 700; min-height: 18px; }
-    .login-hint { margin-top: 16px; font-size: 11px; color: rgba(28,22,18,0.55); letter-spacing: 0.04em; }
+    .login-hint { margin-top: 16px; font-size: 11px; color: var(--pv-ink-soft); letter-spacing: 0.04em; }
 
     /* bet modal */
     .modal-bg {
@@ -1886,7 +1893,7 @@
     .empty {
       padding: 34px 20px; text-align: center;
       border: 2px dashed rgba(28,22,18,0.28);
-      color: rgba(28,22,18,0.55);
+      color: var(--pv-ink-soft);
       background: repeating-linear-gradient(
         45deg,
         transparent, transparent 9px,
@@ -2042,7 +2049,7 @@
     }
     .senha-submit { padding: 12px; border: 3px solid var(--pv-charcoal); font-weight: 800; letter-spacing: 0.16em; font-size: 12px; cursor: pointer; }
     .senha-submit:disabled { opacity: 0.5; cursor: not-allowed; }
-    .senha-hint { margin-top: 12px; font-size: 11px; color: rgba(28,22,18,0.55); line-height: 1.5; }
+    .senha-hint { margin-top: 12px; font-size: 11px; color: var(--pv-ink-soft); line-height: 1.5; }
 
     /* Loading spinner (3 dots pulsando) — tela CONECTANDO */
     .loading-card { text-align: center; }
@@ -2079,7 +2086,7 @@
 
     /* utilities */
     .row-between { display: flex; justify-content: space-between; align-items: center; }
-    .small-label { font-size: 10px; letter-spacing: 0.3em; font-weight: 800; color: rgba(28,22,18,0.55); }
+    .small-label { font-size: 10px; letter-spacing: 0.3em; font-weight: 800; color: var(--pv-ink-soft); }
 
     /* misc texture: little rupestre dots in topbar */
     .topbar::before {
@@ -2094,7 +2101,7 @@
     /* ──── MERCADOS + ODD SELECIONADA ──── */
     .mkt-label {
       font-size: 9px; letter-spacing: 0.3em; font-weight: 800;
-      color: rgba(28,22,18,0.5); margin: 10px 0 4px;
+      color: var(--pv-ink-soft); margin: 10px 0 4px;
     }
     .odd-btn.sel {
       background: var(--pv-charcoal); border-color: var(--pv-charcoal);
@@ -3136,7 +3143,7 @@
     .achv-list { display: flex; flex-direction: column; gap: 16px; margin-top: 4px; }
     .achv-cat-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
     .achv-cat-label { font-family: inherit; font-weight: 800; font-size: 11px; letter-spacing: 0.18em; color: rgba(28,22,18,0.7); }
-    .achv-cat-count { font-family: "JetBrains Mono", monospace; font-size: 11px; color: rgba(28,22,18,0.55); }
+    .achv-cat-count { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--pv-ink-soft); }
     .achv-cat-bar { flex: 1; height: 4px; background: rgba(28,22,18,0.12); position: relative; overflow: hidden; }
     .achv-cat-bar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--pct, 0%); background: var(--pv-orange); transition: width var(--dur) var(--ease); }
     .achv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 10px; }
