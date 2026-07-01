@@ -6414,6 +6414,49 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, thir
   // Resolve slots de mata-mata pro nome real quando a fase de grupos decidir.
   const resolvedFixtures = useMemo(() => resolveWcFixtures(fixtures, results, thirds), [fixtures, results, thirds]);
 
+  // Derivados memoizados: o relógio de 30s re-renderiza a view inteira — sem
+  // memo, os filtros/agrupamentos dos ~100 jogos rodavam a cada tick. Ficam
+  // ANTES do return de loading (regra dos hooks).
+  // Lista de todos os times pro select (PT-BR, sem duplicatas, ordenado)
+  const allTeams = useMemo(() => {
+    const s = new Set();
+    for (const m of resolvedFixtures) {
+      if (!m.slotHome) s.add(m.home);
+      if (!m.slotAway) s.add(m.away);
+    }
+    return Array.from(s).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [resolvedFixtures]);
+
+  const grouped = useMemo(() => {
+    const passaFiltro = (m) => {
+      if (stageFilter === 'group'    && m.isKnockout) return false;
+      if (stageFilter === 'knockout' && !m.isKnockout) return false;
+      if (teamFilter && m.home !== teamFilter && m.away !== teamFilter) return false;
+      return true;
+    };
+    // ESQUERDA = jogos que ainda NÃO foram (sem placar), agrupados por rodada.
+    const activeGames = resolvedFixtures.filter(m => !results[m.id] && passaFiltro(m));
+    const byRound = activeGames.reduce((acc, m) => {
+      (acc[m.round] = acc[m.round] || []).push(m); return acc;
+    }, {});
+    const presentRounds = WC_STAGE_ORDER.filter(r => byRound[r] && byRound[r].length > 0);
+    const extraRounds = Object.keys(byRound).filter(r => !WC_STAGE_ORDER.includes(r));
+    const roundKeys = [...presentRounds, ...extraRounds];
+    // DIREITA = todos os jogos FINALIZADOS (com placar) num feed só, do mais
+    // recente pro mais antigo, sem separador de rodada. Vai ao lado dos jogos.
+    const finishedGames = resolvedFixtures
+      .filter(m => !!results[m.id] && passaFiltro(m))
+      .sort((a, b) => (b.kickoffTs || 0) - (a.kickoffTs || 0));
+    // Contagem dos chips = jogos ainda EM ABERTO por fase.
+    const openGames = resolvedFixtures.filter(m => !results[m.id]);
+    return {
+      byRound, roundKeys, finishedGames,
+      totalAll: openGames.length,
+      totalGroup: openGames.filter(m => !m.isKnockout).length,
+      totalKO: openGames.filter(m => m.isKnockout).length,
+    };
+  }, [resolvedFixtures, results, stageFilter, teamFilter]);
+
   // Loading se ainda não carregou os dados
   if (!fixtures || fixtures.length === 0) {
     return (
@@ -6428,44 +6471,8 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, thir
     );
   }
 
-  // Lista de todos os times pro select (PT-BR, sem duplicatas, ordenado)
-  const allTeams = (() => {
-    const s = new Set();
-    for (const m of resolvedFixtures) {
-      if (!m.slotHome) s.add(m.home);
-      if (!m.slotAway) s.add(m.away);
-    }
-    return Array.from(s).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  })();
-
-  const passaFiltro = (m) => {
-    if (stageFilter === 'group'    && m.isKnockout) return false;
-    if (stageFilter === 'knockout' && !m.isKnockout) return false;
-    if (teamFilter && m.home !== teamFilter && m.away !== teamFilter) return false;
-    return true;
-  };
-
-  // ESQUERDA = jogos que ainda NÃO foram (sem placar), agrupados por rodada.
-  const activeGames = resolvedFixtures.filter(m => !results[m.id] && passaFiltro(m));
-  const byRound = activeGames.reduce((acc, m) => {
-    (acc[m.round] = acc[m.round] || []).push(m); return acc;
-  }, {});
-  const presentRounds = WC_STAGE_ORDER.filter(r => byRound[r] && byRound[r].length > 0);
-  const extraRounds = Object.keys(byRound).filter(r => !WC_STAGE_ORDER.includes(r));
-  const roundKeys = [...presentRounds, ...extraRounds];
-
-  // DIREITA = todos os jogos FINALIZADOS (com placar) num feed só, do mais
-  // recente pro mais antigo, sem separador de rodada. Vai ao lado dos jogos.
-  const finishedGames = resolvedFixtures
-    .filter(m => !!results[m.id] && passaFiltro(m))
-    .sort((a, b) => (b.kickoffTs || 0) - (a.kickoffTs || 0));
+  const { byRound, roundKeys, finishedGames, totalAll, totalGroup, totalKO } = grouped;
   const nicks = Object.keys(allPicks || {});
-
-  // Contagem dos chips = jogos ainda EM ABERTO por fase.
-  const openGames = resolvedFixtures.filter(m => !results[m.id]);
-  const totalAll = openGames.length;
-  const totalGroup = openGames.filter(m => !m.isKnockout).length;
-  const totalKO = openGames.filter(m => m.isKnockout).length;
 
   return (
     <div>
@@ -6499,7 +6506,7 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, thir
         <div className="copa-jogos-main">
           {roundKeys.length === 0 && (
             <div className="card"><div className="card-body"><div className="empty">
-              {openGames.length === 0 && finishedGames.length > 0
+              {totalAll === 0 && finishedGames.length > 0
                 ? <><div className="e1">TUDO ENCERRADO POR AGORA</div><div className="e2">Todos os jogos já têm placar — os resultados e os palpites estão no painel ao lado.</div></>
                 : <div className="e2">Nenhum jogo em aberto bate com esse filtro.</div>}
             </div></div></div>
@@ -9853,7 +9860,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
 // pra apostar na rodada ABERTA (a anterior tem que ter fechado).
 function mkLegLabel(l) { return mkPickLabel(l.market, l.pick); }
 function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onMkScore, onOpenProfile, onEscalar, myNick, isAdmin, isMod, balance }) {
-  const insc = (players || []).slice().sort();
+  const insc = useMemo(() => (players || []).slice().sort(), [players]);
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
   const [cupom, setCupom] = useState([]);
@@ -9897,15 +9904,19 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
 
   // odds usam TODOS os jogos já LANÇADOS (não só rodadas 100% fechadas) — assim os
   // jogos adiantados já têm odd com base no desempenho real até agora.
-  const oddsMatches = draw ? draw.flatMap(r => (r.games || []).map((g, gi) => ({
+  // useMemo: o cronômetro re-renderiza a view a cada 1s — sem memo, odds e
+  // métricas de todos os jogos eram recalculadas a cada tick.
+  const oddsMatches = useMemo(() => draw ? draw.flatMap(r => (r.games || []).map((g, gi) => ({
     home: g.home, away: g.away, sc: (scores || {})[gKey(r, gi)] || {},
-  })).filter(m => mkMatchOutcome(m.sc))) : [];
-  const metrics = computeMkPlayerMetrics(insc, oddsMatches);
+  })).filter(m => mkMatchOutcome(m.sc))) : [], [draw, scores]);
+  const metrics = useMemo(() => computeMkPlayerMetrics(insc, oddsMatches), [insc, oddsMatches]);
   // LISTA ÚNICA "LIBERADOS": todo jogo que dá pra apostar AGORA (de qualquer rodada,
   // os 2 jogadores sem pendência atrás). Sem navegação por rodada.
   // SEUS jogos primeiro (você está no confronto) — depois o resto, ordem estável.
-  const isMine = (g) => !!myNick && (g.home === myNick || g.away === myNick);
-  const liberados = [...mkLiberadoGames(draw, scores)].sort((a, b) => (isMine(a.g) ? 0 : 1) - (isMine(b.g) ? 0 : 1));
+  const liberados = useMemo(() => {
+    const isMine = (g) => !!myNick && (g.home === myNick || g.away === myNick);
+    return [...mkLiberadoGames(draw, scores)].sort((a, b) => (isMine(a.g) ? 0 : 1) - (isMine(b.g) ? 0 : 1));
+  }, [draw, scores, myNick]);
   // tira do cupom pernas de jogos que deixaram de estar liberados (foram lançados).
   const liberadoKeys = liberados.map(x => x.key).join('|');
   useEffect(() => {
@@ -10722,15 +10733,20 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
 
   // FIFA guarda fixtures por TEAM ID (não nick); teamPlayers mapeia teamId->nick.
   // reverseTeamMap dá nick->teamId. Identidade na maioria, menos ex.: juca->jucamelero.
-  const fifaStand = computeStandings(cs ? cs.rounds : []);
+  // useMemo: cada troca de jogador nos seletores re-renderiza a view — sem
+  // memo, as classificações inteiras (FIFA + MK) eram recomputadas à toa.
+  const fifaStand = useMemo(() => computeStandings(cs ? cs.rounds : []), [cs]);
   const nick2team = reverseTeamMap(teamPlayers || {});
   const teamOf = (n) => nick2team[n] || n;        // nick -> teamId (fallback: o próprio)
   const nickOf = (tid) => (teamPlayers || {})[tid] || tid; // teamId -> nick (fallback: o próprio)
   const fifaPos = (n) => { const i = fifaStand.findIndex(s => s.id === teamOf(n)); return i < 0 ? null : i + 1; };
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
-  const mkPlayers = mkInscritos(interests);
-  const mkMatchesAll = (mkDraw || []).flatMap(r => r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: (mkScores || {})[gKey(r, gi)] || {} }))).filter(m => !mkGameVoid(m));
-  const mkStand = computeMkStandings(mkPlayers, mkMatchesAll);
+  const mkPlayers = useMemo(() => mkInscritos(interests), [interests]);
+  const mkMatchesAll = useMemo(
+    () => (mkDraw || []).flatMap(r => r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: (mkScores || {})[gKey(r, gi)] || {} }))).filter(m => !mkGameVoid(m)),
+    [mkDraw, mkScores]
+  );
+  const mkStand = useMemo(() => computeMkStandings(mkPlayers, mkMatchesAll), [mkPlayers, mkMatchesAll]);
   const mkPos = (n) => { const i = mkStand.findIndex(s => s.nick === n); return i < 0 ? null : i + 1; };
 
   const trophiesOf = (n) => trophiesForNick(n, cs, teamPlayers || {});
