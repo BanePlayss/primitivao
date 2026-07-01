@@ -2503,6 +2503,16 @@ function showToast(msg, type) {
 }
 if (typeof window !== 'undefined') window.showToast = showToast;
 
+// Mensagem de erro ciente de rede: se o navegador se sabe offline, troca a
+// mensagem genérica por uma que explica que NADA foi salvo e como resolver.
+// Uso: showToast(netErrorMsg('Erro ao apostar. Tenta de novo.'), 'error')
+function netErrorMsg(fallback) {
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  return offline
+    ? 'Sem internet — nada foi salvo. Reconecta e tenta de novo.'
+    : fallback;
+}
+
 function ToastHost() {
   const [toasts, setToasts] = useState([]);
   useEffect(() => {
@@ -3476,7 +3486,7 @@ function App() {
       return null;
     } catch (e) {
       console.warn('handleAuth failed', e);
-      return 'Erro de conexão. Tente novamente.';
+      return netErrorMsg('Erro de conexão. Tente novamente.');
     }
   };
 
@@ -3616,7 +3626,7 @@ function App() {
       return { ok: true };
     } catch (e) {
       console.warn('placeBet failed', e);
-      showToast('Erro ao registrar a aposta: ' + (e && e.message || e) + '. Tenta de novo em alguns segundos.', 'error');
+      showToast(netErrorMsg('Erro ao registrar a aposta: ' + (e && e.message || e) + '. Tenta de novo em alguns segundos.'), 'error');
     }
   };
 
@@ -3743,7 +3753,7 @@ function App() {
       if (res && res.err) { showToast(res.err, 'error'); return res; }
       showToast('Aposta feita e publicada na MESA DOS CARTOLAS!', 'success');
       return { ok: true };
-    } catch (e) { console.warn('placeMkBet failed', e); showToast('Erro ao apostar. Tenta de novo.', 'error'); return { err: String(e) }; }
+    } catch (e) { console.warn('placeMkBet failed', e); showToast(netErrorMsg('Erro ao apostar. Tenta de novo.'), 'error'); return { err: String(e) }; }
   };
   const removeMkBet = async (ticketId) => {
     try {
@@ -4337,16 +4347,18 @@ function App() {
     }).catch(e => console.warn('latchAchievements failed', e));
   }, [me, ccCtx, session]);
 
+  // Avisa quando a conexão cai/volta — sem isso o usuário aposta offline e
+  // só descobre que nada salvou muito depois. Só toasts; zero efeito no sync.
+  useEffect(() => {
+    const onOff = () => showToast('Sem conexão — mudanças não vão salvar até a internet voltar.', 'error');
+    const onOn  = () => showToast('Conexão de volta!', 'success');
+    window.addEventListener('offline', onOff);
+    window.addEventListener('online', onOn);
+    return () => { window.removeEventListener('offline', onOff); window.removeEventListener('online', onOn); };
+  }, []);
+
   if (!synced || cs === null) {
-    return (
-      <div className="login-stage">
-        <div className="login-card loading-card">
-          <div className="pv-spinner" aria-hidden="true"><span /><span /><span /></div>
-          <div className="lh1">CONECTANDO</div>
-          <div className="lh2">SINCRONIZANDO COM O SERVIDOR</div>
-        </div>
-      </div>
-    );
+    return <ConnectingScreen />;
   }
 
   if (!session || !me && !isAdmin) {
@@ -5951,6 +5963,41 @@ function TeamFlag({ flag, size = 26 }) {
   );
 }
 
+// ─── CONECTANDO ─────────────────────────────────────────────────────────────
+// Tela de espera do boot (antes do 1º snapshot confirmado). Componente próprio
+// porque o App early-returna aqui — o timer de "conexão lenta" não poderia ser
+// hook condicional lá dentro. Só apresentação: NÃO mexe em synced/refs/listeners.
+function ConnectingScreen() {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 9000);
+    return () => clearTimeout(t);
+  }, []);
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  return (
+    <div className="login-stage">
+      <div className="login-card loading-card">
+        <div className="pv-spinner" aria-hidden="true"><span /><span /><span /></div>
+        <div className="lh1">CONECTANDO</div>
+        <div className="lh2">SINCRONIZANDO COM O SERVIDOR</div>
+        {slow && (
+          <div className="conn-slow">
+            <div className="conn-slow-msg">
+              <Icon name="warning" size={13} />{' '}
+              {offline
+                ? 'VOCÊ PARECE ESTAR OFFLINE — confere tua internet.'
+                : 'TÁ DEMORANDO MAIS QUE O NORMAL — confere tua internet ou recarrega.'}
+            </div>
+            <button type="button" className="empty-cta" onClick={() => location.reload()}>
+              <Icon name="refresh" size={13} /> RECARREGAR
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── LOGIN ──────────────────────────────────────────────────────────────────
 function Login({ onAuth, isNewNick }) {
   const [nick, setNick] = useState('');
@@ -6631,7 +6678,9 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
       setMsg(em === 'JOGO_INICIADO' ? 'jogo já começou — travado'
         : em === 'RESULTADO_JA_LANCADO' ? 'placar já saiu — palpite travado'
         : em === 'PALPITE_INVALIDO' ? 'palpite inválido — usa 0 a 20'
-        : 'erro — tenta de novo');
+        : (typeof navigator !== 'undefined' && navigator.onLine === false)
+          ? 'sem internet — palpite NÃO salvo'
+          : 'erro — tenta de novo');
     } finally { setBusy(false); }
   };
 
@@ -7336,7 +7385,7 @@ function Comments({ newsId, list, sessionNick, isAdmin, onAdd, onDelete }) {
       showToast('Comentário apagado.', 'success');
     } catch (e) {
       console.warn(e);
-      showToast('Não consegui apagar — tenta de novo.', 'error');
+      showToast(netErrorMsg('Não consegui apagar — tenta de novo.'), 'error');
     }
   };
 
@@ -9257,7 +9306,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
       if (res && res.err) { showToast(res.err, 'error'); return; }
       showToast('Elenco salvo pra ' + target + '!', 'success');
     }
-    catch (e) { showToast('Falha ao salvar.', 'error'); }
+    catch (e) { showToast(netErrorMsg('Falha ao salvar.'), 'error'); }
     finally { setBusy(false); }
   };
 

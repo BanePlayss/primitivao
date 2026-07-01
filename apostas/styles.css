@@ -2046,6 +2046,14 @@
 
     /* Loading spinner (3 dots pulsando) — tela CONECTANDO */
     .loading-card { text-align: center; }
+    /* dica de conexão lenta (aparece após ~9s sem sync) */
+    .conn-slow { margin-top: 18px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .conn-slow-msg {
+      font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
+      color: var(--pv-red-bright);
+      display: inline-flex; align-items: center; gap: 6px;
+      line-height: 1.5;
+    }
     .pv-spinner {
       display: flex; gap: 8px; justify-content: center; margin-bottom: 18px;
     }
