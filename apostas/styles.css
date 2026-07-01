@@ -2049,6 +2049,13 @@
       40%           { transform: translateY(-10px); opacity: 1; }
     }
 
+    /* Spinner inline em botões async (<Icon name="spinner" className="icon-spin"/>).
+       O label textual (AGUARDE…/SALVANDO…) permanece — com reduced-motion a
+       rotação para e o texto segura o feedback sozinho. */
+    .icon-spin { animation: pv-rotate 0.8s linear infinite; }
+    @keyframes pv-rotate { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .icon-spin { animation: none; } }
+
     /* utilities */
     .row-between { display: flex; justify-content: space-between; align-items: center; }
     .small-label { font-size: 10px; letter-spacing: 0.3em; font-weight: 800; color: rgba(28,22,18,0.55); }

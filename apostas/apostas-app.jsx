@@ -4969,10 +4969,10 @@ function GolfBanner({ accent, interested, count, onToggleInterest }) {
         {interested ? (
           <>
             <span className="golf-insc-ok"><Icon name="check" size={13} /> INSCRITO</span>
-            <button className="golf-btn golf-btn-out" onClick={click} disabled={busy}>{busy ? 'AGUARDE…' : 'CANCELAR'}</button>
+            <button className="golf-btn golf-btn-out" onClick={click} disabled={busy}>{busy ? <><Icon name="spinner" size={12} className="icon-spin" /> AGUARDE…</> : 'CANCELAR'}</button>
           </>
         ) : (
-          <button className="golf-btn" onClick={click} disabled={busy}>{busy ? 'AGUARDE…' : 'QUERO PARTICIPAR'}</button>
+          <button className="golf-btn" onClick={click} disabled={busy}>{busy ? <><Icon name="spinner" size={12} className="icon-spin" /> AGUARDE…</> : 'QUERO PARTICIPAR'}</button>
         )}
         <span className="golf-insc-count">{count} {count === 1 ? 'INSCRITO' : 'INSCRITOS'}</span>
         {errMsg && <span className="golf-insc-err"><Icon name="x" size={12} /> {errMsg}</span>}
@@ -5163,7 +5163,7 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
                 letterSpacing: '0.16em', fontSize: 11,
                 cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1,
               }}>
-                {busy ? 'AGUARDE…' : 'CANCELAR INSCRIÇÃO'}
+                {busy ? <><Icon name="spinner" size={12} className="icon-spin" /> AGUARDE…</> : 'CANCELAR INSCRIÇÃO'}
               </button>
             </>
           ) : (
@@ -5173,7 +5173,7 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
               letterSpacing: '0.18em', fontSize: 13,
               cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1,
             }}>
-              {busy ? 'AGUARDE…' : 'QUERO PARTICIPAR'}
+              {busy ? <><Icon name="spinner" size={12} className="icon-spin" /> AGUARDE…</> : 'QUERO PARTICIPAR'}
             </button>
           )}
           {errMsg && (
@@ -5518,6 +5518,13 @@ function Icon({ name, size = 20, strokeWidth, className = '' }) {
         <svg {...common}>
           <path d="M3 12a9 9 0 0 1 15.5-6.3M21 12a9 9 0 0 1-15.5 6.3" />
           <path d="M16 4v5h5M8 20v-5H3" />
+        </svg>
+      );
+    case 'spinner':
+      // arco de 3/4 de círculo — girar via className="icon-spin" (CSS)
+      return (
+        <svg {...common}>
+          <path d="M21 12a9 9 0 1 1-9-9" />
         </svg>
       );
     case 'caret-up':
@@ -6076,7 +6083,7 @@ function Login({ onAuth, isNewNick }) {
         )}
 
         <button type="submit" className="login-btn" disabled={busy || !nick.trim() || !senha}>
-          {busy ? 'AGUARDE…' : (isAdminNick ? 'ENTRAR COMO ADMIN' : isNew ? 'CRIAR CONTA' : 'ENTRAR')}
+          {busy ? <><Icon name="spinner" size={12} className="icon-spin" /> AGUARDE…</> : (isAdminNick ? 'ENTRAR COMO ADMIN' : isNew ? 'CRIAR CONTA' : 'ENTRAR')}
         </button>
 
         <div className="login-msg">{msg}</div>
@@ -6718,7 +6725,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
       {!closed && !started && canBet && !isPlaceholder && (
         <div className="wc-actions">
           <button className="wc-save" onClick={handleSave} disabled={busy || !gh || !ga}>
-            {busy ? 'SALVANDO…' : (myPick ? 'ATUALIZAR PALPITE' : 'SALVAR PALPITE')}
+            {busy ? <><Icon name="spinner" size={12} className="icon-spin" /> SALVANDO…</> : (myPick ? 'ATUALIZAR PALPITE' : 'SALVAR PALPITE')}
           </button>
           {msg && <span className="wc-msg">{msg === 'palpite salvo' && <Icon name="check" size={11} />} {msg}</span>}
         </div>
@@ -7348,7 +7355,7 @@ function Comments({ newsId, list, sessionNick, isAdmin, onAdd, onDelete }) {
                   disabled={busy || !text.trim()}
                   onClick={handleSend}
                 >
-                  {busy ? 'ENVIANDO…' : 'ENVIAR'}
+                  {busy ? <><Icon name="spinner" size={12} className="icon-spin" /> ENVIANDO…</> : 'ENVIAR'}
                 </button>
               </div>
               {err && <div className="comment-err">{err}</div>}
@@ -7841,7 +7848,7 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
             <div className="modal-btns">
               <button className="btn-secondary" onClick={onClearSlip} disabled={busy}>LIMPAR</button>
               <button className="btn-primary" disabled={!valid} onClick={() => handlePlace()}>
-                {busy ? 'APOSTANDO…' : `APOSTAR ${amt} PC`}
+                {busy ? <><Icon name="spinner" size={12} className="icon-spin" /> APOSTANDO…</> : `APOSTAR ${amt} PC`}
               </button>
             </div>
             {/* Todo cupom agora vai pra MESA DOS CARTOLAS automaticamente ao apostar. */}
@@ -9301,7 +9308,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
               </div>
               <div className="mk-foot">
                 <div className="mk-selected">{sel.length}/{MK_MAX_CHARS} escolhidos{sel.length ? ': ' + sel.join(' · ') : ''}</div>
-                {!rosterLocked && <button className="tp-btn-go" onClick={save} disabled={busy || sel.length === 0}>{busy ? 'SALVANDO…' : 'SALVAR ELENCO'}</button>}
+                {!rosterLocked && <button className="tp-btn-go" onClick={save} disabled={busy || sel.length === 0}>{busy ? <><Icon name="spinner" size={12} className="icon-spin" /> SALVANDO…</> : 'SALVAR ELENCO'}</button>}
               </div>
             </div>
 
@@ -11548,7 +11555,7 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
                             disabled={!canAfford || !!action}
                             onClick={() => handleBuy(item)}
                           >
-                            {action === 'buy' ? 'COMPRANDO…' : (canAfford ? `COMPRAR · ${item.price} CC` : `SEM CC (precisa ${item.price})`)}
+                            {action === 'buy' ? <><Icon name="spinner" size={12} className="icon-spin" /> COMPRANDO…</> : (canAfford ? `COMPRAR · ${item.price} CC` : `SEM CC (precisa ${item.price})`)}
                           </button>
                         )}
                         {owned && !isEquipped && (
@@ -11757,7 +11764,7 @@ function AparenciaCard({ theme, onSetTheme, nick, teamPlayers, cosmetics, curren
             </p>
             <div className="aparencia-avatar-btns">
               <button type="button" className="aparencia-up-btn" disabled={busy} onClick={() => fileRef.current && fileRef.current.click()}>
-                <Icon name="user" size={13} /> {busy ? 'ENVIANDO…' : (currentAvatar ? 'TROCAR FOTO' : 'ENVIAR FOTO')}
+                <Icon name={busy ? 'spinner' : 'user'} size={13} className={busy ? 'icon-spin' : ''} /> {busy ? 'ENVIANDO…' : (currentAvatar ? 'TROCAR FOTO' : 'ENVIAR FOTO')}
               </button>
               {currentAvatar && (
                 <button type="button" className="aparencia-rm-btn" disabled={busy} onClick={onRemove}>
@@ -13809,7 +13816,7 @@ function NewsAdminPanel({ remoteNews }) {
             + NOVA
           </button>
           <button onClick={save} disabled={busy} style={{ background: 'var(--pv-charcoal)', color: 'var(--pv-bone)', border: 'none', padding: '8px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.14em', cursor: busy ? 'wait' : 'pointer' }}>
-            {busy ? 'SALVANDO…' : 'SALVAR TUDO'}
+            {busy ? <><Icon name="spinner" size={12} className="icon-spin" /> SALVANDO…</> : 'SALVAR TUDO'}
           </button>
           {msg && <span style={{ alignSelf: 'center', fontSize: 12, color: msg.startsWith('Erro') ? 'var(--pv-red)' : 'var(--pv-green)', fontWeight: 700 }}>{msg}</span>}
         </div>
@@ -14358,7 +14365,7 @@ function ChampWizard({ users, interests, onCreate }) {
             </button>
           ))}
         </div>
-        <button type="button" className="btn-primary cw-create" disabled={busy} onClick={create}>{busy ? 'CRIANDO…' : 'CRIAR E PUBLICAR'}</button>
+        <button type="button" className="btn-primary cw-create" disabled={busy} onClick={create}>{busy ? <><Icon name="spinner" size={12} className="icon-spin" /> CRIANDO…</> : 'CRIAR E PUBLICAR'}</button>
       </div>
     </div>
   );
@@ -14415,7 +14422,7 @@ function ModView({ officialDay, onSetOfficialDay, myNick }) {
             <div style={{ fontSize: 11, color: 'rgba(28,22,18,0.6)', marginBottom: 10 }}>Ligado por {officialDay.by}.</div>
           )}
           <button onClick={toggle} disabled={busy} style={{ background: active ? 'var(--pv-charcoal)' : 'var(--pv-orange)', color: 'var(--pv-bone)', border: 'none', padding: '10px 18px', fontWeight: 800, fontSize: 13, letterSpacing: '0.1em', cursor: busy ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <Icon name={active ? 'x' : 'coin-fire'} size={14} /> {busy ? 'SALVANDO…' : (active ? 'DESLIGAR DIA OFICIAL' : 'LIGAR DIA OFICIAL (+25%)')}
+            <Icon name={busy ? 'spinner' : (active ? 'x' : 'coin-fire')} size={14} className={busy ? 'icon-spin' : ''} /> {busy ? 'SALVANDO…' : (active ? 'DESLIGAR DIA OFICIAL' : 'LIGAR DIA OFICIAL (+25%)')}
           </button>
         </div>
       </div>
@@ -14589,7 +14596,7 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, s
                 </div>
               </div>
               <button onClick={handleGrantAll} disabled={granting} style={{ background: 'var(--pv-green, #2a8f3f)', color: 'var(--pv-bone)', border: 'none', padding: '10px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.1em', cursor: granting ? 'wait' : 'pointer', flexShrink: 0 }}>
-                {granting ? 'CREDITANDO…' : '+1000 PRA TODOS'}
+                {granting ? <><Icon name="spinner" size={12} className="icon-spin" /> CREDITANDO…</> : '+1000 PRA TODOS'}
               </button>
             </div>
             <div style={{ marginBottom: 14, padding: 12, border: '2px solid var(--pv-orange)', background: 'rgba(215,100,20,0.08)' }}>
@@ -14737,7 +14744,7 @@ function BackupPanel() {
 
         <button onClick={onClick} disabled={status === 'running'}
           style={{ background: 'var(--pv-orange)', color: 'var(--pv-bone)', padding: '10px 20px', fontWeight: 800, border: 'none', letterSpacing: '0.16em', fontSize: 12, cursor: status === 'running' ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {status === 'running' ? 'GERANDO…' : <><Icon name="arrow-down" size={14} /> BAIXAR BACKUP JSON</>}
+          {status === 'running' ? <><Icon name="spinner" size={14} className="icon-spin" /> GERANDO…</> : <><Icon name="arrow-down" size={14} /> BAIXAR BACKUP JSON</>}
         </button>
         {status && status !== 'running' && status.ok && (
           <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -15000,7 +15007,7 @@ function RestorePanel() {
                 display: 'inline-flex', alignItems: 'center', gap: 6,
               }}
             >
-              {status === 'running' ? 'RESTAURANDO…' : <><Icon name="refresh" size={13} /> RESTAURAR (sobrescreve atual)</>}
+              {status === 'running' ? <><Icon name="spinner" size={13} className="icon-spin" /> RESTAURANDO…</> : <><Icon name="refresh" size={13} /> RESTAURAR (sobrescreve atual)</>}
             </button>
           </div>
         )}
