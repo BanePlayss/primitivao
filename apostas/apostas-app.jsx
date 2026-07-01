@@ -6546,6 +6546,14 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, thir
   );
 }
 
+// Placar digitado é válido? Vazio (ainda não preenchido) passa; preenchido
+// tem que ser inteiro 0-20. Usado pro feedback inline ANTES do submit —
+// a validação dura continua no onSavePick (PALPITE_INVALIDO).
+function wcScoreInvalid(v) {
+  const raw = String(v == null ? '' : v).trim();
+  return raw !== '' && (!/^\d+$/.test(raw) || parseInt(raw, 10) > 20);
+}
+
 // Stepper de gols do palpite: botões -/+ grandes (touch) em volta do input,
 // que continua digitável. Sem valor ainda, o "+" começa do zero.
 function WcScoreStepper({ value, onChange, disabled, teamLabel, placeholder }) {
@@ -6562,7 +6570,7 @@ function WcScoreStepper({ value, onChange, disabled, teamLabel, placeholder }) {
               aria-label={'Tirar um gol de ' + teamLabel} tabIndex={-1}>-</button>
       <span className="wc-stepper-mid">
         <input
-          className="wc-score-in"
+          className={'wc-score-in' + (wcScoreInvalid(value) ? ' wc-score-in--invalid' : '')}
           type="number" min="0" max="20"
           value={value}
           placeholder={placeholder || '–'}
@@ -6603,6 +6611,13 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
   // Empate num mata-mata -> abre os pênaltis (palpite e resultado)
   const myDrawKO = match.isKnockout && gh !== '' && ga !== '' && gh === ga;
   const adminDrawKO = match.isKnockout && adminGh !== '' && adminGa !== '' && String(adminGh) === String(adminGa);
+
+  // Feedback inline: placar fora de 0-20 pinta o input e trava o botão
+  // ANTES do submit (a validação dura continua no reducer).
+  const pickInvalid = wcScoreInvalid(gh) || wcScoreInvalid(ga)
+    || (myDrawKO && (wcScoreInvalid(penGh) || wcScoreInvalid(penGa)));
+  const adminInvalid = wcScoreInvalid(adminGh) || wcScoreInvalid(adminGa)
+    || (adminDrawKO && (wcScoreInvalid(adminPenGh) || wcScoreInvalid(adminPenGa)));
 
   const handleSave = async () => {
     if (busy || closed || started || isPlaceholder) return;
@@ -6688,9 +6703,9 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
       {myDrawKO && !closed && !started && canBet && !isPlaceholder && (
         <div className="wc-pens-row">
           <span className="wc-pens-l"><Icon name="target" size={11} /> PÊNALTIS</span>
-          <input className="wc-score-in wc-pen-in" type="number" min="0" max="20" value={penGh} onChange={e => setPenGh(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.home} />
+          <input className={'wc-score-in wc-pen-in' + (wcScoreInvalid(penGh) ? ' wc-score-in--invalid' : '')} type="number" min="0" max="20" value={penGh} onChange={e => setPenGh(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.home} />
           <span className="wc-x">×</span>
-          <input className="wc-score-in wc-pen-in" type="number" min="0" max="20" value={penGa} onChange={e => setPenGa(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.away} />
+          <input className={'wc-score-in wc-pen-in' + (wcScoreInvalid(penGa) ? ' wc-score-in--invalid' : '')} type="number" min="0" max="20" value={penGa} onChange={e => setPenGa(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.away} />
           <span className="wc-pens-hint">+3 exato · +1 só quem passou</span>
         </div>
       )}
@@ -6724,10 +6739,11 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
 
       {!closed && !started && canBet && !isPlaceholder && (
         <div className="wc-actions">
-          <button className="wc-save" onClick={handleSave} disabled={busy || !gh || !ga}>
+          <button className="wc-save" onClick={handleSave} disabled={busy || !gh || !ga || pickInvalid}>
             {busy ? <><Icon name="spinner" size={12} className="icon-spin" /> SALVANDO…</> : (myPick ? 'ATUALIZAR PALPITE' : 'SALVAR PALPITE')}
           </button>
           {msg && <span className="wc-msg">{msg === 'palpite salvo' && <Icon name="check" size={11} />} {msg}</span>}
+          {!msg && pickInvalid && <span className="wc-msg wc-msg-err"><Icon name="warning" size={11} /> placar de 0 a 20</span>}
         </div>
       )}
 
@@ -6738,7 +6754,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
         <div className="wc-admin">
           <span className="wc-admin-label">ADMIN — PLACAR REAL{isPlaceholder ? ' (slot)' : ''}:</span>
           <input
-            className="wc-score-in wc-admin-in"
+            className={'wc-score-in wc-admin-in' + (wcScoreInvalid(adminGh) ? ' wc-score-in--invalid' : '')}
             type="number" min="0" max="20"
             value={adminGh}
             onChange={e => setAdminGh(e.target.value)}
@@ -6746,7 +6762,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
           />
           <span className="wc-x">×</span>
           <input
-            className="wc-score-in wc-admin-in"
+            className={'wc-score-in wc-admin-in' + (wcScoreInvalid(adminGa) ? ' wc-score-in--invalid' : '')}
             type="number" min="0" max="20"
             value={adminGa}
             onChange={e => setAdminGa(e.target.value)}
@@ -6755,12 +6771,12 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
           {adminDrawKO && (
             <span className="wc-admin-pens">
               <span className="wc-admin-pens-l"><Icon name="target" size={11} /> PÊN</span>
-              <input className="wc-score-in wc-admin-in" type="number" min="0" max="20" value={adminPenGh} onChange={e => setAdminPenGh(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.home} />
+              <input className={'wc-score-in wc-admin-in' + (wcScoreInvalid(adminPenGh) ? ' wc-score-in--invalid' : '')} type="number" min="0" max="20" value={adminPenGh} onChange={e => setAdminPenGh(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.home} />
               <span className="wc-x">×</span>
-              <input className="wc-score-in wc-admin-in" type="number" min="0" max="20" value={adminPenGa} onChange={e => setAdminPenGa(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.away} />
+              <input className={'wc-score-in wc-admin-in' + (wcScoreInvalid(adminPenGa) ? ' wc-score-in--invalid' : '')} type="number" min="0" max="20" value={adminPenGa} onChange={e => setAdminPenGa(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.away} />
             </span>
           )}
-          <button className="wc-admin-btn" onClick={handleSetResult} disabled={adminBusy}>
+          <button className="wc-admin-btn" onClick={handleSetResult} disabled={adminBusy || adminInvalid}>
             {result ? 'ATUALIZAR' : 'LANÇAR'}
           </button>
           {result && (
@@ -7821,7 +7837,16 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
             <div style={{ marginTop: 10 }} className="small-label">QUANTO APOSTAR (PC)</div>
             <input type="number" min="1" max={balance} value={amt}
                    onChange={e => setAmt(Math.max(0, Math.min(balance, +e.target.value || 0)))}
-                   className="stake-input" />
+                   className={'stake-input' + (amt <= 0 ? ' stake-input--invalid' : '')} />
+            {/* Feedback inline: o botão APOSTAR já trava com amt<=0, mas sem
+                dica o usuário não sabia o porquê. */}
+            {amt <= 0 && (
+              <div className="stake-hint">
+                {balance <= 0
+                  ? <><Icon name="warning" size={11} /> saldo zerado — pega o bônus semanal ou espera resolver as apostas abertas</>
+                  : <><Icon name="warning" size={11} /> digite um valor — mínimo 1 PC</>}
+              </div>
+            )}
             {/* Valores rápidos calibrados pra economia atual (bônus semanal
                 de 550 PC, saldos na casa dos milhares). Clampa no saldo. */}
             <div className="quick">
@@ -7982,7 +8007,7 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, gamesById, alreadyCo
         <>
           <div className="mesa-cashback"><Icon name="shield" size={12} /> SEGURO: se perder volta <b>{insurance} PC</b> (10%). Se ganhar, taxa de 10% do lucro (5% pro cartola).</div>
           <div className="mesa-copyrow">
-            <input className="mesa-stake" value={amt} inputMode="numeric" onChange={e => setAmt(Math.max(0, parseInt(e.target.value.replace(/\D/g, ''), 10) || 0))} />
+            <input className={'mesa-stake' + (!amt || amt > balance ? ' stake-input--invalid' : '')} value={amt} inputMode="numeric" aria-label="Quanto apostar copiando este ticket" onChange={e => setAmt(Math.max(0, parseInt(e.target.value.replace(/\D/g, ''), 10) || 0))} />
             <button type="button" className="mesa-copybtn" disabled={busy || !amt || amt > balance} onClick={doCopy}>
               {busy ? '...' : (amt > balance ? 'SEM SALDO' : 'COPIAR')}
             </button>
@@ -10104,8 +10129,15 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                       <div className="modal-row"><span className="lab">SALDO</span><span className="mono">{Number.isFinite(balance) ? balance + ' PC' : '∞'}</span></div>
 
                       <div style={{ marginTop: 10 }} className="small-label">QUANTO APOSTAR (PC)</div>
-                      <input type="number" min="1" value={stake} className="stake-input"
+                      <input type="number" min="1" value={stake} className={'stake-input' + (stake <= 0 ? ' stake-input--invalid' : '')}
                         onChange={e => setStake(Math.max(0, Math.min(Number.isFinite(balance) ? balance : 1e9, +e.target.value || 0)))} />
+                      {stake <= 0 && (
+                        <div className="stake-hint">
+                          {Number.isFinite(balance) && balance <= 0
+                            ? <><Icon name="warning" size={11} /> saldo zerado — pega o bônus semanal ou espera resolver as apostas abertas</>
+                            : <><Icon name="warning" size={11} /> digite um valor — mínimo 1 PC</>}
+                        </div>
+                      )}
                       {/* mesmos valores rápidos do cupom FIFA (50/100/500) */}
                       <div className="quick">
                         <button onClick={() => setStake(Number.isFinite(balance) ? Math.min(50, balance) : 50)}>50</button>

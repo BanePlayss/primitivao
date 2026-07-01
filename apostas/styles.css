@@ -531,6 +531,9 @@
     }
     .wc-score-in:focus { outline: none; border-color: var(--pv-orange); background: rgba(215,100,20,0.15); }
     .wc-score-in:disabled { opacity: 0.55; cursor: not-allowed; }
+    /* valor fora de 0-20: pinta antes do submit (validação dura fica no reducer) */
+    .wc-score-in--invalid,
+    .wc-score-in--invalid:focus { border-color: var(--pv-red-bright); background: rgba(195,51,51,0.08); }
     .wc-x { font-family: "Anton", Impact, sans-serif; font-size: 20px; color: var(--pv-orange); }
     /* Stepper do palpite: -/+ touch-friendly em volta do input digitável,
        com a sigla do time embaixo pra não confundir mandante/visitante. */
@@ -568,6 +571,7 @@
     }
     .wc-save:disabled { opacity: 0.4; cursor: not-allowed; }
     .wc-msg { font-size: 11px; color: var(--pv-green); font-weight: 700; letter-spacing: 0.06em; }
+    .wc-msg-err { color: var(--pv-red-bright); }
     .wc-result-strip {
       margin-top: 10px; padding: 10px;
       background: var(--pv-charcoal); color: var(--pv-bone);
@@ -1819,6 +1823,15 @@
       background: var(--pv-bone-2); border: 2px solid var(--pv-charcoal);
       font-family: "Anton", Impact, sans-serif; font-size: 30px;
       text-align: center;
+    }
+    /* stake vazio/acima do saldo: borda de aviso + dica explicando o botão travado */
+    .stake-input--invalid,
+    .stake-input--invalid:focus { border-color: var(--pv-red-bright); background: rgba(195,51,51,0.06); }
+    .stake-hint {
+      margin-top: 6px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+      color: var(--pv-red-bright);
+      display: flex; align-items: center; gap: 5px;
     }
     .quick {
       display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px;
