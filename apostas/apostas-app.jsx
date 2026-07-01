@@ -6435,7 +6435,7 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, thir
             {allTeams.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           {teamFilter && (
-            <button className="copa-team-clear" onClick={() => setTeamFilter('')} title="Limpar filtro de time"><Icon name="x" size={12} /></button>
+            <button className="copa-team-clear" onClick={() => setTeamFilter('')} title="Limpar filtro de time" aria-label="Limpar filtro de time"><Icon name="x" size={12} /></button>
           )}
         </div>
       </div>
@@ -7055,7 +7055,7 @@ function BracketMatch({ m, result, isAdmin, onSetResult }) {
           <input className="bracket-in bracket-pen-in" value={pga} inputMode="numeric" onChange={e => setPga(num(e.target.value))} onBlur={save} aria-label={'Pênaltis ' + m.away} />
         </div>
       )}
-      {canEdit && played && <button type="button" className="bracket-clear" onClick={clear} title="Limpar resultado"><Icon name="x" size={11} /></button>}
+      {canEdit && played && <button type="button" className="bracket-clear" onClick={clear} title="Limpar resultado" aria-label="Limpar resultado"><Icon name="x" size={11} /></button>}
     </div>
   );
 }
@@ -7797,7 +7797,7 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
               {legLabel(l, teamPlayers)}
             </div>
             <div className="cupom-leg-odd mono">{l.odds.toFixed(2)}</div>
-            <button className="cupom-leg-x" title="Tirar este palpite" onClick={() => onRemoveLeg(l.fixtureId, l.market, l.pick)}><Icon name="x" size={12} /></button>
+            <button className="cupom-leg-x" title="Tirar este palpite" aria-label="Tirar este palpite" onClick={() => onRemoveLeg(l.fixtureId, l.market, l.pick)}><Icon name="x" size={12} /></button>
           </div>
         ))}
 
@@ -10085,7 +10085,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             <div className="cupom-leg-pick">{l.home}×{l.away} - <strong>{mkLegLabel(l)}</strong></div>
                           </div>
                           <div className="cupom-leg-odd mono">{l.odd.toFixed(2)}</div>
-                          <button className="cupom-leg-x" onClick={() => setCupom(p => p.filter(x => x.key !== l.key))}><Icon name="x" size={12} /></button>
+                          <button className="cupom-leg-x" title="Tirar este palpite" aria-label="Tirar este palpite" onClick={() => setCupom(p => p.filter(x => x.key !== l.key))}><Icon name="x" size={12} /></button>
                         </div>
                       ))}
                       <div className="modal-row" style={{ marginTop: 10 }}>
