@@ -5080,7 +5080,7 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
                   <span className="golf-round-st" style={{ marginLeft: 'auto' }}>AGUARDANDO</span>
                 </div>
                 {inscritos.length === 0 ? (
-                  <div className="empty" style={{ padding: '18px 12px' }}><div className="e1">SEM INSCRITOS</div></div>
+                  <div className="empty" style={{ padding: '18px 12px' }}><div className="e1">SEM INSCRITOS</div><div className="e2">Ninguém confirmado nesta rodada ainda — chama a galera.</div></div>
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
                     <table className="std-table">
@@ -6772,6 +6772,7 @@ function CopaGrupos({ fixtures, results }) {
     return (
       <div className="card"><div className="card-body"><div className="empty">
         <div className="e1">CARREGANDO…</div>
+        <div className="e2">Buscando a tabela dos grupos. Se demorar muito, recarrega a página.</div>
       </div></div></div>
     );
   }
@@ -6845,6 +6846,7 @@ function CopaRanking({ users, fixtures, results, picks, myNick }) {
     return (
       <div className="card"><div className="card-body"><div className="empty">
         <div className="e1">CARREGANDO…</div>
+        <div className="e2">Buscando o ranking do bolão. Se demorar muito, recarrega a página.</div>
       </div></div></div>
     );
   }
@@ -12329,7 +12331,7 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
   }, [cs]);
 
   if (!cs) {
-    return <div className="card"><div className="card-body"><div className="empty"><div className="e1">CARREGANDO…</div></div></div></div>;
+    return <div className="card"><div className="card-body"><div className="empty"><div className="e1">CARREGANDO…</div><div className="e2">Buscando a classificação no servidor. Se demorar muito, recarrega a página.</div></div></div></div>;
   }
 
   const standings = computeStandings(cs.rounds);
