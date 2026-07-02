@@ -19,7 +19,11 @@ caret-up, caret-down, x, warning, lock, unlock, flag, question, medal,
 gift, menu, skull, fire, book, newspaper, dice, user, gamepad, phone,
 chart, pin, square-filled, chat, ticket, flask, tag, trash, toilet,
 toothbrush, crown, bolt, heart, football, sword, whistle, snowflake,
-rocket, crosshair, fist, chess, pokeball, cards, crab`
+rocket, crosshair, fist, chess, pokeball, cards, crab, spinner`
+
+> `spinner` é o arco de loading pra botões async — usar com
+> `className="icon-spin"` (rotação via CSS, respeita
+> `prefers-reduced-motion`; manter o label textual tipo "AGUARDE…").
 
 > A galeria completa renderizada fica em **ADMIN → CATÁLOGO** (todos os
 > ícones, títulos, distintivos e molduras num lugar só, pra QA).

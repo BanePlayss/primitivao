@@ -3,7 +3,7 @@
 // Auth: service account JSON em process.env.FIREBASE_SA_KEY (GitHub Secret).
 
 import admin from 'firebase-admin';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readdirSync, unlinkSync } from 'node:fs';
 
 const saRaw = process.env.FIREBASE_SA_KEY;
 if (!saRaw) {
@@ -120,4 +120,36 @@ console.log(`  avatars:      ${avatarsCount}`);
 // pra alertar (não sobrescreve o backup do dia anterior, mas avisa).
 if (wcPicksTotal === 0 && Object.keys(payload.apostas?.users || {}).length > 0) {
   console.warn('⚠ ALERTA: backup tem usuarios mas ZERO palpites da Copa. Pode ser normal (ninguem palpitou ainda) ou pode ser perda de dados.');
+}
+
+// ── Rotação: mantém os últimos 90 dias + o snapshot do dia 1º de cada mês
+// (histórico mensal permanente, barato). O resto é apagado — o step
+// "Commit backup (if changed)" do workflow já faz `git add backups/`,
+// então as deleções entram no mesmo commit do snapshot novo.
+// PRUNE_DRY=1 só loga o que seria apagado, sem deletar (pra testar local).
+const RETENTION_DAYS = 90;
+const dryRun = process.env.PRUNE_DRY === '1';
+const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000)
+  .toISOString().slice(0, 10);
+
+const all = readdirSync('backups').filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f));
+const stale = all.filter((f) => {
+  const day = f.slice(0, 10);
+  if (day >= cutoff) return false;          // dentro da janela de 90 dias
+  if (day.endsWith('-01')) return false;    // snapshot mensal permanente
+  return true;
+});
+
+if (stale.length === 0) {
+  console.log(`Rotação: nada pra apagar (${all.length} backups, janela de ${RETENTION_DAYS} dias + mensais).`);
+} else {
+  for (const f of stale) {
+    if (dryRun) {
+      console.log(`Rotação [DRY-RUN]: apagaria backups/${f}`);
+    } else {
+      unlinkSync(`backups/${f}`);
+      console.log(`Rotação: apagado backups/${f}`);
+    }
+  }
+  console.log(`Rotação: ${dryRun ? 'apagaria' : 'apagou'} ${stale.length} de ${all.length} backups (fora da janela de ${RETENTION_DAYS} dias e não-mensais).`);
 }

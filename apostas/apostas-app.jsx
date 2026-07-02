@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260630-reiko1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260701-ux1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2503,6 +2503,16 @@ function showToast(msg, type) {
 }
 if (typeof window !== 'undefined') window.showToast = showToast;
 
+// Mensagem de erro ciente de rede: se o navegador se sabe offline, troca a
+// mensagem genérica por uma que explica que NADA foi salvo e como resolver.
+// Uso: showToast(netErrorMsg('Erro ao apostar. Tenta de novo.'), 'error')
+function netErrorMsg(fallback) {
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  return offline
+    ? 'Sem internet — nada foi salvo. Reconecta e tenta de novo.'
+    : fallback;
+}
+
 function ToastHost() {
   const [toasts, setToasts] = useState([]);
   useEffect(() => {
@@ -3476,7 +3486,7 @@ function App() {
       return null;
     } catch (e) {
       console.warn('handleAuth failed', e);
-      return 'Erro de conexão. Tente novamente.';
+      return netErrorMsg('Erro de conexão. Tente novamente.');
     }
   };
 
@@ -3616,7 +3626,7 @@ function App() {
       return { ok: true };
     } catch (e) {
       console.warn('placeBet failed', e);
-      showToast('Erro ao registrar a aposta: ' + (e && e.message || e) + '. Tenta de novo em alguns segundos.', 'error');
+      showToast(netErrorMsg('Erro ao registrar a aposta: ' + (e && e.message || e) + '. Tenta de novo em alguns segundos.'), 'error');
     }
   };
 
@@ -3743,7 +3753,7 @@ function App() {
       if (res && res.err) { showToast(res.err, 'error'); return res; }
       showToast('Aposta feita e publicada na MESA DOS CARTOLAS!', 'success');
       return { ok: true };
-    } catch (e) { console.warn('placeMkBet failed', e); showToast('Erro ao apostar. Tenta de novo.', 'error'); return { err: String(e) }; }
+    } catch (e) { console.warn('placeMkBet failed', e); showToast(netErrorMsg('Erro ao apostar. Tenta de novo.'), 'error'); return { err: String(e) }; }
   };
   const removeMkBet = async (ticketId) => {
     try {
@@ -4337,16 +4347,18 @@ function App() {
     }).catch(e => console.warn('latchAchievements failed', e));
   }, [me, ccCtx, session]);
 
+  // Avisa quando a conexão cai/volta — sem isso o usuário aposta offline e
+  // só descobre que nada salvou muito depois. Só toasts; zero efeito no sync.
+  useEffect(() => {
+    const onOff = () => showToast('Sem conexão — mudanças não vão salvar até a internet voltar.', 'error');
+    const onOn  = () => showToast('Conexão de volta!', 'success');
+    window.addEventListener('offline', onOff);
+    window.addEventListener('online', onOn);
+    return () => { window.removeEventListener('offline', onOff); window.removeEventListener('online', onOn); };
+  }, []);
+
   if (!synced || cs === null) {
-    return (
-      <div className="login-stage">
-        <div className="login-card loading-card">
-          <div className="pv-spinner" aria-hidden="true"><span /><span /><span /></div>
-          <div className="lh1">CONECTANDO</div>
-          <div className="lh2">SINCRONIZANDO COM O SERVIDOR</div>
-        </div>
-      </div>
-    );
+    return <ConnectingScreen />;
   }
 
   if (!session || !me && !isAdmin) {
@@ -4969,10 +4981,10 @@ function GolfBanner({ accent, interested, count, onToggleInterest }) {
         {interested ? (
           <>
             <span className="golf-insc-ok"><Icon name="check" size={13} /> INSCRITO</span>
-            <button className="golf-btn golf-btn-out" onClick={click} disabled={busy}>{busy ? 'AGUARDE…' : 'CANCELAR'}</button>
+            <button className="golf-btn golf-btn-out" onClick={click} disabled={busy}>{busy ? <><Icon name="spinner" size={12} className="icon-spin" /> AGUARDE…</> : 'CANCELAR'}</button>
           </>
         ) : (
-          <button className="golf-btn" onClick={click} disabled={busy}>{busy ? 'AGUARDE…' : 'QUERO PARTICIPAR'}</button>
+          <button className="golf-btn" onClick={click} disabled={busy}>{busy ? <><Icon name="spinner" size={12} className="icon-spin" /> AGUARDE…</> : 'QUERO PARTICIPAR'}</button>
         )}
         <span className="golf-insc-count">{count} {count === 1 ? 'INSCRITO' : 'INSCRITOS'}</span>
         {errMsg && <span className="golf-insc-err"><Icon name="x" size={12} /> {errMsg}</span>}
@@ -5080,7 +5092,7 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
                   <span className="golf-round-st" style={{ marginLeft: 'auto' }}>AGUARDANDO</span>
                 </div>
                 {inscritos.length === 0 ? (
-                  <div className="empty" style={{ padding: '18px 12px' }}><div className="e1">SEM INSCRITOS</div></div>
+                  <div className="empty" style={{ padding: '18px 12px' }}><div className="e1">SEM INSCRITOS</div><div className="e2">Ninguém confirmado nesta rodada ainda — chama a galera.</div></div>
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
                     <table className="std-table">
@@ -5163,7 +5175,7 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
                 letterSpacing: '0.16em', fontSize: 11,
                 cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1,
               }}>
-                {busy ? 'AGUARDE…' : 'CANCELAR INSCRIÇÃO'}
+                {busy ? <><Icon name="spinner" size={12} className="icon-spin" /> AGUARDE…</> : 'CANCELAR INSCRIÇÃO'}
               </button>
             </>
           ) : (
@@ -5173,7 +5185,7 @@ function ChampionshipPlaceholder({ champ, session, interested, count, list, isAd
               letterSpacing: '0.18em', fontSize: 13,
               cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1,
             }}>
-              {busy ? 'AGUARDE…' : 'QUERO PARTICIPAR'}
+              {busy ? <><Icon name="spinner" size={12} className="icon-spin" /> AGUARDE…</> : 'QUERO PARTICIPAR'}
             </button>
           )}
           {errMsg && (
@@ -5518,6 +5530,13 @@ function Icon({ name, size = 20, strokeWidth, className = '' }) {
         <svg {...common}>
           <path d="M3 12a9 9 0 0 1 15.5-6.3M21 12a9 9 0 0 1-15.5 6.3" />
           <path d="M16 4v5h5M8 20v-5H3" />
+        </svg>
+      );
+    case 'spinner':
+      // arco de 3/4 de círculo — girar via className="icon-spin" (CSS)
+      return (
+        <svg {...common}>
+          <path d="M21 12a9 9 0 1 1-9-9" />
         </svg>
       );
     case 'caret-up':
@@ -5944,6 +5963,41 @@ function TeamFlag({ flag, size = 26 }) {
   );
 }
 
+// ─── CONECTANDO ─────────────────────────────────────────────────────────────
+// Tela de espera do boot (antes do 1º snapshot confirmado). Componente próprio
+// porque o App early-returna aqui — o timer de "conexão lenta" não poderia ser
+// hook condicional lá dentro. Só apresentação: NÃO mexe em synced/refs/listeners.
+function ConnectingScreen() {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 9000);
+    return () => clearTimeout(t);
+  }, []);
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  return (
+    <div className="login-stage">
+      <div className="login-card loading-card">
+        <div className="pv-spinner" aria-hidden="true"><span /><span /><span /></div>
+        <div className="lh1">CONECTANDO</div>
+        <div className="lh2">SINCRONIZANDO COM O SERVIDOR</div>
+        {slow && (
+          <div className="conn-slow">
+            <div className="conn-slow-msg">
+              <Icon name="warning" size={13} />{' '}
+              {offline
+                ? 'VOCÊ PARECE ESTAR OFFLINE — confere tua internet.'
+                : 'TÁ DEMORANDO MAIS QUE O NORMAL — confere tua internet ou recarrega.'}
+            </div>
+            <button type="button" className="empty-cta" onClick={() => location.reload()}>
+              <Icon name="refresh" size={13} /> RECARREGAR
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── LOGIN ──────────────────────────────────────────────────────────────────
 function Login({ onAuth, isNewNick }) {
   const [nick, setNick] = useState('');
@@ -6076,7 +6130,7 @@ function Login({ onAuth, isNewNick }) {
         )}
 
         <button type="submit" className="login-btn" disabled={busy || !nick.trim() || !senha}>
-          {busy ? 'AGUARDE…' : (isAdminNick ? 'ENTRAR COMO ADMIN' : isNew ? 'CRIAR CONTA' : 'ENTRAR')}
+          {busy ? <><Icon name="spinner" size={12} className="icon-spin" /> AGUARDE…</> : (isAdminNick ? 'ENTRAR COMO ADMIN' : isNew ? 'CRIAR CONTA' : 'ENTRAR')}
         </button>
 
         <div className="login-msg">{msg}</div>
@@ -6360,6 +6414,49 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, thir
   // Resolve slots de mata-mata pro nome real quando a fase de grupos decidir.
   const resolvedFixtures = useMemo(() => resolveWcFixtures(fixtures, results, thirds), [fixtures, results, thirds]);
 
+  // Derivados memoizados: o relógio de 30s re-renderiza a view inteira — sem
+  // memo, os filtros/agrupamentos dos ~100 jogos rodavam a cada tick. Ficam
+  // ANTES do return de loading (regra dos hooks).
+  // Lista de todos os times pro select (PT-BR, sem duplicatas, ordenado)
+  const allTeams = useMemo(() => {
+    const s = new Set();
+    for (const m of resolvedFixtures) {
+      if (!m.slotHome) s.add(m.home);
+      if (!m.slotAway) s.add(m.away);
+    }
+    return Array.from(s).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [resolvedFixtures]);
+
+  const grouped = useMemo(() => {
+    const passaFiltro = (m) => {
+      if (stageFilter === 'group'    && m.isKnockout) return false;
+      if (stageFilter === 'knockout' && !m.isKnockout) return false;
+      if (teamFilter && m.home !== teamFilter && m.away !== teamFilter) return false;
+      return true;
+    };
+    // ESQUERDA = jogos que ainda NÃO foram (sem placar), agrupados por rodada.
+    const activeGames = resolvedFixtures.filter(m => !results[m.id] && passaFiltro(m));
+    const byRound = activeGames.reduce((acc, m) => {
+      (acc[m.round] = acc[m.round] || []).push(m); return acc;
+    }, {});
+    const presentRounds = WC_STAGE_ORDER.filter(r => byRound[r] && byRound[r].length > 0);
+    const extraRounds = Object.keys(byRound).filter(r => !WC_STAGE_ORDER.includes(r));
+    const roundKeys = [...presentRounds, ...extraRounds];
+    // DIREITA = todos os jogos FINALIZADOS (com placar) num feed só, do mais
+    // recente pro mais antigo, sem separador de rodada. Vai ao lado dos jogos.
+    const finishedGames = resolvedFixtures
+      .filter(m => !!results[m.id] && passaFiltro(m))
+      .sort((a, b) => (b.kickoffTs || 0) - (a.kickoffTs || 0));
+    // Contagem dos chips = jogos ainda EM ABERTO por fase.
+    const openGames = resolvedFixtures.filter(m => !results[m.id]);
+    return {
+      byRound, roundKeys, finishedGames,
+      totalAll: openGames.length,
+      totalGroup: openGames.filter(m => !m.isKnockout).length,
+      totalKO: openGames.filter(m => m.isKnockout).length,
+    };
+  }, [resolvedFixtures, results, stageFilter, teamFilter]);
+
   // Loading se ainda não carregou os dados
   if (!fixtures || fixtures.length === 0) {
     return (
@@ -6374,44 +6471,8 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, thir
     );
   }
 
-  // Lista de todos os times pro select (PT-BR, sem duplicatas, ordenado)
-  const allTeams = (() => {
-    const s = new Set();
-    for (const m of resolvedFixtures) {
-      if (!m.slotHome) s.add(m.home);
-      if (!m.slotAway) s.add(m.away);
-    }
-    return Array.from(s).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  })();
-
-  const passaFiltro = (m) => {
-    if (stageFilter === 'group'    && m.isKnockout) return false;
-    if (stageFilter === 'knockout' && !m.isKnockout) return false;
-    if (teamFilter && m.home !== teamFilter && m.away !== teamFilter) return false;
-    return true;
-  };
-
-  // ESQUERDA = jogos que ainda NÃO foram (sem placar), agrupados por rodada.
-  const activeGames = resolvedFixtures.filter(m => !results[m.id] && passaFiltro(m));
-  const byRound = activeGames.reduce((acc, m) => {
-    (acc[m.round] = acc[m.round] || []).push(m); return acc;
-  }, {});
-  const presentRounds = WC_STAGE_ORDER.filter(r => byRound[r] && byRound[r].length > 0);
-  const extraRounds = Object.keys(byRound).filter(r => !WC_STAGE_ORDER.includes(r));
-  const roundKeys = [...presentRounds, ...extraRounds];
-
-  // DIREITA = todos os jogos FINALIZADOS (com placar) num feed só, do mais
-  // recente pro mais antigo, sem separador de rodada. Vai ao lado dos jogos.
-  const finishedGames = resolvedFixtures
-    .filter(m => !!results[m.id] && passaFiltro(m))
-    .sort((a, b) => (b.kickoffTs || 0) - (a.kickoffTs || 0));
+  const { byRound, roundKeys, finishedGames, totalAll, totalGroup, totalKO } = grouped;
   const nicks = Object.keys(allPicks || {});
-
-  // Contagem dos chips = jogos ainda EM ABERTO por fase.
-  const openGames = resolvedFixtures.filter(m => !results[m.id]);
-  const totalAll = openGames.length;
-  const totalGroup = openGames.filter(m => !m.isKnockout).length;
-  const totalKO = openGames.filter(m => m.isKnockout).length;
 
   return (
     <div>
@@ -6435,7 +6496,7 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, thir
             {allTeams.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           {teamFilter && (
-            <button className="copa-team-clear" onClick={() => setTeamFilter('')} title="Limpar filtro de time"><Icon name="x" size={12} /></button>
+            <button className="copa-team-clear" onClick={() => setTeamFilter('')} title="Limpar filtro de time" aria-label="Limpar filtro de time"><Icon name="x" size={12} /></button>
           )}
         </div>
       </div>
@@ -6445,7 +6506,7 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, thir
         <div className="copa-jogos-main">
           {roundKeys.length === 0 && (
             <div className="card"><div className="card-body"><div className="empty">
-              {openGames.length === 0 && finishedGames.length > 0
+              {totalAll === 0 && finishedGames.length > 0
                 ? <><div className="e1">TUDO ENCERRADO POR AGORA</div><div className="e2">Todos os jogos já têm placar — os resultados e os palpites estão no painel ao lado.</div></>
                 : <div className="e2">Nenhum jogo em aberto bate com esse filtro.</div>}
             </div></div></div>
@@ -6539,6 +6600,14 @@ function CopaJogos({ fixtures, results, myPicks, allPicks, myNick, isAdmin, thir
   );
 }
 
+// Placar digitado é válido? Vazio (ainda não preenchido) passa; preenchido
+// tem que ser inteiro 0-20. Usado pro feedback inline ANTES do submit —
+// a validação dura continua no onSavePick (PALPITE_INVALIDO).
+function wcScoreInvalid(v) {
+  const raw = String(v == null ? '' : v).trim();
+  return raw !== '' && (!/^\d+$/.test(raw) || parseInt(raw, 10) > 20);
+}
+
 // Stepper de gols do palpite: botões -/+ grandes (touch) em volta do input,
 // que continua digitável. Sem valor ainda, o "+" começa do zero.
 function WcScoreStepper({ value, onChange, disabled, teamLabel, placeholder }) {
@@ -6555,7 +6624,7 @@ function WcScoreStepper({ value, onChange, disabled, teamLabel, placeholder }) {
               aria-label={'Tirar um gol de ' + teamLabel} tabIndex={-1}>-</button>
       <span className="wc-stepper-mid">
         <input
-          className="wc-score-in"
+          className={'wc-score-in' + (wcScoreInvalid(value) ? ' wc-score-in--invalid' : '')}
           type="number" min="0" max="20"
           value={value}
           placeholder={placeholder || '–'}
@@ -6597,6 +6666,13 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
   const myDrawKO = match.isKnockout && gh !== '' && ga !== '' && gh === ga;
   const adminDrawKO = match.isKnockout && adminGh !== '' && adminGa !== '' && String(adminGh) === String(adminGa);
 
+  // Feedback inline: placar fora de 0-20 pinta o input e trava o botão
+  // ANTES do submit (a validação dura continua no reducer).
+  const pickInvalid = wcScoreInvalid(gh) || wcScoreInvalid(ga)
+    || (myDrawKO && (wcScoreInvalid(penGh) || wcScoreInvalid(penGa)));
+  const adminInvalid = wcScoreInvalid(adminGh) || wcScoreInvalid(adminGa)
+    || (adminDrawKO && (wcScoreInvalid(adminPenGh) || wcScoreInvalid(adminPenGa)));
+
   const handleSave = async () => {
     if (busy || closed || started || isPlaceholder) return;
     setBusy(true); setMsg('');
@@ -6609,7 +6685,9 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
       setMsg(em === 'JOGO_INICIADO' ? 'jogo já começou — travado'
         : em === 'RESULTADO_JA_LANCADO' ? 'placar já saiu — palpite travado'
         : em === 'PALPITE_INVALIDO' ? 'palpite inválido — usa 0 a 20'
-        : 'erro — tenta de novo');
+        : (typeof navigator !== 'undefined' && navigator.onLine === false)
+          ? 'sem internet — palpite NÃO salvo'
+          : 'erro — tenta de novo');
     } finally { setBusy(false); }
   };
 
@@ -6681,9 +6759,9 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
       {myDrawKO && !closed && !started && canBet && !isPlaceholder && (
         <div className="wc-pens-row">
           <span className="wc-pens-l"><Icon name="target" size={11} /> PÊNALTIS</span>
-          <input className="wc-score-in wc-pen-in" type="number" min="0" max="20" value={penGh} onChange={e => setPenGh(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.home} />
+          <input className={'wc-score-in wc-pen-in' + (wcScoreInvalid(penGh) ? ' wc-score-in--invalid' : '')} type="number" min="0" max="20" value={penGh} onChange={e => setPenGh(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.home} />
           <span className="wc-x">×</span>
-          <input className="wc-score-in wc-pen-in" type="number" min="0" max="20" value={penGa} onChange={e => setPenGa(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.away} />
+          <input className={'wc-score-in wc-pen-in' + (wcScoreInvalid(penGa) ? ' wc-score-in--invalid' : '')} type="number" min="0" max="20" value={penGa} onChange={e => setPenGa(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.away} />
           <span className="wc-pens-hint">+3 exato · +1 só quem passou</span>
         </div>
       )}
@@ -6717,10 +6795,11 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
 
       {!closed && !started && canBet && !isPlaceholder && (
         <div className="wc-actions">
-          <button className="wc-save" onClick={handleSave} disabled={busy || !gh || !ga}>
-            {busy ? 'SALVANDO…' : (myPick ? 'ATUALIZAR PALPITE' : 'SALVAR PALPITE')}
+          <button className="wc-save" onClick={handleSave} disabled={busy || !gh || !ga || pickInvalid}>
+            {busy ? <><Icon name="spinner" size={12} className="icon-spin" /> SALVANDO…</> : (myPick ? 'ATUALIZAR PALPITE' : 'SALVAR PALPITE')}
           </button>
           {msg && <span className="wc-msg">{msg === 'palpite salvo' && <Icon name="check" size={11} />} {msg}</span>}
+          {!msg && pickInvalid && <span className="wc-msg wc-msg-err"><Icon name="warning" size={11} /> placar de 0 a 20</span>}
         </div>
       )}
 
@@ -6731,7 +6810,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
         <div className="wc-admin">
           <span className="wc-admin-label">ADMIN — PLACAR REAL{isPlaceholder ? ' (slot)' : ''}:</span>
           <input
-            className="wc-score-in wc-admin-in"
+            className={'wc-score-in wc-admin-in' + (wcScoreInvalid(adminGh) ? ' wc-score-in--invalid' : '')}
             type="number" min="0" max="20"
             value={adminGh}
             onChange={e => setAdminGh(e.target.value)}
@@ -6739,7 +6818,7 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
           />
           <span className="wc-x">×</span>
           <input
-            className="wc-score-in wc-admin-in"
+            className={'wc-score-in wc-admin-in' + (wcScoreInvalid(adminGa) ? ' wc-score-in--invalid' : '')}
             type="number" min="0" max="20"
             value={adminGa}
             onChange={e => setAdminGa(e.target.value)}
@@ -6748,12 +6827,12 @@ function CopaMatchCard({ match, result, myPick, allPicks, isAdmin, canBet, now, 
           {adminDrawKO && (
             <span className="wc-admin-pens">
               <span className="wc-admin-pens-l"><Icon name="target" size={11} /> PÊN</span>
-              <input className="wc-score-in wc-admin-in" type="number" min="0" max="20" value={adminPenGh} onChange={e => setAdminPenGh(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.home} />
+              <input className={'wc-score-in wc-admin-in' + (wcScoreInvalid(adminPenGh) ? ' wc-score-in--invalid' : '')} type="number" min="0" max="20" value={adminPenGh} onChange={e => setAdminPenGh(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.home} />
               <span className="wc-x">×</span>
-              <input className="wc-score-in wc-admin-in" type="number" min="0" max="20" value={adminPenGa} onChange={e => setAdminPenGa(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.away} />
+              <input className={'wc-score-in wc-admin-in' + (wcScoreInvalid(adminPenGa) ? ' wc-score-in--invalid' : '')} type="number" min="0" max="20" value={adminPenGa} onChange={e => setAdminPenGa(e.target.value)} placeholder="–" aria-label={'Pênaltis ' + match.away} />
             </span>
           )}
-          <button className="wc-admin-btn" onClick={handleSetResult} disabled={adminBusy}>
+          <button className="wc-admin-btn" onClick={handleSetResult} disabled={adminBusy || adminInvalid}>
             {result ? 'ATUALIZAR' : 'LANÇAR'}
           </button>
           {result && (
@@ -6772,6 +6851,7 @@ function CopaGrupos({ fixtures, results }) {
     return (
       <div className="card"><div className="card-body"><div className="empty">
         <div className="e1">CARREGANDO…</div>
+        <div className="e2">Buscando a tabela dos grupos. Se demorar muito, recarrega a página.</div>
       </div></div></div>
     );
   }
@@ -6845,6 +6925,7 @@ function CopaRanking({ users, fixtures, results, picks, myNick }) {
     return (
       <div className="card"><div className="card-body"><div className="empty">
         <div className="e1">CARREGANDO…</div>
+        <div className="e2">Buscando o ranking do bolão. Se demorar muito, recarrega a página.</div>
       </div></div></div>
     );
   }
@@ -7055,7 +7136,7 @@ function BracketMatch({ m, result, isAdmin, onSetResult }) {
           <input className="bracket-in bracket-pen-in" value={pga} inputMode="numeric" onChange={e => setPga(num(e.target.value))} onBlur={save} aria-label={'Pênaltis ' + m.away} />
         </div>
       )}
-      {canEdit && played && <button type="button" className="bracket-clear" onClick={clear} title="Limpar resultado"><Icon name="x" size={11} /></button>}
+      {canEdit && played && <button type="button" className="bracket-clear" onClick={clear} title="Limpar resultado" aria-label="Limpar resultado"><Icon name="x" size={11} /></button>}
     </div>
   );
 }
@@ -7311,7 +7392,7 @@ function Comments({ newsId, list, sessionNick, isAdmin, onAdd, onDelete }) {
       showToast('Comentário apagado.', 'success');
     } catch (e) {
       console.warn(e);
-      showToast('Não consegui apagar — tenta de novo.', 'error');
+      showToast(netErrorMsg('Não consegui apagar — tenta de novo.'), 'error');
     }
   };
 
@@ -7346,7 +7427,7 @@ function Comments({ newsId, list, sessionNick, isAdmin, onAdd, onDelete }) {
                   disabled={busy || !text.trim()}
                   onClick={handleSend}
                 >
-                  {busy ? 'ENVIANDO…' : 'ENVIAR'}
+                  {busy ? <><Icon name="spinner" size={12} className="icon-spin" /> ENVIANDO…</> : 'ENVIAR'}
                 </button>
               </div>
               {err && <div className="comment-err">{err}</div>}
@@ -7797,7 +7878,7 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
               {legLabel(l, teamPlayers)}
             </div>
             <div className="cupom-leg-odd mono">{l.odds.toFixed(2)}</div>
-            <button className="cupom-leg-x" title="Tirar este palpite" onClick={() => onRemoveLeg(l.fixtureId, l.market, l.pick)}><Icon name="x" size={12} /></button>
+            <button className="cupom-leg-x" title="Tirar este palpite" aria-label="Tirar este palpite" onClick={() => onRemoveLeg(l.fixtureId, l.market, l.pick)}><Icon name="x" size={12} /></button>
           </div>
         ))}
 
@@ -7812,7 +7893,16 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
             <div style={{ marginTop: 10 }} className="small-label">QUANTO APOSTAR (PC)</div>
             <input type="number" min="1" max={balance} value={amt}
                    onChange={e => setAmt(Math.max(0, Math.min(balance, +e.target.value || 0)))}
-                   className="stake-input" />
+                   className={'stake-input' + (amt <= 0 ? ' stake-input--invalid' : '')} />
+            {/* Feedback inline: o botão APOSTAR já trava com amt<=0, mas sem
+                dica o usuário não sabia o porquê. */}
+            {amt <= 0 && (
+              <div className="stake-hint">
+                {balance <= 0
+                  ? <><Icon name="warning" size={11} /> saldo zerado — pega o bônus semanal ou espera resolver as apostas abertas</>
+                  : <><Icon name="warning" size={11} /> digite um valor — mínimo 1 PC</>}
+              </div>
+            )}
             {/* Valores rápidos calibrados pra economia atual (bônus semanal
                 de 550 PC, saldos na casa dos milhares). Clampa no saldo. */}
             <div className="quick">
@@ -7839,7 +7929,7 @@ function Cupom({ slip, gamesById, balance, onRemoveLeg, onClearSlip, onPlaceBet,
             <div className="modal-btns">
               <button className="btn-secondary" onClick={onClearSlip} disabled={busy}>LIMPAR</button>
               <button className="btn-primary" disabled={!valid} onClick={() => handlePlace()}>
-                {busy ? 'APOSTANDO…' : `APOSTAR ${amt} PC`}
+                {busy ? <><Icon name="spinner" size={12} className="icon-spin" /> APOSTANDO…</> : `APOSTAR ${amt} PC`}
               </button>
             </div>
             {/* Todo cupom agora vai pra MESA DOS CARTOLAS automaticamente ao apostar. */}
@@ -7973,7 +8063,7 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, gamesById, alreadyCo
         <>
           <div className="mesa-cashback"><Icon name="shield" size={12} /> SEGURO: se perder volta <b>{insurance} PC</b> (10%). Se ganhar, taxa de 10% do lucro (5% pro cartola).</div>
           <div className="mesa-copyrow">
-            <input className="mesa-stake" value={amt} inputMode="numeric" onChange={e => setAmt(Math.max(0, parseInt(e.target.value.replace(/\D/g, ''), 10) || 0))} />
+            <input className={'mesa-stake' + (!amt || amt > balance ? ' stake-input--invalid' : '')} value={amt} inputMode="numeric" aria-label="Quanto apostar copiando este ticket" onChange={e => setAmt(Math.max(0, parseInt(e.target.value.replace(/\D/g, ''), 10) || 0))} />
             <button type="button" className="mesa-copybtn" disabled={busy || !amt || amt > balance} onClick={doCopy}>
               {busy ? '...' : (amt > balance ? 'SEM SALDO' : 'COPIAR')}
             </button>
@@ -9223,7 +9313,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
       if (res && res.err) { showToast(res.err, 'error'); return; }
       showToast('Elenco salvo pra ' + target + '!', 'success');
     }
-    catch (e) { showToast('Falha ao salvar.', 'error'); }
+    catch (e) { showToast(netErrorMsg('Falha ao salvar.'), 'error'); }
     finally { setBusy(false); }
   };
 
@@ -9299,7 +9389,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
               </div>
               <div className="mk-foot">
                 <div className="mk-selected">{sel.length}/{MK_MAX_CHARS} escolhidos{sel.length ? ': ' + sel.join(' · ') : ''}</div>
-                {!rosterLocked && <button className="tp-btn-go" onClick={save} disabled={busy || sel.length === 0}>{busy ? 'SALVANDO…' : 'SALVAR ELENCO'}</button>}
+                {!rosterLocked && <button className="tp-btn-go" onClick={save} disabled={busy || sel.length === 0}>{busy ? <><Icon name="spinner" size={12} className="icon-spin" /> SALVANDO…</> : 'SALVAR ELENCO'}</button>}
               </div>
             </div>
 
@@ -9770,7 +9860,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
 // pra apostar na rodada ABERTA (a anterior tem que ter fechado).
 function mkLegLabel(l) { return mkPickLabel(l.market, l.pick); }
 function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onMkScore, onOpenProfile, onEscalar, myNick, isAdmin, isMod, balance }) {
-  const insc = (players || []).slice().sort();
+  const insc = useMemo(() => (players || []).slice().sort(), [players]);
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
   const [cupom, setCupom] = useState([]);
@@ -9814,15 +9904,19 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
 
   // odds usam TODOS os jogos já LANÇADOS (não só rodadas 100% fechadas) — assim os
   // jogos adiantados já têm odd com base no desempenho real até agora.
-  const oddsMatches = draw ? draw.flatMap(r => (r.games || []).map((g, gi) => ({
+  // useMemo: o cronômetro re-renderiza a view a cada 1s — sem memo, odds e
+  // métricas de todos os jogos eram recalculadas a cada tick.
+  const oddsMatches = useMemo(() => draw ? draw.flatMap(r => (r.games || []).map((g, gi) => ({
     home: g.home, away: g.away, sc: (scores || {})[gKey(r, gi)] || {},
-  })).filter(m => mkMatchOutcome(m.sc))) : [];
-  const metrics = computeMkPlayerMetrics(insc, oddsMatches);
+  })).filter(m => mkMatchOutcome(m.sc))) : [], [draw, scores]);
+  const metrics = useMemo(() => computeMkPlayerMetrics(insc, oddsMatches), [insc, oddsMatches]);
   // LISTA ÚNICA "LIBERADOS": todo jogo que dá pra apostar AGORA (de qualquer rodada,
   // os 2 jogadores sem pendência atrás). Sem navegação por rodada.
   // SEUS jogos primeiro (você está no confronto) — depois o resto, ordem estável.
-  const isMine = (g) => !!myNick && (g.home === myNick || g.away === myNick);
-  const liberados = [...mkLiberadoGames(draw, scores)].sort((a, b) => (isMine(a.g) ? 0 : 1) - (isMine(b.g) ? 0 : 1));
+  const liberados = useMemo(() => {
+    const isMine = (g) => !!myNick && (g.home === myNick || g.away === myNick);
+    return [...mkLiberadoGames(draw, scores)].sort((a, b) => (isMine(a.g) ? 0 : 1) - (isMine(b.g) ? 0 : 1));
+  }, [draw, scores, myNick]);
   // tira do cupom pernas de jogos que deixaram de estar liberados (foram lançados).
   const liberadoKeys = liberados.map(x => x.key).join('|');
   useEffect(() => {
@@ -10085,7 +10179,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             <div className="cupom-leg-pick">{l.home}×{l.away} - <strong>{mkLegLabel(l)}</strong></div>
                           </div>
                           <div className="cupom-leg-odd mono">{l.odd.toFixed(2)}</div>
-                          <button className="cupom-leg-x" onClick={() => setCupom(p => p.filter(x => x.key !== l.key))}><Icon name="x" size={12} /></button>
+                          <button className="cupom-leg-x" title="Tirar este palpite" aria-label="Tirar este palpite" onClick={() => setCupom(p => p.filter(x => x.key !== l.key))}><Icon name="x" size={12} /></button>
                         </div>
                       ))}
                       <div className="modal-row" style={{ marginTop: 10 }}>
@@ -10095,8 +10189,15 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                       <div className="modal-row"><span className="lab">SALDO</span><span className="mono">{Number.isFinite(balance) ? balance + ' PC' : '∞'}</span></div>
 
                       <div style={{ marginTop: 10 }} className="small-label">QUANTO APOSTAR (PC)</div>
-                      <input type="number" min="1" value={stake} className="stake-input"
+                      <input type="number" min="1" value={stake} className={'stake-input' + (stake <= 0 ? ' stake-input--invalid' : '')}
                         onChange={e => setStake(Math.max(0, Math.min(Number.isFinite(balance) ? balance : 1e9, +e.target.value || 0)))} />
+                      {stake <= 0 && (
+                        <div className="stake-hint">
+                          {Number.isFinite(balance) && balance <= 0
+                            ? <><Icon name="warning" size={11} /> saldo zerado — pega o bônus semanal ou espera resolver as apostas abertas</>
+                            : <><Icon name="warning" size={11} /> digite um valor — mínimo 1 PC</>}
+                        </div>
+                      )}
                       {/* mesmos valores rápidos do cupom FIFA (50/100/500) */}
                       <div className="quick">
                         <button onClick={() => setStake(Number.isFinite(balance) ? Math.min(50, balance) : 50)}>50</button>
@@ -10632,15 +10733,20 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
 
   // FIFA guarda fixtures por TEAM ID (não nick); teamPlayers mapeia teamId->nick.
   // reverseTeamMap dá nick->teamId. Identidade na maioria, menos ex.: juca->jucamelero.
-  const fifaStand = computeStandings(cs ? cs.rounds : []);
+  // useMemo: cada troca de jogador nos seletores re-renderiza a view — sem
+  // memo, as classificações inteiras (FIFA + MK) eram recomputadas à toa.
+  const fifaStand = useMemo(() => computeStandings(cs ? cs.rounds : []), [cs]);
   const nick2team = reverseTeamMap(teamPlayers || {});
   const teamOf = (n) => nick2team[n] || n;        // nick -> teamId (fallback: o próprio)
   const nickOf = (tid) => (teamPlayers || {})[tid] || tid; // teamId -> nick (fallback: o próprio)
   const fifaPos = (n) => { const i = fifaStand.findIndex(s => s.id === teamOf(n)); return i < 0 ? null : i + 1; };
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
-  const mkPlayers = mkInscritos(interests);
-  const mkMatchesAll = (mkDraw || []).flatMap(r => r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: (mkScores || {})[gKey(r, gi)] || {} }))).filter(m => !mkGameVoid(m));
-  const mkStand = computeMkStandings(mkPlayers, mkMatchesAll);
+  const mkPlayers = useMemo(() => mkInscritos(interests), [interests]);
+  const mkMatchesAll = useMemo(
+    () => (mkDraw || []).flatMap(r => r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: (mkScores || {})[gKey(r, gi)] || {} }))).filter(m => !mkGameVoid(m)),
+    [mkDraw, mkScores]
+  );
+  const mkStand = useMemo(() => computeMkStandings(mkPlayers, mkMatchesAll), [mkPlayers, mkMatchesAll]);
   const mkPos = (n) => { const i = mkStand.findIndex(s => s.nick === n); return i < 0 ? null : i + 1; };
 
   const trophiesOf = (n) => trophiesForNick(n, cs, teamPlayers || {});
@@ -11546,7 +11652,7 @@ function LojaView({ nick, me, ctx, onBuy, onEquip }) {
                             disabled={!canAfford || !!action}
                             onClick={() => handleBuy(item)}
                           >
-                            {action === 'buy' ? 'COMPRANDO…' : (canAfford ? `COMPRAR · ${item.price} CC` : `SEM CC (precisa ${item.price})`)}
+                            {action === 'buy' ? <><Icon name="spinner" size={12} className="icon-spin" /> COMPRANDO…</> : (canAfford ? `COMPRAR · ${item.price} CC` : `SEM CC (precisa ${item.price})`)}
                           </button>
                         )}
                         {owned && !isEquipped && (
@@ -11755,7 +11861,7 @@ function AparenciaCard({ theme, onSetTheme, nick, teamPlayers, cosmetics, curren
             </p>
             <div className="aparencia-avatar-btns">
               <button type="button" className="aparencia-up-btn" disabled={busy} onClick={() => fileRef.current && fileRef.current.click()}>
-                <Icon name="user" size={13} /> {busy ? 'ENVIANDO…' : (currentAvatar ? 'TROCAR FOTO' : 'ENVIAR FOTO')}
+                <Icon name={busy ? 'spinner' : 'user'} size={13} className={busy ? 'icon-spin' : ''} /> {busy ? 'ENVIANDO…' : (currentAvatar ? 'TROCAR FOTO' : 'ENVIAR FOTO')}
               </button>
               {currentAvatar && (
                 <button type="button" className="aparencia-rm-btn" disabled={busy} onClick={onRemove}>
@@ -12329,7 +12435,7 @@ function ClassificacaoView({ cs, setCs, isAdmin, users, teamPlayers, myNick }) {
   }, [cs]);
 
   if (!cs) {
-    return <div className="card"><div className="card-body"><div className="empty"><div className="e1">CARREGANDO…</div></div></div></div>;
+    return <div className="card"><div className="card-body"><div className="empty"><div className="e1">CARREGANDO…</div><div className="e2">Buscando a classificação no servidor. Se demorar muito, recarrega a página.</div></div></div></div>;
   }
 
   const standings = computeStandings(cs.rounds);
@@ -13807,7 +13913,7 @@ function NewsAdminPanel({ remoteNews }) {
             + NOVA
           </button>
           <button onClick={save} disabled={busy} style={{ background: 'var(--pv-charcoal)', color: 'var(--pv-bone)', border: 'none', padding: '8px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.14em', cursor: busy ? 'wait' : 'pointer' }}>
-            {busy ? 'SALVANDO…' : 'SALVAR TUDO'}
+            {busy ? <><Icon name="spinner" size={12} className="icon-spin" /> SALVANDO…</> : 'SALVAR TUDO'}
           </button>
           {msg && <span style={{ alignSelf: 'center', fontSize: 12, color: msg.startsWith('Erro') ? 'var(--pv-red)' : 'var(--pv-green)', fontWeight: 700 }}>{msg}</span>}
         </div>
@@ -14356,7 +14462,7 @@ function ChampWizard({ users, interests, onCreate }) {
             </button>
           ))}
         </div>
-        <button type="button" className="btn-primary cw-create" disabled={busy} onClick={create}>{busy ? 'CRIANDO…' : 'CRIAR E PUBLICAR'}</button>
+        <button type="button" className="btn-primary cw-create" disabled={busy} onClick={create}>{busy ? <><Icon name="spinner" size={12} className="icon-spin" /> CRIANDO…</> : 'CRIAR E PUBLICAR'}</button>
       </div>
     </div>
   );
@@ -14413,7 +14519,7 @@ function ModView({ officialDay, onSetOfficialDay, myNick }) {
             <div style={{ fontSize: 11, color: 'rgba(28,22,18,0.6)', marginBottom: 10 }}>Ligado por {officialDay.by}.</div>
           )}
           <button onClick={toggle} disabled={busy} style={{ background: active ? 'var(--pv-charcoal)' : 'var(--pv-orange)', color: 'var(--pv-bone)', border: 'none', padding: '10px 18px', fontWeight: 800, fontSize: 13, letterSpacing: '0.1em', cursor: busy ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <Icon name={active ? 'x' : 'coin-fire'} size={14} /> {busy ? 'SALVANDO…' : (active ? 'DESLIGAR DIA OFICIAL' : 'LIGAR DIA OFICIAL (+25%)')}
+            <Icon name={busy ? 'spinner' : (active ? 'x' : 'coin-fire')} size={14} className={busy ? 'icon-spin' : ''} /> {busy ? 'SALVANDO…' : (active ? 'DESLIGAR DIA OFICIAL' : 'LIGAR DIA OFICIAL (+25%)')}
           </button>
         </div>
       </div>
@@ -14587,7 +14693,7 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, s
                 </div>
               </div>
               <button onClick={handleGrantAll} disabled={granting} style={{ background: 'var(--pv-green, #2a8f3f)', color: 'var(--pv-bone)', border: 'none', padding: '10px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.1em', cursor: granting ? 'wait' : 'pointer', flexShrink: 0 }}>
-                {granting ? 'CREDITANDO…' : '+1000 PRA TODOS'}
+                {granting ? <><Icon name="spinner" size={12} className="icon-spin" /> CREDITANDO…</> : '+1000 PRA TODOS'}
               </button>
             </div>
             <div style={{ marginBottom: 14, padding: 12, border: '2px solid var(--pv-orange)', background: 'rgba(215,100,20,0.08)' }}>
@@ -14735,7 +14841,7 @@ function BackupPanel() {
 
         <button onClick={onClick} disabled={status === 'running'}
           style={{ background: 'var(--pv-orange)', color: 'var(--pv-bone)', padding: '10px 20px', fontWeight: 800, border: 'none', letterSpacing: '0.16em', fontSize: 12, cursor: status === 'running' ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {status === 'running' ? 'GERANDO…' : <><Icon name="arrow-down" size={14} /> BAIXAR BACKUP JSON</>}
+          {status === 'running' ? <><Icon name="spinner" size={14} className="icon-spin" /> GERANDO…</> : <><Icon name="arrow-down" size={14} /> BAIXAR BACKUP JSON</>}
         </button>
         {status && status !== 'running' && status.ok && (
           <p style={{ marginTop: 14, color: 'var(--pv-green, #2a8)', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -14998,7 +15104,7 @@ function RestorePanel() {
                 display: 'inline-flex', alignItems: 'center', gap: 6,
               }}
             >
-              {status === 'running' ? 'RESTAURANDO…' : <><Icon name="refresh" size={13} /> RESTAURAR (sobrescreve atual)</>}
+              {status === 'running' ? <><Icon name="spinner" size={13} className="icon-spin" /> RESTAURANDO…</> : <><Icon name="refresh" size={13} /> RESTAURAR (sobrescreve atual)</>}
             </button>
           </div>
         )}
