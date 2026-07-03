@@ -4976,6 +4976,37 @@
     .mk-bg-flag.seu { background: var(--pv-orange); color: var(--pv-bone); }
     .mk-bg-flag.lock { background: #7a2222; color: #fff; }
     .mk-bg-flag.closing { margin-left: auto; background: var(--pv-charcoal); color: var(--pv-bone); }
+    /* fix: cada caixa fica com a PRÓPRIA altura — o grid não estica os irmãos
+       pra igualar a caixa expandida (era isso que "bugava" as fechadas). */
+    .mk-bet-games { align-items: start; }
+    /* barra de probabilidade do confronto (mandante/empate/visitante) */
+    .mk-bg-prob { margin-top: 9px; }
+    .mk-bg-prob-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: rgba(28,22,18,0.1); }
+    .mk-bg-prob-seg { height: 100%; }
+    .mk-bg-prob-seg.h { background: var(--pv-orange); }
+    .mk-bg-prob-seg.d { background: rgba(28,22,18,0.28); }
+    .mk-bg-prob-seg.a { background: var(--pv-charcoal); }
+    .mk-bg-prob-lab { display: flex; justify-content: space-between; gap: 6px; margin-top: 3px; font-size: 8.5px; font-weight: 800; letter-spacing: 0.02em; }
+    .mk-bg-prob-lab .mand { color: var(--pv-orange); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mk-bg-prob-lab .draw { color: rgba(28,22,18,0.5); flex-shrink: 0; }
+    .mk-bg-prob-lab .away { color: var(--pv-charcoal); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+    /* odds do VENCEDOR (display) no resumo */
+    .mk-bg-odds { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 9px; padding-top: 8px; border-top: 1.5px dashed rgba(28,22,18,0.18); }
+    .mk-bg-odds-l { font-size: 8px; font-weight: 800; letter-spacing: 0.14em; color: rgba(28,22,18,0.45); }
+    .mk-bg-odd { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border: 1.5px solid rgba(28,22,18,0.2); border-radius: 3px; font-size: 8px; font-weight: 800; letter-spacing: 0.04em; color: rgba(28,22,18,0.5); }
+    .mk-bg-odd i { font-family: 'Space Grotesk', sans-serif; font-style: normal; font-weight: 800; font-size: 12px; color: var(--pv-charcoal); }
+    /* linha de flags de estado (some quando vazia) */
+    .mk-bg-flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+    .mk-bg-flags:empty { display: none; margin: 0; }
+    /* bonecos no resumo reusam .mk-bet-fc; só ajusta a margem */
+    .mk-bg-summary .mk-bet-fc { margin-top: 9px; margin-bottom: 0; }
+    /* bloco de estatísticas/probabilidades no corpo expandido */
+    .mk-bg-stats { border: 1.5px solid rgba(28,22,18,0.14); background: rgba(28,22,18,0.02); padding: 9px 10px; margin-bottom: 10px; }
+    .mk-bg-stats-h { display: inline-flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; color: var(--pv-orange); margin-bottom: 8px; }
+    .mk-bg-stat-grid { display: flex; flex-direction: column; gap: 5px; }
+    .mk-bg-stat { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 10px; }
+    .mk-bg-stat-k { font-size: 8.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,22,18,0.45); flex-shrink: 0; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mk-bg-stat-v { font-weight: 700; color: var(--pv-charcoal); text-align: right; min-width: 0; }
     .mk-bet-own { display: flex; align-items: center; gap: 5px; margin-bottom: 9px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; color: #fff; background: var(--pv-charcoal); padding: 4px 8px; }
     .mk-bet-own.lock { background: #7a2222; }
     .mk-bet-own.seu { justify-content: space-between; gap: 8px; background: var(--pv-orange); color: var(--pv-bone); }
