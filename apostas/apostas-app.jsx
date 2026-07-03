@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260630-reiko1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260703-mk2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -818,6 +818,42 @@ function computeMkStandings(players, matches) {
   });
 }
 
+// ── FORMA & 1º ROUND (stats mostradas no card de aposta do MK) ──────────────
+// Últimos confrontos CONCLUÍDOS do nick, em ordem do chaveamento, do mais
+// recente pro mais antigo. Item: { res:'V'|'D'|'E', oppNick }.
+function mkPlayerRecent(nick, draw, scores, limit) {
+  if (!draw || !nick) return [];
+  const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const rows = [];
+  draw.forEach(r => (r.games || []).forEach((g, gi) => {
+    if (g.home !== nick && g.away !== nick) return;
+    if (mkGameVoid(g)) return;
+    const o = mkMatchOutcome((scores || {})[gk(r, gi)]);
+    if (!o) return; // só concluídos
+    const meHome = g.home === nick;
+    const iWon = (meHome && o.winner === 'H') || (!meHome && o.winner === 'A');
+    rows.push({ res: o.winner === 'D' ? 'E' : (iWon ? 'V' : 'D'), oppNick: meHome ? g.away : g.home });
+  }));
+  return rows.slice(-(limit || 5)).reverse();
+}
+// Vitórias de 1º ROUND do nick nos confrontos concluídos onde o mod registrou o
+// 1º round (sc.firstRound = 'H'/'A'). Retorna { won, total }.
+function mkFirstRoundStats(nick, draw, scores) {
+  if (!draw || !nick) return { won: 0, total: 0 };
+  const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  let won = 0, total = 0;
+  draw.forEach(r => (r.games || []).forEach((g, gi) => {
+    if (g.home !== nick && g.away !== nick) return;
+    if (mkGameVoid(g)) return;
+    const sc = (scores || {})[gk(r, gi)];
+    if (!mkMatchOutcome(sc)) return;    // confronto concluído
+    if (!sc || !sc.firstRound) return;  // 1º round não registrado
+    total++;
+    if ((sc.firstRound === 'H') === (g.home === nick)) won++;
+  }));
+  return { won, total };
+}
+
 // ─── ODDS DO MK — modelo de 2 níveis (round -> partida -> confronto). Da força
 // sai p (prob do mandante vencer 1 round); daí a binomial negativa "primeiro a 2"
 // dá a partida, e as 2 partidas independentes dão o confronto.
@@ -1045,6 +1081,9 @@ const OFFICIAL_DAY_MULT = 1.25;
 // seguidores que copiaram ganham/perdem (assimétrico: perde mais que ganha).
 const CASHBACK_RATE = 0.10;
 const MAX_OPEN_TICKETS = 3; // tickets abertos simultâneos por dono (anti-flood)
+// Curadoria da MESA: só publica os cupons com odd combinada >= 5x (as calls
+// ousadas). Apostas "seguras" de odd baixa não entram no feed de cópia.
+const MESA_MIN_ODDS = 5;
 const REP_LEVELS = [
   { min: 0,    name: 'NOVATO',       icon: 'ticket',  color: '#8c8478' },
   { min: 50,   name: 'PALPITEIRO',   icon: 'target',  color: '#3f9e57' },
@@ -1644,6 +1683,14 @@ function normBet(b) {
 }
 
 // ─── LÓGICA DE TICKETS ──────────────────────────────────────────────────────
+// Assinatura canônica das pernas (pra achar cupons IDÊNTICOS na Mesa): conjunto
+// ORDENADO de fixtureId|market|pick. Ignora odds (podem variar no tempo).
+function legsSignature(legs) {
+  return (legs || [])
+    .map(l => String(l.fixtureId) + '|' + String(l.market) + '|' + String(l.pick))
+    .sort()
+    .join('~');
+}
 function ticketStatusFromLegs(legs) {
   if (legs.some(l => l.result === 'lose')) return 'lost';
   if (legs.length && legs.every(l => l.result === 'win')) return 'won';
@@ -3596,13 +3643,29 @@ function App() {
       open: true, openMeta: { publishedAt: Date.now(), copies: 0, stakeCopied: 0 },
     };
     try {
+      let autoCopyInfo = null;
       const result = await commitBetDocUpdate(remote => {
+        autoCopyInfo = null;
         const u = (remote.users || {})[session.nick];
         if (!u) {
           return { __abort: true, result: { err: 'Sua conta não está sincronizada. Faz logout e entra de novo.' } };
         }
         if (u.pc < amount) {
           return { __abort: true, result: { err: 'Saldo insuficiente (tem ' + u.pc + ' PC, aposta de ' + amount + ' PC).' } };
+        }
+        // Auto-cópia: se um cupom IDÊNTICO já está aberto na Mesa, a aposta vira
+        // cópia dele (não duplica o ticket). Own = bloqueia repetir o próprio.
+        const { own, other } = findMesaTwins(remote, ticket.legs, session.nick);
+        // Own tem precedência: já tem esse cupom aberto -> bloqueia (não duplica
+        // nem vira cópia de terceiro em cima do próprio ticket).
+        if (own) return { __abort: true, result: { err: 'Você já tem esse cupom aberto na Mesa dos Cartolas.' } };
+        if (other) {
+          if ((remote.bets || []).some(c => c.copyOf === other.id && c.user === session.nick)) {
+            return { __abort: true, result: { err: 'Você já copiou esse cupom na Mesa dos Cartolas.' } };
+          }
+          const ac = buildAutoCopy(remote, other, session.nick, amount, u);
+          autoCopyInfo = { cashback: ac.cashback, owner: ac.owner, odds: ac.odds };
+          return ac.state;
         }
         // Idempotência: se por algum motivo o ticket já foi gravado, não duplica.
         if ((remote.bets || []).some(b => b.id === ticket.id)) return null;
@@ -3612,7 +3675,9 @@ function App() {
       });
       if (result && result.err) { showToast(result.err, 'error'); return; }
       setSlip([]);
-      showToast(`Aposta de ${amount} PC feita e publicada na MESA DOS CARTOLAS!`, 'success');
+      showToast(autoCopyInfo
+        ? ('Cupom idêntico já estava na Mesa — você copiou o de ' + autoCopyInfo.owner + ' (odd ' + Number(autoCopyInfo.odds).toFixed(2) + 'x). Seguro de ' + autoCopyInfo.cashback + ' PC se o cupom perder.')
+        : `Aposta de ${amount} PC feita e publicada na MESA DOS CARTOLAS!`, 'success');
       return { ok: true };
     } catch (e) {
       console.warn('placeBet failed', e);
@@ -3672,6 +3737,37 @@ function App() {
   });
   // Publicar/despublicar na Mesa foi REMOVIDO: todo cupom é público sempre
   // (nasce open:true; a Mesa lista todo cupom pendente que não é cópia).
+  // ── AUTO-CÓPIA (dedup da Mesa dos Cartolas) ────────────────────────────────
+  // Se a aposta nova for IDÊNTICA a um cupom já ABERTO e VISÍVEL na Mesa (open,
+  // pendente, não-cópia, odd combinada >= MESA_MIN_ODDS), ela vira CÓPIA em vez
+  // de virar um ticket repetido no feed. `other` = de outro usuário (candidato a
+  // cópia); `own` = do próprio nick (bloqueia o duplicado).
+  const findMesaTwins = (remote, legs, nick) => {
+    const sig = legsSignature(legs);
+    const twins = (remote.bets || []).filter(b => b && b.open && !b.copyOf && b.status === 'pending'
+      && Number(b.combinedOdds || 0) >= MESA_MIN_ODDS && legsSignature(b.legs) === sig);
+    return {
+      own: twins.find(b => b.user === nick) || null,
+      other: twins.find(b => b.user !== nick && !legBusy(b.legs, remote)) || null,
+    };
+  };
+  // Constrói o estado com a aposta convertida em CÓPIA do `twin` — mesmas regras
+  // de copiar (seguro diferido + incrementa seguidores/gorjeta do dono).
+  const buildAutoCopy = (remote, twin, nick, amount, u) => {
+    const cashback = Math.round(amount * CASHBACK_RATE);
+    const copyId = 'c' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    const copy = {
+      id: copyId, user: nick, amount, status: 'pending', createdAt: Date.now(),
+      champId: twin.champId, combinedOdds: twin.combinedOdds, casada: twin.casada,
+      legs: (twin.legs || []).map(l => ({ ...l })),
+      copyOf: twin.id, copyOwner: twin.user, cashback, cashbackDeferred: true,
+      autoCopied: true,
+    };
+    const users = { ...remote.users, [nick]: { ...u, pc: u.pc - amount } };
+    const bets = (remote.bets || []).map(b => b.id !== twin.id ? b
+      : ({ ...b, openMeta: { ...(b.openMeta || {}), copies: ((b.openMeta && b.openMeta.copies) || 0) + 1, stakeCopied: ((b.openMeta && b.openMeta.stakeCopied) || 0) + amount } }));
+    return { state: { ...remote, users, bets: [copy, ...bets] }, cashback, owner: twin.user, odds: twin.combinedOdds };
+  };
   // Copia um ticket aberto: paga o stake. O cashback de 10% (da casa) NÃO é mais
   // creditado na hora — fica DIFERIDO pra liquidação (settle), pago 1x quando a
   // cópia resolve. Isso fecha o exploit (copiar+cancelar ficava com o cashback).
@@ -3733,16 +3829,32 @@ function App() {
       })),
     };
     try {
+      let autoCopyInfo = null;
       const res = await commitBetDocUpdate(remote => {
+        autoCopyInfo = null;
         const u = (remote.users || {})[nick];
         if (!u) return { __abort: true, result: { err: 'Conta não sincronizada. Faz login de novo.' } };
         if ((u.pc || 0) < stake) return { __abort: true, result: { err: 'Saldo insuficiente (tem ' + (u.pc || 0) + ' PC).' } };
+        // Auto-cópia: cupom IDÊNTICO já aberto na Mesa vira cópia (não duplica).
+        const { own, other } = findMesaTwins(remote, ticket.legs, nick);
+        // Own tem precedência: já tem esse cupom aberto -> bloqueia (não duplica).
+        if (own) return { __abort: true, result: { err: 'Você já tem esse cupom aberto na Mesa dos Cartolas.' } };
+        if (other) {
+          if ((remote.bets || []).some(c => c.copyOf === other.id && c.user === nick)) {
+            return { __abort: true, result: { err: 'Você já copiou esse cupom na Mesa dos Cartolas.' } };
+          }
+          const ac = buildAutoCopy(remote, other, nick, stake, u);
+          autoCopyInfo = { cashback: ac.cashback, owner: ac.owner, odds: ac.odds };
+          return ac.state;
+        }
         if ((remote.bets || []).some(b => b.id === ticket.id)) return null;
         return { ...remote, users: { ...remote.users, [nick]: { ...u, pc: u.pc - stake } }, bets: [ticket, ...(remote.bets || [])] };
       });
       if (res && res.err) { showToast(res.err, 'error'); return res; }
-      showToast('Aposta feita e publicada na MESA DOS CARTOLAS!', 'success');
-      return { ok: true };
+      showToast(autoCopyInfo
+        ? ('Cupom idêntico já estava na Mesa — você copiou o de ' + autoCopyInfo.owner + ' (odd ' + Number(autoCopyInfo.odds).toFixed(2) + 'x). Seguro de ' + autoCopyInfo.cashback + ' PC se o cupom perder.')
+        : 'Aposta feita e publicada na MESA DOS CARTOLAS!', 'success');
+      return { ok: true, autoCopied: !!autoCopyInfo };
     } catch (e) { console.warn('placeMkBet failed', e); showToast('Erro ao apostar. Tenta de novo.', 'error'); return { err: String(e) }; }
   };
   const removeMkBet = async (ticketId) => {
@@ -4644,7 +4756,7 @@ function App() {
                   players={mkInscritos(interests)} users={users} teamPlayers={teamPlayers || {}}
                   draw={mkDraw} onPublishDraw={publishMkDraw}
                   scores={mkScores} onScore={setMkScoreField} lineups={mkLineups}
-                  isAdmin={isAdmin} isMod={isMod} locked={mkLocked} myNick={session.nick}
+                  isAdmin={isAdmin} isMod={isMod} locked={mkLocked} myNick={session.nick} launchOnly
                 />
                 <div style={{ height: 18 }} />
                 <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isMod}
@@ -8000,8 +8112,9 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, gamesById, alreadyCo
 }
 function OpenTicketsFeed({ bets, users, teamPlayers, gamesById, myNick, champId, balance, onCopy }) {
   const all = bets || [];
-  // Todo cupom é PÚBLICO: lista todo pendente que não é cópia (ignora flag `open`).
-  const open = all.filter(b => !b.copyOf && b.status === 'pending' && (b.champId || 'fifa') === champId)
+  // Cupom PÚBLICO e ousado: pendente, não-cópia, do campeonato atual e com odd
+  // combinada >= MESA_MIN_ODDS (curadoria — só as calls que valem copiar).
+  const open = all.filter(b => !b.copyOf && b.status === 'pending' && (b.champId || 'fifa') === champId && Number(b.combinedOdds || 0) >= MESA_MIN_ODDS)
     .sort((a, b) => repScoreOf((users || {})[b.user]) - repScoreOf((users || {})[a.user]) || (b.openMeta?.publishedAt || 0) - (a.openMeta?.publishedAt || 0));
   if (!open.length) return null;
   return (
@@ -9455,7 +9568,88 @@ function MkCurtainOpening({ onDone }) {
 
 const MK_CURTAIN_KEY = 'mk_curtain_seen';
 
-function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPublishDraw, scores, onScore, isAdmin, isMod, locked, myNick }) {
+// LANÇADOR DE RESULTADOS do MK (MOD, sem classificação): lista os jogos —
+// PENDENTES primeiro — com busca por jogador. Cada linha lança pelas bolinhas de
+// round + 1º round + finalização. Toggle mostra os já lançados (pra corrigir).
+function MkResultLauncher({ draw, scores, lineups, teamPlayers, onScore }) {
+  const [q, setQ] = useState('');
+  const [showDone, setShowDone] = useState(false);
+  const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const setFinisher = (key, which, val) => onScore(key, { [which]: val || undefined });
+  const all = (draw || []).flatMap(r => (r.games || []).map((g, gi) => ({ r, gi, g, key: gKey(r, gi) })).filter(x => !mkGameVoid(x.g)));
+  const qq = q.trim().toLowerCase();
+  const pendingCount = all.filter(x => !mkMatchOutcome(scores[x.key] || {})).length;
+  const list = all.filter(x => {
+    const done = !!mkMatchOutcome(scores[x.key] || {});
+    if (!showDone && done) return false;
+    if (qq && !((x.g.home + ' ' + x.g.away).toLowerCase().includes(qq))) return false;
+    return true;
+  });
+  return (
+    <div className="card mk-card">
+      <div className="card-head">
+        <div className="title"><Icon name="whistle" size={16} /> LANÇAR RESULTADO · MK</div>
+        <div className="sub">{pendingCount} PENDENTE{pendingCount === 1 ? '' : 'S'}</div>
+      </div>
+      <div className="card-body">
+        <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="shield" size={12} /> Lançamento por jogo — pendentes primeiro. Toque as bolinhas dos rounds; marque o 1º round e a finalização. Busca pelo nome do jogador.</div>
+        <div className="mk-launch-tools">
+          <input className="mk-launch-search" value={q} onChange={e => setQ(e.target.value)} placeholder="buscar jogador (ex: vitinho)" />
+          <label className="mk-launch-toggle"><input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)} /> mostrar já lançados</label>
+        </div>
+        {list.length === 0 ? (
+          <div className="empty"><div className="e1">{showDone ? 'NENHUM JOGO' : 'TUDO LANÇADO'}</div><div className="e2">{qq ? 'Nada pra essa busca.' : (showDone ? 'Sem jogos no chaveamento.' : 'Não há jogos pendentes.')}</div></div>
+        ) : (
+          <div className="mk-launch-list">
+            {list.map(({ r, gi, g, key }) => {
+              const sc = scores[key] || {};
+              const out = mkMatchOutcome(sc);
+              const done = !!out;
+              return (
+                <div key={key} className={'mk-launch-row' + (done ? ' done' : '')}>
+                  <div className="mk-launch-h">
+                    <span className="mk-launch-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase} · JOGO {String(gi + 1).padStart(2, '0')}</span>
+                    <span className={'mk-launch-st ' + (done ? 'done' : 'pend')}>
+                      {done ? <><Icon name="check" size={11} /> {out.confH}×{out.confA}{out.winner === 'D' ? ' EMPATE' : ''}</> : <>A LANÇAR</>}
+                    </span>
+                  </div>
+                  <div className="mk-launch-match">
+                    <span className="mk-launch-nick mand">{g.home}</span>
+                    <span className="mk-launch-vs">×</span>
+                    <span className="mk-launch-nick">{g.away}</span>
+                  </div>
+                  <MkRoundDots sc={sc} lineup={(lineups || {})[key]} onPatch={(patch) => onScore(key, patch)} />
+                  <div className="rl-extras mk-launch-extras">
+                    <span className="rl-extra-grp">
+                      <span className="rl-extra-l">1º ROUND</span>
+                      <button type="button" className={'rl-pick home' + (sc.firstRound === 'H' ? ' on' : '')} onClick={() => onScore(key, { firstRound: sc.firstRound === 'H' ? '' : 'H' })}>{g.home}</button>
+                      <button type="button" className={'rl-pick away' + (sc.firstRound === 'A' ? ' on' : '')} onClick={() => onScore(key, { firstRound: sc.firstRound === 'A' ? '' : 'A' })}>{g.away}</button>
+                    </span>
+                    <span className="rl-extra-grp">
+                      <span className="rl-extra-l"><Icon name="skull" size={11} /> FINALIZAÇÃO</span>
+                      <span className="mk-fx-finish-pl">P1</span>
+                      <select className="mk-fx-finish-sel" value={sc.finisher1 || ''} onChange={e => setFinisher(key, 'finisher1', e.target.value)}>
+                        <option value="">Nenhuma</option>
+                        {MK_FINISHERS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                      </select>
+                      <span className="mk-fx-finish-pl">P2</span>
+                      <select className="mk-fx-finish-sel" value={sc.finisher2 || ''} onChange={e => setFinisher(key, 'finisher2', e.target.value)}>
+                        <option value="">Nenhuma</option>
+                        {MK_FINISHERS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                      </select>
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPublishDraw, scores, onScore, isAdmin, isMod, locked, myNick, launchOnly }) {
   // draw/scores vêm do App (persistidos no doc de apostas, campo `mk`).
   // null = segue a 1ª rodada com jogo pendente (a "rodada atual"); número =
   // navegação manual do usuário pelas setas.
@@ -9510,6 +9704,22 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
     return { idx, phase: r.phase, n: r.n, total, doneN, st };
   });
   const doneRounds = roundsMeta.filter(rm => rm.st === 'done').length;
+
+  // MOD (launchOnly): sem classificação — só o lançador de resultados (pendentes
+  // primeiro + busca). Sem sorteio ainda, cai no fluxo normal (mostra SORTEAR).
+  if (launchOnly && draw) {
+    return (
+      <div className="mk-champ mk-champ-launch">
+        <MkResultLauncher draw={draw} scores={scores} lineups={lineups} teamPlayers={teamPlayers} onScore={onScore} />
+        {isAdmin && (
+          <div className="mk-sorteio-bar" style={{ marginTop: 12 }}>
+            <span>{matches.length} jogos · {playedCount} lançados</span>
+            <button className="mk-resort" onClick={doDraw}><Icon name="refresh" size={12} /> SORTEAR DE NOVO</button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="mk-champ">
@@ -9769,12 +9979,34 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
 // compartilhados (App). Cupom = palpites da MESMA rodada (2+ = casada). Só dá
 // pra apostar na rodada ABERTA (a anterior tem que ter fechado).
 function mkLegLabel(l) { return mkPickLabel(l.market, l.pick); }
+// Tira de FORMA do nick (últimos 5 confrontos) — bolinhas V/E/D, mais recente à
+// esquerda. Aparece no resumo do card de aposta do MK.
+function MkForm({ nick, draw, scores, align }) {
+  const recent = mkPlayerRecent(nick, draw, scores, 5);
+  if (!recent.length) return <span className="mk-form empty">sem jogos</span>;
+  return (
+    <span className={'mk-form' + (align === 'right' ? ' right' : '')}
+      title={'Forma (mais recente primeiro): ' + recent.map(m => m.res + ' vs ' + m.oppNick).join(' · ')}>
+      {recent.map((m, i) => (
+        <span key={i} className={'mk-form-dot ' + (m.res === 'V' ? 'v' : m.res === 'D' ? 'd' : 'e')}>{m.res}</span>
+      ))}
+    </span>
+  );
+}
 function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onMkScore, onOpenProfile, onEscalar, myNick, isAdmin, isMod, balance }) {
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
   const [cupom, setCupom] = useState([]);
   const [stake, setStake] = useState(50);
+  // #layout: cada jogo é uma CAIXA que expande ao clicar (accordion). As chaves
+  // abertas ficam num Set; por padrão tudo começa fechado (só o resumo aparece).
+  const [openGames, setOpenGames] = useState(() => new Set());
+  const toggleGame = (key) => setOpenGames(prev => {
+    const n = new Set(prev);
+    if (n.has(key)) n.delete(key); else n.add(key);
+    return n;
+  });
   // #8: dois modos de apostador. SIMPLES (padrão) mostra só o VENCEDOR (quem
   // ganha o confronto) — menos informação pro apostador casual. AVANÇADO abre
   // todos os mercados (placares por partida, total de rounds, finalização,
@@ -9861,7 +10093,8 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     if (res && res.err) return; // erro já avisado por toast
     setCupom([]);
     setCupomOpen(false);
-    if (!(opts && opts.open)) showToast((isCasada ? 'Casada' : 'Aposta') + ' feita! ' + stake + ' PC', 'success');
+    // auto-cópia (cupom idêntico já na Mesa) já mostra o próprio toast em placeMkBet.
+    if (!(opts && opts.open) && !(res && res.autoCopied)) showToast((isCasada ? 'Casada' : 'Aposta') + ' feita! ' + stake + ' PC', 'success');
   };
   const betStatus = (bet) => {
     let pending = false;
@@ -9919,21 +10152,63 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                     const secsLeft = mkLockSecondsLeft(scEntry, now);
                     const counting = secsLeft > 0;
                     const locked = ownGame || gameLocked;
+                    const expanded = openGames.has(key);
+                    const frH = mkFirstRoundStats(g.home, draw, scores);
+                    const frA = mkFirstRoundStats(g.away, draw, scores);
                     const scoreMkt = (m) => m === 'RESULT' || m === 'P1' || m === 'P2';
                     return (
-                      <div key={key} className={'mk-bet-game' + (ownGame ? ' own' : '') + (gameLocked ? ' locked' : '') + (counting && !gameLocked ? ' closing' : '')}>
-                        <div className="mk-bet-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase} · JOGO {String(gi + 1).padStart(2, '0')}</div>
-                        <div className="mk-bet-match">
-                          <button type="button" className="mk-bm-side" onClick={() => onOpenProfile && onOpenProfile(g.home)} title={'Ver perfil de ' + g.home}>
-                            <Avatar nick={g.home} teamPlayers={teamPlayers} size={30} noBadge />
-                            <span className="mk-bm-info"><span className="mk-bm-nick mand">{g.home}</span><span className="mk-bm-role mand">MANDANTE</span></span>
-                          </button>
-                          <span className="mk-bm-vs">×</span>
-                          <button type="button" className="mk-bm-side right" onClick={() => onOpenProfile && onOpenProfile(g.away)} title={'Ver perfil de ' + g.away}>
-                            <span className="mk-bm-info"><span className="mk-bm-nick">{g.away}</span><span className="mk-bm-role">VISITANTE</span></span>
-                            <Avatar nick={g.away} teamPlayers={teamPlayers} size={30} noBadge />
-                          </button>
+                      <div key={key} className={'mk-bet-game' + (ownGame ? ' own' : '') + (gameLocked ? ' locked' : '') + (counting && !gameLocked ? ' closing' : '') + (expanded ? ' open' : '')}>
+                        {/* RESUMO da caixa (sempre visível): confronto + forma + 1º round.
+                            Clica em qualquer lugar (menos nos jogadores) pra EXPANDIR e
+                            ver as odds/mercados. */}
+                        <div className="mk-bg-summary" role="button" tabIndex={0} aria-expanded={expanded}
+                          onClick={() => toggleGame(key)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleGame(key); } }}>
+                          <div className="mk-bg-top">
+                            <span className="mk-bet-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase} · JOGO {String(gi + 1).padStart(2, '0')}</span>
+                            <span className="mk-bg-caret">{expanded ? 'FECHAR' : 'VER ODDS'} <Icon name={expanded ? 'caret-up' : 'caret-down'} size={13} /></span>
+                          </div>
+                          <div className="mk-bet-match">
+                            <button type="button" className="mk-bm-side" onClick={(e) => { e.stopPropagation(); onOpenProfile && onOpenProfile(g.home); }} title={'Ver perfil de ' + g.home}>
+                              <Avatar nick={g.home} teamPlayers={teamPlayers} size={30} noBadge />
+                              <span className="mk-bm-info">
+                                <span className="mk-bm-nick mand">{g.home}</span>
+                                <span className="mk-bm-role mand">MANDANTE</span>
+                                <MkForm nick={g.home} draw={draw} scores={scores} />
+                                {frH.total > 0 && <span className="mk-bm-fr" title="Vitórias de 1º round nos confrontos concluídos">1º ROUND {frH.won}/{frH.total}</span>}
+                              </span>
+                            </button>
+                            <span className="mk-bm-vs">×</span>
+                            <button type="button" className="mk-bm-side right" onClick={(e) => { e.stopPropagation(); onOpenProfile && onOpenProfile(g.away); }} title={'Ver perfil de ' + g.away}>
+                              <span className="mk-bm-info">
+                                <span className="mk-bm-nick">{g.away}</span>
+                                <span className="mk-bm-role">VISITANTE</span>
+                                <MkForm nick={g.away} draw={draw} scores={scores} align="right" />
+                                {frA.total > 0 && <span className="mk-bm-fr" title="Vitórias de 1º round nos confrontos concluídos">1º ROUND {frA.won}/{frA.total}</span>}
+                              </span>
+                              <Avatar nick={g.away} teamPlayers={teamPlayers} size={30} noBadge />
+                            </button>
+                          </div>
+                          <div className="mk-bg-teaser">
+                            {ownGame ? (
+                              <span className="mk-bg-flag seu"><Icon name="fist" size={10} /> SEU JOGO</span>
+                            ) : gameLocked ? (
+                              <span className="mk-bg-flag lock"><Icon name="lock" size={10} /> APOSTAS TRAVADAS</span>
+                            ) : (
+                              <>
+                                <span className="mk-bg-teaser-l">VENCEDOR</span>
+                                <span className="mk-bg-teaser-odd"><b>{g.home}</b> <i>{odds.VENC.H.toFixed(2)}</i></span>
+                                <span className="mk-bg-teaser-sep">·</span>
+                                <span className="mk-bg-teaser-odd"><b>{g.away}</b> <i>{odds.VENC.A.toFixed(2)}</i></span>
+                              </>
+                            )}
+                            {counting && !gameLocked && (
+                              <span className="mk-bg-flag closing"><Icon name="warning" size={10} /> FECHA {fmtSecs(secsLeft)}</span>
+                            )}
+                          </div>
                         </div>
+                        {expanded && (
+                        <div className="mk-bg-body">
                         {(() => {
                           // CARD DE LUTA (#1): mostra pra TODO MUNDO os 2 jogos e os
                           // bonecos escolhidos, pra dar contexto antes de apostar.
@@ -10050,6 +10325,8 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             </div>
                           </div>
                         ))}
+                        </div>
+                      )}
                       </div>
                     );
                   })}
@@ -10862,15 +11139,15 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
                 return (
                   <div key={'h' + p + pi} className="stats-prof">
                     <div className={'stats-tro-name' + (p === nick ? ' me' : '')}>{p}{p === nick && <span className="stats-you">VOCÊ</span>}</div>
-                    <div className="stats-tro-h">FIFA · {fifaPlayed.length} JOGOS</div>
-                    {fifaPlayed.length === 0
-                      ? <div className="stats-none">Sem jogos na FIFA.</div>
-                      : fifaPlayed.map(g => <MatchRow key={'f' + g.ri + '-' + g.gi} g={g} myTeamId={tid} teamPlayers={teamPlayers} />)}
+                    <CollapseBox title="FIFA" count={fifaPlayed.length} icon="football" defaultOpen>
+                      {fifaPlayed.length === 0
+                        ? <div className="stats-none">Sem jogos na FIFA.</div>
+                        : fifaPlayed.map(g => <MatchRow key={'f' + g.ri + '-' + g.gi} g={g} myTeamId={tid} teamPlayers={teamPlayers} />)}
+                    </CollapseBox>
                     {inMk && (
-                      <>
-                        <div className="stats-tro-h" style={{ marginTop: 16 }}>MORTAL KOMBAT</div>
+                      <CollapseBox title="MORTAL KOMBAT" icon="skull" defaultOpen>
                         <MkMatchHistory nick={p} draw={mkDraw} scores={mkScores} lineups={mkLineups} />
-                      </>
+                      </CollapseBox>
                     )}
                   </div>
                 );
@@ -11327,8 +11604,24 @@ function MatchRow({ g, myTeamId, teamPlayers }) {
   );
 }
 
+// Caixinha expansiva reutilizável (histórico por campeonato / fase). Header
+// clicável com título + contagem + caret; corpo aparece só quando aberta.
+function CollapseBox({ title, count, icon, defaultOpen, children }) {
+  const [open, setOpen] = useState(!!defaultOpen);
+  return (
+    <div className={'histbox' + (open ? ' open' : '')}>
+      <button type="button" className="histbox-h" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <span className="histbox-t">{icon && <Icon name={icon} size={13} />} {title}{count != null && <span className="histbox-c">{count}</span>}</span>
+        <Icon name={open ? 'caret-up' : 'caret-down'} size={14} />
+      </button>
+      {open && <div className="histbox-b">{children}</div>}
+    </div>
+  );
+}
+
 // HISTÓRICO de confrontos do MK pro nick: cada confronto concluído com vs @opp,
 // placar das 2 partidas (ex: 2×1, 2×0) e os personagens escalados em cada uma.
+// Agrupado por FASE (IDA/VOLTA), cada fase numa caixinha expansiva.
 function MkMatchHistory({ nick, draw, scores, lineups }) {
   if (!draw || !nick) return null;
   const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
@@ -11354,28 +11647,38 @@ function MkMatchHistory({ nick, draw, scores, lineups }) {
   }));
   if (!rows.length) return <div className="mkh-empty">Nenhum confronto concluído ainda.</div>;
   const resLabel = (r) => r === 'V' ? 'Vitória' : r === 'D' ? 'Derrota' : 'Empate';
-  return (
-    <div className="mkh-list">
-      {rows.map(m => (
-        <div key={m.key} className={'mkh-row ' + (m.res === 'V' ? 'win' : m.res === 'D' ? 'loss' : 'draw')}>
-          <div className="mkh-head">
-            <span className="mkh-res" title={resLabel(m.res)}>{m.res}</span>
-            <span className="mkh-opp">vs {m.oppNick}</span>
-            <span className="mkh-phase">{m.phase} {m.n}</span>
-          </div>
-          <div className="mkh-partidas">
-            <div className="mkh-part">
-              <span className="mkh-pl">P1</span>
-              <span className="mkh-sc">{m.p1my}<i>×</i>{m.p1op}</span>
-              {(m.c1my || m.c1op) && <span className="mkh-ch">{m.c1my || '?'} <i>vs</i> {m.c1op || '?'}</span>}
-            </div>
-            <div className="mkh-part">
-              <span className="mkh-pl">P2</span>
-              <span className="mkh-sc">{m.p2my}<i>×</i>{m.p2op}</span>
-              {(m.c2my || m.c2op) && <span className="mkh-ch">{m.c2my || '?'} <i>vs</i> {m.c2op || '?'}</span>}
-            </div>
-          </div>
+  // agrupa por FASE (IDA/VOLTA) na ordem em que aparecem no chaveamento; cada
+  // fase é uma caixinha expansiva. A última fase com jogos abre por padrão.
+  const phaseOrder = [];
+  rows.forEach(m => { if (!phaseOrder.includes(m.phase)) phaseOrder.push(m.phase); });
+  const groups = phaseOrder.map(ph => ({ ph, items: rows.filter(m => m.phase === ph) }));
+  const renderRow = (m) => (
+    <div key={m.key} className={'mkh-row ' + (m.res === 'V' ? 'win' : m.res === 'D' ? 'loss' : 'draw')}>
+      <div className="mkh-head">
+        <span className="mkh-res" title={resLabel(m.res)}>{m.res}</span>
+        <span className="mkh-opp">vs {m.oppNick}</span>
+        <span className="mkh-phase">{m.phase} {m.n}</span>
+      </div>
+      <div className="mkh-partidas">
+        <div className="mkh-part">
+          <span className="mkh-pl">P1</span>
+          <span className="mkh-sc">{m.p1my}<i>×</i>{m.p1op}</span>
+          {(m.c1my || m.c1op) && <span className="mkh-ch">{m.c1my || '?'} <i>vs</i> {m.c1op || '?'}</span>}
         </div>
+        <div className="mkh-part">
+          <span className="mkh-pl">P2</span>
+          <span className="mkh-sc">{m.p2my}<i>×</i>{m.p2op}</span>
+          {(m.c2my || m.c2op) && <span className="mkh-ch">{m.c2my || '?'} <i>vs</i> {m.c2op || '?'}</span>}
+        </div>
+      </div>
+    </div>
+  );
+  return (
+    <div className="mkh-groups">
+      {groups.map((g, gi) => (
+        <CollapseBox key={g.ph || gi} title={g.ph || 'JOGOS'} count={g.items.length} defaultOpen={gi === groups.length - 1}>
+          <div className="mkh-list">{g.items.map(renderRow)}</div>
+        </CollapseBox>
       ))}
     </div>
   );
@@ -13992,8 +14295,11 @@ function CatalogoAdminPanel({ cs, teamPlayers }) {
 function AdminBetsPanel({ bets, users, teamPlayers, cs, onVoidBet }) {
   const [statusF, setStatusF] = useState('all');
   const [champF, setChampF] = useState('all');
+  const [userF, setUserF] = useState('all');
   const [q, setQ] = useState('');
   const [busyId, setBusyId] = useState(null);
+  // lista de apostadores (exceto admin) pro filtro por usuário
+  const bettors = Array.from(new Set((bets || []).filter(b => b.user && b.user !== 'admin').map(b => b.user))).sort((a, b) => a.localeCompare(b));
 
   const legMatchup = (l) => {
     if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) return l.home + ' x ' + l.away;
@@ -14021,6 +14327,7 @@ function AdminBetsPanel({ bets, users, teamPlayers, cs, onVoidBet }) {
   const qq = q.trim().toLowerCase();
   const list = (bets || [])
     .filter(b => b.user !== 'admin')
+    .filter(b => userF === 'all' || b.user === userF)
     .filter(b => statusF === 'all' || (b.status || 'pending') === statusF)
     .filter(b => champF === 'all' || (b.champId || 'fifa') === champF)
     .filter(b => !qq || searchable(b).includes(qq))
@@ -14051,6 +14358,10 @@ function AdminBetsPanel({ bets, users, teamPlayers, cs, onVoidBet }) {
         <div className="mk-admin-note" style={{ marginBottom: 12 }}><Icon name="shield" size={12} /> Anular devolve o valor apostado (e estorna o prêmio, se já tinha ganho). Use pra WO / jogo cancelado.</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="buscar jogador (ex: caco)" style={{ ...fld, flex: 1, minWidth: 140 }} />
+          <select value={userF} onChange={e => setUserF(e.target.value)} style={fld} title="Filtrar por usuário">
+            <option value="all">Todos os usuários</option>
+            {bettors.map(u => <option key={u} value={u}>{u}</option>)}
+          </select>
           <select value={champF} onChange={e => setChampF(e.target.value)} style={fld}>
             <option value="all">Todos os jogos</option>
             <option value="fifa">FIFA</option>

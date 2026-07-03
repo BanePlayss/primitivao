@@ -4642,7 +4642,41 @@
       .mk-fixtures { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: start; }
     }
     .mk-fx { border: 2px solid var(--pv-charcoal); background: var(--pv-bone); padding: 7px 9px; }
-    .mk-fx.done { border-color: var(--pv-orange); box-shadow: inset 0 0 0 1px rgba(215,100,20,0.25); }
+    /* CONTRASTE "já foi × a jogar" na tela de rodadas (FIFA + MK): jogo pendente
+       ganha barra laranja (a jogar); encerrado fica verde suave e recua; SEU JOGO
+       mantém o destaque laranja forte. Fica óbvio de bater o olho o que já rolou. */
+    .mk-fx { border-left-width: 5px; border-left-color: var(--pv-orange); }
+    .mk-fx.done { border-color: rgba(28,22,18,0.16); border-left-color: var(--pv-green, #4d6a2e); background: rgba(77,106,46,0.09); box-shadow: none; }
+    .mk-fx.done .mk-fx-done { color: var(--pv-green, #4d6a2e); }
+    .mk-fx.done .mk-fx-nick { color: rgba(28,22,18,0.72); }
+    .mk-fx.mine.done { border-color: var(--pv-orange); border-left-color: var(--pv-orange); background: rgba(215,100,20,0.08); box-shadow: inset 0 0 0 1px var(--pv-orange), 0 3px 0 rgba(215,100,20,0.22); }
+    /* MOD: lançador de resultados (pendentes primeiro + busca por jogador) */
+    .mk-champ-launch { display: block; }
+    .mk-launch-tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+    .mk-launch-search { flex: 1; min-width: 160px; padding: 8px 11px; font-weight: 700; font-size: 13px; border: 1.5px solid rgba(28,22,18,0.25); background: var(--pv-bone); color: var(--pv-charcoal); }
+    .mk-launch-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: rgba(28,22,18,0.65); cursor: pointer; }
+    .mk-launch-list { display: flex; flex-direction: column; gap: 12px; }
+    .mk-launch-row { border: 2px solid var(--pv-charcoal); border-left-width: 5px; border-left-color: var(--pv-orange); background: var(--pv-bone); padding: 10px 12px; }
+    .mk-launch-row.done { border-color: rgba(28,22,18,0.16); border-left-color: var(--pv-green, #4d6a2e); background: rgba(77,106,46,0.08); }
+    .mk-launch-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .mk-launch-rod { font-size: 8.5px; font-weight: 800; letter-spacing: 0.14em; color: rgba(28,22,18,0.45); }
+    .mk-launch-st { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 800; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 3px; }
+    .mk-launch-st.pend { background: var(--pv-orange); color: var(--pv-bone); }
+    .mk-launch-st.done { background: rgba(77,106,46,0.16); color: var(--pv-green, #4d6a2e); }
+    .mk-launch-match { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 800; font-size: 13px; color: var(--pv-charcoal); }
+    .mk-launch-nick.mand { color: var(--pv-orange); }
+    .mk-launch-vs { color: rgba(28,22,18,0.4); }
+    .mk-launch-extras { margin-top: 8px; }
+    /* Caixinha expansiva do histórico (por campeonato + fase ida/volta) */
+    .histbox { border: 1.5px solid rgba(28,22,18,0.18); background: rgba(28,22,18,0.02); margin-bottom: 10px; }
+    .histbox-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 9px 11px; background: transparent; border: 0; cursor: pointer; font: inherit; color: var(--pv-charcoal); text-align: left; }
+    .histbox-h:hover { background: rgba(215,100,20,0.06); }
+    .histbox.open > .histbox-h { border-bottom: 1.5px solid rgba(28,22,18,0.14); }
+    .histbox-t { display: inline-flex; align-items: center; gap: 7px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 11px; letter-spacing: 0.14em; }
+    .histbox-c { background: var(--pv-charcoal); color: var(--pv-bone); font-size: 10px; font-weight: 800; padding: 1px 8px; border-radius: 999px; letter-spacing: 0.02em; }
+    .histbox-b { padding: 10px 11px; }
+    .mkh-groups .histbox { background: transparent; }
+    .mkh-groups .histbox:last-child { margin-bottom: 0; }
     .mk-fx-top { display: flex; justify-content: space-between; align-items: center; font-size: 8px; letter-spacing: 0.18em; font-weight: 800; color: rgba(28,22,18,0.5); margin-bottom: 6px; }
     .mk-fx-done { display: inline-flex; align-items: center; gap: 3px; color: var(--pv-orange); letter-spacing: 0.08em; }
     /* SEU JOGO — confronto do usuário logado, destacado e no topo da rodada */
@@ -4911,6 +4945,37 @@
     .mk-bet-game.own { border-color: var(--pv-orange); box-shadow: inset 0 0 0 1px var(--pv-orange); }
     .mk-bet-game.locked { border-color: #7a2222; }
     .mk-bet-game.closing { border-color: var(--pv-orange); box-shadow: 0 0 0 2px rgba(215,100,20,0.18); }
+    /* CAIXA que expande (accordion): o padding vive no resumo/corpo, não no card */
+    .mk-bet-game { padding: 0; overflow: hidden; }
+    .mk-bg-summary { display: block; width: 100%; text-align: left; padding: 10px 12px; background: transparent; border: 0; font: inherit; color: inherit; cursor: pointer; }
+    .mk-bg-summary:hover { background: rgba(215,100,20,0.05); }
+    .mk-bg-summary:focus-visible { outline: 2px solid var(--pv-orange); outline-offset: -2px; }
+    .mk-bet-game.open .mk-bg-summary { border-bottom: 2px solid var(--pv-charcoal); }
+    .mk-bg-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .mk-bg-top .mk-bet-rod { margin-bottom: 0; }
+    .mk-bg-caret { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 9px; letter-spacing: 0.12em; color: var(--pv-orange); }
+    .mk-bg-summary .mk-bet-match { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+    .mk-bg-body { padding: 4px 12px 12px; }
+    /* tira de FORMA (últimos 5) + stat de 1º round por jogador */
+    .mk-form { display: inline-flex; gap: 3px; margin-top: 5px; }
+    .mk-form.right { justify-content: flex-end; }
+    .mk-form.empty { font-size: 8px; font-weight: 700; letter-spacing: 0.06em; color: rgba(28,22,18,0.35); font-style: italic; margin-top: 5px; }
+    .mk-form-dot { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 8.5px; color: #fff; }
+    .mk-form-dot.v { background: var(--pv-green, #2a8f3f); }
+    .mk-form-dot.d { background: var(--pv-red-bright, #c33); }
+    .mk-form-dot.e { background: rgba(28,22,18,0.4); }
+    .mk-bm-fr { margin-top: 4px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 8px; letter-spacing: 0.05em; color: rgba(28,22,18,0.55); }
+    /* TEASER: quem vence + odd (info no resumo) ou bandeira de estado */
+    .mk-bg-teaser { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 9px; padding-top: 8px; border-top: 1.5px dashed rgba(28,22,18,0.18); font-size: 10px; }
+    .mk-bg-teaser-l { font-weight: 800; font-size: 8px; letter-spacing: 0.14em; color: rgba(28,22,18,0.45); }
+    .mk-bg-teaser-odd { font-weight: 700; color: var(--pv-charcoal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46%; }
+    .mk-bg-teaser-odd b { font-weight: 800; }
+    .mk-bg-teaser-odd i { font-family: 'Space Grotesk', sans-serif; font-style: normal; font-weight: 800; color: var(--pv-orange); }
+    .mk-bg-teaser-sep { color: rgba(28,22,18,0.3); }
+    .mk-bg-flag { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; font-size: 8.5px; letter-spacing: 0.06em; padding: 3px 7px; border-radius: 3px; }
+    .mk-bg-flag.seu { background: var(--pv-orange); color: var(--pv-bone); }
+    .mk-bg-flag.lock { background: #7a2222; color: #fff; }
+    .mk-bg-flag.closing { margin-left: auto; background: var(--pv-charcoal); color: var(--pv-bone); }
     .mk-bet-own { display: flex; align-items: center; gap: 5px; margin-bottom: 9px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; color: #fff; background: var(--pv-charcoal); padding: 4px 8px; }
     .mk-bet-own.lock { background: #7a2222; }
     .mk-bet-own.seu { justify-content: space-between; gap: 8px; background: var(--pv-orange); color: var(--pv-bone); }
