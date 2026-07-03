@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260703-mk3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260703-mk4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -854,22 +854,89 @@ function mkFirstRoundStats(nick, draw, scores) {
   return { won, total };
 }
 // Confronto direto entre dois nicks nos jogos concluídos: { games, aWins (do
-// primeiro nick), bWins (do segundo), draws }.
+// primeiro nick), bWins (do segundo), draws, list } — list traz cada encontro
+// com os ROUNDS de cada lado (base das barras de histórico no card).
 function mkHeadToHead(a, b, draw, scores) {
-  if (!draw || !a || !b) return { games: 0, aWins: 0, bWins: 0, draws: 0 };
+  if (!draw || !a || !b) return { games: 0, aWins: 0, bWins: 0, draws: 0, list: [] };
   const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   let games = 0, aWins = 0, bWins = 0, draws = 0;
+  const list = [];
   draw.forEach(r => (r.games || []).forEach((g, gi) => {
     const pair = (g.home === a && g.away === b) || (g.home === b && g.away === a);
     if (!pair || mkGameVoid(g)) return;
     const o = mkMatchOutcome((scores || {})[gk(r, gi)]);
     if (!o) return;
     games++;
+    const aR = g.home === a ? o.roundsH : o.roundsA;
+    const bR = g.home === a ? o.roundsA : o.roundsH;
+    list.push({ phase: r.phase, n: r.n, aR, bR });
     if (o.winner === 'D') { draws++; return; }
     const winnerNick = o.winner === 'H' ? g.home : g.away;
     if (winnerNick === a) aWins++; else bWins++;
   }));
-  return { games, aWins, bWins, draws };
+  return { games, aWins, bWins, draws, list };
+}
+// Tendência do jogador pro sparkline: saldo de rounds ACUMULADO jogo a jogo
+// (só concluídos, na ordem do chaveamento). Começa em 0.
+function mkPlayerTrendSeries(nick, draw, scores, limit) {
+  if (!draw || !nick) return [];
+  const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const diffs = [];
+  draw.forEach(r => (r.games || []).forEach((g, gi) => {
+    if (g.home !== nick && g.away !== nick) return;
+    if (mkGameVoid(g)) return;
+    const o = mkMatchOutcome((scores || {})[gk(r, gi)]);
+    if (!o) return;
+    diffs.push(g.home === nick ? o.roundsH - o.roundsA : o.roundsA - o.roundsH);
+  }));
+  const series = [0];
+  diffs.slice(-(limit || 8)).forEach(d => series.push(series[series.length - 1] + d));
+  return series;
+}
+// Stats "pro" do jogador: brutalities feitas (partida vencida com finisher
+// marcado) e flawless (vitória sem ceder round no confronto).
+function mkPlayerProStats(nick, draw, scores) {
+  if (!draw || !nick) return { brutality: 0, flawless: 0 };
+  const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  let brutality = 0, flawless = 0;
+  draw.forEach(r => (r.games || []).forEach((g, gi) => {
+    if (g.home !== nick && g.away !== nick) return;
+    if (mkGameVoid(g)) return;
+    const sc = (scores || {})[gk(r, gi)];
+    const o = mkMatchOutcome(sc);
+    if (!o) return;
+    const meHome = g.home === nick;
+    // brutality é da PARTIDA: atribui ao vencedor dela.
+    [[o.p1h, o.p1a, sc.finisher1], [o.p2h, o.p2a, sc.finisher2]].forEach(([h, aa, fin]) => {
+      if (fin !== 'brutality') return;
+      const winnerHome = h > aa;
+      if (winnerHome === meHome) brutality++;
+    });
+    const iWon = (meHome && o.winner === 'H') || (!meHome && o.winner === 'A');
+    const conceded = meHome ? o.roundsA : o.roundsH;
+    if (iWon && conceded === 0) flawless++;
+  }));
+  return { brutality, flawless };
+}
+// Vitórias por BONECO em todas as PARTIDAS com escalação conhecida:
+// { [char]: { played, won } }. Base do "duelo dos bonecos" no card de aposta.
+function mkCharWinStats(draw, scores, lineups) {
+  const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const out = {};
+  const add = (c, won) => { if (!c) return; const e = out[c] || (out[c] = { played: 0, won: 0 }); e.played++; if (won) e.won++; };
+  (draw || []).forEach(r => (r.games || []).forEach((g, gi) => {
+    if (mkGameVoid(g)) return;
+    const key = gk(r, gi);
+    const o = mkMatchOutcome((scores || {})[key]);
+    if (!o) return;
+    const ln = (lineups || {})[key] || {};
+    [['p1', o.p1h, o.p1a], ['p2', o.p2h, o.p2a]].forEach(([p, h, a]) => {
+      const part = ln[p] || {};
+      add(part.home, h > a);
+      add(part.away, a > h);
+    });
+  }));
+  return out;
 }
 
 // ─── ODDS DO MK — modelo de 2 níveis (round -> partida -> confronto). Da força
@@ -9997,6 +10064,63 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
 // compartilhados (App). Cupom = palpites da MESMA rodada (2+ = casada). Só dá
 // pra apostar na rodada ABERTA (a anterior tem que ter fechado).
 function mkLegLabel(l) { return mkPickLabel(l.market, l.pick); }
+// Sparkline de tendência (saldo de rounds acumulado). SVG minúsculo, escala
+// automática; some com menos de 2 pontos (nenhum jogo concluído).
+function MkSparkline({ series, away }) {
+  if (!series || series.length < 2) return null;
+  const W = 84, H = 20, PAD = 2;
+  const min = Math.min(...series), max = Math.max(...series);
+  const span = (max - min) || 1;
+  const pts = series.map((v, i) => {
+    const x = PAD + (i / (series.length - 1)) * (W - PAD * 2);
+    const y = H - PAD - ((v - min) / span) * (H - PAD * 2);
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+  return (
+    <svg className={'mk-spark' + (away ? ' away' : '')} viewBox={'0 0 ' + W + ' ' + H} width={W} height={H}
+      role="img" aria-label="Tendência de saldo de rounds">
+      <title>Tendência: saldo de rounds acumulado (jogo a jogo)</title>
+      <polyline points={pts} fill="none" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+// Radar de desempenho (3 eixos REAIS): OFENSIVA (rounds ganhos/jogo), DEFESA
+// (rounds evitados/jogo) e APROVEITAMENTO (pontos/possíveis). Dois polígonos:
+// mandante (laranja) × visitante (charcoal).
+function MkRadar({ home, away, recH, recA }) {
+  const axes = [
+    { k: 'OFENSIVA', f: (r) => (r.rp / r.j) / 4 },
+    { k: 'DEFESA', f: (r) => 1 - (r.rc / r.j) / 4 },
+    { k: 'APROVEIT.', f: (r) => r.p / (3 * r.j) },
+  ];
+  if (!recH || !recA || !(recH.j > 0) || !(recA.j > 0)) return null;
+  const cx = 70, cy = 60, R = 42;
+  const clamp01 = (x) => Math.max(0.06, Math.min(1, x)); // 0.06 = polígono nunca some
+  const pt = (i, v) => {
+    const ang = (-90 + i * 120) * Math.PI / 180;
+    return (cx + Math.cos(ang) * R * v).toFixed(1) + ',' + (cy + Math.sin(ang) * R * v).toFixed(1);
+  };
+  const poly = (rec) => axes.map((ax, i) => pt(i, clamp01(ax.f(rec)))).join(' ');
+  const grid = (v) => axes.map((_, i) => pt(i, v)).join(' ');
+  const labPos = [{ x: cx, y: cy - R - 5, a: 'middle' }, { x: cx + R + 4, y: cy + R * 0.62, a: 'start' }, { x: cx - R - 4, y: cy + R * 0.62, a: 'end' }];
+  return (
+    <div className="mk-radar-wrap">
+      <div className="mk-radar-leg">
+        <span className="mk-radar-leg-i home"><i /> {home}</span>
+        <span className="mk-radar-leg-i away"><i /> {away}</span>
+      </div>
+      <svg className="mk-radar" viewBox="-26 0 192 120" role="img" aria-label={'Radar de desempenho: ' + home + ' × ' + away}>
+        <title>OFENSIVA = rounds ganhos por jogo · DEFESA = rounds evitados · APROVEIT. = pontos conquistados</title>
+        <polygon className="mk-radar-grid" points={grid(1)} />
+        <polygon className="mk-radar-grid" points={grid(0.5)} />
+        {axes.map((_, i) => { const [x, y] = pt(i, 1).split(','); return <line key={i} className="mk-radar-axis" x1={cx} y1={cy} x2={x} y2={y} />; })}
+        <polygon className="mk-radar-a" points={poly(recH)} />
+        <polygon className="mk-radar-b" points={poly(recA)} />
+        {axes.map((ax, i) => <text key={ax.k} className="mk-radar-lab" x={labPos[i].x} y={labPos[i].y} textAnchor={labPos[i].a}>{ax.k}</text>)}
+      </svg>
+    </div>
+  );
+}
 // Tira de FORMA do nick (últimos 5 confrontos) — bolinhas V/E/D, mais recente à
 // esquerda. Aparece no resumo do card de aposta do MK.
 function MkForm({ nick, draw, scores, align }) {
@@ -10070,6 +10194,8 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   const metrics = computeMkPlayerMetrics(insc, oddsMatches);
   const mkStandings = computeMkStandings(insc, oddsMatches);
   const mkRecOf = (n) => { const i = mkStandings.findIndex(s => s.nick === n); return i < 0 ? null : { ...mkStandings[i], pos: i + 1 }; };
+  // vitórias por boneco (todas as partidas com escalação) — "duelo dos bonecos".
+  const charStats = useMemo(() => mkCharWinStats(draw, scores, lineups), [draw, scores, lineups]);
   // LISTA ÚNICA "LIBERADOS": todo jogo que dá pra apostar AGORA (de qualquer rodada,
   // os 2 jogadores sem pendência atrás). Sem navegação por rodada.
   // SEUS jogos primeiro (você está no confronto) — depois o resto, ordem estável.
@@ -10185,6 +10311,11 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                     const h2h = mkHeadToHead(g.home, g.away, draw, scores);
                     const recH = mkRecOf(g.home), recA = mkRecOf(g.away);
                     const srTxt = (rec) => (rec.rp - rec.rc >= 0 ? '+' : '') + (rec.rp - rec.rc);
+                    const trendH = mkPlayerTrendSeries(g.home, draw, scores);
+                    const trendA = mkPlayerTrendSeries(g.away, draw, scores);
+                    const proH = mkPlayerProStats(g.home, draw, scores);
+                    const proA = mkPlayerProStats(g.away, draw, scores);
+                    const luCard = (lineups || {})[key] || null;
                     return (
                       <div key={key} className={'mk-bet-game' + (ownGame ? ' own' : '') + (gameLocked ? ' locked' : '') + (counting && !gameLocked ? ' closing' : '') + (expanded ? ' open' : '')}>
                         {/* RESUMO da caixa (sempre visível): confronto + forma + 1º round.
@@ -10192,7 +10323,12 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             ver as odds/mercados. */}
                         <div className="mk-bg-summary" role="button" tabIndex={0} aria-expanded={expanded}
                           onClick={() => toggleGame(key)}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleGame(key); } }}>
+                          onKeyDown={(e) => {
+                            // só reage quando o FOCO está no próprio resumo — senão Enter/Space
+                            // nos botões internos (perfil/escalar) togglaria o card e mataria o clique.
+                            if (e.target !== e.currentTarget) return;
+                            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleGame(key); }
+                          }}>
                           <div className="mk-bg-top">
                             <span className="mk-bet-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase} · JOGO {String(gi + 1).padStart(2, '0')}</span>
                             <span className="mk-bg-caret">{expanded ? 'FECHAR' : 'VER MERCADOS'} <Icon name={expanded ? 'caret-up' : 'caret-down'} size={13} /></span>
@@ -10205,6 +10341,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                                 <span className="mk-bm-role mand">MANDANTE</span>
                                 <MkForm nick={g.home} draw={draw} scores={scores} />
                                 {frH.total > 0 && <span className="mk-bm-fr" title="Vitórias de 1º round nos confrontos concluídos">1º ROUND {frH.won}/{frH.total}</span>}
+                                <MkSparkline series={trendH} />
                               </span>
                             </button>
                             <span className="mk-bm-vs">×</span>
@@ -10214,6 +10351,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                                 <span className="mk-bm-role">VISITANTE</span>
                                 <MkForm nick={g.away} draw={draw} scores={scores} align="right" />
                                 {frA.total > 0 && <span className="mk-bm-fr" title="Vitórias de 1º round nos confrontos concluídos">1º ROUND {frA.won}/{frA.total}</span>}
+                                <MkSparkline series={trendA} away />
                               </span>
                               <Avatar nick={g.away} teamPlayers={teamPlayers} size={30} noBadge />
                             </button>
@@ -10261,17 +10399,92 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                           })()}
                           <div className="mk-bg-flags">
                             {ownGame && <span className="mk-bg-flag seu"><Icon name="fist" size={10} /> SEU JOGO</span>}
+                            {/* atalho: escalar direto do resumo (só o mandante monta o card) */}
+                            {ownGame && g.home === myNick && onEscalar && (
+                              <button type="button" className="mk-bg-escalar" onClick={(e) => { e.stopPropagation(); onEscalar(); }}>
+                                <Icon name="skull" size={10} /> ESCALAR MEU CARD
+                              </button>
+                            )}
                             {gameLocked && <span className="mk-bg-flag lock"><Icon name="lock" size={10} /> TRAVADO</span>}
                             {counting && !gameLocked && <span className="mk-bg-flag closing"><Icon name="warning" size={10} /> FECHA {fmtSecs(secsLeft)}</span>}
                           </div>
                         </div>
                         {expanded && (
                         <div className="mk-bg-body">
-                        {/* ESTATÍSTICAS E PROBABILIDADES do confronto */}
+                        {/* ESTATÍSTICAS PRO do confronto (tudo derivado dos jogos reais) */}
                         <div className="mk-bg-stats">
-                          <div className="mk-bg-stats-h"><Icon name="chart" size={11} /> ESTATÍSTICAS E PROBABILIDADES</div>
+                          <div className="mk-bg-stats-h"><Icon name="chart" size={11} /> ESTATÍSTICAS PRO</div>
+                          {/* DUELO DOS BONECOS: win% por personagem nas partidas já jogadas */}
+                          {(() => {
+                            const parts = ['p1', 'p2']
+                              .map((p, pi) => ({ pi, h: ((luCard || {})[p] || {}).home, a: ((luCard || {})[p] || {}).away }))
+                              .filter(x => x.h && x.a);
+                            if (!parts.length) return null;
+                            return (
+                              <div className="mk-ps-block">
+                                <div className="mk-ps-t">DUELO DOS BONECOS <span className="mk-ps-hint">win% do personagem nas partidas</span></div>
+                                {parts.map(({ pi, h, a }) => {
+                                  const sH = charStats[h], sA = charStats[a];
+                                  const rH = sH && sH.played ? sH.won / sH.played : null;
+                                  const rA = sA && sA.played ? sA.won / sA.played : null;
+                                  // qualquer lado SEM histórico -> barra neutra "nd" (senão o
+                                  // debutante apareceria como 0% e o outro como dominante).
+                                  const noData = rH == null || rA == null;
+                                  const share = noData ? 0.5 : (rH + rA) === 0 ? 0.5 : rH / (rH + rA);
+                                  return (
+                                    <div key={pi} className="mk-ps-duel">
+                                      <div className="mk-ps-duel-names">
+                                        <span className="h">{h}{rH != null && <b> {Math.round(rH * 100)}%</b>}</span>
+                                        <span className="a">{rA != null && <b>{Math.round(rA * 100)}% </b>}{a}</span>
+                                      </div>
+                                      <div className="mk-ps-duel-bar" title={noData ? 'Ainda sem histórico suficiente pra comparar os bonecos' : undefined}>
+                                        <span className={'seg h' + (noData ? ' nd' : '')} style={{ width: (share * 100) + '%' }} />
+                                        <span className={'seg a' + (noData ? ' nd' : '')} style={{ width: ((1 - share) * 100) + '%' }} />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+                          {/* RADAR DE DESEMPENHO (ofensiva/defesa/aproveitamento reais) */}
+                          <MkRadar home={g.home} away={g.away} recH={recH} recA={recA} />
+                          {/* HISTÓRICO DO CONFRONTO: barras de rounds por encontro */}
+                          <div className="mk-ps-block">
+                            <div className="mk-ps-t">CONFRONTO DIRETO <span className="mk-ps-hint">{h2h.games === 0 ? 'primeiro encontro' : (g.home + ' ' + h2h.aWins + ' · ' + h2h.draws + 'E · ' + h2h.bWins + ' ' + g.away)}</span></div>
+                            {h2h.list.map((m, i) => {
+                              const tot = (m.aR + m.bR) || 1;
+                              return (
+                                <div key={i} className="mk-ps-h2h">
+                                  <span className="mk-ps-h2h-l">{m.phase} {String(m.n).padStart(2, '0')}</span>
+                                  <div className="mk-ps-duel-bar">
+                                    <span className="seg h" style={{ width: (m.aR / tot * 100) + '%' }} />
+                                    <span className="seg a" style={{ width: (m.bR / tot * 100) + '%' }} />
+                                  </div>
+                                  <span className="mk-ps-h2h-sc">{m.aR}×{m.bR}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {/* TILES: 1º round / brutality / flawless (dados reais) */}
+                          <div className="mk-ps-tiles">
+                            <div className="mk-ps-tile">
+                              <span className="mk-ps-tile-k">1º ROUND</span>
+                              <span className="mk-ps-tile-r"><i className="h">{g.home}</i><b>{frH.total ? Math.round(frH.won / frH.total * 100) + '%' : '—'}</b></span>
+                              <span className="mk-ps-tile-r"><i>{g.away}</i><b>{frA.total ? Math.round(frA.won / frA.total * 100) + '%' : '—'}</b></span>
+                            </div>
+                            <div className="mk-ps-tile">
+                              <span className="mk-ps-tile-k">BRUTALITY</span>
+                              <span className="mk-ps-tile-r"><i className="h">{g.home}</i><b>{proH.brutality}</b></span>
+                              <span className="mk-ps-tile-r"><i>{g.away}</i><b>{proA.brutality}</b></span>
+                            </div>
+                            <div className="mk-ps-tile">
+                              <span className="mk-ps-tile-k">FLAWLESS</span>
+                              <span className="mk-ps-tile-r"><i className="h">{g.home}</i><b>{proH.flawless}</b></span>
+                              <span className="mk-ps-tile-r"><i>{g.away}</i><b>{proA.flawless}</b></span>
+                            </div>
+                          </div>
                           <div className="mk-bg-stat-grid">
-                            <div className="mk-bg-stat"><span className="mk-bg-stat-k">Confronto direto</span><span className="mk-bg-stat-v">{h2h.games === 0 ? 'primeiro encontro' : (g.home + ' ' + h2h.aWins + ' · ' + h2h.draws + 'E · ' + h2h.bWins + ' ' + g.away)}</span></div>
                             <div className="mk-bg-stat"><span className="mk-bg-stat-k">Prob. vencer</span><span className="mk-bg-stat-v">{g.home} {pctI(pWin)}% · emp {pctI(pDraw)}% · {g.away} {pctI(pLoss)}%</span></div>
                             <div className="mk-bg-stat"><span className="mk-bg-stat-k">Prob. 1º round</span><span className="mk-bg-stat-v">{g.home} {pctI(pR)}% · {g.away} {pctI(1 - pR)}%</span></div>
                             <div className="mk-bg-stat"><span className="mk-bg-stat-k">{g.home}</span><span className="mk-bg-stat-v">{recH && recH.j > 0 ? (recH.pos + 'º · ' + recH.v + 'V ' + recH.e + 'E ' + recH.d + 'D · SR ' + srTxt(recH)) : 'sem jogos ainda'}</span></div>
@@ -10343,27 +10556,43 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             </div>
                           </div>
                         )}
-                        {visibleMarkets.map(mkt => (
+                        {visibleMarkets.map(mkt => {
+                          // marca o AZARÃO (maior prêmio, fogo) e o FAVORITO (menor
+                          // odd, alvo) quando o mercado tem spread relevante (2x+).
+                          const picks = mkMarketPicks(mkt, odds);
+                          const vals = picks.map(p => odds[mkt][p]);
+                          const mx = Math.max(...vals), mn = Math.min(...vals);
+                          const spread = picks.length > 1 && mx >= mn * 2;
+                          return (
                           <div key={mkt} className="mk-bet-mkt">
                             <div className="mk-bet-mkt-h">{MK_MARKET_TITLE[mkt]}</div>
                             <div className="mk-bet-picks">
-                              {mkMarketPicks(mkt, odds).map(pick => {
+                              {picks.map(pick => {
                                 const on = pickInCupom(r, gi, mkt, pick);
+                                const v = odds[mkt][pick];
+                                const hot = spread && v === mx, fav = spread && v === mn;
                                 return (
-                                  <button key={pick} type="button" className={'mk-odd' + (on ? ' on' : '') + (locked ? ' off' : '')}
-                                    onClick={() => toggleLeg(r, gi, g, mkt, pick, odds[mkt][pick])} disabled={locked}>
+                                  <button key={pick} type="button"
+                                    className={'mk-odd' + (on ? ' on' : '') + (locked ? ' off' : '') + (hot ? ' hot' : '') + (fav ? ' fav' : '')}
+                                    title={hot ? 'Maior prêmio do mercado (azarão)' : fav ? 'Favorito do mercado' : undefined}
+                                    onClick={() => toggleLeg(r, gi, g, mkt, pick, v)} disabled={locked}>
                                     <span className="mk-odd-l">
                                       {scoreMkt(mkt)
                                         ? <span className="mk-odd-pl"><span className="mk-sc-h">{pick[0]}</span><span className="mk-sc-x">×</span><span className="mk-sc-a">{pick[1]}</span></span>
                                         : mkPickLabel(mkt, pick)}
                                     </span>
-                                    <span className="mk-odd-v">{odds[mkt][pick].toFixed(2)}</span>
+                                    <span className="mk-odd-v">
+                                      {hot && <Icon name="fire" size={10} className="mk-odd-ic hot" />}
+                                      {fav && <Icon name="target" size={10} className="mk-odd-ic fav" />}
+                                      {v.toFixed(2)}
+                                    </span>
                                   </button>
                                 );
                               })}
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                         </div>
                       )}
                       </div>

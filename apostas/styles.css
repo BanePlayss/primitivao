@@ -5007,6 +5007,64 @@
     .mk-bg-stat { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 10px; }
     .mk-bg-stat-k { font-size: 8.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,22,18,0.45); flex-shrink: 0; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .mk-bg-stat-v { font-weight: 700; color: var(--pv-charcoal); text-align: right; min-width: 0; }
+    /* sparkline de tendência (saldo de rounds acumulado) no resumo */
+    .mk-spark { display: block; margin-top: 5px; max-width: 100%; }
+    .mk-spark polyline { stroke: var(--pv-orange); }
+    .mk-spark.away polyline { stroke: rgba(28,22,18,0.65); }
+    .mk-bm-side.right .mk-spark { margin-left: auto; }
+    /* atalho ESCALAR no resumo (linha de flags) */
+    .mk-bg-escalar { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; border: 0; border-radius: 3px;
+      background: var(--pv-charcoal); color: var(--pv-bone); padding: 3px 9px;
+      font-family: inherit; font-weight: 800; font-size: 8.5px; letter-spacing: 0.06em; }
+    .mk-bg-escalar:hover { background: var(--pv-orange); }
+    /* ESTATÍSTICAS PRO: blocos internos */
+    .mk-ps-block { margin-bottom: 10px; }
+    .mk-ps-t { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 8.5px; font-weight: 800; letter-spacing: 0.1em; color: rgba(28,22,18,0.55); margin-bottom: 6px; }
+    .mk-ps-hint { font-weight: 700; letter-spacing: 0.02em; text-transform: none; color: rgba(28,22,18,0.4); font-size: 8.5px; text-align: right; }
+    /* duelo dos bonecos: nomes + barra dividida */
+    .mk-ps-duel { margin-bottom: 7px; }
+    .mk-ps-duel-names { display: flex; justify-content: space-between; gap: 8px; font-size: 9.5px; font-weight: 700; color: var(--pv-charcoal); margin-bottom: 3px; }
+    .mk-ps-duel-names .h { color: var(--pv-orange); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mk-ps-duel-names .a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+    .mk-ps-duel-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: rgba(28,22,18,0.1); }
+    .mk-ps-duel-bar .seg { height: 100%; }
+    .mk-ps-duel-bar .seg.h { background: var(--pv-orange); }
+    .mk-ps-duel-bar .seg.a { background: var(--pv-charcoal); }
+    .mk-ps-duel-bar .seg.nd { background: rgba(28,22,18,0.22); }
+    .mk-ps-duel-bar .seg.h.nd { background: rgba(215,100,20,0.35); }
+    /* histórico do confronto direto: label + barra + placar de rounds */
+    .mk-ps-h2h { display: grid; grid-template-columns: 52px 1fr 34px; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .mk-ps-h2h-l { font-size: 8px; font-weight: 800; letter-spacing: 0.08em; color: rgba(28,22,18,0.45); }
+    .mk-ps-h2h-sc { font-family: 'Space Grotesk', sans-serif; font-size: 10px; font-weight: 800; color: var(--pv-charcoal); text-align: right; }
+    /* tiles 1º round / brutality / flawless */
+    .mk-ps-tiles { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 10px; }
+    .mk-ps-tile { flex: 1; min-width: 88px; border: 1.5px solid rgba(28,22,18,0.14); background: var(--pv-bone); padding: 6px 8px; display: flex; flex-direction: column; gap: 3px; }
+    .mk-ps-tile-k { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; color: var(--pv-orange); }
+    .mk-ps-tile-r { display: flex; justify-content: space-between; gap: 6px; font-size: 9px; font-weight: 700; color: var(--pv-charcoal); }
+    .mk-ps-tile-r i { font-style: normal; color: rgba(28,22,18,0.55); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mk-ps-tile-r i.h { color: var(--pv-orange); }
+    .mk-ps-tile-r b { font-family: 'Space Grotesk', sans-serif; font-weight: 800; }
+    /* radar de desempenho */
+    .mk-radar-wrap { margin-bottom: 10px; }
+    .mk-radar-leg { display: flex; gap: 12px; margin-bottom: 2px; font-size: 9px; font-weight: 700; color: var(--pv-charcoal); }
+    .mk-radar-leg-i { display: inline-flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mk-radar-leg-i i { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+    .mk-radar-leg-i.home i { background: var(--pv-orange); }
+    .mk-radar-leg-i.away i { background: rgba(28,22,18,0.65); }
+    .mk-radar { display: block; width: 100%; max-width: 210px; margin: 0 auto; }
+    .mk-radar-grid { fill: none; stroke: rgba(28,22,18,0.16); stroke-width: 1; }
+    .mk-radar-axis { stroke: rgba(28,22,18,0.12); stroke-width: 1; }
+    .mk-radar-a { fill: rgba(215,100,20,0.28); stroke: var(--pv-orange); stroke-width: 1.5; }
+    .mk-radar-b { fill: rgba(28,22,18,0.14); stroke: rgba(28,22,18,0.65); stroke-width: 1.5; }
+    .mk-radar-lab { font-family: 'Space Grotesk', sans-serif; font-size: 7px; font-weight: 800; letter-spacing: 0.08em; fill: rgba(28,22,18,0.5); }
+    /* decoração das odds: fogo = maior prêmio (azarão), alvo = favorito */
+    .mk-odd.hot { border-color: var(--pv-orange); }
+    .mk-odd.fav { border-color: rgba(28,22,18,0.45); }
+    .mk-odd-v { display: inline-flex; align-items: center; gap: 3px; }
+    .mk-odd-ic.hot { color: var(--pv-orange); }
+    .mk-odd-ic.fav { color: var(--pv-green, #4d6a2e); }
+    /* pick selecionado: fundo laranja — ícones viram brancos pra não sumir */
+    .mk-odd.on .mk-odd-ic { color: #fff; }
     .mk-bet-own { display: flex; align-items: center; gap: 5px; margin-bottom: 9px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; color: #fff; background: var(--pv-charcoal); padding: 4px 8px; }
     .mk-bet-own.lock { background: #7a2222; }
     .mk-bet-own.seu { justify-content: space-between; gap: 8px; background: var(--pv-orange); color: var(--pv-bone); }
