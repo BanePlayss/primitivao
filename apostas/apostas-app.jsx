@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260703-mk5 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260704-temas1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1242,12 +1242,20 @@ function saveSession(val) {
 // em users[nick].theme (Firestore, sincroniza entre dispositivos) como um ID +
 // mirror em localStorage (aplica instantâneo no boot, antes do snapshot, sem
 // "flash"). Dark é por CLASSE (html.pv-dark), independente do SO.
-// 10 claros + 8 escuros. O 1º (classico) é o padrão laranja/papel.
+// 12 claros + 9 escuros. O 1º (classico) é o padrão laranja/papel.
 const THEME_KEY = 'pv-theme';
 const DEFAULT_THEME = 'classico';   // claro padrão
 const DEFAULT_DARK_THEME = 'breu';  // usado só se o SO pede dark e ninguém escolheu
 const DEFAULT_ACCENT = '#d76414';
 const BONE_BG = 'radial-gradient(circle at 18% 12%, rgba(215,100,20,0.10), transparent 42%), radial-gradient(circle at 82% 88%, rgba(215,100,20,0.06), transparent 42%), #f4ead7';
+// Fundo do tema CELIN: peças de quebra-cabeça (autismo) em 4 cores bem sutis,
+// sobre o papel — SVG inline tileável (80x80). ORGULHO: lavada arco-íris (LGBT).
+const PUZZLE_PIECE_D = 'M6,6 h6 a3,3 0 1 1 6,0 h6 v6 a3,3 0 1 0 0,6 v6 h-6 a3,3 0 1 1 -6,0 h-6 v-6 a3,3 0 1 0 0,-6 z';
+const puzzlePiece = (x, y, color) => "<path transform='translate(" + x + "," + y + ")' d='" + PUZZLE_PIECE_D + "' fill='" + color + "'/>";
+const CELIN_BG = "url(\"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill-opacity='0.18'>"
+  + puzzlePiece(4, 4, '%233a86c8') + puzzlePiece(44, 4, '%23e23b3b') + puzzlePiece(4, 44, '%23e8b23a') + puzzlePiece(44, 44, '%233fa35b')
+  + "</g></svg>\"), #f4ead7";
+const ORGULHO_BG = 'linear-gradient(160deg, rgba(228,3,3,0.17), rgba(255,140,0,0.17) 20%, rgba(255,214,0,0.17) 40%, rgba(0,140,60,0.17) 60%, rgba(0,90,255,0.17) 80%, rgba(140,20,160,0.17)), #f4ead7';
 const PV_THEMES = [
   // ── CLAROS (papel) ──
   { id: 'classico',  name: 'Clássico', accent: '#d76414', dark: false, bg: BONE_BG },
@@ -1260,6 +1268,8 @@ const PV_THEMES = [
   { id: 'petroleo',  name: 'Petróleo', accent: '#1b4965', dark: false, bg: 'radial-gradient(circle at 18% 12%, rgba(27,73,101,0.10), transparent 42%), radial-gradient(circle at 82% 88%, rgba(27,73,101,0.05), transparent 42%), #f4ead7' },
   { id: 'vinho',     name: 'Vinho',    accent: '#8a2846', dark: false, bg: 'radial-gradient(circle at 18% 12%, rgba(138,40,70,0.10), transparent 42%), radial-gradient(circle at 82% 88%, rgba(138,40,70,0.05), transparent 42%), #f4ead7' },
   { id: 'musgo',     name: 'Musgo',    accent: '#4f5a28', dark: false, bg: 'radial-gradient(circle at 18% 12%, rgba(79,90,40,0.10), transparent 42%), radial-gradient(circle at 82% 88%, rgba(79,90,40,0.05), transparent 42%), #f4ead7' },
+  { id: 'celin',     name: 'Celin',    accent: '#3a86c8', dark: false, bg: CELIN_BG },   // quebra-cabeça (autismo)
+  { id: 'orgulho',   name: 'Orgulho',  accent: '#d02a9c', dark: false, bg: ORGULHO_BG }, // LGBT / arco-íris
   // ── ESCUROS (mesa escura, cards continuam papel) ──
   { id: 'breu',       name: 'Breu',       accent: '#d76414', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(215,100,20,0.07), transparent 42%), radial-gradient(circle at 82% 88%, rgba(215,100,20,0.04), transparent 42%), #16100b' },
   { id: 'meia-noite', name: 'Meia-Noite', accent: '#2f6fb0', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(47,111,176,0.10), transparent 42%), radial-gradient(circle at 82% 88%, rgba(47,111,176,0.05), transparent 42%), #0c1119' },
@@ -1269,6 +1279,7 @@ const PV_THEMES = [
   { id: 'petroleo-noite', name: 'Petróleo Escuro', accent: '#2e8ba0', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(46,139,160,0.12), transparent 42%), radial-gradient(circle at 82% 88%, rgba(46,139,160,0.06), transparent 42%), #08161a' },
   { id: 'borgonha',   name: 'Borgonha',   accent: '#b5476a', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(181,71,106,0.12), transparent 42%), radial-gradient(circle at 82% 88%, rgba(181,71,106,0.06), transparent 42%), #1a0d12' },
   { id: 'floresta',   name: 'Floresta',   accent: '#4a9d5a', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(74,157,90,0.12), transparent 42%), radial-gradient(circle at 82% 88%, rgba(74,157,90,0.06), transparent 42%), #0a140c' },
+  { id: 'carmesim',   name: 'Carmesim',   accent: '#d61f2b', dark: true, bg: 'radial-gradient(circle at 18% 12%, rgba(214,31,43,0.16), transparent 42%), radial-gradient(circle at 82% 88%, rgba(214,31,43,0.09), transparent 45%), #0b0304' },
 ];
 const pvThemeById = (id) => PV_THEMES.find(t => t.id === id) || null;
 function loadThemeLS() {
