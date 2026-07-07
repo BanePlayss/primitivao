@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260707-destaque ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260707-destaque2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4652,6 +4652,12 @@ function App() {
                 <ResultLauncherPanel champId={apostasChampId}
                   mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} onMkScore={setMkScoreField}
                   cs={cs} onFifaScore={setFifaScore} teamPlayers={teamPlayers || {}} />
+              )}
+              {/* DESTAQUES DO MK: fica ACIMA da mesa dos cartolas — os jogos que o
+                  MOD marcou como destaque, pra ficar fácil de ver quais são os
+                  próximos jogos sem precisar rolar a lista de liberados. */}
+              {apostasChampId === 'mk' && (
+                <MkDestaquesBox draw={mkDraw} scores={mkScores} teamPlayers={teamPlayers || {}} onOpenProfile={setProfileNick} />
               )}
               {/* MESA DOS CARTOLAS (M9): tickets abertos pra copiar com cashback. */}
               {!isAdmin && (
@@ -10248,6 +10254,41 @@ function MkGameStats({ g, gkey, draw, scores, lineups, metrics, standings, charS
     </div>
   );
 }
+// ── DESTAQUES DO MK — caixa acima da MESA DOS CARTOLAS com os confrontos que o
+// MOD marcou (mk.scores[key].featured). Some sozinha quando não tem nenhum ou
+// quando o jogo destacado é lançado (mkLiberadoGames já tira os resolvidos).
+function MkDestaquesBox({ draw, scores, teamPlayers, onOpenProfile }) {
+  const items = mkLiberadoGames(draw, scores).filter(it => (((scores || {})[it.key]) || {}).featured);
+  if (!items.length) return null;
+  return (
+    <div className="card mk-destaques-wrap">
+      <div className="card-head">
+        <div className="title"><Icon name="star" size={16} /> DESTAQUES</div>
+        <div className="sub">PRÓXIMOS JOGOS EM DESTAQUE PELO MOD</div>
+      </div>
+      <div className="card-body">
+        <div className="mk-destaques-grid">
+          {items.map(({ r, g, key }) => (
+            <div key={key} className="mk-destaque-item">
+              <span className="mk-destaque-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase}</span>
+              <div className="mk-destaque-match">
+                <button type="button" className="mk-destaque-side" onClick={() => onOpenProfile && onOpenProfile(g.home)} title={'Ver perfil de ' + g.home}>
+                  <Avatar nick={g.home} teamPlayers={teamPlayers} size={28} noBadge />
+                  <span className="mk-destaque-nick">{g.home}</span>
+                </button>
+                <span className="mk-destaque-vs"><Icon name="skull" size={12} /></span>
+                <button type="button" className="mk-destaque-side right" onClick={() => onOpenProfile && onOpenProfile(g.away)} title={'Ver perfil de ' + g.away}>
+                  <span className="mk-destaque-nick">{g.away}</span>
+                  <Avatar nick={g.away} teamPlayers={teamPlayers} size={28} noBadge />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onMkScore, onOpenProfile, onEscalar, myNick, isAdmin, isMod, balance }) {
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
@@ -10549,13 +10590,14 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             )}
                             {gameLocked && <span className="mk-bg-flag lock"><Icon name="lock" size={10} /> TRAVADO</span>}
                             {counting && !gameLocked && <span className="mk-bg-flag closing"><Icon name="warning" size={10} /> FECHA {fmtSecs(secsLeft)}</span>}
-                            {/* MOD: destacar/remover destaque — sempre visível (não precisa expandir
-                                o card), pra dar pra marcar o jogo do momento rapidinho na lista toda. */}
+                            {/* MOD: destacar/remover destaque — botão só ícone (liga/desliga), sempre
+                                visível (não precisa expandir o card) pra marcar rápido na lista toda. */}
                             {isMod && onSetGameLock && (
                               <button type="button" className={'mk-bg-feat-btn' + (featured ? ' on' : '')}
                                 onClick={(e) => { e.stopPropagation(); onSetGameLock(key, { featured: !featured }); }}
-                                title={featured ? 'Remover destaque' : 'Destacar este jogo'}>
-                                <Icon name="star" size={11} /> {featured ? 'DESTACADO' : 'DESTACAR'}
+                                title={featured ? 'Remover destaque' : 'Destacar este jogo'}
+                                aria-pressed={featured}>
+                                <Icon name="star" size={13} />
                               </button>
                             )}
                             {/* estatísticas viram POP-UP (não estica o card) — à direita da linha */}
