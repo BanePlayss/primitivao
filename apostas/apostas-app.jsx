@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260707-odds2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260707-mkstats3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -940,13 +940,13 @@ function mkCharWinStats(draw, scores, lineups) {
 }
 // Vantagem dos BONECOS escalados nesse confronto: média do win% histórico dos
 // bonecos do mandante (p1.home + p2.home) menos a média dos do visitante.
-// Boneco sem histórico (ou card ainda não montado) conta como neutro (50%)
-// pra não distorcer com amostra pequena. Retorna -1..+1 (positivo = mandante).
+// Win% suavizado pra 50% (Laplace +1/+2): boneco de 1 partida não vira 100%,
+// e sem histórico (ou card não montado) é neutro. Retorna -1..+1 (mandante).
 function mkCharEdge(lineup, charStats) {
   if (!lineup) return 0;
   const rate = (c) => {
     const s = (charStats || {})[c];
-    return (s && s.played > 0) ? s.won / s.played : 0.5;
+    return s ? (s.won + 1) / (s.played + 2) : 0.5;
   };
   const avg = (arr) => arr.reduce((s, c) => s + rate(c), 0) / arr.length;
   const homeChars = ['p1', 'p2'].map(p => (lineup[p] || {}).home).filter(Boolean);
@@ -963,6 +963,24 @@ function mkH2hEdge(home, away, draw, scores) {
   const diff = (h2h.aWins - h2h.bWins) / h2h.games; // -1..+1
   const confidence = h2h.games / (h2h.games + 2); // 1 jogo ~0.33, 2 ~0.5, 4+ ~0.66+
   return diff * confidence;
+}
+// Vantagem no PRIMEIRO ROUND: taxa de vitórias de 1º round registradas
+// (mkFirstRoundStats), suavizada pra 50% em amostra pequena (Laplace +1/+2:
+// sem dado = 0.5, 3/3 = 0.8 — nunca vira certeza). Retorna -1..+1 (mandante).
+function mkFirstRoundEdge(home, away, draw, scores) {
+  const rate = (nick) => { const s = mkFirstRoundStats(nick, draw, scores); return (s.won + 1) / (s.total + 2); };
+  return rate(home) - rate(away);
+}
+// Vantagem de FLAWLESS: taxa de flawless por confronto concluído de cada
+// jogador (mkPlayerProStats ÷ jogos), suavizada pra um prior baixo (~20%,
+// flawless é raro). Quem atropela sem ceder round domina rounds. -1..+1.
+function mkFlawlessRate(nick, draw, scores) {
+  const j = mkPlayerRecent(nick, draw, scores, 9999).length;
+  const f = mkPlayerProStats(nick, draw, scores).flawless;
+  return (f + 0.5) / (j + 2.5); // sem dado -> 0.2
+}
+function mkFlawlessEdge(home, away, draw, scores) {
+  return mkFlawlessRate(home, draw, scores) - mkFlawlessRate(away, draw, scores);
 }
 
 // ─── ODDS DO MK — modelo de 2 níveis (round -> partida -> confronto). Da força
@@ -995,7 +1013,6 @@ const MK_PARTIDA_PICKS = ['20', '21', '12', '02']; // mandante x visitante (prim
 const MK_ODD_K = 0.4167;   // 4.00 -> 2.25 no simétrico
 const MK_ODD_FALLBACK = 999; // só pro caso degenerado de probabilidade inválida (não deve acontecer: p é clampado)
 const MK_TOTAL_PICKS = ['4', '5', '6'];   // total de rounds das 2 partidas
-const MK_FLAWLESS_PROB = 0.40; // pode rolar em qualquer das 2 partidas
 // Só Brutality é apostável (a Fatality é obrigatória ao vencer, então não vira
 // mercado). Flawless Victory é mercado à parte (FLAW) + toggle no lançamento.
 const MK_FINISHERS = [
@@ -1013,26 +1030,53 @@ function mkPartidaDist(p) {
     '12': 2 * p * q * q, '02': q * q,
   };
 }
+// Força POR JOGO (pontos ×3 + saldo de rounds, ÷ jogos disputados): normalizar
+// por jogos mantém a escala estável a temporada inteira — a força acumulada
+// crescia com o nº de jogos e saturava o sigmoid (fim de torneio = todo
+// confronto no extremo 1.10/89, começo = tudo igual 2.25).
 function computeMkPlayerMetrics(players, matches) {
   const out = {};
-  computeMkStandings(players, matches).forEach(s => { out[s.nick] = { strength: s.p * 3 + (s.rp - s.rc) }; });
+  computeMkStandings(players, matches).forEach(s => {
+    out[s.nick] = { strength: s.j > 0 ? (s.p * 3 + (s.rp - s.rc)) / s.j : 0 };
+  });
   return out;
 }
-// Kx do peso de cada edge no cálculo: valor -1..+1 (ver mkCharEdge/mkH2hEdge)
-// vira um termo somado ao logit ao lado da força dos jogadores — pesa, mas
-// nenhum dos dois domina sozinho.
+// Kx do peso de cada edge no cálculo: valor -1..+1 vira um termo somado ao
+// logit ao lado da força dos jogadores — cada estatística pesa, nenhuma domina
+// sozinha. Sinais: campanha (força), duelo dos bonecos, confronto direto,
+// vitórias de 1º round e taxa de flawless.
 const MK_CHAR_EDGE_K = 3;
 const MK_H2H_EDGE_K = 2.5;
-function mkRoundWinProb(home, away, metrics, lineup, charStats, draw, scores) {
+const MK_FR_EDGE_K = 1.5;   // vitórias de 1º round (edge fica em ~±0.3)
+const MK_FLAW_EDGE_K = 2;   // flawless = domínio total de rounds (edge ~±0.4)
+// Logit cru do confronto (positivo = mandante): soma de TODAS as estatísticas.
+// É a base única das odds E da barra de probabilidade do card.
+function mkRoundLogit(home, away, metrics, lineup, charStats, draw, scores) {
   const H = (metrics || {})[home] || { strength: 0 }, A = (metrics || {})[away] || { strength: 0 };
   const charEdge = mkCharEdge(lineup, charStats); // bonecos escalados (win% histórico)
   const h2hEdge = mkH2hEdge(home, away, draw, scores); // confrontos diretos já jogados
-  // Clamp mais largo (era 0.25–0.75): jogos bem desequilibrados geram odds bem
-  // altas pro azarão (sem teto). No começo (forças iguais) dá 0.5.
-  return Math.max(0.16, Math.min(0.84, sigmoid((H.strength - A.strength) * 0.04 + charEdge * MK_CHAR_EDGE_K + h2hEdge * MK_H2H_EDGE_K)));
+  const frEdge = mkFirstRoundEdge(home, away, draw, scores); // vitórias de 1º round
+  const flawEdge = mkFlawlessEdge(home, away, draw, scores); // taxa de flawless
+  // 0.1 na escala POR JOGO da força (diff típico ±3..8): favorito claro fica
+  // em ~0.65-0.80 de round antes dos outros edges, sem saturar o sigmoid.
+  return (H.strength - A.strength) * 0.1
+    + charEdge * MK_CHAR_EDGE_K + h2hEdge * MK_H2H_EDGE_K
+    + frEdge * MK_FR_EDGE_K + flawEdge * MK_FLAW_EDGE_K;
+}
+// Clamp SÓ das odds pagas (piso/teto de pagamento). A barra de probabilidade
+// exibida usa o logit sem clamp (mkMatchupProbs) pra diferenciar mais.
+const mkClampP = (x) => Math.max(0.16, Math.min(0.84, x));
+// Probabilidades EXIBIDAS (barra do card + pop-up de stats): direto das
+// estatísticas, com clamp mais frouxo que o das odds (0.10-0.90) — diferencia
+// mais que as odds pagas mas a barra nunca crava 100%/0% (ninguém é certeza).
+function mkMatchupProbs(home, away, metrics, lineup, charStats, draw, scores) {
+  const pR = Math.max(0.10, Math.min(0.90, sigmoid(mkRoundLogit(home, away, metrics, lineup, charStats, draw, scores))));
+  const q = mkPartidaWinProb(pR);
+  return { pR, pWin: q * q, pDraw: 2 * q * (1 - q), pLoss: (1 - q) * (1 - q) };
 }
 function computeMkGameOdds(home, away, metrics, lineup, charStats, draw, scores) {
-  const p = mkRoundWinProb(home, away, metrics, lineup, charStats, draw, scores);
+  const logit = mkRoundLogit(home, away, metrics, lineup, charStats, draw, scores);
+  const p = mkClampP(sigmoid(logit));
   const q = mkPartidaWinProb(p);                  // mandante vence uma partida
   const p20 = q * q, p11 = 2 * q * (1 - q), p02 = (1 - q) * (1 - q);
   const pd = mkPartidaDist(p);
@@ -1045,14 +1089,21 @@ function computeMkGameOdds(home, away, metrics, lineup, charStats, draw, scores)
   const totalO = {}; MK_TOTAL_PICKS.forEach(t => { totalO[t] = mko(total[t]); });
   // finalização pode sair em QUALQUER das 2 partidas -> P = 1 - (1-p)^2.
   const finish = {}; MK_FINISHERS.forEach(f => { finish[f.id] = mko(1 - Math.pow(1 - f.p, 2)); });
+  // 1º ROUND: a estatística específica de 1º round pesa em DOBRO aqui (o
+  // primeiro round tem dono — quem começa forte ganha odd melhor nesse mercado).
+  const pR1 = mkClampP(sigmoid(logit + mkFirstRoundEdge(home, away, draw, scores) * MK_FR_EDGE_K));
+  // FLAWLESS: taxas reais dos DOIS jogadores (rolou flawless de qualquer lado
+  // no confronto), no lugar do 40% fixo antigo. Sem histórico cai em ~0.36.
+  const fH = mkFlawlessRate(home, draw, scores), fA = mkFlawlessRate(away, draw, scores);
+  const pFlawY = Math.max(0.05, Math.min(0.85, 1 - (1 - fH) * (1 - fA)));
   return {
     VENC:   { H: mko(p20), D: mko(p11), A: mko(p02) },
     DC:     { '1X': mko(p20 + p11), '12': mko(p20 + p02), 'X2': mko(p11 + p02) }, // chance dupla
-    R1:     { H: mko(p), A: mko(1 - p) }, // primeiro round: prob = round-win prob
+    R1:     { H: mko(pR1), A: mko(1 - pR1) },
     RESULT: { '20': mko(p20), '11': mko(p11), '02': mko(p02) },
     P1: partida, P2: partida, TOTAL: totalO,
     FINISH: finish,
-    FLAW:   { Y: mko(MK_FLAWLESS_PROB), N: mko(1 - MK_FLAWLESS_PROB) },
+    FLAW:   { Y: mko(pFlawY), N: mko(1 - pFlawY) },
   };
 }
 // Ordem de exibição (chaves "inteiras" do JS reordenam — fixar aqui).
@@ -10222,9 +10273,7 @@ function MkForm({ nick, draw, scores, align }) {
 // esticar o card do jogo). Deriva tudo dos jogos reais.
 function MkGameStats({ g, gkey, draw, scores, lineups, metrics, standings, charStats }) {
   const recOf = (n) => { const i = (standings || []).findIndex(s => s.nick === n); return i < 0 ? null : { ...standings[i], pos: i + 1 }; };
-  const pR = mkRoundWinProb(g.home, g.away, metrics, (lineups || {})[gkey], charStats, draw, scores);
-  const qP = mkPartidaWinProb(pR);
-  const pWin = qP * qP, pDraw = 2 * qP * (1 - qP), pLoss = (1 - qP) * (1 - qP);
+  const { pR, pWin, pDraw, pLoss } = mkMatchupProbs(g.home, g.away, metrics, (lineups || {})[gkey], charStats, draw, scores);
   const pctI = (x) => Math.round(x * 100);
   const h2h = mkHeadToHead(g.home, g.away, draw, scores);
   const recH = recOf(g.home), recA = recOf(g.away);
@@ -10467,11 +10516,9 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     const frH = mkFirstRoundStats(g.home, draw, scores);
     const frA = mkFirstRoundStats(g.away, draw, scores);
     const scoreMkt = (m) => m === 'RESULT' || m === 'P1' || m === 'P2';
-    // probabilidades do modelo (mandante/empate/visitante) + 1º round,
-    // confronto direto e campanha de cada jogador (pra mais stats).
-    const pR = mkRoundWinProb(g.home, g.away, metrics, (lineups || {})[key], charStats, draw, scores);
-    const qP = mkPartidaWinProb(pR);
-    const pWin = qP * qP, pDraw = 2 * qP * (1 - qP), pLoss = (1 - qP) * (1 - qP);
+    // probabilidades EXIBIDAS (mandante/empate/visitante + 1º round): direto
+    // das estatísticas (mkMatchupProbs, sem o clamp de pagamento das odds).
+    const { pR, pWin, pDraw, pLoss } = mkMatchupProbs(g.home, g.away, metrics, (lineups || {})[key], charStats, draw, scores);
     const pctI = (x) => Math.round(x * 100);
     const trendH = mkPlayerTrendSeries(g.home, draw, scores);
     const trendA = mkPlayerTrendSeries(g.away, draw, scores);
@@ -10515,8 +10562,8 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
               <Avatar nick={g.away} teamPlayers={teamPlayers} size={30} noBadge />
             </button>
           </div>
-          {/* barra de probabilidade do confronto (modelo de odds) */}
-          <div className="mk-bg-prob" title="Probabilidade do confronto (modelo de odds)">
+          {/* barra de probabilidade do confronto (estatísticas) */}
+          <div className="mk-bg-prob" title="Probabilidade do confronto (estatísticas: campanha, bonecos, confronto direto, 1º round e flawless)">
             <div className="mk-bg-prob-bar">
               <span className="mk-bg-prob-seg h" style={{ width: (pWin * 100) + '%' }} />
               <span className="mk-bg-prob-seg d" style={{ width: (pDraw * 100) + '%' }} />
