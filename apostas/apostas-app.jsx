@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260706-mkliberado ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260707-destaque ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -10323,6 +10323,10 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   const liberados = mkLiberadoGames(draw, scores);
   // AGRUPA os liberados por RODADA (fase+n) — cada rodada numa caixa própria; SEU
   // JOGO primeiro dentro de cada uma. Mantém a ordem do chaveamento entre rodadas.
+  // DESTAQUE (mk-scores[key].featured, marcado pelo MOD): joga a rodada inteira
+  // pro topo da lista e o jogo em si pro topo da rodada — assim fica fácil de
+  // achar em meio a uma lista de liberados que agora pode ter várias rodadas.
+  const isFeatured = (item) => !!(((scores || {})[item.key] || {}).featured);
   const libGroups = (() => {
     const groups = [], idx = {};
     liberados.forEach(item => {
@@ -10330,8 +10334,10 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
       if (!(gk in idx)) { idx[gk] = groups.length; groups.push({ r: item.r, ri: item.ri, items: [] }); }
       groups[idx[gk]].items.push(item);
     });
-    groups.sort((a, b) => a.ri - b.ri);
-    groups.forEach(gr => gr.items.sort((a, b) => (isMine(a.g) ? 0 : 1) - (isMine(b.g) ? 0 : 1)));
+    groups.forEach(gr => { gr.hasFeatured = gr.items.some(isFeatured); });
+    groups.sort((a, b) => (b.hasFeatured - a.hasFeatured) || (a.ri - b.ri));
+    groups.forEach(gr => gr.items.sort((a, b) =>
+      (isFeatured(b) ? 1 : 0) - (isFeatured(a) ? 1 : 0) || (isMine(a.g) ? 0 : 1) - (isMine(b.g) ? 0 : 1)));
     return groups;
   })();
   // tira do cupom pernas de jogos que deixaram de estar liberados (foram lançados).
@@ -10426,6 +10432,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                   <div key={gr.r.phase + gr.r.n} className="mk-lib-round">
                     <div className="mk-lib-round-h">
                       <Icon name="skull" size={12} /> RODADA {String(gr.r.n).padStart(2, '0')} · {gr.r.phase}
+                      {gr.hasFeatured && <span className="mk-lib-round-feat"><Icon name="star" size={11} /> DESTAQUE</span>}
                       <span className="mk-lib-round-c">{gr.items.length} JOGO{gr.items.length === 1 ? '' : 'S'}</span>
                     </div>
                     <div className="mk-bet-games">
@@ -10437,6 +10444,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                     const secsLeft = mkLockSecondsLeft(scEntry, now);
                     const counting = secsLeft > 0;
                     const locked = ownGame || gameLocked;
+                    const featured = !!(scEntry && scEntry.featured);
                     const expanded = openGames.has(key);
                     const frH = mkFirstRoundStats(g.home, draw, scores);
                     const frA = mkFirstRoundStats(g.away, draw, scores);
@@ -10450,7 +10458,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                     const trendH = mkPlayerTrendSeries(g.home, draw, scores);
                     const trendA = mkPlayerTrendSeries(g.away, draw, scores);
                     return (
-                      <div key={key} className={'mk-bet-game' + (ownGame ? ' own' : '') + (gameLocked ? ' locked' : '') + (counting && !gameLocked ? ' closing' : '') + (expanded ? ' open' : '')}>
+                      <div key={key} className={'mk-bet-game' + (featured ? ' featured' : '') + (ownGame ? ' own' : '') + (gameLocked ? ' locked' : '') + (counting && !gameLocked ? ' closing' : '') + (expanded ? ' open' : '')}>
                         {/* RESUMO da caixa (sempre visível): confronto + forma + 1º round.
                             Clica em qualquer lugar (menos nos jogadores) pra EXPANDIR e
                             ver as odds/mercados. */}
@@ -10531,6 +10539,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             );
                           })()}
                           <div className="mk-bg-flags">
+                            {featured && <span className="mk-bg-flag destaque"><Icon name="star" size={10} /> DESTAQUE</span>}
                             {ownGame && <span className="mk-bg-flag seu"><Icon name="fist" size={10} /> SEU JOGO</span>}
                             {/* atalho: escalar direto do resumo (só o mandante monta o card) */}
                             {ownGame && g.home === myNick && onEscalar && (
@@ -10540,6 +10549,15 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             )}
                             {gameLocked && <span className="mk-bg-flag lock"><Icon name="lock" size={10} /> TRAVADO</span>}
                             {counting && !gameLocked && <span className="mk-bg-flag closing"><Icon name="warning" size={10} /> FECHA {fmtSecs(secsLeft)}</span>}
+                            {/* MOD: destacar/remover destaque — sempre visível (não precisa expandir
+                                o card), pra dar pra marcar o jogo do momento rapidinho na lista toda. */}
+                            {isMod && onSetGameLock && (
+                              <button type="button" className={'mk-bg-feat-btn' + (featured ? ' on' : '')}
+                                onClick={(e) => { e.stopPropagation(); onSetGameLock(key, { featured: !featured }); }}
+                                title={featured ? 'Remover destaque' : 'Destacar este jogo'}>
+                                <Icon name="star" size={11} /> {featured ? 'DESTACADO' : 'DESTACAR'}
+                              </button>
+                            )}
                             {/* estatísticas viram POP-UP (não estica o card) — à direita da linha */}
                             <button type="button" className="mk-bg-stats-btn" onClick={(e) => { e.stopPropagation(); setStatsGame({ g, key }); }}>
                               <Icon name="chart" size={11} /> ESTATÍSTICAS
