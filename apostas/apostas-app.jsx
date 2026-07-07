@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260707-destaque2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260707-destaque3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4652,12 +4652,6 @@ function App() {
                 <ResultLauncherPanel champId={apostasChampId}
                   mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} onMkScore={setMkScoreField}
                   cs={cs} onFifaScore={setFifaScore} teamPlayers={teamPlayers || {}} />
-              )}
-              {/* DESTAQUES DO MK: fica ACIMA da mesa dos cartolas — os jogos que o
-                  MOD marcou como destaque, pra ficar fácil de ver quais são os
-                  próximos jogos sem precisar rolar a lista de liberados. */}
-              {apostasChampId === 'mk' && (
-                <MkDestaquesBox draw={mkDraw} scores={mkScores} teamPlayers={teamPlayers || {}} onOpenProfile={setProfileNick} />
               )}
               {/* MESA DOS CARTOLAS (M9): tickets abertos pra copiar com cashback. */}
               {!isAdmin && (
@@ -10254,41 +10248,6 @@ function MkGameStats({ g, gkey, draw, scores, lineups, metrics, standings, charS
     </div>
   );
 }
-// ── DESTAQUES DO MK — caixa acima da MESA DOS CARTOLAS com os confrontos que o
-// MOD marcou (mk.scores[key].featured). Some sozinha quando não tem nenhum ou
-// quando o jogo destacado é lançado (mkLiberadoGames já tira os resolvidos).
-function MkDestaquesBox({ draw, scores, teamPlayers, onOpenProfile }) {
-  const items = mkLiberadoGames(draw, scores).filter(it => (((scores || {})[it.key]) || {}).featured);
-  if (!items.length) return null;
-  return (
-    <div className="card mk-destaques-wrap">
-      <div className="card-head">
-        <div className="title"><Icon name="star" size={16} /> DESTAQUES</div>
-        <div className="sub">PRÓXIMOS JOGOS EM DESTAQUE PELO MOD</div>
-      </div>
-      <div className="card-body">
-        <div className="mk-destaques-grid">
-          {items.map(({ r, g, key }) => (
-            <div key={key} className="mk-destaque-item">
-              <span className="mk-destaque-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase}</span>
-              <div className="mk-destaque-match">
-                <button type="button" className="mk-destaque-side" onClick={() => onOpenProfile && onOpenProfile(g.home)} title={'Ver perfil de ' + g.home}>
-                  <Avatar nick={g.home} teamPlayers={teamPlayers} size={28} noBadge />
-                  <span className="mk-destaque-nick">{g.home}</span>
-                </button>
-                <span className="mk-destaque-vs"><Icon name="skull" size={12} /></span>
-                <button type="button" className="mk-destaque-side right" onClick={() => onOpenProfile && onOpenProfile(g.away)} title={'Ver perfil de ' + g.away}>
-                  <span className="mk-destaque-nick">{g.away}</span>
-                  <Avatar nick={g.away} teamPlayers={teamPlayers} size={28} noBadge />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
 function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onMkScore, onOpenProfile, onEscalar, myNick, isAdmin, isMod, balance }) {
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
@@ -10362,23 +10321,22 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   // SEUS jogos primeiro (você está no confronto) — depois o resto, ordem estável.
   const isMine = (g) => !!myNick && (g.home === myNick || g.away === myNick);
   const liberados = mkLiberadoGames(draw, scores);
-  // AGRUPA os liberados por RODADA (fase+n) — cada rodada numa caixa própria; SEU
-  // JOGO primeiro dentro de cada uma. Mantém a ordem do chaveamento entre rodadas.
-  // DESTAQUE (mk-scores[key].featured, marcado pelo MOD): joga a rodada inteira
-  // pro topo da lista e o jogo em si pro topo da rodada — assim fica fácil de
-  // achar em meio a uma lista de liberados que agora pode ter várias rodadas.
+  // DESTAQUE (mk-scores[key].featured, marcado pelo MOD): sai da lista normal de
+  // RODADAS e vive só na caixa DESTAQUES (topo da tela) — não duplica em dois
+  // lugares. destaques usa o MESMO renderGameCard (cupom/mercados compartilhados).
   const isFeatured = (item) => !!(((scores || {})[item.key] || {}).featured);
+  const destaques = liberados.filter(isFeatured);
+  // AGRUPA o resto (não-destacado) por RODADA (fase+n) — cada rodada numa caixa
+  // própria; SEU JOGO primeiro dentro de cada uma. Ordem do chaveamento entre rodadas.
   const libGroups = (() => {
     const groups = [], idx = {};
-    liberados.forEach(item => {
+    liberados.filter(item => !isFeatured(item)).forEach(item => {
       const gk = item.r.phase + '·' + item.r.n;
       if (!(gk in idx)) { idx[gk] = groups.length; groups.push({ r: item.r, ri: item.ri, items: [] }); }
       groups[idx[gk]].items.push(item);
     });
-    groups.forEach(gr => { gr.hasFeatured = gr.items.some(isFeatured); });
-    groups.sort((a, b) => (b.hasFeatured - a.hasFeatured) || (a.ri - b.ri));
-    groups.forEach(gr => gr.items.sort((a, b) =>
-      (isFeatured(b) ? 1 : 0) - (isFeatured(a) ? 1 : 0) || (isMine(a.g) ? 0 : 1) - (isMine(b.g) ? 0 : 1)));
+    groups.sort((a, b) => a.ri - b.ri);
+    groups.forEach(gr => gr.items.sort((a, b) => (isMine(a.g) ? 0 : 1) - (isMine(b.g) ? 0 : 1)));
     return groups;
   })();
   // tira do cupom pernas de jogos que deixaram de estar liberados (foram lançados).
@@ -10433,6 +10391,247 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     return pending ? 'pending' : 'won';
   };
 
+  const renderGameCard = ({ r, gi, g, key }) => {
+    const odds = computeMkGameOdds(g.home, g.away, metrics);
+    const ownGame = !!myNick && (g.home === myNick || g.away === myNick);
+    const scEntry = (scores || {})[key] || null;
+    const gameLocked = mkGameClosed(scEntry, now);
+    const secsLeft = mkLockSecondsLeft(scEntry, now);
+    const counting = secsLeft > 0;
+    const locked = ownGame || gameLocked;
+    const featured = !!(scEntry && scEntry.featured);
+    const expanded = openGames.has(key);
+    const frH = mkFirstRoundStats(g.home, draw, scores);
+    const frA = mkFirstRoundStats(g.away, draw, scores);
+    const scoreMkt = (m) => m === 'RESULT' || m === 'P1' || m === 'P2';
+    // probabilidades do modelo (mandante/empate/visitante) + 1º round,
+    // confronto direto e campanha de cada jogador (pra mais stats).
+    const pR = mkRoundWinProb(g.home, g.away, metrics);
+    const qP = mkPartidaWinProb(pR);
+    const pWin = qP * qP, pDraw = 2 * qP * (1 - qP), pLoss = (1 - qP) * (1 - qP);
+    const pctI = (x) => Math.round(x * 100);
+    const trendH = mkPlayerTrendSeries(g.home, draw, scores);
+    const trendA = mkPlayerTrendSeries(g.away, draw, scores);
+    return (
+      <div key={key} className={'mk-bet-game' + (featured ? ' featured' : '') + (ownGame ? ' own' : '') + (gameLocked ? ' locked' : '') + (counting && !gameLocked ? ' closing' : '') + (expanded ? ' open' : '')}>
+        {/* RESUMO da caixa (sempre visível): confronto + forma + 1º round.
+            Clica em qualquer lugar (menos nos jogadores) pra EXPANDIR e
+            ver as odds/mercados. */}
+        <div className="mk-bg-summary" role="button" tabIndex={0} aria-expanded={expanded}
+          onClick={() => toggleGame(key)}
+          onKeyDown={(e) => {
+            // só reage quando o FOCO está no próprio resumo — senão Enter/Space
+            // nos botões internos (perfil/escalar) togglaria o card e mataria o clique.
+            if (e.target !== e.currentTarget) return;
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleGame(key); }
+          }}>
+          <div className="mk-bg-top">
+            <span className="mk-bet-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase} · JOGO {String(gi + 1).padStart(2, '0')}</span>
+            <span className="mk-bg-caret">{expanded ? 'FECHAR' : 'VER MERCADOS'} <Icon name={expanded ? 'caret-up' : 'caret-down'} size={13} /></span>
+          </div>
+          <div className="mk-bet-match">
+            <button type="button" className="mk-bm-side" onClick={(e) => { e.stopPropagation(); onOpenProfile && onOpenProfile(g.home); }} title={'Ver perfil de ' + g.home}>
+              <Avatar nick={g.home} teamPlayers={teamPlayers} size={30} noBadge />
+              <span className="mk-bm-info">
+                <span className="mk-bm-nick mand">{g.home}</span>
+                <span className="mk-bm-role mand">MANDANTE</span>
+                <MkForm nick={g.home} draw={draw} scores={scores} />
+                {frH.total > 0 && <span className="mk-bm-fr" title="Vitórias de 1º round nos confrontos concluídos">1º ROUND {frH.won}/{frH.total}</span>}
+                <MkSparkline series={trendH} />
+              </span>
+            </button>
+            <span className="mk-bm-vs">×</span>
+            <button type="button" className="mk-bm-side right" onClick={(e) => { e.stopPropagation(); onOpenProfile && onOpenProfile(g.away); }} title={'Ver perfil de ' + g.away}>
+              <span className="mk-bm-info">
+                <span className="mk-bm-nick">{g.away}</span>
+                <span className="mk-bm-role">VISITANTE</span>
+                <MkForm nick={g.away} draw={draw} scores={scores} align="right" />
+                {frA.total > 0 && <span className="mk-bm-fr" title="Vitórias de 1º round nos confrontos concluídos">1º ROUND {frA.won}/{frA.total}</span>}
+                <MkSparkline series={trendA} away />
+              </span>
+              <Avatar nick={g.away} teamPlayers={teamPlayers} size={30} noBadge />
+            </button>
+          </div>
+          {/* barra de probabilidade do confronto (modelo de odds) */}
+          <div className="mk-bg-prob" title="Probabilidade do confronto (modelo de odds)">
+            <div className="mk-bg-prob-bar">
+              <span className="mk-bg-prob-seg h" style={{ width: (pWin * 100) + '%' }} />
+              <span className="mk-bg-prob-seg d" style={{ width: (pDraw * 100) + '%' }} />
+              <span className="mk-bg-prob-seg a" style={{ width: (pLoss * 100) + '%' }} />
+            </div>
+            <div className="mk-bg-prob-lab">
+              <span className="mand">{g.home} {pctI(pWin)}%</span>
+              <span className="draw">emp {pctI(pDraw)}%</span>
+              <span className="away">{g.away} {pctI(pLoss)}%</span>
+            </div>
+          </div>
+          {/* odds do VENCEDOR (display) — sempre visível no resumo */}
+          <div className="mk-bg-odds">
+            <span className="mk-bg-odds-l">VENCEDOR</span>
+            <span className="mk-bg-odd"><b>MAND</b> <i>{odds.VENC.H.toFixed(2)}</i></span>
+            <span className="mk-bg-odd"><b>EMP</b> <i>{odds.VENC.D.toFixed(2)}</i></span>
+            <span className="mk-bg-odd"><b>VIS</b> <i>{odds.VENC.A.toFixed(2)}</i></span>
+          </div>
+          {/* bonecos (card de luta) — sempre visível no resumo */}
+          {(() => {
+            const lu = (lineups || {})[key] || null;
+            const arranged = !!lu && ['p1', 'p2'].every(p => (lu[p] || {}).home && (lu[p] || {}).away);
+            if (!arranged) return <div className="mk-bet-fc empty"><Icon name="refresh" size={10} /> card de luta não montado ainda</div>;
+            return (
+              <div className="mk-bet-fc">
+                {['p1', 'p2'].map((p, pi) => {
+                  const h = (lu[p] || {}).home, a = (lu[p] || {}).away;
+                  return (
+                    <div key={p} className="mk-bet-fc-part">
+                      <span className="mk-bet-fc-num">J{pi + 1}</span>
+                      <span className="mk-bet-fc-fig"><MkCharIcon name={h} sm /><span className="mk-bet-fc-cn">{h}</span></span>
+                      <span className="mk-bet-fc-vs"><Icon name="skull" size={10} /></span>
+                      <span className="mk-bet-fc-fig right"><MkCharIcon name={a} sm /><span className="mk-bet-fc-cn">{a}</span></span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+          <div className="mk-bg-flags">
+            {featured && <span className="mk-bg-flag destaque"><Icon name="star" size={10} /> DESTAQUE</span>}
+            {ownGame && <span className="mk-bg-flag seu"><Icon name="fist" size={10} /> SEU JOGO</span>}
+            {/* atalho: escalar direto do resumo (só o mandante monta o card) */}
+            {ownGame && g.home === myNick && onEscalar && (
+              <button type="button" className="mk-bg-escalar" onClick={(e) => { e.stopPropagation(); onEscalar(); }}>
+                <Icon name="skull" size={10} /> ESCALAR MEU CARD
+              </button>
+            )}
+            {gameLocked && <span className="mk-bg-flag lock"><Icon name="lock" size={10} /> TRAVADO</span>}
+            {counting && !gameLocked && <span className="mk-bg-flag closing"><Icon name="warning" size={10} /> FECHA {fmtSecs(secsLeft)}</span>}
+            {/* MOD: destacar/remover destaque — botão só ícone (liga/desliga), sempre
+                visível (não precisa expandir o card) pra marcar rápido na lista toda. */}
+            {isMod && onSetGameLock && (
+              <button type="button" className={'mk-bg-feat-btn' + (featured ? ' on' : '')}
+                onClick={(e) => { e.stopPropagation(); onSetGameLock(key, { featured: !featured }); }}
+                title={featured ? 'Remover destaque' : 'Destacar este jogo'}
+                aria-pressed={featured}>
+                <Icon name="star" size={13} />
+              </button>
+            )}
+            {/* estatísticas viram POP-UP (não estica o card) — à direita da linha */}
+            <button type="button" className="mk-bg-stats-btn" onClick={(e) => { e.stopPropagation(); setStatsGame({ g, key }); }}>
+              <Icon name="chart" size={11} /> ESTATÍSTICAS
+            </button>
+          </div>
+        </div>
+        {expanded && (
+        <div className="mk-bg-body">
+        {ownGame && (
+          <div className="mk-bet-own seu">
+            <span><Icon name="fist" size={11} /> SEU JOGO — você está nesse confronto</span>
+            {g.home === myNick && onEscalar && (
+              <button type="button" className="mk-bet-escalar" onClick={onEscalar}><Icon name="skull" size={11} /> ESCALAR MEU CARD</button>
+            )}
+          </div>
+        )}
+        {gameLocked && !ownGame && <div className="mk-bet-own lock"><Icon name="lock" size={10} /> APOSTAS TRAVADAS</div>}
+        {/* #4: aviso de cronômetro pro APOSTADOR — última chamada antes de fechar */}
+        {counting && !gameLocked && !ownGame && (
+          <div className="mk-bet-countdown" role="timer" aria-live="polite">
+            <Icon name="warning" size={12} />
+            <span className="mk-cd-label">FECHA EM</span>
+            <span className="mk-cd-time">{fmtSecs(secsLeft)}</span>
+            <span className="mk-cd-hint">última chamada!</span>
+          </div>
+        )}
+        {/* #4: controles do MOD — fechar com contagem, travar já, ou destravar */}
+        {isMod && onSetGameLock && (
+          <div className="mk-bet-locktoggle">
+            {gameLocked ? (
+              <button type="button" className="mk-bet-lockbtn on" onClick={() => onSetGameLock(key, { locked: false, lockAt: null })}>
+                <Icon name="unlock" size={11} /> DESTRAVAR APOSTAS
+              </button>
+            ) : counting ? (
+              <>
+                <button type="button" className="mk-bet-lockbtn ghost" onClick={() => onSetGameLock(key, { lockAt: null })}>
+                  <Icon name="x" size={11} /> CANCELAR ({fmtSecs(secsLeft)})
+                </button>
+                <button type="button" className="mk-bet-lockbtn danger" onClick={() => onSetGameLock(key, { locked: true, lockAt: null })}>
+                  <Icon name="lock" size={11} /> TRAVAR JÁ
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" className="mk-bet-lockbtn" onClick={() => onSetGameLock(key, { lockAt: Date.now() + MK_LOCK_COUNTDOWN_S * 1000, locked: false })}>
+                  <Icon name="warning" size={11} /> FECHAR EM {MK_LOCK_COUNTDOWN_S}s
+                </button>
+                <button type="button" className="mk-bet-lockbtn danger" onClick={() => onSetGameLock(key, { locked: true, lockAt: null })}>
+                  <Icon name="lock" size={11} /> TRAVAR JÁ
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {/* LANÇAR RESULTADO direto no card travado (só mod). #M4 */}
+        {gameLocked && isMod && onMkScore && (
+          <div className="mk-bet-launch">
+            <div className="mk-bet-launch-h"><Icon name="whistle" size={12} /> LANÇAR RESULTADO</div>
+            <MkRoundDots sc={scEntry || {}} lineup={(lineups || {})[key]} onPatch={(patch) => onMkScore(key, patch)} />
+            <div className="rl-extras">
+              <span className="rl-extra-grp">
+                <span className="rl-extra-l">1º ROUND</span>
+                <button type="button" className={'rl-pick home' + ((scEntry && scEntry.firstRound) === 'H' ? ' on' : '')} onClick={() => onMkScore(key, { firstRound: (scEntry && scEntry.firstRound) === 'H' ? '' : 'H' })}>{g.home}</button>
+                <button type="button" className={'rl-pick away' + ((scEntry && scEntry.firstRound) === 'A' ? ' on' : '')} onClick={() => onMkScore(key, { firstRound: (scEntry && scEntry.firstRound) === 'A' ? '' : 'A' })}>{g.away}</button>
+              </span>
+              <span className="rl-extra-grp">
+                <span className="rl-extra-l"><Icon name="skull" size={11} /> BRUTALITY</span>
+                <button type="button" className={'rl-pick' + ((scEntry && scEntry.finisher1) === 'brutality' ? ' on' : '')} onClick={() => onMkScore(key, { finisher1: (scEntry && scEntry.finisher1) === 'brutality' ? '' : 'brutality' })}>P1</button>
+                <button type="button" className={'rl-pick' + ((scEntry && scEntry.finisher2) === 'brutality' ? ' on' : '')} onClick={() => onMkScore(key, { finisher2: (scEntry && scEntry.finisher2) === 'brutality' ? '' : 'brutality' })}>P2</button>
+              </span>
+            </div>
+          </div>
+        )}
+        {visibleMarkets.map(mkt => {
+          // marca o AZARÃO (maior prêmio, fogo) e o FAVORITO (menor
+          // odd, alvo) quando o mercado tem spread relevante (2x+).
+          const picks = mkMarketPicks(mkt, odds);
+          const vals = picks.map(p => odds[mkt][p]);
+          const mx = Math.max(...vals), mn = Math.min(...vals);
+          const spread = picks.length > 1 && mx >= mn * 2;
+          return (
+          <div key={mkt} className="mk-bet-mkt">
+            <div className="mk-bet-mkt-h">{MK_MARKET_TITLE[mkt]}</div>
+            <div className="mk-bet-picks">
+              {picks.map(pick => {
+                const on = pickInCupom(r, gi, mkt, pick);
+                const v = odds[mkt][pick];
+                const hot = spread && v === mx, fav = spread && v === mn;
+                return (
+                  <button key={pick} type="button"
+                    className={'mk-odd' + (on ? ' on' : '') + (locked ? ' off' : '') + (hot ? ' hot' : '') + (fav ? ' fav' : '')}
+                    title={hot ? 'Maior prêmio do mercado (azarão)' : fav ? 'Favorito do mercado' : undefined}
+                    onClick={() => toggleLeg(r, gi, g, mkt, pick, v)} disabled={locked}>
+                    <span className="mk-odd-l">
+                      {mkt === 'DC'
+                        ? (pick === '1X' ? (g.home + ' ou EMP') : pick === '12' ? (g.home + ' ou ' + g.away) : ('EMP ou ' + g.away))
+                        : scoreMkt(mkt)
+                        ? <span className="mk-odd-pl"><span className="mk-sc-h">{pick[0]}</span><span className="mk-sc-x">×</span><span className="mk-sc-a">{pick[1]}</span></span>
+                        : mkPickLabel(mkt, pick)}
+                    </span>
+                    <span className="mk-odd-v">
+                      {hot && <Icon name="fire" size={10} className="mk-odd-ic hot" />}
+                      {fav && <Icon name="target" size={10} className="mk-odd-ic fav" />}
+                      {v.toFixed(2)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          );
+        })}
+        </div>
+      )}
+      </div>
+    );
+  };
+
   return (
     <div className={'card mk-card mk-betting' + (cupom.length ? ' mk-betting--betbar' : '')}>
       <div className="card-head">
@@ -10446,7 +10645,18 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
           <>
             <div className="mk-bet-layout">
               <div className="mk-bet-main">
-                <div className="mk-liberados-h"><Icon name="skull" size={13} /> JOGOS LIBERADOS <span className="mk-liberados-c">{liberados.length}</span></div>
+                {/* DESTAQUES: jogos marcados pelo MOD — cartão cheio (mesmo
+                    renderGameCard da lista normal), pra dar pra apostar direto
+                    sem precisar achar o jogo lá embaixo. */}
+                {destaques.length > 0 && (
+                  <div className="mk-destaques-box">
+                    <div className="mk-destaques-h"><Icon name="star" size={13} /> DESTAQUES <span className="mk-destaques-c">{destaques.length}</span></div>
+                    <div className="mk-bet-games">
+                      {destaques.map(renderGameCard)}
+                    </div>
+                  </div>
+                )}
+                <div className="mk-liberados-h"><Icon name="skull" size={13} /> JOGOS LIBERADOS <span className="mk-liberados-c">{liberados.length - destaques.length}</span></div>
                 {/* #8: modo do apostador — SIMPLES (só quem vence) x AVANÇADO (tudo) */}
                 <div className="mk-bet-mode" role="tablist" aria-label="Modo de aposta">
                   <div className="mk-bet-mode-tabs">
@@ -10467,256 +10677,16 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                       : 'Tudo: placares, total de rounds e finalização.'}
                   </span>
                 </div>
-                {liberados.length === 0 ? (
+                {libGroups.length === 0 ? (
                   <div className="empty"><div className="e1">NENHUM JOGO LIBERADO</div><div className="e2">No momento não tem confronto com os 2 jogadores livres. Assim que alguém fecha a rodada anterior, libera aqui.</div></div>
                 ) : libGroups.map(gr => (
                   <div key={gr.r.phase + gr.r.n} className="mk-lib-round">
                     <div className="mk-lib-round-h">
                       <Icon name="skull" size={12} /> RODADA {String(gr.r.n).padStart(2, '0')} · {gr.r.phase}
-                      {gr.hasFeatured && <span className="mk-lib-round-feat"><Icon name="star" size={11} /> DESTAQUE</span>}
                       <span className="mk-lib-round-c">{gr.items.length} JOGO{gr.items.length === 1 ? '' : 'S'}</span>
                     </div>
                     <div className="mk-bet-games">
-                  {gr.items.map(({ r, gi, g, key }) => {
-                    const odds = computeMkGameOdds(g.home, g.away, metrics);
-                    const ownGame = !!myNick && (g.home === myNick || g.away === myNick);
-                    const scEntry = (scores || {})[key] || null;
-                    const gameLocked = mkGameClosed(scEntry, now);
-                    const secsLeft = mkLockSecondsLeft(scEntry, now);
-                    const counting = secsLeft > 0;
-                    const locked = ownGame || gameLocked;
-                    const featured = !!(scEntry && scEntry.featured);
-                    const expanded = openGames.has(key);
-                    const frH = mkFirstRoundStats(g.home, draw, scores);
-                    const frA = mkFirstRoundStats(g.away, draw, scores);
-                    const scoreMkt = (m) => m === 'RESULT' || m === 'P1' || m === 'P2';
-                    // probabilidades do modelo (mandante/empate/visitante) + 1º round,
-                    // confronto direto e campanha de cada jogador (pra mais stats).
-                    const pR = mkRoundWinProb(g.home, g.away, metrics);
-                    const qP = mkPartidaWinProb(pR);
-                    const pWin = qP * qP, pDraw = 2 * qP * (1 - qP), pLoss = (1 - qP) * (1 - qP);
-                    const pctI = (x) => Math.round(x * 100);
-                    const trendH = mkPlayerTrendSeries(g.home, draw, scores);
-                    const trendA = mkPlayerTrendSeries(g.away, draw, scores);
-                    return (
-                      <div key={key} className={'mk-bet-game' + (featured ? ' featured' : '') + (ownGame ? ' own' : '') + (gameLocked ? ' locked' : '') + (counting && !gameLocked ? ' closing' : '') + (expanded ? ' open' : '')}>
-                        {/* RESUMO da caixa (sempre visível): confronto + forma + 1º round.
-                            Clica em qualquer lugar (menos nos jogadores) pra EXPANDIR e
-                            ver as odds/mercados. */}
-                        <div className="mk-bg-summary" role="button" tabIndex={0} aria-expanded={expanded}
-                          onClick={() => toggleGame(key)}
-                          onKeyDown={(e) => {
-                            // só reage quando o FOCO está no próprio resumo — senão Enter/Space
-                            // nos botões internos (perfil/escalar) togglaria o card e mataria o clique.
-                            if (e.target !== e.currentTarget) return;
-                            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleGame(key); }
-                          }}>
-                          <div className="mk-bg-top">
-                            <span className="mk-bet-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase} · JOGO {String(gi + 1).padStart(2, '0')}</span>
-                            <span className="mk-bg-caret">{expanded ? 'FECHAR' : 'VER MERCADOS'} <Icon name={expanded ? 'caret-up' : 'caret-down'} size={13} /></span>
-                          </div>
-                          <div className="mk-bet-match">
-                            <button type="button" className="mk-bm-side" onClick={(e) => { e.stopPropagation(); onOpenProfile && onOpenProfile(g.home); }} title={'Ver perfil de ' + g.home}>
-                              <Avatar nick={g.home} teamPlayers={teamPlayers} size={30} noBadge />
-                              <span className="mk-bm-info">
-                                <span className="mk-bm-nick mand">{g.home}</span>
-                                <span className="mk-bm-role mand">MANDANTE</span>
-                                <MkForm nick={g.home} draw={draw} scores={scores} />
-                                {frH.total > 0 && <span className="mk-bm-fr" title="Vitórias de 1º round nos confrontos concluídos">1º ROUND {frH.won}/{frH.total}</span>}
-                                <MkSparkline series={trendH} />
-                              </span>
-                            </button>
-                            <span className="mk-bm-vs">×</span>
-                            <button type="button" className="mk-bm-side right" onClick={(e) => { e.stopPropagation(); onOpenProfile && onOpenProfile(g.away); }} title={'Ver perfil de ' + g.away}>
-                              <span className="mk-bm-info">
-                                <span className="mk-bm-nick">{g.away}</span>
-                                <span className="mk-bm-role">VISITANTE</span>
-                                <MkForm nick={g.away} draw={draw} scores={scores} align="right" />
-                                {frA.total > 0 && <span className="mk-bm-fr" title="Vitórias de 1º round nos confrontos concluídos">1º ROUND {frA.won}/{frA.total}</span>}
-                                <MkSparkline series={trendA} away />
-                              </span>
-                              <Avatar nick={g.away} teamPlayers={teamPlayers} size={30} noBadge />
-                            </button>
-                          </div>
-                          {/* barra de probabilidade do confronto (modelo de odds) */}
-                          <div className="mk-bg-prob" title="Probabilidade do confronto (modelo de odds)">
-                            <div className="mk-bg-prob-bar">
-                              <span className="mk-bg-prob-seg h" style={{ width: (pWin * 100) + '%' }} />
-                              <span className="mk-bg-prob-seg d" style={{ width: (pDraw * 100) + '%' }} />
-                              <span className="mk-bg-prob-seg a" style={{ width: (pLoss * 100) + '%' }} />
-                            </div>
-                            <div className="mk-bg-prob-lab">
-                              <span className="mand">{g.home} {pctI(pWin)}%</span>
-                              <span className="draw">emp {pctI(pDraw)}%</span>
-                              <span className="away">{g.away} {pctI(pLoss)}%</span>
-                            </div>
-                          </div>
-                          {/* odds do VENCEDOR (display) — sempre visível no resumo */}
-                          <div className="mk-bg-odds">
-                            <span className="mk-bg-odds-l">VENCEDOR</span>
-                            <span className="mk-bg-odd"><b>MAND</b> <i>{odds.VENC.H.toFixed(2)}</i></span>
-                            <span className="mk-bg-odd"><b>EMP</b> <i>{odds.VENC.D.toFixed(2)}</i></span>
-                            <span className="mk-bg-odd"><b>VIS</b> <i>{odds.VENC.A.toFixed(2)}</i></span>
-                          </div>
-                          {/* bonecos (card de luta) — sempre visível no resumo */}
-                          {(() => {
-                            const lu = (lineups || {})[key] || null;
-                            const arranged = !!lu && ['p1', 'p2'].every(p => (lu[p] || {}).home && (lu[p] || {}).away);
-                            if (!arranged) return <div className="mk-bet-fc empty"><Icon name="refresh" size={10} /> card de luta não montado ainda</div>;
-                            return (
-                              <div className="mk-bet-fc">
-                                {['p1', 'p2'].map((p, pi) => {
-                                  const h = (lu[p] || {}).home, a = (lu[p] || {}).away;
-                                  return (
-                                    <div key={p} className="mk-bet-fc-part">
-                                      <span className="mk-bet-fc-num">J{pi + 1}</span>
-                                      <span className="mk-bet-fc-fig"><MkCharIcon name={h} sm /><span className="mk-bet-fc-cn">{h}</span></span>
-                                      <span className="mk-bet-fc-vs"><Icon name="skull" size={10} /></span>
-                                      <span className="mk-bet-fc-fig right"><MkCharIcon name={a} sm /><span className="mk-bet-fc-cn">{a}</span></span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            );
-                          })()}
-                          <div className="mk-bg-flags">
-                            {featured && <span className="mk-bg-flag destaque"><Icon name="star" size={10} /> DESTAQUE</span>}
-                            {ownGame && <span className="mk-bg-flag seu"><Icon name="fist" size={10} /> SEU JOGO</span>}
-                            {/* atalho: escalar direto do resumo (só o mandante monta o card) */}
-                            {ownGame && g.home === myNick && onEscalar && (
-                              <button type="button" className="mk-bg-escalar" onClick={(e) => { e.stopPropagation(); onEscalar(); }}>
-                                <Icon name="skull" size={10} /> ESCALAR MEU CARD
-                              </button>
-                            )}
-                            {gameLocked && <span className="mk-bg-flag lock"><Icon name="lock" size={10} /> TRAVADO</span>}
-                            {counting && !gameLocked && <span className="mk-bg-flag closing"><Icon name="warning" size={10} /> FECHA {fmtSecs(secsLeft)}</span>}
-                            {/* MOD: destacar/remover destaque — botão só ícone (liga/desliga), sempre
-                                visível (não precisa expandir o card) pra marcar rápido na lista toda. */}
-                            {isMod && onSetGameLock && (
-                              <button type="button" className={'mk-bg-feat-btn' + (featured ? ' on' : '')}
-                                onClick={(e) => { e.stopPropagation(); onSetGameLock(key, { featured: !featured }); }}
-                                title={featured ? 'Remover destaque' : 'Destacar este jogo'}
-                                aria-pressed={featured}>
-                                <Icon name="star" size={13} />
-                              </button>
-                            )}
-                            {/* estatísticas viram POP-UP (não estica o card) — à direita da linha */}
-                            <button type="button" className="mk-bg-stats-btn" onClick={(e) => { e.stopPropagation(); setStatsGame({ g, key }); }}>
-                              <Icon name="chart" size={11} /> ESTATÍSTICAS
-                            </button>
-                          </div>
-                        </div>
-                        {expanded && (
-                        <div className="mk-bg-body">
-                        {ownGame && (
-                          <div className="mk-bet-own seu">
-                            <span><Icon name="fist" size={11} /> SEU JOGO — você está nesse confronto</span>
-                            {g.home === myNick && onEscalar && (
-                              <button type="button" className="mk-bet-escalar" onClick={onEscalar}><Icon name="skull" size={11} /> ESCALAR MEU CARD</button>
-                            )}
-                          </div>
-                        )}
-                        {gameLocked && !ownGame && <div className="mk-bet-own lock"><Icon name="lock" size={10} /> APOSTAS TRAVADAS</div>}
-                        {/* #4: aviso de cronômetro pro APOSTADOR — última chamada antes de fechar */}
-                        {counting && !gameLocked && !ownGame && (
-                          <div className="mk-bet-countdown" role="timer" aria-live="polite">
-                            <Icon name="warning" size={12} />
-                            <span className="mk-cd-label">FECHA EM</span>
-                            <span className="mk-cd-time">{fmtSecs(secsLeft)}</span>
-                            <span className="mk-cd-hint">última chamada!</span>
-                          </div>
-                        )}
-                        {/* #4: controles do MOD — fechar com contagem, travar já, ou destravar */}
-                        {isMod && onSetGameLock && (
-                          <div className="mk-bet-locktoggle">
-                            {gameLocked ? (
-                              <button type="button" className="mk-bet-lockbtn on" onClick={() => onSetGameLock(key, { locked: false, lockAt: null })}>
-                                <Icon name="unlock" size={11} /> DESTRAVAR APOSTAS
-                              </button>
-                            ) : counting ? (
-                              <>
-                                <button type="button" className="mk-bet-lockbtn ghost" onClick={() => onSetGameLock(key, { lockAt: null })}>
-                                  <Icon name="x" size={11} /> CANCELAR ({fmtSecs(secsLeft)})
-                                </button>
-                                <button type="button" className="mk-bet-lockbtn danger" onClick={() => onSetGameLock(key, { locked: true, lockAt: null })}>
-                                  <Icon name="lock" size={11} /> TRAVAR JÁ
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <button type="button" className="mk-bet-lockbtn" onClick={() => onSetGameLock(key, { lockAt: Date.now() + MK_LOCK_COUNTDOWN_S * 1000, locked: false })}>
-                                  <Icon name="warning" size={11} /> FECHAR EM {MK_LOCK_COUNTDOWN_S}s
-                                </button>
-                                <button type="button" className="mk-bet-lockbtn danger" onClick={() => onSetGameLock(key, { locked: true, lockAt: null })}>
-                                  <Icon name="lock" size={11} /> TRAVAR JÁ
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        )}
-                        {/* LANÇAR RESULTADO direto no card travado (só mod). #M4 */}
-                        {gameLocked && isMod && onMkScore && (
-                          <div className="mk-bet-launch">
-                            <div className="mk-bet-launch-h"><Icon name="whistle" size={12} /> LANÇAR RESULTADO</div>
-                            <MkRoundDots sc={scEntry || {}} lineup={(lineups || {})[key]} onPatch={(patch) => onMkScore(key, patch)} />
-                            <div className="rl-extras">
-                              <span className="rl-extra-grp">
-                                <span className="rl-extra-l">1º ROUND</span>
-                                <button type="button" className={'rl-pick home' + ((scEntry && scEntry.firstRound) === 'H' ? ' on' : '')} onClick={() => onMkScore(key, { firstRound: (scEntry && scEntry.firstRound) === 'H' ? '' : 'H' })}>{g.home}</button>
-                                <button type="button" className={'rl-pick away' + ((scEntry && scEntry.firstRound) === 'A' ? ' on' : '')} onClick={() => onMkScore(key, { firstRound: (scEntry && scEntry.firstRound) === 'A' ? '' : 'A' })}>{g.away}</button>
-                              </span>
-                              <span className="rl-extra-grp">
-                                <span className="rl-extra-l"><Icon name="skull" size={11} /> BRUTALITY</span>
-                                <button type="button" className={'rl-pick' + ((scEntry && scEntry.finisher1) === 'brutality' ? ' on' : '')} onClick={() => onMkScore(key, { finisher1: (scEntry && scEntry.finisher1) === 'brutality' ? '' : 'brutality' })}>P1</button>
-                                <button type="button" className={'rl-pick' + ((scEntry && scEntry.finisher2) === 'brutality' ? ' on' : '')} onClick={() => onMkScore(key, { finisher2: (scEntry && scEntry.finisher2) === 'brutality' ? '' : 'brutality' })}>P2</button>
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                        {visibleMarkets.map(mkt => {
-                          // marca o AZARÃO (maior prêmio, fogo) e o FAVORITO (menor
-                          // odd, alvo) quando o mercado tem spread relevante (2x+).
-                          const picks = mkMarketPicks(mkt, odds);
-                          const vals = picks.map(p => odds[mkt][p]);
-                          const mx = Math.max(...vals), mn = Math.min(...vals);
-                          const spread = picks.length > 1 && mx >= mn * 2;
-                          return (
-                          <div key={mkt} className="mk-bet-mkt">
-                            <div className="mk-bet-mkt-h">{MK_MARKET_TITLE[mkt]}</div>
-                            <div className="mk-bet-picks">
-                              {picks.map(pick => {
-                                const on = pickInCupom(r, gi, mkt, pick);
-                                const v = odds[mkt][pick];
-                                const hot = spread && v === mx, fav = spread && v === mn;
-                                return (
-                                  <button key={pick} type="button"
-                                    className={'mk-odd' + (on ? ' on' : '') + (locked ? ' off' : '') + (hot ? ' hot' : '') + (fav ? ' fav' : '')}
-                                    title={hot ? 'Maior prêmio do mercado (azarão)' : fav ? 'Favorito do mercado' : undefined}
-                                    onClick={() => toggleLeg(r, gi, g, mkt, pick, v)} disabled={locked}>
-                                    <span className="mk-odd-l">
-                                      {mkt === 'DC'
-                                        ? (pick === '1X' ? (g.home + ' ou EMP') : pick === '12' ? (g.home + ' ou ' + g.away) : ('EMP ou ' + g.away))
-                                        : scoreMkt(mkt)
-                                        ? <span className="mk-odd-pl"><span className="mk-sc-h">{pick[0]}</span><span className="mk-sc-x">×</span><span className="mk-sc-a">{pick[1]}</span></span>
-                                        : mkPickLabel(mkt, pick)}
-                                    </span>
-                                    <span className="mk-odd-v">
-                                      {hot && <Icon name="fire" size={10} className="mk-odd-ic hot" />}
-                                      {fav && <Icon name="target" size={10} className="mk-odd-ic fav" />}
-                                      {v.toFixed(2)}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          );
-                        })}
-                        </div>
-                      )}
-                      </div>
-                    );
-                  })}
+                  {gr.items.map(renderGameCard)}
                     </div>
                   </div>
                 ))}

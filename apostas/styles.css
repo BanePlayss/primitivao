@@ -5074,18 +5074,12 @@
     .mk-lib-round-h { display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 11px; letter-spacing: 0.16em; color: var(--pv-orange); margin-bottom: 10px; }
     .mk-lib-round-h svg { flex-shrink: 0; }
     .mk-lib-round-c { margin-left: auto; background: var(--pv-charcoal); color: var(--pv-bone); font-size: 9px; letter-spacing: 0.06em; padding: 2px 9px; border-radius: 999px; }
-    .mk-lib-round-feat { display: inline-flex; align-items: center; gap: 4px; background: #d4af37; color: #fff; font-size: 9px; font-weight: 800; letter-spacing: 0.06em; padding: 2px 9px; border-radius: 999px; }
-    /* DESTAQUES DO MK — caixa acima da MESA DOS CARTOLAS */
-    .mk-destaques-wrap { margin-bottom: 16px; border: 2px solid #d4af37; box-shadow: 0 0 0 1px rgba(212,175,55,0.25); }
-    .mk-destaques-wrap .title { color: #a3841f; }
-    .mk-destaques-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-    .mk-destaque-item { border: 1.5px solid rgba(212,175,55,0.4); background: rgba(212,175,55,0.05); padding: 10px 12px; }
-    .mk-destaque-rod { display: block; font-size: 8.5px; font-weight: 800; letter-spacing: 0.12em; color: rgba(28,22,18,0.45); margin-bottom: 8px; }
-    .mk-destaque-match { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .mk-destaque-side { display: inline-flex; align-items: center; gap: 8px; min-width: 0; cursor: pointer; border: 0; background: transparent; padding: 0; font: inherit; color: inherit; }
-    .mk-destaque-side.right { flex-direction: row-reverse; text-align: right; }
-    .mk-destaque-nick { font-weight: 800; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .mk-destaque-vs { flex-shrink: 0; color: #a3841f; }
+    /* DESTAQUES DO MK — mesmos cartões (.mk-bet-game) da lista normal, só que
+       isolados numa caixa dourada no topo, antes de JOGOS LIBERADOS. */
+    .mk-destaques-box { border: 2px solid #d4af37; background: rgba(212,175,55,0.05); padding: 10px 12px 12px; margin-bottom: 14px; }
+    .mk-destaques-h { display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 11px; letter-spacing: 0.16em; color: #a3841f; margin-bottom: 10px; }
+    .mk-destaques-h svg { flex-shrink: 0; }
+    .mk-destaques-c { margin-left: auto; background: #d4af37; color: #fff; font-size: 9px; letter-spacing: 0.06em; padding: 2px 9px; border-radius: 999px; }
     /* botão ESTATÍSTICAS (abre o pop-up) — à direita da linha de flags */
     .mk-bg-stats-btn { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; cursor: pointer; border: 1.5px solid var(--pv-charcoal); border-radius: 3px; background: var(--pv-bone); color: var(--pv-charcoal); padding: 3px 10px; font-family: inherit; font-weight: 800; font-size: 8.5px; letter-spacing: 0.08em; }
     .mk-bg-stats-btn:hover { background: var(--pv-charcoal); color: var(--pv-bone); }
