@@ -1,0 +1,3 @@
+# Automação pessoal / configs locais do Claude Code
+.claude/settings.local.json
+.claude/auto-commit.sh
