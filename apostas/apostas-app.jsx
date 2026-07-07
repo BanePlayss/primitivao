@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260707-h2h1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260707-odds2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2088,12 +2088,6 @@ function bettableGames(rounds) {
   }));
   return out;
 }
-// Rodadas usadas pra recalcular odds: só rodadas com TODOS os jogos finalizados.
-// (Escolha do dono: "recalcula só quando a rodada termina".)
-function oddsBaselineRounds(rounds) {
-  return (rounds || []).filter(round => (round || []).every(isGamePlayed));
-}
-
 function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
 function poissonPmf(lambda, k) {
   if (lambda <= 0) return k === 0 ? 1 : 0;
@@ -2103,9 +2097,12 @@ function poissonPmf(lambda, k) {
 }
 const DEFAULT_LAMBDA = 1.3; // gols esperados por time quando não há histórico
 
+// Base de estatísticas das odds: TODOS os jogos já jogados contam (não só
+// rodadas 100% fechadas) — mesma regra do MK. Assim as odds e a probabilidade
+// do confronto acompanham a classificação em tempo real, jogo a jogo, em vez
+// de congelar até a rodada fechar.
 function computeTeamMetrics(rounds) {
-  const base = oddsBaselineRounds(rounds);
-  const standings = computeStandings(base);
+  const standings = computeStandings(rounds);
   const out = {};
   for (const t of standings) {
     out[t.id] = {
@@ -2128,15 +2125,40 @@ function toOdd(p) {
   return Math.max(ODD_MIN, Math.min(ODD_MAX, +(1 / p).toFixed(2)));
 }
 
-function computeGameOdds(homeId, awayId, metrics) {
+// Confronto direto (h2h) entre os dois times em TODOS os jogos já jogados,
+// qualquer mando. Amostra pequena pesa pouco (mesmo shrinkage do MK):
+// (vitóriasH - vitóriasA)/jogos × jogos/(jogos+2). Retorna -1..+1
+// (positivo = vantagem histórica do mandante).
+function fifaH2hEdge(homeId, awayId, rounds) {
+  let games = 0, hWins = 0, aWins = 0;
+  (rounds || []).forEach(round => (round || []).forEach(m => {
+    if (!m || !isGamePlayed(m)) return;
+    const direto  = m.home === homeId && m.away === awayId;
+    const inverso = m.home === awayId && m.away === homeId;
+    if (!direto && !inverso) return;
+    const gh = parseInt(m.gh, 10), ga = parseInt(m.ga, 10);
+    games++;
+    if (gh === ga) return;
+    const winner = gh > ga ? m.home : m.away;
+    if (winner === homeId) hWins++; else aWins++;
+  }));
+  if (!games) return 0;
+  return ((hWins - aWins) / games) * (games / (games + 2));
+}
+// Peso do confronto direto no logit do 1X2: comparável ao termo de força
+// (que tipicamente fica em ±0.3..0.6), sem dominar sozinho.
+const FIFA_H2H_EDGE_K = 1.0;
+
+function computeGameOdds(homeId, awayId, metrics, rounds) {
   const H = metrics[homeId] || { strength: 0, lambdaAttack: DEFAULT_LAMBDA, lambdaDefense: DEFAULT_LAMBDA };
   const A = metrics[awayId] || { strength: 0, lambdaAttack: DEFAULT_LAMBDA, lambdaDefense: DEFAULT_LAMBDA };
 
-  // 1X2: reserva pra empate + logística no resto
+  // 1X2: reserva pra empate + logística no resto (força + confronto direto)
   const diff = H.strength - A.strength;
+  const h2hEdge = fifaH2hEdge(homeId, awayId, rounds);
   const pDraw = 0.30 * Math.exp(-Math.abs(diff) / 40);
   const rest  = 1 - pDraw;
-  const sigH  = sigmoid(diff * 0.0256);
+  const sigH  = sigmoid(diff * 0.0256 + h2hEdge * FIFA_H2H_EDGE_K);
   const pH = rest * sigH;
   const pA = rest * (1 - sigH);
 
@@ -2154,6 +2176,8 @@ function computeGameOdds(homeId, awayId, metrics) {
   const p3A = 1 - (poissonPmf(lambA, 0) + poissonPmf(lambA, 1) + poissonPmf(lambA, 2));
 
   return {
+    // probabilidades cruas do 1X2 (barra do card) — NÃO é mercado apostável.
+    probs:  { H: pH, D: pDraw, A: pA },
     '1X2':  { H: toOdd(pH),    D: toOdd(pDraw), A: toOdd(pA) },
     'BTTS': { Y: toOdd(pBY),   N: toOdd(pBN) },
     'NM':   { Y: toOdd(pNMY),  N: toOdd(pNMN) },
@@ -3556,7 +3580,7 @@ function App() {
   const rounds   = cs?.rounds || [];
   const metrics  = useMemo(() => computeTeamMetrics(rounds), [rounds]);
   const games    = useMemo(
-    () => bettableGames(rounds).map(g => ({ ...g, odds: computeGameOdds(g.home, g.away, metrics) })),
+    () => bettableGames(rounds).map(g => ({ ...g, odds: computeGameOdds(g.home, g.away, metrics, rounds) })),
     [rounds, metrics]
   );
   const gamesById = useMemo(() => {
@@ -7947,6 +7971,22 @@ function GameRow({ game, slip, onToggleLeg, canBet, canLock, onToggleLock, onSet
 
       {expanded && (
         <>
+          {/* barra de probabilidade do confronto (mesmo modelo das odds; reusa
+              o visual da barra do MK — classes mk-bg-prob são standalone) */}
+          {o.probs && (
+            <div className="mk-bg-prob" title="Probabilidade do confronto (modelo de odds)">
+              <div className="mk-bg-prob-bar">
+                <span className="mk-bg-prob-seg h" style={{ width: (o.probs.H * 100) + '%' }} />
+                <span className="mk-bg-prob-seg d" style={{ width: (o.probs.D * 100) + '%' }} />
+                <span className="mk-bg-prob-seg a" style={{ width: (o.probs.A * 100) + '%' }} />
+              </div>
+              <div className="mk-bg-prob-lab">
+                <span className="mand">{homeNick} {Math.round(o.probs.H * 100)}%</span>
+                <span className="draw">emp {Math.round(o.probs.D * 100)}%</span>
+                <span className="away">{awayNick} {Math.round(o.probs.A * 100)}%</span>
+              </div>
+            </div>
+          )}
           <div className="mkt-label">RESULTADO</div>
           <div className="odds-row">
             <OddBtn lab={`${hU} VENCE`} val={o['1X2']?.H} selected={sel('1X2','H')} disabled={dis} onClick={() => onToggleLeg(game, '1X2', 'H')} />
@@ -13537,7 +13577,7 @@ function currentRoundMatchups(cs) {
   if (!rounds.length) return [];
   const metrics = computeTeamMetrics(rounds);
   const toMatch = (g) => {
-    const o = (computeGameOdds(g.home, g.away, metrics) || {})['1X2'] || {};
+    const o = (computeGameOdds(g.home, g.away, metrics, rounds) || {})['1X2'] || {};
     return {
       homeId: g.home, awayId: g.away,
       oddHome: o.H != null ? o.H.toFixed(2) : '',
