@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260707-destaque3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260707-odds1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -961,12 +961,13 @@ const MK_R1_PICKS = ['H', 'A']; // quem vence o primeiro round (mandante/visitan
 const MK_DC_PICKS = ['1X', '12', 'X2'];
 const MK_RESULT_PICKS = ['20', '11', '02'];          // 2×0 / 1×1 / 0×2
 const MK_PARTIDA_PICKS = ['20', '21', '12', '02']; // mandante x visitante (primeiro a 2)
-// Odd do MK: pagamento conservador no COMEÇO sem capar o crescimento. Em vez de
-// teto, comprime o "lucro" da odd justa: no simétrico o placar (justo 4.00) sai em
-// ~2.25, mas jogos desequilibrados ainda sobem (até MK_ODD_TOP). Só afeta o MK.
+// Odd do MK: pagamento conservador no COMEÇO, SEM TETO de crescimento (#recalc:
+// tirado o limite — azarão pode gerar odd bem alta agora). Comprime o "lucro" da
+// odd justa: no simétrico o placar (justo 4.00) sai em ~2.25, mas jogos MUITO
+// desequilibrados sobem livremente daí em diante. Só afeta o MK.
 //   odd = 1 + (1/p - 1) * MK_ODD_K   ->  4.00 vira 1 + 3*0.4167 = 2.25
 const MK_ODD_K = 0.4167;   // 4.00 -> 2.25 no simétrico
-const MK_ODD_TOP = 15.0;   // teto alto: azarões podem chegar até aqui
+const MK_ODD_FALLBACK = 999; // só pro caso degenerado de probabilidade inválida (não deve acontecer: p é clampado)
 const MK_TOTAL_PICKS = ['4', '5', '6'];   // total de rounds das 2 partidas
 const MK_FLAWLESS_PROB = 0.40; // pode rolar em qualquer das 2 partidas
 // Só Brutality é apostável (a Fatality é obrigatória ao vencer, então não vira
@@ -993,8 +994,8 @@ function computeMkPlayerMetrics(players, matches) {
 }
 function mkRoundWinProb(home, away, metrics) {
   const H = (metrics || {})[home] || { strength: 0 }, A = (metrics || {})[away] || { strength: 0 };
-  // Clamp mais largo (era 0.25–0.75): jogos bem desequilibrados geram odds altas
-  // (azarão pode chegar perto do MK_ODD_TOP). No começo (forças iguais) dá 0.5.
+  // Clamp mais largo (era 0.25–0.75): jogos bem desequilibrados geram odds bem
+  // altas pro azarão (sem teto). No começo (forças iguais) dá 0.5.
   return Math.max(0.16, Math.min(0.84, sigmoid((H.strength - A.strength) * 0.04)));
 }
 function computeMkGameOdds(home, away, metrics) {
@@ -1004,9 +1005,9 @@ function computeMkGameOdds(home, away, metrics) {
   const pd = mkPartidaDist(p);
   const a = pd['20'] + pd['02'], b = pd['21'] + pd['12']; // partida com 2 ou 3 rounds
   const total = { '4': a * a, '5': 2 * a * b, '6': b * b };
-  // odd do MK: justa (1/p) com o lucro comprimido por MK_ODD_K; teto MK_ODD_TOP.
-  const mko = (pp) => (!(pp > 0) || !isFinite(pp)) ? MK_ODD_TOP
-    : Math.max(ODD_MIN, Math.min(MK_ODD_TOP, +(1 + (1 / pp - 1) * MK_ODD_K).toFixed(2)));
+  // odd do MK: justa (1/p) com o lucro comprimido por MK_ODD_K; SEM TETO.
+  const mko = (pp) => (!(pp > 0) || !isFinite(pp)) ? MK_ODD_FALLBACK
+    : Math.max(ODD_MIN, +(1 + (1 / pp - 1) * MK_ODD_K).toFixed(2));
   const partida = {}; MK_PARTIDA_PICKS.forEach(pk => { partida[pk] = mko(pd[pk]); });
   const totalO = {}; MK_TOTAL_PICKS.forEach(t => { totalO[t] = mko(total[t]); });
   // finalização pode sair em QUALQUER das 2 partidas -> P = 1 - (1-p)^2.
@@ -1063,18 +1064,6 @@ function mkPickLabel(market, pick) {
   if (market === 'FLAW') return pick === 'Y' ? 'SIM' : 'NÃO';
   if (market === 'FINISH') { const f = MK_FINISHERS.find(x => x.id === pick); return f ? f.name : pick; }
   return pick;
-}
-// Dois palpites do MESMO jogo se contradizem? (não dá pra ganhar os dois juntos)
-function mkLegsContradict(a, b) {
-  const indep = m => m === 'FINISH' || m === 'FLAW' || m === 'R1';
-  // FINISH/FLAW/R1 independem do placar: só contradizem outro do mesmo tipo (pick diferente).
-  if (indep(a.market) || indep(b.market)) return a.market === b.market && a.pick !== b.pick;
-  // ambos baseados em placar: existe algum resultado onde os DOIS ganham?
-  for (const p1 of MK_PARTIDA_PICKS) for (const p2 of MK_PARTIDA_PICKS) {
-    const sc = { p1h: p1[0], p1a: p1[1], p2h: p2[0], p2a: p2[1] };
-    if (mkLegResult(a.market, a.pick, sc) === 'win' && mkLegResult(b.market, b.pick, sc) === 'win') return false;
-  }
-  return true; // nenhum resultado possível satisfaz os dois -> contradiz
 }
 
 // ── PRÓXIMO JOGO PENDENTE (uso em UI — não trava mais o "liberados") ────────
@@ -10078,8 +10067,8 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
 }
 
 // APOSTAS do MK (aba APOSTAS, admin por enquanto). Lê o sorteio/resultados
-// compartilhados (App). Cupom = palpites da MESMA rodada (2+ = casada). Só dá
-// pra apostar na rodada ABERTA (a anterior tem que ter fechado).
+// compartilhados (App). Cupom = palpites do MESMO mercado (ex: só VENCEDOR),
+// jogos liberados de rodadas diferentes valem — casada MULTIPLICA as odds.
 function mkLegLabel(l) {
   // CHANCE DUPLA no cupom: usa os nicks reais (ex: "bane ou empate").
   if (l.market === 'DC') return l.pick === '1X' ? (l.home + ' ou empate') : l.pick === '12' ? (l.home + ' ou ' + l.away) : ('empate ou ' + l.away);
@@ -10354,17 +10343,18 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     const key = legKey(r, gi, market);
     const ex = cupom.find(l => l.key === key);
     if (ex && ex.pick === pick) { setCupom(prev => prev.filter(l => l.key !== key)); return; } // desmarca
-    const newLeg = { key, roundN: r.n, phase: r.phase, gi, home: g.home, away: g.away, market, pick, odd };
-    // não dá pra casar palpites que se contradizem NO MESMO jogo (ex: vitória do
-    // mandante + placar onde o visitante ganha).
-    const conflict = cupom.find(l => l.key !== key && l.phase === r.phase && l.roundN === r.n && l.gi === gi && mkLegsContradict(l, newLeg));
-    if (conflict) {
-      showToast('Contradiz "' + MK_MARKET_TITLE[conflict.market] + ': ' + mkPickLabel(conflict.market, conflict.pick) + '" do mesmo jogo.', 'error');
+    // CASADA só combina palpites do MESMO mercado (ex: VENCEDOR com VENCEDOR de
+    // outro jogo, TOTAL com TOTAL). Misturar categorias (VENCEDOR + CHANCE DUPLA
+    // etc) só inflava a odd combinada sem risco real — apostas quase equivalentes.
+    const otherMarket = cupom.find(l => l.key !== key && l.market !== market);
+    if (otherMarket) {
+      showToast('Casada só combina o MESMO mercado. Tire os palpites de "' + MK_MARKET_TITLE[otherMarket.market] + '" antes.', 'error');
       return;
     }
+    const newLeg = { key, roundN: r.n, phase: r.phase, gi, home: g.home, away: g.away, market, pick, odd };
     setCupom(prev => [...prev.filter(l => l.key !== key), newLeg]);
   };
-  const combined = cupom.reduce((p, l) => p + l.odd, 0); // SOMA, igual à FIFA
+  const combined = cupom.length ? cupom.reduce((p, l) => p * l.odd, 1) : 0; // MULTIPLICA (casada de verdade), sem teto
   const isCasada = cupom.length >= 2;
   const place = async (opts) => {
     if (!cupom.length || !(stake > 0)) return;
@@ -10711,7 +10701,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                     {cupom.length === 0 ? (
                       <div className="empty">
                         <div className="e1">VAZIO</div>
-                        <div className="e2">Clica nas odds pra montar. 2+ palpites = casada (vale misturar jogos liberados de rodadas diferentes).</div>
+                        <div className="e2">Clica nas odds pra montar. 2+ palpites do MESMO mercado (ex: só VENCEDOR) = casada — as odds multiplicam.</div>
                       </div>
                     ) : (<>
                       {cupom.map(l => (
