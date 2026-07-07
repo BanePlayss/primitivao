@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260707-mkstats3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260707-mkcap1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1005,13 +1005,23 @@ const MK_R1_PICKS = ['H', 'A']; // quem vence o primeiro round (mandante/visitan
 const MK_DC_PICKS = ['1X', '12', 'X2'];
 const MK_RESULT_PICKS = ['20', '11', '02'];          // 2×0 / 1×1 / 0×2
 const MK_PARTIDA_PICKS = ['20', '21', '12', '02']; // mandante x visitante (primeiro a 2)
-// Odd do MK: pagamento conservador no COMEÇO, SEM TETO de crescimento (#recalc:
-// tirado o limite — azarão pode gerar odd bem alta agora). Comprime o "lucro" da
-// odd justa: no simétrico o placar (justo 4.00) sai em ~2.25, mas jogos MUITO
-// desequilibrados sobem livremente daí em diante. Só afeta o MK.
+// Odd do MK: pagamento conservador no COMEÇO. Comprime o "lucro" da odd justa:
+// no simétrico o placar (justo 4.00) sai em ~2.25.
 //   odd = 1 + (1/p - 1) * MK_ODD_K   ->  4.00 vira 1 + 3*0.4167 = 2.25
 const MK_ODD_K = 0.4167;   // 4.00 -> 2.25 no simétrico
 const MK_ODD_FALLBACK = 999; // só pro caso degenerado de probabilidade inválida (não deve acontecer: p é clampado)
+// TETO NATURAL da odd do MK. Antes era SEM teto e o azarão de um confronto muito
+// desigual chegava a ~89 — feio, e "achatava" tudo lá em cima (todo blowout no
+// mesmo número, escondendo o efeito de campanha/bonecos/etc). Em vez de cortar
+// seco no teto (que empilharia todos os azarões em MK_ODD_MAX), comprime o LUCRO
+// suavemente: o lucro tende assintoticamente ao teto sem nunca explodir, então
+// o azarão EXTREMO ainda paga um pouco mais que o azarão médio (ordem preservada).
+const MK_ODD_MAX = 15;
+function mkCapOdd(o) {
+  if (!(o > 1) || !isFinite(o)) return o;
+  const profit = o - 1, max = MK_ODD_MAX - 1;
+  return +(1 + (max * profit) / (max + profit)).toFixed(2);
+}
 const MK_TOTAL_PICKS = ['4', '5', '6'];   // total de rounds das 2 partidas
 // Só Brutality é apostável (a Fatality é obrigatória ao vencer, então não vira
 // mercado). Flawless Victory é mercado à parte (FLAW) + toggle no lançamento.
@@ -1043,9 +1053,11 @@ function computeMkPlayerMetrics(players, matches) {
 }
 // Kx do peso de cada edge no cálculo: valor -1..+1 vira um termo somado ao
 // logit ao lado da força dos jogadores — cada estatística pesa, nenhuma domina
-// sozinha. Sinais: campanha (força), duelo dos bonecos, confronto direto,
-// vitórias de 1º round e taxa de flawless.
-const MK_CHAR_EDGE_K = 3;
+// sozinha. Sinais: campanha (força), duelo/escolha dos bonecos, confronto
+// direto, vitórias de 1º round e taxa de flawless.
+// Bonecos = maior peso individual: a ESCOLHA do card (quem o mandante escala)
+// é decisiva no MK, então o win% histórico dos personagens escalados manda.
+const MK_CHAR_EDGE_K = 4;
 const MK_H2H_EDGE_K = 2.5;
 const MK_FR_EDGE_K = 1.5;   // vitórias de 1º round (edge fica em ~±0.3)
 const MK_FLAW_EDGE_K = 2;   // flawless = domínio total de rounds (edge ~±0.4)
@@ -1082,9 +1094,10 @@ function computeMkGameOdds(home, away, metrics, lineup, charStats, draw, scores)
   const pd = mkPartidaDist(p);
   const a = pd['20'] + pd['02'], b = pd['21'] + pd['12']; // partida com 2 ou 3 rounds
   const total = { '4': a * a, '5': 2 * a * b, '6': b * b };
-  // odd do MK: justa (1/p) com o lucro comprimido por MK_ODD_K; SEM TETO.
+  // odd do MK: justa (1/p) com o lucro comprimido por MK_ODD_K e teto natural
+  // suave por mkCapOdd (ver MK_ODD_MAX).
   const mko = (pp) => (!(pp > 0) || !isFinite(pp)) ? MK_ODD_FALLBACK
-    : Math.max(ODD_MIN, +(1 + (1 / pp - 1) * MK_ODD_K).toFixed(2));
+    : Math.max(ODD_MIN, mkCapOdd(1 + (1 / pp - 1) * MK_ODD_K));
   const partida = {}; MK_PARTIDA_PICKS.forEach(pk => { partida[pk] = mko(pd[pk]); });
   const totalO = {}; MK_TOTAL_PICKS.forEach(t => { totalO[t] = mko(total[t]); });
   // finalização pode sair em QUALQUER das 2 partidas -> P = 1 - (1-p)^2.
