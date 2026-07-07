@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260704-temas1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260706-mkliberado ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1077,10 +1077,11 @@ function mkLegsContradict(a, b) {
   return true; // nenhum resultado possível satisfaz os dois -> contradiz
 }
 
-// ── ADIANTAR JOGOS (pro campeonato não ficar travado) ───────────────────────
+// ── PRÓXIMO JOGO PENDENTE (uso em UI — não trava mais o "liberados") ────────
 // Rodada do PRÓXIMO jogo pendente (não lançado) de um jogador. Infinity se já
-// lançou tudo. Base do "adiantar": um jogo da rodada N só libera quando os DOIS
-// jogadores não têm nenhum jogo pendente em rodada < N (jogaram tudo atrás).
+// lançou tudo. Não bloqueia mais nada em mkLiberadoGames (jogos liberam todos
+// de uma vez, sem cap de "quantas rodadas à frente") — usada só pra exibir
+// onde o jogador está na campanha.
 function mkPlayerFirstPendingRound(player, draw, scores) {
   if (!draw) return Infinity;
   const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
@@ -1093,19 +1094,14 @@ function mkPlayerFirstPendingRound(player, draw, scores) {
   }
   return Infinity;
 }
-// Quantos jogos um jogador pode ADIANTAR além do seu próximo pendente. Com 2, o
-// jogo da rodada N libera quando os DOIS jogadores estão no máximo 2 rodadas
-// atrás dele (cada um pode jogar o atual + 2 à frente).
-const MK_AHEAD = 2;
-// Jogos LIBERADOS pra jogar/apostar AGORA: não lançados e com os 2 jogadores no
-// máximo MK_AHEAD rodadas atrás (dá pra adiantar). Retorna [{ r, ri, g, gi, key }].
+// Jogos LIBERADOS pra jogar/apostar AGORA: todo jogo ainda não lançado da fase
+// atual, sem trava por "estar atrasado" — não capa mais quantas rodadas à
+// frente dá pra jogar. Retorna [{ r, ri, g, gi, key }].
 function mkLiberadoGames(draw, scores) {
   if (!draw || !draw.length) return [];
   const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
-  const fpCache = {};
-  const fp = (p) => (p in fpCache ? fpCache[p] : (fpCache[p] = mkPlayerFirstPendingRound(p, draw, scores)));
-  // O adiantar NUNCA cruza a virada IDA->VOLTA: enquanto a IDA não fechar, jogo
-  // da VOLTA não libera. Senão um jogador jogaria a volta cedo e perderia a
+  // A VOLTA NUNCA libera antes da virada IDA->VOLTA: enquanto a IDA não fechar,
+  // jogo da VOLTA não libera. Senão um jogador jogaria a volta cedo e perderia a
   // janela de re-escolher o elenco quando a volta começa (ver mkRosterLockedFor).
   const idaDone = mkIdaComplete(draw, scores);
   const out = [];
@@ -1113,7 +1109,7 @@ function mkLiberadoGames(draw, scores) {
     if (mkGameVoid(g)) return; // jogo anulado (jogador retirado) não entra em liberados
     if (r.phase === 'VOLTA' && !idaDone) return; // trava a volta até a ida fechar
     if (mkMatchOutcome((scores || {})[gk(r, gi)] || {})) return;
-    if (fp(g.home) >= ri - MK_AHEAD && fp(g.away) >= ri - MK_AHEAD) out.push({ r, ri, g, gi, key: gk(r, gi) });
+    out.push({ r, ri, g, gi, key: gk(r, gi) });
   }));
   return out;
 }
