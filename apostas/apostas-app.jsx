@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260707-odds1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260707-bonecos1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -938,6 +938,22 @@ function mkCharWinStats(draw, scores, lineups) {
   }));
   return out;
 }
+// Vantagem dos BONECOS escalados nesse confronto: média do win% histórico dos
+// bonecos do mandante (p1.home + p2.home) menos a média dos do visitante.
+// Boneco sem histórico (ou card ainda não montado) conta como neutro (50%)
+// pra não distorcer com amostra pequena. Retorna -1..+1 (positivo = mandante).
+function mkCharEdge(lineup, charStats) {
+  if (!lineup) return 0;
+  const rate = (c) => {
+    const s = (charStats || {})[c];
+    return (s && s.played > 0) ? s.won / s.played : 0.5;
+  };
+  const avg = (arr) => arr.reduce((s, c) => s + rate(c), 0) / arr.length;
+  const homeChars = ['p1', 'p2'].map(p => (lineup[p] || {}).home).filter(Boolean);
+  const awayChars = ['p1', 'p2'].map(p => (lineup[p] || {}).away).filter(Boolean);
+  if (!homeChars.length || !awayChars.length) return 0;
+  return avg(homeChars) - avg(awayChars);
+}
 
 // ─── ODDS DO MK — modelo de 2 níveis (round -> partida -> confronto). Da força
 // sai p (prob do mandante vencer 1 round); daí a binomial negativa "primeiro a 2"
@@ -992,14 +1008,18 @@ function computeMkPlayerMetrics(players, matches) {
   computeMkStandings(players, matches).forEach(s => { out[s.nick] = { strength: s.p * 3 + (s.rp - s.rc) }; });
   return out;
 }
-function mkRoundWinProb(home, away, metrics) {
+// K do peso dos BONECOS no cálculo: edge -1..+1 (ver mkCharEdge) vira um termo
+// somado ao logit ao lado da força dos jogadores — pesa, mas não domina.
+const MK_CHAR_EDGE_K = 3;
+function mkRoundWinProb(home, away, metrics, lineup, charStats) {
   const H = (metrics || {})[home] || { strength: 0 }, A = (metrics || {})[away] || { strength: 0 };
+  const charEdge = mkCharEdge(lineup, charStats); // bonecos escalados (win% histórico)
   // Clamp mais largo (era 0.25–0.75): jogos bem desequilibrados geram odds bem
   // altas pro azarão (sem teto). No começo (forças iguais) dá 0.5.
-  return Math.max(0.16, Math.min(0.84, sigmoid((H.strength - A.strength) * 0.04)));
+  return Math.max(0.16, Math.min(0.84, sigmoid((H.strength - A.strength) * 0.04 + charEdge * MK_CHAR_EDGE_K)));
 }
-function computeMkGameOdds(home, away, metrics) {
-  const p = mkRoundWinProb(home, away, metrics);
+function computeMkGameOdds(home, away, metrics, lineup, charStats) {
+  const p = mkRoundWinProb(home, away, metrics, lineup, charStats);
   const q = mkPartidaWinProb(p);                  // mandante vence uma partida
   const p20 = q * q, p11 = 2 * q * (1 - q), p02 = (1 - q) * (1 - q);
   const pd = mkPartidaDist(p);
@@ -10149,7 +10169,7 @@ function MkForm({ nick, draw, scores, align }) {
 // esticar o card do jogo). Deriva tudo dos jogos reais.
 function MkGameStats({ g, gkey, draw, scores, lineups, metrics, standings, charStats }) {
   const recOf = (n) => { const i = (standings || []).findIndex(s => s.nick === n); return i < 0 ? null : { ...standings[i], pos: i + 1 }; };
-  const pR = mkRoundWinProb(g.home, g.away, metrics);
+  const pR = mkRoundWinProb(g.home, g.away, metrics, (lineups || {})[gkey], charStats);
   const qP = mkPartidaWinProb(pR);
   const pWin = qP * qP, pDraw = 2 * qP * (1 - qP), pLoss = (1 - qP) * (1 - qP);
   const pctI = (x) => Math.round(x * 100);
@@ -10382,7 +10402,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   };
 
   const renderGameCard = ({ r, gi, g, key }) => {
-    const odds = computeMkGameOdds(g.home, g.away, metrics);
+    const odds = computeMkGameOdds(g.home, g.away, metrics, (lineups || {})[key], charStats);
     const ownGame = !!myNick && (g.home === myNick || g.away === myNick);
     const scEntry = (scores || {})[key] || null;
     const gameLocked = mkGameClosed(scEntry, now);
@@ -10396,7 +10416,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     const scoreMkt = (m) => m === 'RESULT' || m === 'P1' || m === 'P2';
     // probabilidades do modelo (mandante/empate/visitante) + 1º round,
     // confronto direto e campanha de cada jogador (pra mais stats).
-    const pR = mkRoundWinProb(g.home, g.away, metrics);
+    const pR = mkRoundWinProb(g.home, g.away, metrics, (lineups || {})[key], charStats);
     const qP = mkPartidaWinProb(pR);
     const pWin = qP * qP, pDraw = 2 * qP * (1 - qP), pLoss = (1 - qP) * (1 - qP);
     const pctI = (x) => Math.round(x * 100);
