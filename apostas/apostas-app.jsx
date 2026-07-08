@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260707-mkcap1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260707-casada1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -10204,8 +10204,9 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
 }
 
 // APOSTAS do MK (aba APOSTAS, admin por enquanto). Lê o sorteio/resultados
-// compartilhados (App). Cupom = palpites do MESMO mercado (ex: só VENCEDOR),
-// jogos liberados de rodadas diferentes valem — casada MULTIPLICA as odds.
+// compartilhados (App). Cupom = palpites combinados de QUALQUER mercado (dá pra
+// apostar tudo do mesmo card); jogos de rodadas diferentes valem — casada
+// MULTIPLICA as odds. Única trava: VENCEDOR e CHANCE DUPLA não juntos no card.
 function mkLegLabel(l) {
   // CHANCE DUPLA no cupom: usa os nicks reais (ex: "bane ou empate").
   if (l.market === 'DC') return l.pick === '1X' ? (l.home + ' ou empate') : l.pick === '12' ? (l.home + ' ou ' + l.away) : ('empate ou ' + l.away);
@@ -10478,13 +10479,19 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     const key = legKey(r, gi, market);
     const ex = cupom.find(l => l.key === key);
     if (ex && ex.pick === pick) { setCupom(prev => prev.filter(l => l.key !== key)); return; } // desmarca
-    // CASADA só combina palpites do MESMO mercado (ex: VENCEDOR com VENCEDOR de
-    // outro jogo, TOTAL com TOTAL). Misturar categorias (VENCEDOR + CHANCE DUPLA
-    // etc) só inflava a odd combinada sem risco real — apostas quase equivalentes.
-    const otherMarket = cupom.find(l => l.key !== key && l.market !== market);
-    if (otherMarket) {
-      showToast('Casada só combina o MESMO mercado. Tire os palpites de "' + MK_MARKET_TITLE[otherMarket.market] + '" antes.', 'error');
-      return;
+    // CASADA agora combina QUALQUER mercado — dá pra apostar tudo do mesmo card
+    // (VENCEDOR + TOTAL + PLACAR...) ou misturar jogos. Única trava: VENCEDOR e
+    // CHANCE DUPLA são a MESMA aposta (quem vence o confronto) por dois caminhos,
+    // então no MESMO card só cabe um dos dois — senão a casada só inflaria a odd
+    // sem risco real (uma cobre a outra).
+    const WINNER_MKTS = ['VENC', 'DC'];
+    if (WINNER_MKTS.includes(market)) {
+      const twin = market === 'VENC' ? 'DC' : 'VENC';
+      const clash = cupom.find(l => l.market === twin && l.phase === r.phase && l.roundN === r.n && l.gi === gi);
+      if (clash) {
+        showToast('Nesse card já tem "' + MK_MARKET_TITLE[twin] + '". VENCEDOR e CHANCE DUPLA são a mesma aposta — escolhe só uma.', 'error');
+        return;
+      }
     }
     const newLeg = { key, roundN: r.n, phase: r.phase, gi, home: g.home, away: g.away, market, pick, odd };
     setCupom(prev => [...prev.filter(l => l.key !== key), newLeg]);
@@ -10834,7 +10841,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                     {cupom.length === 0 ? (
                       <div className="empty">
                         <div className="e1">VAZIO</div>
-                        <div className="e2">Clica nas odds pra montar. 2+ palpites do MESMO mercado (ex: só VENCEDOR) = casada — as odds multiplicam.</div>
+                        <div className="e2">Clica nas odds pra montar. 2+ palpites = casada (pode misturar mercados do mesmo card) — as odds multiplicam.</div>
                       </div>
                     ) : (<>
                       {cupom.map(l => (
