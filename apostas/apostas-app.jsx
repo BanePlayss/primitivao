@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260707-mkmesa1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260707-mktier2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1276,10 +1276,10 @@ function repScoreOf(user) { return Math.max(0, Math.round(((user && user.rep && 
 // Tier visual do BILHETE pela ODD do cupom (produto das pernas): quanto mais
 // ousada a call, mais raro o bilhete. holo > dourado > brilhante > normal >
 // rasgado (<2, "seguro"/baixo). MK tem odds comprimidas (teto ~13) — usa faixas
-// menores: holo 10 / dourado 7 / brilhante 4. Demais: holo 15 / 10 / 6.
+// menores: holo 5 / dourado 4 / brilhante 2.5. Demais: holo 15 / 10 / 6.
 function oddTier(odds, champId) {
   const o = Number(odds) || 0;
-  const t = champId === 'mk' ? { holo: 10, gold: 7, shiny: 4 } : { holo: 15, gold: 10, shiny: 6 };
+  const t = champId === 'mk' ? { holo: 5, gold: 4, shiny: 2.5 } : { holo: 15, gold: 10, shiny: 6 };
   if (o >= t.holo) return 'holo';
   if (o >= t.gold) return 'gold';
   if (o >= t.shiny) return 'shiny';
