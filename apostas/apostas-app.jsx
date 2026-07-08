@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260707-casada1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260707-mkmesa1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1258,9 +1258,12 @@ const OFFICIAL_DAY_MULT = 1.25;
 // seguidores que copiaram ganham/perdem (assimétrico: perde mais que ganha).
 const CASHBACK_RATE = 0.10;
 const MAX_OPEN_TICKETS = 3; // tickets abertos simultâneos por dono (anti-flood)
-// Curadoria da MESA: só publica os cupons com odd combinada >= 5x (as calls
+// Curadoria da MESA: só publica os cupons com odd combinada >= piso (as calls
 // ousadas). Apostas "seguras" de odd baixa não entram no feed de cópia.
-const MESA_MIN_ODDS = 5;
+// MK tem odds comprimidas (teto ~13) — usa piso menor pra Mesa não ficar vazia.
+const MESA_MIN_ODDS = 5;      // piso padrão (FIFA e demais)
+const MESA_MIN_ODDS_MK = 2;   // piso do MK (odds mais baixas)
+const mesaMinOddsFor = (champId) => champId === 'mk' ? MESA_MIN_ODDS_MK : MESA_MIN_ODDS;
 const REP_LEVELS = [
   { min: 0,    name: 'NOVATO',       icon: 'ticket',  color: '#8c8478' },
   { min: 50,   name: 'PALPITEIRO',   icon: 'target',  color: '#3f9e57' },
@@ -1270,14 +1273,16 @@ const REP_LEVELS = [
 ];
 function repLevel(score) { let lv = REP_LEVELS[0]; for (const l of REP_LEVELS) if ((score || 0) >= l.min) lv = l; return lv; }
 function repScoreOf(user) { return Math.max(0, Math.round(((user && user.rep && user.rep.score) || 0))); }
-// Tier visual do BILHETE pela ODD do cupom (soma das pernas): quanto mais ousada
-// a call, mais raro o bilhete. holo (15+) > dourado (10+) > brilhante (6+) >
-// normal (2+) > rasgado (<2, ticket "seguro"/baixo).
-function oddTier(odds) {
+// Tier visual do BILHETE pela ODD do cupom (produto das pernas): quanto mais
+// ousada a call, mais raro o bilhete. holo > dourado > brilhante > normal >
+// rasgado (<2, "seguro"/baixo). MK tem odds comprimidas (teto ~13) — usa faixas
+// menores: holo 10 / dourado 7 / brilhante 4. Demais: holo 15 / 10 / 6.
+function oddTier(odds, champId) {
   const o = Number(odds) || 0;
-  if (o >= 15) return 'holo';
-  if (o >= 10) return 'gold';
-  if (o >= 6) return 'shiny';
+  const t = champId === 'mk' ? { holo: 10, gold: 7, shiny: 4 } : { holo: 15, gold: 10, shiny: 6 };
+  if (o >= t.holo) return 'holo';
+  if (o >= t.gold) return 'gold';
+  if (o >= t.shiny) return 'shiny';
   if (o >= 2) return 'normal';
   return 'torn';
 }
@@ -3867,7 +3872,7 @@ function App() {
         }
         // Auto-cópia: se um cupom IDÊNTICO já está aberto na Mesa, a aposta vira
         // cópia dele (não duplica o ticket). Own = bloqueia repetir o próprio.
-        const { own, other } = findMesaTwins(remote, ticket.legs, session.nick);
+        const { own, other } = findMesaTwins(remote, ticket.legs, session.nick, ticket.champId);
         // Own tem precedência: já tem esse cupom aberto -> bloqueia (não duplica
         // nem vira cópia de terceiro em cima do próprio ticket).
         if (own) return { __abort: true, result: { err: 'Você já tem esse cupom aberto na Mesa dos Cartolas.' } };
@@ -3954,10 +3959,11 @@ function App() {
   // pendente, não-cópia, odd combinada >= MESA_MIN_ODDS), ela vira CÓPIA em vez
   // de virar um ticket repetido no feed. `other` = de outro usuário (candidato a
   // cópia); `own` = do próprio nick (bloqueia o duplicado).
-  const findMesaTwins = (remote, legs, nick) => {
+  const findMesaTwins = (remote, legs, nick, champId) => {
     const sig = legsSignature(legs);
+    const min = mesaMinOddsFor(champId);
     const twins = (remote.bets || []).filter(b => b && b.open && !b.copyOf && b.status === 'pending'
-      && Number(b.combinedOdds || 0) >= MESA_MIN_ODDS && legsSignature(b.legs) === sig);
+      && Number(b.combinedOdds || 0) >= min && legsSignature(b.legs) === sig);
     return {
       own: twins.find(b => b.user === nick) || null,
       other: twins.find(b => b.user !== nick && !legBusy(b.legs, remote)) || null,
@@ -4048,7 +4054,7 @@ function App() {
         if (!u) return { __abort: true, result: { err: 'Conta não sincronizada. Faz login de novo.' } };
         if ((u.pc || 0) < stake) return { __abort: true, result: { err: 'Saldo insuficiente (tem ' + (u.pc || 0) + ' PC).' } };
         // Auto-cópia: cupom IDÊNTICO já aberto na Mesa vira cópia (não duplica).
-        const { own, other } = findMesaTwins(remote, ticket.legs, nick);
+        const { own, other } = findMesaTwins(remote, ticket.legs, nick, ticket.champId);
         // Own tem precedência: já tem esse cupom aberto -> bloqueia (não duplica).
         if (own) return { __abort: true, result: { err: 'Você já tem esse cupom aberto na Mesa dos Cartolas.' } };
         if (other) {
@@ -8267,7 +8273,7 @@ function OpenTicketCard({ t, owner, ownerUser, teamPlayers, gamesById, alreadyCo
   const nLegs = (t.legs || []).length;
   const doCopy = async () => { if (busy) return; setBusy(true); try { await onCopy(t.id, amt); } finally { setBusy(false); } };
   // Bilhete muda pela ODD do cupom: odd alta = holográfico, baixa = rasgado.
-  const tier = oddTier(t.combinedOdds);
+  const tier = oddTier(t.combinedOdds, t.champId);
   return (
     <div className={'mesa-card mesa-card--' + tier}>
       {TIER_TAG[tier] && <span className={'mesa-tier-tag tag-' + tier}><Icon name="sparkle" size={10} /> {TIER_TAG[tier]}</span>}
@@ -8342,7 +8348,7 @@ function OpenTicketsFeed({ bets, users, teamPlayers, gamesById, myNick, champId,
   const all = bets || [];
   // Cupom PÚBLICO e ousado: pendente, não-cópia, do campeonato atual e com odd
   // combinada >= MESA_MIN_ODDS (curadoria — só as calls que valem copiar).
-  const open = all.filter(b => !b.copyOf && b.status === 'pending' && (b.champId || 'fifa') === champId && Number(b.combinedOdds || 0) >= MESA_MIN_ODDS)
+  const open = all.filter(b => !b.copyOf && b.status === 'pending' && (b.champId || 'fifa') === champId && Number(b.combinedOdds || 0) >= mesaMinOddsFor(champId))
     .sort((a, b) => repScoreOf((users || {})[b.user]) - repScoreOf((users || {})[a.user]) || (b.openMeta?.publishedAt || 0) - (a.openMeta?.publishedAt || 0));
   if (!open.length) return null;
   return (
