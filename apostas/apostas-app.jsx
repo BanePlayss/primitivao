@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260711-kocards ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260711-kostats ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -11293,8 +11293,9 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     setBetMode(m);
     try { localStorage.setItem('mk_bet_mode', m); } catch (_) {}
     // Ao entrar no SIMPLES, tira do cupom os palpites de mercados avançados que
-    // somem da tela — senão ficariam "fantasmas" (visíveis só no cupom).
-    if (m === 'simples') setCupom(prev => prev.filter(l => l.market === 'VENC'));
+    // somem da tela — senão ficariam "fantasmas" (visíveis só no cupom). Mantém
+    // VENC (liga) e KVENC (mata-mata), que são os mercados do modo simples.
+    if (m === 'simples') setCupom(prev => prev.filter(l => l.market === 'VENC' || l.market === 'KVENC'));
   };
   const visibleMarkets = betMode === 'avancado' ? MK_MARKETS : MK_MARKETS.filter(m => m === 'VENC' || m === 'DC' || m === 'R1');
   // POP-UP de estatísticas (em vez de esticar o card): guarda { g, key } do jogo.
@@ -11693,6 +11694,13 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     const ownGame = !!myNick && (m.home === myNick || m.away === myNick);
     const meta = MK_KO_META[m.id];
     const pctI = (x) => Math.round(x * 100);
+    const frH = mkFirstRoundStats(m.home, draw, scores);
+    const frA = mkFirstRoundStats(m.away, draw, scores);
+    const trendH = mkPlayerTrendSeries(m.home, draw, scores);
+    const trendA = mkPlayerTrendSeries(m.away, draw, scores);
+    // SIMPLES = só QUEM PASSA; AVANÇADO = + PLACAR + TOTAL (mesmo toggle da liga).
+    const koMarkets = betMode === 'avancado' ? MK_KO_MARKETS : ['KVENC'];
+    const statG = { home: m.home, away: m.away };
     return (
       <div key={key} className={'mk-bet-game mk-ko-game' + (ownGame ? ' own' : '') + (expanded ? ' open' : '')}>
         <div className="mk-bg-summary" role="button" tabIndex={0} aria-expanded={expanded}
@@ -11705,11 +11713,23 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
           <div className="mk-bet-match">
             <button type="button" className="mk-bm-side" onClick={(e) => { e.stopPropagation(); onOpenProfile && onOpenProfile(m.home); }} title={'Ver perfil de ' + m.home}>
               <Avatar nick={m.home} teamPlayers={teamPlayers} size={30} noBadge />
-              <span className="mk-bm-info"><span className="mk-bm-nick mand">{m.home}</span><span className="mk-bm-role mand">MANDANTE</span></span>
+              <span className="mk-bm-info">
+                <span className="mk-bm-nick mand">{m.home}</span>
+                <span className="mk-bm-role mand">MANDANTE</span>
+                <MkForm nick={m.home} draw={draw} scores={scores} />
+                {frH.total > 0 && <span className="mk-bm-fr" title="Vitórias de 1º round nos confrontos da liga">1º ROUND {frH.won}/{frH.total}</span>}
+                <MkSparkline series={trendH} />
+              </span>
             </button>
             <span className="mk-bm-vs">×</span>
             <button type="button" className="mk-bm-side right" onClick={(e) => { e.stopPropagation(); onOpenProfile && onOpenProfile(m.away); }} title={'Ver perfil de ' + m.away}>
-              <span className="mk-bm-info"><span className="mk-bm-nick">{m.away}</span><span className="mk-bm-role">VISITANTE</span></span>
+              <span className="mk-bm-info">
+                <span className="mk-bm-nick">{m.away}</span>
+                <span className="mk-bm-role">VISITANTE</span>
+                <MkForm nick={m.away} draw={draw} scores={scores} align="right" />
+                {frA.total > 0 && <span className="mk-bm-fr" title="Vitórias de 1º round nos confrontos da liga">1º ROUND {frA.won}/{frA.total}</span>}
+                <MkSparkline series={trendA} away />
+              </span>
               <Avatar nick={m.away} teamPlayers={teamPlayers} size={30} noBadge />
             </button>
           </div>
@@ -11731,12 +11751,15 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
           <div className="mk-bg-flags">
             {ownGame && <span className="mk-bg-flag seu"><Icon name="fist" size={10} /> SEU CONFRONTO</span>}
             <span className="mk-bg-flag mk-ko-flag"><Icon name="sword" size={10} /> MD5 · 1 PALPITE</span>
+            <button type="button" className="mk-bg-stats-btn" onClick={(e) => { e.stopPropagation(); setStatsGame({ g: statG, key }); }}>
+              <Icon name="chart" size={11} /> ESTATÍSTICAS
+            </button>
           </div>
         </div>
         {expanded && (
           <div className="mk-bg-body">
             {ownGame && <div className="mk-bet-own seu"><span><Icon name="fist" size={11} /> SEU CONFRONTO — você não aposta nele</span></div>}
-            {MK_KO_MARKETS.map(mkt => {
+            {koMarkets.map(mkt => {
               const picks = mkKoMarketPicks(mkt);
               const vals = picks.map(p => odds[mkt][p]);
               const mx = Math.max(...vals), mn = Math.min(...vals);
@@ -11790,6 +11813,29 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
           <>
             <div className="mk-bet-layout">
               <div className="mk-bet-main">
+                {/* #8: modo do apostador — SIMPLES (só quem vence) x AVANÇADO (tudo).
+                    Vale pra liga E pro mata-mata (fica no topo, sempre visível). */}
+                {(koBettable.length > 0 || liberados.length > 0) && (
+                  <div className="mk-bet-mode" role="tablist" aria-label="Modo de aposta">
+                    <div className="mk-bet-mode-tabs">
+                      <button type="button" role="tab" aria-selected={betMode === 'simples'}
+                        className={'mk-bet-mode-btn' + (betMode === 'simples' ? ' on' : '')}
+                        onClick={() => chooseBetMode('simples')}>
+                        <Icon name="target" size={11} /> SIMPLES
+                      </button>
+                      <button type="button" role="tab" aria-selected={betMode === 'avancado'}
+                        className={'mk-bet-mode-btn' + (betMode === 'avancado' ? ' on' : '')}
+                        onClick={() => chooseBetMode('avancado')}>
+                        <Icon name="chart" size={11} /> AVANÇADO
+                      </button>
+                    </div>
+                    <span className="mk-bet-mode-hint">
+                      {betMode === 'simples'
+                        ? 'Só quem vence o confronto. Casada = junta confrontos.'
+                        : 'Tudo: placares e totais (rounds na liga, jogos no mata-mata).'}
+                    </span>
+                  </div>
+                )}
                 {/* MATA-MATA: confrontos abertos como cards normais (mesmo cupom). */}
                 {koBettable.length > 0 && (
                   <div className="mk-lib-round mk-ko-libround">
@@ -11813,26 +11859,6 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                   </div>
                 )}
                 <div className="mk-liberados-h"><Icon name="skull" size={13} /> JOGOS LIBERADOS <span className="mk-liberados-c">{liberados.length - destaques.length}</span></div>
-                {/* #8: modo do apostador — SIMPLES (só quem vence) x AVANÇADO (tudo) */}
-                <div className="mk-bet-mode" role="tablist" aria-label="Modo de aposta">
-                  <div className="mk-bet-mode-tabs">
-                    <button type="button" role="tab" aria-selected={betMode === 'simples'}
-                      className={'mk-bet-mode-btn' + (betMode === 'simples' ? ' on' : '')}
-                      onClick={() => chooseBetMode('simples')}>
-                      <Icon name="target" size={11} /> SIMPLES
-                    </button>
-                    <button type="button" role="tab" aria-selected={betMode === 'avancado'}
-                      className={'mk-bet-mode-btn' + (betMode === 'avancado' ? ' on' : '')}
-                      onClick={() => chooseBetMode('avancado')}>
-                      <Icon name="chart" size={11} /> AVANÇADO
-                    </button>
-                  </div>
-                  <span className="mk-bet-mode-hint">
-                    {betMode === 'simples'
-                      ? 'Só quem vence o confronto. Casada = junta vencedores.'
-                      : 'Tudo: placares, total de rounds e finalização.'}
-                  </span>
-                </div>
                 {libGroups.length === 0 ? (
                   <div className="empty"><div className="e1">NENHUM JOGO LIBERADO</div><div className="e2">No momento não tem confronto com os 2 jogadores livres. Assim que alguém fecha a rodada anterior, libera aqui.</div></div>
                 ) : libGroups.map(gr => (
