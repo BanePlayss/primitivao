@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260711-bamguwo ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260711-vitinhowo ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -577,8 +577,10 @@ const mkInscritos = (interests) => Object.keys((interests && interests.mk) || {}
 // pendente/apostável. O placar do W.O. é um overlay in-memory (`sc.wo`) aplicado
 // na leitura (mkApplyWo) — NUNCA é gravado no Firestore (persistMk grava por
 // chave a partir do remoto), então basta tirar o nick da lista pra reverter.
-// (bamgu desistiu do MK — 2026-07-11.)
-const MK_WO = ['bamgu'];
+// Confronto entre DOIS desistentes (ainda em aberto) vira ANULADO — ninguém
+// pontua (não dá pra dar W.O. pra um lado que também saiu). O jogo entre eles
+// que JÁ foi jogado continua valendo. (bamgu e vitinho desistiram — 2026-07-11.)
+const MK_WO = ['bamgu', 'vitinho'];
 const mkIsWo = (nick) => MK_WO.indexOf(nick) !== -1;
 // jogo envolve um desistente? (aceita {home,away} de draw, match ou perna).
 const mkGameHasWo = (g) => !!g && (mkIsWo(g.home) || mkIsWo(g.away));
@@ -622,6 +624,13 @@ function mkMatchOutcome(sc) {
     return { p1h: 0, p1a: 0, p2h: 0, p2a: 0, confH, confA, roundsH: 0, roundsA: 0,
       total: 0, winner: sc.wo, wo: true };
   }
+  // W.O. DUPLO (dois desistentes): jogo resolvido mas SEM vencedor — ninguém
+  // pontua (a classificação ignora via o.wo === 'void'). wo:'void' também tira
+  // das stats por round e da liquidação, igual ao W.O. simples.
+  if (sc.wo === 'V') {
+    return { p1h: 0, p1a: 0, p2h: 0, p2a: 0, confH: 0, confA: 0, roundsH: 0, roundsA: 0,
+      total: 0, winner: null, wo: 'void' };
+  }
   const v = ['p1h', 'p1a', 'p2h', 'p2a'].map(k => parseInt(sc[k], 10));
   if (v.some(x => Number.isNaN(x))) return null;
   const [p1h, p1a, p2h, p2a] = v;
@@ -652,7 +661,8 @@ function mkApplyWo(draw, scores) {
     const key = gk(r, gi);
     const sc = base[key] || {};
     if (mkMatchOutcome(sc)) return;                   // já resolvido (jogo já jogado)
-    const woSide = mkIsWo(g.home) ? 'A' : 'H';        // vencedor = quem NÃO desistiu
+    // dois desistentes -> 'V' (anulado, ninguém pontua); senão vence quem ficou.
+    const woSide = (mkIsWo(g.home) && mkIsWo(g.away)) ? 'V' : (mkIsWo(g.home) ? 'A' : 'H');
     if (!out) out = { ...base };
     out[key] = { ...sc, wo: woSide };
   }));
@@ -846,6 +856,7 @@ function computeMkStandings(players, matches) {
   (matches || []).forEach(m => {
     const o = mkMatchOutcome(m.sc);
     if (!o) return;
+    if (o.wo === 'void') return; // W.O. duplo (dois desistentes): ninguém pontua
     const H = rec[m.home], A = rec[m.away];
     if (!H || !A) return;
     H.j++; A.j++;
@@ -9929,7 +9940,7 @@ function MkResultLauncher({ draw, scores, lineups, teamPlayers, onScore }) {
                   <div className="mk-launch-h">
                     <span className="mk-launch-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase} · JOGO {String(gi + 1).padStart(2, '0')}</span>
                     <span className={'mk-launch-st ' + (done ? 'done' : 'pend')}>
-                      {done ? <><Icon name="check" size={11} /> {out.wo ? 'W.O.' : <>{out.confH}×{out.confA}{out.winner === 'D' ? ' EMPATE' : ''}</>}</> : <>A LANÇAR</>}
+                      {done ? <><Icon name="check" size={11} /> {out.wo === 'void' ? 'ANULADO' : out.wo ? 'W.O.' : <>{out.confH}×{out.confA}{out.winner === 'D' ? ' EMPATE' : ''}</>}</> : <>A LANÇAR</>}
                     </span>
                   </div>
                   <div className="mk-launch-match">
@@ -10199,7 +10210,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                     <div key={gi} className={'mk-fx' + (done ? ' done' : '') + (mine ? ' mine' : '')}>
                       <div className="mk-fx-top">
                         <span className="mk-fx-jogo">JOGO {String(gi + 1).padStart(2, '0')}{mine && <span className="mk-fx-mine"><Icon name="fist" size={10} /> SEU JOGO</span>}</span>
-                        {done && <span className="mk-fx-done"><Icon name="check" size={11} /> {out.wo ? 'W.O.' : <>{out.confH}×{out.confA}{out.winner === 'D' ? ' · EMPATE' : ''}</>}</span>}
+                        {done && <span className="mk-fx-done"><Icon name="check" size={11} /> {out.wo === 'void' ? 'ANULADO' : out.wo ? 'W.O.' : <>{out.confH}×{out.confA}{out.winner === 'D' ? ' · EMPATE' : ''}</>}</span>}
                       </div>
                       <div className="mk-fx-body">
                         <div className="mk-fx-side home">
