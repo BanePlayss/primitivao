@@ -16,8 +16,8 @@ herdam cor via `currentColor`.
 `star, shield, sparkle, check, eye, eye-off, target, trophy, globe, coin,
 coin-stack, coin-fire, arrow-right, arrow-up-right, arrow-down, refresh,
 caret-up, caret-down, x, warning, lock, unlock, flag, question, medal,
-gift, menu, skull, fire, book, newspaper, dice, user, gamepad, phone,
-chart, pin, square-filled, chat, ticket, flask, tag, trash, toilet,
+medal-3, gift, menu, skull, fire, book, newspaper, dice, user, gamepad,
+phone, chart, pin, square-filled, chat, ticket, flask, tag, trash, toilet,
 toothbrush, crown, bolt, heart, football, sword, whistle, snowflake,
 rocket, crosshair, fist, chess, pokeball, cards, crab`
 

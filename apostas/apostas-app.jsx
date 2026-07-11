@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260711-vitinhowo2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260711-mkmata ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -668,6 +668,121 @@ function mkApplyWo(draw, scores) {
     out[key] = { ...sc, wo: woSide };
   }));
   return out || base;
+}
+
+// ─── MATA-MATA DO MK (top 8 dos pontos corridos) ────────────────────────────
+// Formato (Edição 01):
+//   J1: 3º × 8º — vencedor pega o 1º na SEMI 1.
+//   J2: 4º × 7º e J3: 5º × 6º — repescagem; vencedores fazem o
+//   J4 (decisão da repescagem) — vencedor pega o 2º na SEMI 2.
+//   SEMI 1: 1º × venc. J1 · SEMI 2: 2º × venc. J4 · FINAL + 3º LUGAR.
+// Confronto do mata-mata = MD5 (5 jogos, vence quem fizer 3) com escalação
+// BLIND: cada jogador declara a ORDEM dos 5 personagens antes (máx 2x o mesmo
+// boneco, qualquer um do MK_CHARACTERS — não usa o elenco de 3 da liga); o
+// adversário só descobre na hora de cada jogo.
+// Persistência: mk.ko = { published, publishedAt, seeds:[8 nicks], scores, lineups }.
+//   scores[matchId] = { g1:'H'|'A', ..., g5 } (vencedor de cada jogo, em ordem)
+//   lineups[matchId][nick] = btoa(JSON [5 nomes]) — ofuscado pra não vazar numa
+//   olhada casual no doc (é cadeado de bicicleta, não criptografia).
+const MK_KO_IDS = ['R1', 'R2', 'R3', 'R4', 'SF1', 'SF2', 'F', 'T3'];
+const MK_KO_META = {
+  R1:  { label: 'JOGO 1',   phase: 'QUALIFICATÓRIA', dest: 'vencedor pega o 1º na SEMI 1', hints: {} },
+  R2:  { label: 'JOGO 2',   phase: 'REPESCAGEM',     dest: 'vencedor vai pra DECISÃO', hints: {} },
+  R3:  { label: 'JOGO 3',   phase: 'REPESCAGEM',     dest: 'vencedor vai pra DECISÃO', hints: {} },
+  R4:  { label: 'DECISÃO',  phase: 'REPESCAGEM',     dest: 'vencedor pega o 2º na SEMI 2', hints: { home: 'vence o JOGO 2', away: 'vence o JOGO 3' } },
+  SF1: { label: 'SEMI 1',   phase: 'SEMIFINAIS',     dest: 'vencedor vai pra FINAL', hints: { away: 'vence o JOGO 1' } },
+  SF2: { label: 'SEMI 2',   phase: 'SEMIFINAIS',     dest: 'vencedor vai pra FINAL', hints: { away: 'vence a DECISÃO' } },
+  F:   { label: 'A FINAL',  phase: 'TÍTULO',         dest: 'vale o título do MK', hints: { home: 'vence a SEMI 1', away: 'vence a SEMI 2' } },
+  T3:  { label: '3º LUGAR', phase: 'TÍTULO',         dest: 'perdedores das semis', hints: { home: 'perde a SEMI 1', away: 'perde a SEMI 2' } },
+};
+// Jogos que DEPENDEM do resultado de cada confronto (fecho transitivo). Quando
+// o vencedor de um confronto MUDA (correção do mod) ou o confronto REABRE, os
+// placares/escalações desses jogos apontariam pro classificado errado — são
+// limpos no mesmo reducer (ver setMkKoGame) pra não sobrar órfão.
+const MK_KO_DOWNSTREAM = {
+  R1: ['SF1', 'F', 'T3'], R2: ['R4', 'SF2', 'F', 'T3'], R3: ['R4', 'SF2', 'F', 'T3'],
+  R4: ['SF2', 'F', 'T3'], SF1: ['F', 'T3'], SF2: ['F', 'T3'], F: [], T3: [],
+};
+// Confronto JÁ COMEÇOU? Olha o DOC (qualquer gN lançado), não o outcome — o
+// outcome trunca no primeiro buraco (mod desfez o J1 com J2 lançado) e diria
+// "não começou" com jogo gravado, reabrindo a escalação blind já revelada.
+const mkKoMatchStarted = (sc) => !!sc && ['g1', 'g2', 'g3', 'g4', 'g5'].some(k => sc[k] === 'H' || sc[k] === 'A');
+// Resultado de um confronto MD5: lê g1..g5 EM ORDEM e para no primeiro jogo sem
+// vencedor ou quando um lado fecha 3. Sempre devolve objeto (parcial serve pra UI).
+function mkKoOutcome(sc) {
+  const res = { games: [], h: 0, a: 0, winner: null, done: false, next: 1 };
+  for (let i = 1; i <= 5; i++) {
+    const w = sc && sc['g' + i];
+    if (w !== 'H' && w !== 'A') break;
+    res.games.push({ n: i, winner: w });
+    if (w === 'H') res.h++; else res.a++;
+    if (res.h === 3 || res.a === 3) { res.done = true; res.winner = res.h === 3 ? 'H' : 'A'; res.next = null; break; }
+    res.next = i + 1;
+  }
+  return res;
+}
+// Monta o chaveamento resolvido a partir dos seeds (1º..8º) + placares. Slots
+// FIXOS (sem re-sortear mando): venc. J2 = mandante da DECISÃO; venc. SEMI 1 =
+// mandante da FINAL; perd. SEMI 1 = mandante do 3º lugar. null = lado indefinido.
+function mkKoBracket(seeds, koScores) {
+  const S = (i) => (seeds && seeds[i - 1]) || null;
+  const m = {};
+  const make = (id, home, away) => {
+    const o = mkKoOutcome((koScores || {})[id]);
+    const done = !!(o.done && home && away);
+    m[id] = {
+      id, home, away, o, done,
+      winner: done ? (o.winner === 'H' ? home : away) : null,
+      loser:  done ? (o.winner === 'H' ? away : home) : null,
+    };
+  };
+  make('R1', S(3), S(8));
+  make('R2', S(4), S(7));
+  make('R3', S(5), S(6));
+  make('R4', m.R2.winner, m.R3.winner);
+  make('SF1', S(1), m.R1.winner);
+  make('SF2', S(2), m.R4.winner);
+  make('F',  m.SF1.winner, m.SF2.winner);
+  make('T3', m.SF1.loser,  m.SF2.loser);
+  return m;
+}
+// Seeds do mata-mata: classificação COMPLETA (com os desistentes DENTRO, senão
+// os W.O. deles não pontuam pros adversários) e só DEPOIS filtra quem saiu
+// (MK_WO) — desistente não disputa o mata-mata. Top 8 do que sobrar.
+function mkKoSeedsFrom(players, matches) {
+  return computeMkStandings(players, matches)
+    .map(s => s.nick)
+    .filter(n => !mkIsWo(n) && !mkIsWithdrawn(n))
+    .slice(0, 8);
+}
+// Escalação blind: codifica/decodifica a lista de 5 picks (base64 de JSON).
+function mkKoEncodeLineup(list) {
+  try { return btoa(JSON.stringify(list)); } catch (e) { return null; }
+}
+function mkKoDecodeLineup(raw) {
+  if (Array.isArray(raw)) return raw; // compat: se algum dia gravar sem codificar
+  if (typeof raw !== 'string' || !raw) return null;
+  try { const v = JSON.parse(atob(raw)); return Array.isArray(v) ? v : null; } catch (e) { return null; }
+}
+// Valida a lista de 5 picks: exatamente 5, todos personagens válidos, máx 2x o
+// mesmo. Devolve lista de problemas (vazia = ok).
+function mkKoLineupProblems(list) {
+  const probs = [];
+  const picks = (list || []).filter(Boolean);
+  if (picks.length < 5) probs.push('Escolha os 5 jogos (' + picks.length + '/5).');
+  const bad = picks.filter(c => MK_CHARACTERS.indexOf(c) === -1);
+  if (bad.length) probs.push('Personagem inválido: ' + bad.join(', ') + '.');
+  const count = {};
+  picks.forEach(c => { count[c] = (count[c] || 0) + 1; });
+  Object.keys(count).forEach(c => { if (count[c] > 2) probs.push(c + ' escolhido ' + count[c] + 'x — máximo 2x por personagem.'); });
+  return probs;
+}
+// Revela o pick do jogo N de um jogador? Regra única pra TODO MUNDO (inclusive
+// mod): o próprio dono sempre vê; os outros só veem picks de jogos que JÁ têm
+// resultado lançado (o "na hora do jogo" acontece na live, não no app).
+function mkKoPickRevealed(matchOutcome, gameN, ownerNick, viewerNick) {
+  if (ownerNick && viewerNick && ownerNick === viewerNick) return true;
+  return (matchOutcome.games || []).some(g => g.n === gameN);
 }
 
 // Round-dots de um confronto MK (estilo jogo de luta): 2 partidas, cada uma
@@ -3067,16 +3182,26 @@ function App() {
   // partidas). Keyed por gKey: mkLineups[gKey] = { p1:{home,away}, p2:{home,away} }.
   const [mkLineups, setMkLineups] = useState({});
   const [mkLocked, setMkLocked] = useState(false); // chaveamento publicado -> inscrições fechadas
+  // MATA-MATA: { published, publishedAt, seeds, scores, lineups } (mk.ko no doc).
+  const [mkKo, setMkKo] = useState(null);
   // DIA OFICIAL: { active, since, by } no JSON do doc. Quando ativo, payout +25%.
   const [officialDay, setOfficialDayState] = useState(null);
 
   // Muta o campo `mk` no doc de apostas, preservando o resto. Optimistic: o caller
-  // já atualizou o estado local; aqui só persiste.
+  // já atualizou o estado local; aqui só persiste. Mutator que devolve o PRÓPRIO
+  // `base` (ou undefined) = no-op — não reescreve o doc à toa (guardas dos
+  // reducers do mata-mata fazem `return mk`). Falha de transação (ex.: offline)
+  // avisa com toast — o snapshot seguinte re-sincroniza a tela com o servidor.
   const persistMk = (mutator) => commitBetDocUpdate(remote => {
     const cur = (remote.mk && typeof remote.mk === 'object') ? remote.mk : {};
     const base = { draw: null, scores: {}, lineups: {}, locked: false, ...cur };
-    return { ...remote, mk: mutator(base) };
-  }).catch(e => console.warn('persistMk failed', e));
+    const next = mutator(base);
+    if (next === undefined || next === base) return null; // no-op
+    return { ...remote, mk: next };
+  }).catch(e => {
+    console.warn('persistMk failed', e);
+    showToast('Não salvou — sem conexão? A tela pode voltar ao estado anterior.', 'error');
+  });
 
   // M8: muta um campeonato no doc championships (transação própria, doc separado).
   // mutator(champAtual|null, todosChamps) -> novo champ | null(apaga) | undefined(no-op).
@@ -3169,6 +3294,95 @@ function App() {
   const toggleMkGameLock = (key) => {
     const cur = !!((mkScores || {})[key] || {}).locked;
     return setMkScoreField(key, { locked: !cur });
+  };
+
+  // ── MATA-MATA DO MK ────────────────────────────────────────────────────────
+  // ADMIN: publica o mata-mata OFICIAL — congela os seeds (top 8 elegíveis da
+  // classificação final). Tudo DENTRO da transação, a partir do estado remoto:
+  // jogadores saem do PRÓPRIO chaveamento (mk.draw), placares com overlay de
+  // W.O. — nada do estado local da aba. Só com a liga 100% fechada.
+  const publishMkKo = async () => {
+    if (!isAdmin) return;
+    const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+    let published = false;
+    await persistMk(mk => {
+      if (mk.ko && mk.ko.published) return mk; // já publicado — não sobrescreve
+      const draw = mk.draw || [];
+      const scores = mkApplyWo(draw, mk.scores || {});
+      const allDone = draw.length > 0 && draw.every(r => (r.games || []).every((g, gi) =>
+        mkGameVoid(g) || !!mkMatchOutcome(scores[gk(r, gi)] || {})));
+      if (!allDone) return mk; // liga ainda aberta — no-op
+      // jogadores = quem está no chaveamento (fonte transacional; retirados fora)
+      const players = Array.from(new Set(draw.flatMap(r => (r.games || []).flatMap(g => [g.home, g.away])))).filter(n => n && !mkIsWithdrawn(n));
+      const matches = draw.flatMap(r => (r.games || []).map((g, gi) => ({ home: g.home, away: g.away, sc: scores[gk(r, gi)] || {} }))).filter(m => !mkGameVoid(m));
+      const seeds = mkKoSeedsFrom(players, matches);
+      if (seeds.length < 8) return mk; // sem 8 elegíveis não tem chave completa
+      published = true;
+      return { ...mk, ko: { published: true, publishedAt: Date.now(), seeds, scores: {}, lineups: {} } };
+    });
+    showToast(published ? 'Mata-mata publicado! Seeds congelados — escalações blind abertas.' : 'Não publicou (liga aberta ou mata-mata já no ar).', published ? 'success' : 'error');
+  };
+  // ADMIN: despublica (volta pra prévia). Confirmação com aviso — placares e
+  // escalações do mata-mata são APAGADOS.
+  const resetMkKo = async () => {
+    if (!isAdmin) return;
+    if (!(await confirmModal({
+      title: 'DESPUBLICAR O MATA-MATA?',
+      body: 'Isso APAGA os placares e as escalações do mata-mata e volta pra prévia. A liga não é tocada.',
+      confirmLabel: 'DESPUBLICAR', danger: true,
+    }))) return;
+    setMkKo(null);
+    return persistMk(mk => ({ ...mk, ko: null }));
+  };
+  // MOD: lança/corrige o vencedor de um jogo do MD5 (side 'H'|'A'|null desfaz).
+  // DESFAZER também apaga os jogos seguintes do confronto (buraco no meio do
+  // MD5 não é estado válido — ressuscitaria depois e fecharia 3×0 sem querer).
+  // Se o RESULTADO do confronto muda (vencedor troca ou reabre), limpa placares
+  // e escalações dos jogos downstream — senão ficam órfãos apontando pro
+  // classificado errado (e travando a escalação blind do novo classificado).
+  const setMkKoGame = (matchId, gameN, side) => {
+    const val = side === 'H' || side === 'A' ? side : null;
+    const apply = (ko) => {
+      const cur = (ko.scores || {})[matchId] || {};
+      const before = mkKoOutcome(cur);
+      const nextSc = { ...cur };
+      if (val) nextSc['g' + gameN] = val;
+      else for (let i = gameN; i <= 5; i++) delete nextSc['g' + i]; // desfez: some do gN em diante
+      const after = mkKoOutcome(nextSc);
+      const scores = { ...(ko.scores || {}), [matchId]: nextSc };
+      let lineups = ko.lineups || {};
+      const sig = (o) => (o.done ? o.winner : 'open');
+      if (sig(before) !== sig(after)) {
+        lineups = { ...lineups };
+        (MK_KO_DOWNSTREAM[matchId] || []).forEach(id => { delete scores[id]; delete lineups[id]; });
+      }
+      return { ...ko, scores, lineups };
+    };
+    setMkKo(prev => (prev && prev.published) ? apply(prev) : prev);
+    return persistMk(mk => (!mk.ko || !mk.ko.published) ? mk : { ...mk, ko: apply(mk.ko) });
+  };
+  // JOGADOR: declara a escalação blind (5 picks em ordem) do PRÓPRIO confronto.
+  // Valida no reducer: participante do confronto, lista válida, confronto ainda
+  // sem NENHUM jogo lançado no doc (mkKoMatchStarted — robusto a buraco).
+  const setMkKoLineup = async (matchId, list) => {
+    const nick = session && session.nick;
+    if (!nick) return { err: 'precisa logar' };
+    if (mkKoLineupProblems(list).length) return { err: mkKoLineupProblems(list)[0] };
+    const enc = mkKoEncodeLineup(list);
+    if (!enc) return { err: 'Falha ao salvar.' };
+    let saved = false;
+    await persistMk(mk => {
+      saved = false; // a transação pode rodar mais de uma vez (retry) — zera
+      if (!mk.ko || !mk.ko.published) return mk;
+      const br = mkKoBracket(mk.ko.seeds, mk.ko.scores);
+      const match = br[matchId];
+      if (!match || (match.home !== nick && match.away !== nick)) return mk; // não é seu confronto
+      if (mkKoMatchStarted((mk.ko.scores || {})[matchId])) return mk; // já começou: travado
+      saved = true;
+      return { ...mk, ko: { ...mk.ko, lineups: { ...(mk.ko.lineups || {}), [matchId]: { ...((mk.ko.lineups || {})[matchId] || {}), [nick]: enc } } } };
+    });
+    if (saved) setMkKo(prev => prev ? { ...prev, lineups: { ...(prev.lineups || {}), [matchId]: { ...((prev.lineups || {})[matchId] || {}), [nick]: enc } } } : prev);
+    return saved ? { ok: true } : { err: 'Não deu pra salvar (confronto travado ou não é seu).' };
   };
   // VIEW principal — controla qual "página" mostrar:
   //   apostas | campeonatos | copa | hall | inicio(NEWS) | loja | perfil | tickets | ranking | admin
@@ -3365,6 +3579,7 @@ function App() {
           mkDrawVal, mkScoresVal, mkUsers
         ));
         setMkLocked(!!mk.locked);
+        setMkKo(mk.ko && typeof mk.ko === 'object' ? mk.ko : null);
         setOfficialDayState(remote.officialDay && typeof remote.officialDay === 'object' ? remote.officialDay : null);
         hasLoadedRef.current = true; setSynced(true);
         // Migração one-shot: promove interests do json pra campo top-level.
@@ -4957,6 +5172,7 @@ function App() {
                       draw={mkDraw} onPublishDraw={publishMkDraw}
                       scores={mkScores} onScore={setMkScoreField} lineups={mkLineups}
                       isAdmin={false} isMod={false} locked={mkLocked} myNick={session.nick}
+                      ko={mkKo} onKoLineup={setMkKoLineup}
                     />
                   ) : active.id === 'gwyf' ? (
                     // GOLF: CLASSIFICAÇÃO + RODADAS (mapas), igual ao MK. Pré-lançamento
@@ -5071,6 +5287,7 @@ function App() {
                   draw={mkDraw} onPublishDraw={publishMkDraw}
                   scores={mkScores} onScore={setMkScoreField} lineups={mkLineups}
                   isAdmin={isAdmin} isMod={isMod} locked={mkLocked} myNick={session.nick} launchOnly
+                  ko={mkKo} onPublishKo={publishMkKo} onResetKo={resetMkKo} onKoGame={setMkKoGame}
                 />
                 <div style={{ height: 18 }} />
                 <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isMod}
@@ -5997,6 +6214,14 @@ function Icon({ name, size = 20, strokeWidth, className = '' }) {
           <path d="M7 3l3 6M17 3l-3 6M5 3h4l3 6 3-6h4" />
           <circle cx="12" cy="15.5" r="5.5" />
           <text x="12" y="17.8" textAnchor="middle" fontFamily="'JetBrains Mono', ui-monospace, monospace" fontSize="6.5" fontWeight="800" fill="currentColor" stroke="none">2</text>
+        </svg>
+      );
+    case 'medal-3': // medalha de 3º lugar (bronze) — pódio do mata-mata
+      return (
+        <svg {...common}>
+          <path d="M7 3l3 6M17 3l-3 6M5 3h4l3 6 3-6h4" />
+          <circle cx="12" cy="15.5" r="5.5" />
+          <text x="12" y="17.8" textAnchor="middle" fontFamily="'JetBrains Mono', ui-monospace, monospace" fontSize="6.5" fontWeight="800" fill="currentColor" stroke="none">3</text>
         </svg>
       );
     case 'gift':
@@ -9979,7 +10204,290 @@ function MkResultLauncher({ draw, scores, lineups, teamPlayers, onScore }) {
   );
 }
 
-function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPublishDraw, scores, onScore, isAdmin, isMod, locked, myNick, launchOnly }) {
+// ─── MATA-MATA — COMPONENTES ────────────────────────────────────────────────
+// Selo de seed (1º..8º) com a cor do top-8 da classificação.
+function MkKoSeedTag({ n }) {
+  const col = n >= 1 && n <= 8 ? MK_TOP8_COLORS[n - 1] : undefined;
+  return <span className="mk-ko-seed" style={col ? { borderColor: col, color: col } : undefined}>{n ? n + 'º' : '?'}</span>;
+}
+// Trilha do MD5: 5 quadradinhos, um por jogo — laranja = mandante levou,
+// vermelho = visitante levou, contorno pulsante = próximo jogo, vazio = não rolou.
+function MkKoGameDots({ o }) {
+  return (
+    <span className="mk-ko-dots" title={'MD5 — vence quem fizer 3 · ' + o.h + '×' + o.a}>
+      {[1, 2, 3, 4, 5].map(n => {
+        const g = (o.games || []).find(x => x.n === n);
+        const cls = g ? (g.winner === 'H' ? ' h' : ' a') : (!o.done && o.next === n ? ' next' : '');
+        return <i key={n} className={'mk-ko-dot' + cls} />;
+      })}
+    </span>
+  );
+}
+// Card de UM confronto do mata-mata. `seedOf` = { nick: 1..8 }.
+function MkKoMatchCard({ m, seedOf, teamPlayers, myNick }) {
+  const meta = MK_KO_META[m.id];
+  const started = (m.o.games || []).length > 0;
+  const mine = !!(myNick && (m.home === myNick || m.away === myNick));
+  const status = m.done ? (m.o.h + '×' + m.o.a)
+    : (!m.home || !m.away) ? 'A DEFINIR'
+    : started ? ('EM ANDAMENTO · ' + m.o.h + '×' + m.o.a) : 'AGUARDANDO';
+  const row = (nick, side) => {
+    const isWin = m.done && m.winner === nick;
+    const isLose = m.done && m.loser === nick;
+    return (
+      <div className={'mk-ko-pl' + (isWin ? ' win' : '') + (isLose ? ' lose' : '')}>
+        {nick ? (
+          <>
+            <MkKoSeedTag n={seedOf[nick]} />
+            <Avatar nick={nick} teamPlayers={teamPlayers} size={22} noBadge />
+            <span className="mk-ko-nick">{nick}</span>
+            {isWin && <span className="mk-ko-wintag"><Icon name="check" size={10} /> VENCEU</span>}
+          </>
+        ) : (
+          <span className="mk-ko-tbd"><Icon name="question" size={11} /> {(meta.hints || {})[side] || 'a definir'}</span>
+        )}
+        <span className={'mk-ko-score' + (isWin ? ' win' : '')}>{m.home && m.away ? (side === 'home' ? m.o.h : m.o.a) : ''}</span>
+      </div>
+    );
+  };
+  return (
+    <div className={'mk-ko-match' + (m.done ? ' done' : '') + (mine ? ' mine' : '') + (m.id === 'F' ? ' final' : '')}>
+      <div className="mk-ko-match-h">
+        <span className="mk-ko-match-lb">{m.id === 'F' && <Icon name="crown" size={11} />}{m.id === 'T3' && <Icon name="medal-3" size={11} />} {meta.label}{mine && <span className="mk-ko-minetag"><Icon name="fist" size={9} /> SEU JOGO</span>}</span>
+        <span className={'mk-ko-match-st' + (m.done ? ' done' : '')}>{status}</span>
+      </div>
+      {row(m.home, 'home')}
+      <div className="mk-ko-mid"><MkKoGameDots o={m.o} /></div>
+      {row(m.away, 'away')}
+      <div className="mk-ko-dest"><Icon name="arrow-right" size={9} /> {meta.dest}</div>
+    </div>
+  );
+}
+// O CHAVEAMENTO em colunas de fase. Colunas: 1ª FASE → DECISÃO → SEMIS → TÍTULO.
+function MkKoBracketView({ br, seedOf, teamPlayers, myNick, preview }) {
+  const col = (title, cap, ids, extra) => (
+    <div className="mk-ko-col">
+      <div className="mk-ko-col-h"><span className="mk-ko-col-t">{title}</span><span className="mk-ko-col-c">{cap}</span></div>
+      {extra}
+      {ids.map(id => <MkKoMatchCard key={id} m={br[id]} seedOf={seedOf} teamPlayers={teamPlayers} myNick={myNick} />)}
+    </div>
+  );
+  return (
+    <div className={'mk-ko-wrap' + (preview ? ' preview' : '')}>
+      {preview && <div className="mk-ko-stamp">PRÉVIA</div>}
+      <div className="mk-ko-cols">
+        {col('1ª FASE', '3º ao 8º entram aqui', ['R1', 'R2', 'R3'])}
+        <div className="mk-ko-flow"><Icon name="arrow-right" size={16} /></div>
+        {col('DECISÃO', 'repescagem se resolve', ['R4'], (
+          <div className="mk-ko-note"><Icon name="shield" size={11} /> <strong>1º e 2º descansam</strong> — cabeças de chave entram direto nas semifinais.</div>
+        ))}
+        <div className="mk-ko-flow"><Icon name="arrow-right" size={16} /></div>
+        {col('SEMIFINAIS', 'cabeças de chave entram', ['SF1', 'SF2'])}
+        <div className="mk-ko-flow"><Icon name="arrow-right" size={16} /></div>
+        {col('TÍTULO', 'coroa e pódio', ['F', 'T3'])}
+      </div>
+    </div>
+  );
+}
+// Pódio quando a final (e o 3º lugar) fecharem.
+function MkKoPodium({ br, teamPlayers }) {
+  if (!br.F.done) return null;
+  const spots = [
+    { nick: br.F.winner, t: 'CAMPEÃO', icon: 'crown', col: MK_PODIUM_COLORS[0] },
+    { nick: br.F.loser, t: 'VICE', icon: 'medal', col: MK_PODIUM_COLORS[1] },
+    br.T3.done ? { nick: br.T3.winner, t: '3º LUGAR', icon: 'medal-3', col: MK_PODIUM_COLORS[2] } : null,
+  ].filter(Boolean);
+  return (
+    <div className="mk-ko-podium">
+      {spots.map(s => (
+        <div key={s.t} className="mk-ko-podium-spot" style={{ borderColor: s.col }}>
+          <span className="mk-ko-podium-ic" style={{ color: s.col }}><Icon name={s.icon} size={18} /></span>
+          <Avatar nick={s.nick} teamPlayers={teamPlayers} size={30} noBadge />
+          <span className="mk-ko-podium-nick">{s.nick}</span>
+          <span className="mk-ko-podium-t" style={{ color: s.col }}>{s.t}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+// Escalação BLIND do MD5 — o jogador declara a ORDEM dos 5 personagens do SEU
+// confronto. Trava quando o 1º jogo é lançado. O adversário nunca vê antes.
+function MkKoMyMatch({ match, myNick, ko, onKoLineup, teamPlayers }) {
+  const opp = match.home === myNick ? match.away : match.home;
+  const rawMine = (((ko.lineups || {})[match.id]) || {})[myNick];
+  const saved = mkKoDecodeLineup(rawMine);
+  const [list, setList] = useState(() => (saved && saved.length === 5 ? saved : ['', '', '', '', '']));
+  const [busy, setBusy] = useState(false);
+  // "começou" olha o DOC (robusto a buraco de correção do mod) — mesma regra do reducer.
+  const started = mkKoMatchStarted((ko.scores || {})[match.id]);
+  // Depois que trava, o que vale é o que foi SALVO — não a edição local não salva.
+  const shown = started ? (saved && saved.length === 5 ? saved : list) : list;
+  const probs = mkKoLineupProblems(list);
+  const dirty = JSON.stringify(list) !== JSON.stringify(saved || ['', '', '', '', '']);
+  const countOf = (c) => list.filter(x => x === c).length;
+  const save = async () => {
+    if (probs.length || busy) return;
+    setBusy(true);
+    const r = await onKoLineup(match.id, list);
+    setBusy(false);
+    if (r && r.err) showToast(r.err, 'error');
+    else showToast('Escalação salva — blind, só você vê.', 'success');
+  };
+  const rawOpp = (((ko.lineups || {})[match.id]) || {})[opp];
+  const oppList = mkKoDecodeLineup(rawOpp);
+  const meta = MK_KO_META[match.id];
+  return (
+    <div className="mk-ko-my">
+      <div className="mk-ko-my-h">
+        <span className="mk-ko-my-t"><Icon name="fist" size={13} /> SEU CONFRONTO · {meta.label}</span>
+        <span className="mk-ko-my-blind"><Icon name="eye-off" size={11} /> BLIND — {opp} não vê sua ordem</span>
+      </div>
+      <div className="mk-ko-my-vs">
+        <Avatar nick={myNick} teamPlayers={teamPlayers} size={22} noBadge /> <strong>{myNick}</strong>
+        <span className="mk-ko-my-x">×</span>
+        <Avatar nick={opp} teamPlayers={teamPlayers} size={22} noBadge /> <strong>{opp}</strong>
+        <span className="mk-ko-my-md5">MD5 · vence quem fizer 3 · máx 2x o mesmo personagem</span>
+      </div>
+      <div className="mk-ko-my-slots">
+        {[0, 1, 2, 3, 4].map(i => {
+          const played = (match.o.games || []).find(g => g.n === i + 1);
+          const oppRevealed = oppList && mkKoPickRevealed(match.o, i + 1, opp, myNick);
+          const myWon = played && ((played.winner === 'H') === (match.home === myNick));
+          return (
+            <div key={i} className={'mk-ko-slot' + (played ? (myWon ? ' won' : ' lost') : '')}>
+              <span className="mk-ko-slot-n">J{i + 1}</span>
+              {started ? (
+                <span className="mk-ko-slot-fix">{shown[i] ? <><MkCharIcon name={shown[i]} sm /> {shown[i]}</> : <span className="mk-ko-slot-empty">—</span>}</span>
+              ) : (
+                <select className="mk-ko-slot-sel" value={list[i]} onChange={e => { const v = e.target.value; setList(l => l.map((x, j) => j === i ? v : x)); }}>
+                  <option value="">— escolher —</option>
+                  {MK_CHARACTERS.map(c => (
+                    <option key={c} value={c} disabled={c !== list[i] && countOf(c) >= 2}>{c}{countOf(c) >= 2 && c !== list[i] ? ' (2x)' : ''}</option>
+                  ))}
+                </select>
+              )}
+              <span className="mk-ko-slot-opp">
+                {played ? (myWon ? <span className="mk-ko-slot-res win"><Icon name="check" size={10} /> VENCEU</span> : <span className="mk-ko-slot-res lose"><Icon name="x" size={10} /> PERDEU</span>) : null}
+                {oppRevealed ? <span className="mk-ko-slot-oppc">vs <MkCharIcon name={oppList[i]} sm /> {oppList[i]}</span>
+                  : <span className="mk-ko-slot-oppc hidden"><Icon name="eye-off" size={10} /> {opp}: oculto</span>}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      {started ? (
+        <div className="mk-ko-my-foot"><Icon name="lock" size={11} /> Confronto em andamento — ordem travada.</div>
+      ) : (
+        <div className="mk-ko-my-foot">
+          {probs.length > 0 && dirty && <span className="mk-ko-my-err"><Icon name="warning" size={11} /> {probs[0]}</span>}
+          {saved && !dirty && <span className="mk-ko-my-ok"><Icon name="check" size={11} /> Escalação salva. Dá pra editar até o 1º jogo ser lançado.</span>}
+          <button type="button" className="tp-btn-go mk-ko-my-save" disabled={probs.length > 0 || !dirty || busy} onClick={save}>
+            <Icon name="eye-off" size={13} /> {busy ? 'SALVANDO…' : saved ? 'ATUALIZAR ESCALAÇÃO' : 'SALVAR ESCALAÇÃO BLIND'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+// SEÇÃO do mata-mata (prévia + oficial) — vive embaixo da classificação do MK.
+function MkKoSection({ players, teamPlayers, draw, scores, ko, myNick, onKoLineup }) {
+  if (!draw || !draw.length) return null; // liga nem sorteada: nada a prever
+  const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const published = !!(ko && ko.published);
+  const matches = draw.flatMap(r => (r.games || []).map((g, gi) => ({ home: g.home, away: g.away, sc: (scores || {})[gk(r, gi)] || {} }))).filter(m => !mkGameVoid(m));
+  const seeds = published ? (ko.seeds || []) : mkKoSeedsFrom(players, matches);
+  const seedOf = {};
+  seeds.forEach((n, i) => { if (n) seedOf[n] = i + 1; });
+  const br = mkKoBracket(seeds, published ? (ko.scores || {}) : {});
+  const pendLeft = draw.reduce((acc, r) => acc + (r.games || []).filter((g, gi) => !mkGameVoid(g) && !mkMatchOutcome((scores || {})[gk(r, gi)] || {})).length, 0);
+  // Seu próximo confronto ATIVO (os dois lados definidos, sem vencedor ainda).
+  const myMatch = published ? MK_KO_IDS.map(id => br[id]).find(m => m.home && m.away && !m.done && (m.home === myNick || m.away === myNick)) : null;
+  return (
+    <div className="card mk-card mk-ko-card">
+      <div className="card-head">
+        <div className="title"><Icon name="sword" size={16} /> MATA-MATA · MORTAL KOMBAT</div>
+        <div className="sub">{published ? 'OFICIAL — TOP 8 DOS PONTOS CORRIDOS' : 'PRÉVIA — SEEDS DA CLASSIFICAÇÃO DE HOJE'}</div>
+      </div>
+      <div className="card-body">
+        {!published && (
+          <div className="mk-ko-preheader">
+            <Icon name="eye" size={12} /> <strong>Só visualização por enquanto.</strong> Os seeds abaixo seguem a classificação de HOJE e mudam a cada rodada — o chaveamento oficial sai quando os pontos corridos acabarem{pendLeft > 0 ? <> (falta{pendLeft === 1 ? '' : 'm'} <strong>{pendLeft}</strong> jogo{pendLeft === 1 ? '' : 's'})</> : null}.
+          </div>
+        )}
+        <div className="mk-ko-rules">
+          <div className="mk-ko-rule"><span className="mk-ko-rule-ic"><Icon name="target" size={14} /></span><div><strong>A CHAVE</strong><br />3º×8º vale a semi contra o 1º. 4º×7º e 5º×6º fazem a repescagem: os vencedores se enfrentam pela semi contra o 2º.</div></div>
+          <div className="mk-ko-rule"><span className="mk-ko-rule-ic"><Icon name="eye-off" size={14} /></span><div><strong>MD5 BLIND</strong><br />5 jogos, vence quem fizer 3. Cada um declara a ORDEM dos 5 personagens em segredo — o rival só descobre na hora de cada jogo.</div></div>
+          <div className="mk-ko-rule"><span className="mk-ko-rule-ic"><Icon name="cards" size={14} /></span><div><strong>MÁX 2X</strong><br />Pode repetir personagem, no máximo 2 vezes. Vale qualquer um do elenco do MK 1 — não precisa ser os 3 da liga.</div></div>
+        </div>
+        {myMatch && <MkKoMyMatch key={myMatch.id + ':' + ((((ko || {}).lineups || {})[myMatch.id] || {})[myNick] || '')} match={myMatch} myNick={myNick} ko={ko} onKoLineup={onKoLineup} teamPlayers={teamPlayers} />}
+        <MkKoPodium br={br} teamPlayers={teamPlayers} />
+        <MkKoBracketView br={br} seedOf={seedOf} teamPlayers={teamPlayers} myNick={myNick} preview={!published} />
+        {seeds.length < 8 && <div className="mk-ko-note" style={{ marginTop: 10 }}><Icon name="warning" size={11} /> Menos de 8 elegíveis na classificação — a chave completa aparece quando tiver 8.</div>}
+      </div>
+    </div>
+  );
+}
+// LANÇADOR do mata-mata (MOD): marca o vencedor de cada jogo do MD5, na ordem.
+// Revela os personagens do jogo só DEPOIS do resultado (mesma regra de todo mundo).
+function MkKoLauncher({ ko, teamPlayers, onKoGame, myNick }) {
+  const br = mkKoBracket((ko && ko.seeds) || [], (ko && ko.scores) || {});
+  const ready = MK_KO_IDS.map(id => br[id]).filter(m => m.home && m.away);
+  const pend = ready.filter(m => !m.done), done = ready.filter(m => m.done);
+  const lineupFor = (m, nick) => mkKoDecodeLineup((((ko.lineups || {})[m.id]) || {})[nick]);
+  const row = (m) => {
+    const luH = lineupFor(m, m.home), luA = lineupFor(m, m.away);
+    return (
+      <div key={m.id} className={'mk-ko-launch' + (m.done ? ' done' : '')}>
+        <div className="mk-ko-launch-h">
+          <span className="mk-ko-launch-lb">{MK_KO_META[m.id].label} · {MK_KO_META[m.id].phase}</span>
+          <span className={'mk-launch-st ' + (m.done ? 'done' : 'pend')}>{m.done ? <><Icon name="check" size={11} /> {m.o.h}×{m.o.a}</> : 'MD5 · ' + m.o.h + '×' + m.o.a}</span>
+        </div>
+        <div className="mk-ko-launch-vs">
+          <span className="mk-ko-launch-side"><Avatar nick={m.home} teamPlayers={teamPlayers} size={20} noBadge /> {m.home}</span>
+          <span className="mk-ko-launch-x">×</span>
+          <span className="mk-ko-launch-side"><Avatar nick={m.away} teamPlayers={teamPlayers} size={20} noBadge /> {m.away}</span>
+          {(!luH || !luA) && <span className="mk-ko-launch-warn"><Icon name="warning" size={10} /> {[!luH && m.home, !luA && m.away].filter(Boolean).join(' e ')} sem escalação blind</span>}
+        </div>
+        {[1, 2, 3, 4, 5].map(n => {
+          // vencedor do jogo DIRETO do doc (não do outcome, que trunca em buraco
+          // de correção) — todo jogo gravado fica visível e desfazível.
+          const raw = (((ko.scores || {})[m.id]) || {})['g' + n];
+          const w = raw === 'H' || raw === 'A' ? raw : null;
+          const enabled = !!w || (!m.done && m.o.next === n);
+          const revH = luH && mkKoPickRevealed(m.o, n, m.home, myNick);
+          const revA = luA && mkKoPickRevealed(m.o, n, m.away, myNick);
+          return (
+            <div key={n} className={'mk-ko-launch-g' + (w ? ' set' : '') + (!enabled ? ' off' : '')}>
+              <span className="mk-ko-launch-gn">J{n}</span>
+              <button type="button" disabled={!enabled} className={'mk-ko-gbtn h' + (w === 'H' ? ' on' : '')}
+                onClick={() => onKoGame(m.id, n, w === 'H' ? null : 'H')}
+                title={w === 'H' ? 'toque pra desfazer (apaga também os jogos seguintes)' : m.home + ' venceu o J' + n}>
+                {revH ? <><MkCharIcon name={luH[n - 1]} sm /> {luH[n - 1]}</> : <><Icon name="eye-off" size={10} /> {m.home}</>}
+              </button>
+              <span className="mk-ko-launch-gx">×</span>
+              <button type="button" disabled={!enabled} className={'mk-ko-gbtn a' + (w === 'A' ? ' on' : '')}
+                onClick={() => onKoGame(m.id, n, w === 'A' ? null : 'A')}
+                title={w === 'A' ? 'toque pra desfazer (apaga também os jogos seguintes)' : m.away + ' venceu o J' + n}>
+                {revA ? <><MkCharIcon name={luA[n - 1]} sm /> {luA[n - 1]}</> : <><Icon name="eye-off" size={10} /> {m.away}</>}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+  return (
+    <div className="mk-ko-launcher">
+      <div className="mk-admin-note" style={{ marginBottom: 10 }}><Icon name="whistle" size={12} /> MATA-MATA — toque no LADO que venceu cada jogo (na ordem). Personagens aparecem depois do resultado. Toque de novo pra corrigir.</div>
+      {pend.length === 0 && done.length === 0 && <div className="empty"><div className="e1">NADA A LANÇAR</div><div className="e2">Nenhum confronto do mata-mata com os dois lados definidos.</div></div>}
+      {pend.map(row)}
+      {done.length > 0 && <div className="mk-ko-launch-done-lb">JÁ ENCERRADOS</div>}
+      {done.map(row)}
+    </div>
+  );
+}
+
+function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPublishDraw, scores, onScore, isAdmin, isMod, locked, myNick, launchOnly, ko, onPublishKo, onResetKo, onKoGame, onKoLineup }) {
   // draw/scores vêm do App (persistidos no doc de apostas, campo `mk`).
   // null = segue a 1ª rodada com jogo pendente (a "rodada atual"); número =
   // navegação manual do usuário pelas setas.
@@ -10037,10 +10545,38 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
 
   // MOD (launchOnly): sem classificação — só o lançador de resultados (pendentes
   // primeiro + busca). Sem sorteio ainda, cai no fluxo normal (mostra SORTEAR).
+  // Liga 100% fechada? (todo jogo anulado OU com resultado — W.O. conta como
+  // resultado). Gate do PUBLICAR MATA-MATA.
+  const leagueDone = !!draw && draw.length > 0 && draw.every(r => (r.games || []).every((g, gi) =>
+    mkGameVoid(g) || !!mkMatchOutcome(scores[gKey(r, gi)] || {})));
+  const koPublished = !!(ko && ko.published);
+  const leaguePendLeft = draw ? matches.length - playedCount : 0;
+
   if (launchOnly && draw) {
     return (
       <div className="mk-champ mk-champ-launch">
         <MkResultLauncher draw={draw} scores={scores} lineups={lineups} teamPlayers={teamPlayers} onScore={onScore} />
+        {/* MATA-MATA (mod): publicar (admin, só com a liga fechada) + lançar MD5. */}
+        {isAdmin && !koPublished && (
+          <div className="mk-sorteio-bar" style={{ marginTop: 12 }}>
+            <span><Icon name="sword" size={12} /> MATA-MATA: {leagueDone ? 'liga encerrada — pronto pra publicar.' : 'libera quando a liga fechar (' + (leaguePendLeft === 1 ? 'falta 1 jogo' : 'faltam ' + leaguePendLeft + ' jogos') + ').'}</span>
+            <button className="tp-btn-go" onClick={onPublishKo} disabled={!leagueDone} title={leagueDone ? 'Congela os seeds (top 8) e abre as escalações blind' : 'Ainda tem jogo de liga pendente'}>
+              <Icon name="sword" size={13} /> PUBLICAR MATA-MATA
+            </button>
+          </div>
+        )}
+        {koPublished && (
+          <>
+            <div style={{ height: 14 }} />
+            <MkKoLauncher ko={ko} teamPlayers={teamPlayers} onKoGame={onKoGame} myNick={myNick} />
+            {isAdmin && (
+              <div className="mk-sorteio-bar" style={{ marginTop: 10 }}>
+                <span>Mata-mata publicado{ko.publishedAt ? ' em ' + new Date(ko.publishedAt).toLocaleDateString('pt-BR') : ''}.</span>
+                <button className="mk-resort" onClick={onResetKo}><Icon name="warning" size={12} /> DESPUBLICAR</button>
+              </div>
+            )}
+          </>
+        )}
         {isAdmin && (
           <div className="mk-sorteio-bar" style={{ marginTop: 12 }}>
             <span>{matches.length} jogos · {playedCount} lançados</span>
@@ -10108,7 +10644,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
           )}
           <div className="mk-legend">
             <strong>SR</strong> = saldo de rounds. Confronto = <strong>2 partidas</strong> (cada uma primeiro a 2 rounds). Resultado: 2×0 vence, <strong>1×1 empata</strong>, 0×2 perde. Vitória 3, empate 1.
-            <br /><strong>Todo mundo passa de fase</strong> — o que muda é por onde entra no mata-mata: <strong>1º e 2º</strong> são cabeças de chave (entram uma fase à frente), do <strong>3º ao 8º</strong> entram privilegiados e do <strong>9º pra baixo</strong> sem vantagem. <span style={{ opacity: 0.8 }}>(Pódio 1º–3º com cor própria; 4º–8º na mesma cor.)</span>
+            <br /><strong>TOP 8 vai pro mata-mata</strong>: <strong>1º e 2º</strong> são cabeças de chave (entram direto nas semifinais); <strong>3º×8º</strong> valem a semi contra o 1º; <strong>4º×7º</strong> e <strong>5º×6º</strong> fazem a repescagem — os vencedores decidem quem pega o 2º. Detalhes no quadro MATA-MATA aqui embaixo. <span style={{ opacity: 0.8 }}>(Pódio 1º–3º com cor própria; 4º–8º na mesma cor.)</span>
           </div>
         </div>
       </div>
@@ -10300,6 +10836,11 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
         </div>
       </div>
       </aside>
+      {/* MATA-MATA: prévia enquanto a liga roda; oficial depois que o admin
+          publica. DENTRO do .mk-grid ocupando as 2 colunas (o .mk-champ tem
+          largura 0 — os filhos do grid é que definem a largura renderizada). */}
+      <MkKoSection players={insc} teamPlayers={teamPlayers} draw={draw} scores={scores}
+        ko={ko} myNick={myNick} onKoLineup={onKoLineup} />
       </div>
     </div>
   );
