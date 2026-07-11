@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260711-wogames ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260711-koaposta ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1350,6 +1350,80 @@ function mkPickLabel(market, pick) {
   if (market === 'FLAW') return pick === 'Y' ? 'SIM' : 'NÃO';
   if (market === 'FINISH') { const f = MK_FINISHERS.find(x => x.id === pick); return f ? f.name : pick; }
   return pick;
+}
+
+// ─── ODDS + APOSTAS DO MATA-MATA (MD5, melhor de 5, primeiro a 3) ────────────
+// Confronto do KO = MD5. Cada JOGO do MD5 é uma luta (primeiro a 2 rounds), então
+// a prob de vencer UM jogo reusa a prob de partida da liga (mkPartidaWinProb da
+// força dos jogadores). Sem escalação visível (blind) -> charEdge não entra.
+// Mercados: KVENC (quem passa, sem empate), KPLACAR (3-0/3-1/3-2 dos dois lados),
+// KTOTAL (3/4/5 jogos). Pernas de aposta: champId 'mkko', fixtureId 'mkko:<id>'.
+const MK_KO_MARKETS = ['KVENC', 'KPLACAR', 'KTOTAL'];
+const MK_KO_MARKET_TITLE = { KVENC: 'QUEM PASSA', KPLACAR: 'PLACAR (MD5)', KTOTAL: 'TOTAL DE JOGOS' };
+const MK_KO_PLACAR_PICKS = ['30', '31', '32', '23', '13', '03']; // mandante 3-x / visitante x-3
+const MK_KO_TOTAL_PICKS = ['3', '4', '5'];
+// Distribuição do MD5 dado p = prob do MANDANTE vencer 1 jogo. Placar do lado que
+// fecha 3: p³·(clincha em 3), 3p³q (em 4), 6p³q² (em 5). Simétrico pro visitante.
+function mkKoMd5Dist(p) {
+  const q = 1 - p;
+  const s30 = p * p * p, s31 = 3 * p * p * p * q, s32 = 6 * p * p * p * q * q;
+  const s03 = q * q * q, s13 = 3 * q * q * q * p, s23 = 6 * q * q * q * p * p;
+  return {
+    '30': s30, '31': s31, '32': s32, '03': s03, '13': s13, '23': s23,
+    win: s30 + s31 + s32, loss: s03 + s13 + s23,
+    t3: s30 + s03, t4: s31 + s13, t5: s32 + s23,
+  };
+}
+// Prob do mandante vencer UM jogo do MD5 (uma luta primeiro-a-2). Da força da
+// liga -> logit (sem bonecos, blind) -> prob de round -> prob de partida, clampada.
+function mkKoMatchupProb(home, away, metrics, draw, scores) {
+  const pRound = sigmoid(mkRoundLogit(home, away, metrics, null, {}, draw, scores));
+  return mkClampP(mkPartidaWinProb(pRound));
+}
+// Odds do confronto de mata-mata (mesma compressão/teto das odds da liga).
+function computeMkKoOdds(home, away, metrics, draw, scores) {
+  const p = mkKoMatchupProb(home, away, metrics, draw, scores);
+  const d = mkKoMd5Dist(p);
+  const mko = (pp) => (!(pp > 0) || !isFinite(pp)) ? MK_ODD_FALLBACK
+    : Math.max(ODD_MIN, mkCapOdd(1 + (1 / pp - 1) * MK_ODD_K));
+  const placar = {}; MK_KO_PLACAR_PICKS.forEach(k => { placar[k] = mko(d[k]); });
+  return {
+    KVENC:   { H: mko(d.win), A: mko(d.loss) },
+    KPLACAR: placar,
+    KTOTAL:  { '3': mko(d.t3), '4': mko(d.t4), '5': mko(d.t5) },
+    _p: p, _dist: d,
+  };
+}
+// Liquidação de uma perna do KO. sc = ko.scores[matchId]. Pendente enquanto o
+// MD5 não fecha (não vira derrota antes da hora).
+function mkKoLegResult(market, pick, sc) {
+  const o = mkKoOutcome(sc);
+  if (!o.done) return 'pending';
+  const placar = o.winner === 'H' ? ('3' + o.a) : (o.h + '3'); // vencedor fez 3
+  switch (market) {
+    case 'KVENC':   return pick === o.winner ? 'win' : 'lose';
+    case 'KPLACAR': return pick === placar ? 'win' : 'lose';
+    case 'KTOTAL':  return pick === String(o.h + o.a) ? 'win' : 'lose';
+    default: return 'pending';
+  }
+}
+// Rótulo do palpite do KO (usa os nicks reais pro VENCEDOR).
+function mkKoPickLabel(market, pick, home, away) {
+  if (market === 'KVENC') return pick === 'H' ? home : pick === 'A' ? away : pick;
+  if (market === 'KPLACAR') return pick[0] + '×' + pick[1];
+  if (market === 'KTOTAL') return pick + ' jogos';
+  return pick;
+}
+function mkKoMarketPicks(market) {
+  if (market === 'KVENC') return ['H', 'A'];
+  if (market === 'KPLACAR') return MK_KO_PLACAR_PICKS;
+  if (market === 'KTOTAL') return MK_KO_TOTAL_PICKS;
+  return [];
+}
+// Confronto do KO está APOSTÁVEL? Os dois lados definidos, ainda não começou
+// (nenhum jogo lançado) e não terminou. `m` = item de mkKoBracket; sc = ko.scores[id].
+function mkKoBettable(m, sc) {
+  return !!(m && m.home && m.away && !m.done && !mkKoMatchStarted(sc));
 }
 
 // ── PRÓXIMO JOGO PENDENTE (uso em UI — não trava mais o "liberados") ────────
@@ -3345,11 +3419,26 @@ function App() {
     if (!isAdmin) return;
     if (!(await confirmModal({
       title: 'DESPUBLICAR O MATA-MATA?',
-      body: 'Isso APAGA os placares e as escalações do mata-mata e volta pra prévia. A liga não é tocada.',
+      body: 'Isso APAGA os placares e as escalações do mata-mata e volta pra prévia. Apostas do mata-mata ainda PENDENTES são devolvidas. A liga não é tocada.',
       confirmLabel: 'DESPUBLICAR', danger: true,
     }))) return;
     setMkKo(null);
-    return persistMk(mk => ({ ...mk, ko: null }));
+    // Sem KO, as apostas 'mkko' pendentes nunca liquidariam -> devolve o stake e
+    // remove; as já liquidadas (won/lost) ficam no histórico. Tudo numa transação.
+    try {
+      await commitBetDocUpdate(remote => {
+        const mk = (remote.mk && typeof remote.mk === 'object') ? remote.mk : {};
+        const users = { ...(remote.users || {}) };
+        const kept = [];
+        (remote.bets || []).forEach(b => {
+          if (b && b.champId === 'mkko' && b.status === 'pending') {
+            const u = users[b.user];
+            if (u) users[b.user] = { ...u, pc: Math.max(0, (u.pc || 0) + (b.amount || 0)) };
+          } else kept.push(b);
+        });
+        return { ...remote, users, bets: kept, mk: { ...mk, ko: null } };
+      });
+    } catch (e) { console.warn('resetMkKo failed', e); showToast('Falha ao despublicar.', 'error'); }
   };
   // MOD: lança/corrige o vencedor de um jogo do MD5 (side 'H'|'A'|null desfaz).
   // DESFAZER também apaga os jogos seguintes do confronto (buraco no meio do
@@ -3935,6 +4024,70 @@ function App() {
     return () => { cancelled = true; clearTimeout(timer); };
   }, [mkScores]);
 
+  // Liquidação das apostas do MATA-MATA (champId 'mkko'): keyed em mk.ko.scores.
+  // RE-AVALIA toda perna a cada passada (idempotente) — assim correção do mod
+  // (desfazer/trocar vencedor) reverte pagamento e re-liquida certo, inclusive
+  // flip vencedor->outro sem passar por "pendente". Não mexe em cópia/cashback
+  // (aposta de KO não é copiável).
+  useEffect(() => {
+    if (!hasLoadedRef.current) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
+      try {
+        await commitBetDocUpdate(remote => {
+          const remoteBets = remote.bets || [];
+          if (!remoteBets.some(b => b && b.champId === 'mkko')) return null;
+          const ko = remote.mk && remote.mk.ko;
+          // KO DESPUBLICADO (ko null/não publicado): NÃO mexe nas apostas — senão
+          // reverteria prêmio de cupom já ganho e o deixaria órfão em 'pending'. As
+          // pendentes já foram devolvidas no resetMkKo. (Distingue "mod corrigiu
+          // placar" [ko publicado, scores mudam] de "despublicou" [ko sumiu].)
+          if (!ko || !ko.published) return null;
+          const koScores = ko.scores || {};
+          const newUsers = { ...(remote.users || {}) };
+          let dirty = false;
+          const newBets = remoteBets.map(b => {
+            if (!b || b.champId !== 'mkko') return b;
+            let changed = false;
+            const legs = (b.legs || []).map(l => {
+              const mid = (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) ? l.fixtureId.slice(5) : l.koMatch;
+              const sc = mid ? (koScores[mid] || {}) : {};
+              const o = mkKoOutcome(sc);
+              let want;
+              if (!o.done) want = undefined;
+              else { const r = mkKoLegResult(l.market, l.pick, sc); want = (r === 'win' || r === 'lose') ? r : undefined; }
+              if (want !== l.result) { changed = true; return { ...l, result: want }; }
+              return l;
+            });
+            if (!changed) return b;
+            const newStatus = ticketStatusFromLegs(legs);
+            const oldStatus = b.status;
+            const oldPayout = b.payout || 0;
+            let newPayout = b.payout;
+            // reverte pagamento anterior se saiu de 'won'
+            if (oldStatus === 'won' && newStatus !== 'won' && oldPayout > 0 && newUsers[b.user]) {
+              newUsers[b.user] = { ...newUsers[b.user], pc: Math.max(0, newUsers[b.user].pc - oldPayout) };
+            }
+            const offOn = !!(remote.officialDay && remote.officialDay.active);
+            if (newStatus === 'won' && oldStatus !== 'won') {
+              const gross = Math.round(b.amount * b.combinedOdds * (offOn ? OFFICIAL_DAY_MULT : 1));
+              newPayout = gross;
+              if (newUsers[b.user]) newUsers[b.user] = { ...newUsers[b.user], pc: (newUsers[b.user].pc || 0) + newPayout };
+            } else if (newStatus === 'lost') { newPayout = 0; }
+            else if (newStatus === 'pending') { newPayout = undefined; }
+            dirty = true;
+            const settledAt = newStatus === 'pending' ? undefined : (oldStatus !== newStatus ? Date.now() : b.settledAt);
+            return { ...b, legs, status: newStatus, payout: newPayout, settledAt, officialBonus: newStatus === 'won' ? offOn : false };
+          });
+          if (!dirty) return null;
+          return { ...remote, users: newUsers, bets: newBets };
+        });
+      } catch (e) { if (!cancelled) console.warn('ko auto-settle failed', e); }
+    }, 650);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [mkKo]);
+
   // ANULA (uma vez) apostas ABERTAS que caíram num confronto de W.O. (desistente).
   // Um jogo em W.O. nunca terá resultado real, então a aposta não tem como
   // liquidar de forma justa — devolve o valor apostado e remove o cupom (mesma
@@ -4244,6 +4397,9 @@ function App() {
         // Rejeita se algum jogo do cupom está travado pelo admin (FIFA: cs.rounds;
         // MK: mk.scores[gKey].locked — leg 'mk:<gKey>'). Jogo rolando = travado.
         const someLocked = t.legs.some(l => {
+          if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) {
+            return mkKoMatchStarted((((remote.mk && remote.mk.ko) || {}).scores || {})[l.fixtureId.slice(5)]);
+          }
           if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) {
             const gk = l.fixtureId.slice(3);
             return mkGameClosed(((remote.mk && remote.mk.scores) || {})[gk]);
@@ -4273,6 +4429,9 @@ function App() {
   // True se alguma perna já resolveu ou o jogo travou/jogou (não dá pra abrir/copiar).
   const legBusy = (legs, remote) => (legs || []).some(l => {
     if (l.result) return true;
+    if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) {
+      return mkKoMatchStarted((((remote.mk && remote.mk.ko) || {}).scores || {})[l.fixtureId.slice(5)]);
+    }
     if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) {
       return mkGameClosed(((remote.mk && remote.mk.scores) || {})[l.fixtureId.slice(3)]);
     }
@@ -4403,6 +4562,69 @@ function App() {
       return { ok: true, autoCopied: !!autoCopyInfo };
     } catch (e) { console.warn('placeMkBet failed', e); showToast('Erro ao apostar. Tenta de novo.', 'error'); return { err: String(e) }; }
   };
+  // APOSTA DO MATA-MATA (champId 'mkko'): fluxo próprio (sem Mesa/cópia), pra NÃO
+  // tocar no dinheiro da liga. Valida TUDO na transação a partir do ko remoto:
+  // confronto apostável (2 lados, não começou), não é o próprio confronto, palpite
+  // válido. Debita o stake. Liquida no effect de KO abaixo.
+  const placeKoBet = async (payload) => {
+    const nick = session && session.nick;
+    if (!nick || !payload || !Array.isArray(payload.legs) || !payload.legs.length) return { err: 'cupom inválido' };
+    const stake = Math.floor(Number(payload.stake) || 0);
+    if (!(stake > 0) || !isFinite(stake)) return { err: 'valor inválido' };
+    const ticketId = 'mkko-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    const createdAt = Date.now();
+    try {
+      let casada = false;
+      const res = await commitBetDocUpdate(remote => {
+        const u = (remote.users || {})[nick];
+        if (!u) return { __abort: true, result: { err: 'Conta não sincronizada. Faz login de novo.' } };
+        if ((u.pc || 0) < stake) return { __abort: true, result: { err: 'Saldo insuficiente (tem ' + (u.pc || 0) + ' PC).' } };
+        const ko = remote.mk && remote.mk.ko;
+        if (!ko || !ko.published) return { __abort: true, result: { err: 'O mata-mata ainda não foi publicado.' } };
+        // Recomputa TUDO no servidor (odds e combinada) a partir do estado remoto —
+        // não confia no odd/combined do cliente (fecha inflar payout).
+        const draw = (remote.mk && remote.mk.draw) || [];
+        const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+        const scoresOv = mkApplyWo(draw, (remote.mk && remote.mk.scores) || {});
+        const leaguePlayers = Array.from(new Set(draw.flatMap(r => (r.games || []).flatMap(g => [g.home, g.away])))).filter(n => n && !mkIsWithdrawn(n));
+        const leagueMatches = draw.flatMap(r => (r.games || []).map((g, gi) => ({ home: g.home, away: g.away, sc: scoresOv[gk(r, gi)] || {} }))).filter(m => !mkGameVoid(m) && mkMatchOutcome(m.sc));
+        const metrics = computeMkPlayerMetrics(leaguePlayers, leagueMatches);
+        const br = mkKoBracket(ko.seeds, ko.scores);
+        const oddsCache = {};
+        const seenMatch = {};
+        const legs = [];
+        let combined = 1;
+        for (const l of payload.legs) {
+          const m = br[l.koMatch];
+          const sc = (ko.scores || {})[l.koMatch];
+          if (!m || !mkKoBettable(m, sc)) return { __abort: true, result: { err: 'Esse confronto não está aberto pra aposta.' } };
+          if (m.home === nick || m.away === nick) return { __abort: true, result: { err: 'Você não pode apostar no próprio confronto.' } };
+          // UM palpite por CONFRONTO: KVENC/KPLACAR/KTOTAL saem da MESMA distribuição
+          // (são subconjuntos), então 2 pernas do mesmo confronto seriam correlacionadas
+          // e a odd combinada (produto) pagaria a mais. Uma perna por confronto só.
+          if (seenMatch[l.koMatch]) return { __abort: true, result: { err: 'Só um palpite por confronto no mesmo cupom.' } };
+          seenMatch[l.koMatch] = 1;
+          if (mkKoMarketPicks(l.market).indexOf(l.pick) === -1) return { __abort: true, result: { err: 'Palpite inválido.' } };
+          const odds = oddsCache[l.koMatch] || (oddsCache[l.koMatch] = computeMkKoOdds(m.home, m.away, metrics, draw, scoresOv));
+          const serverOdd = odds[l.market] && odds[l.market][l.pick];
+          if (!(serverOdd > 1) || !isFinite(serverOdd)) return { __abort: true, result: { err: 'Odd indisponível pra esse palpite.' } };
+          combined *= serverOdd;
+          legs.push({ fixtureId: 'mkko:' + l.koMatch, koMatch: l.koMatch, market: l.market, pick: l.pick, odds: serverOdd, odd: serverOdd, home: m.home, away: m.away });
+        }
+        combined = +combined.toFixed(2);
+        casada = legs.length >= 2;
+        const ticket = {
+          id: ticketId, user: nick, amount: stake, status: 'pending', createdAt,
+          champId: 'mkko', combinedOdds: combined, casada, nick, stake, combined, legs,
+        };
+        if ((remote.bets || []).some(b => b.id === ticket.id)) return null;
+        return { ...remote, users: { ...remote.users, [nick]: { ...u, pc: u.pc - stake } }, bets: [ticket, ...(remote.bets || [])] };
+      });
+      if (res && res.err) { showToast(res.err, 'error'); return res; }
+      showToast((casada ? 'Casada' : 'Aposta') + ' do mata-mata feita! ' + stake + ' PC', 'success');
+      return { ok: true };
+    } catch (e) { console.warn('placeKoBet failed', e); showToast('Erro ao apostar. Tenta de novo.', 'error'); return { err: String(e) }; }
+  };
   const removeMkBet = async (ticketId) => {
     try {
       const res = await commitBetDocUpdate(remote => {
@@ -4412,6 +4634,9 @@ function App() {
         if (t.status !== 'pending' || (t.legs || []).some(l => !!l.result)) return { __abort: true, result: { err: 'Aposta já em resolução.' } };
         // Jogo travado (em jogo) -> não pode cancelar.
         const locked = (t.legs || []).some(l => {
+          if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) {
+            return mkKoMatchStarted((((remote.mk && remote.mk.ko) || {}).scores || {})[l.fixtureId.slice(5)]);
+          }
           const gk = (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) ? l.fixtureId.slice(3) : null;
           return gk && mkGameClosed(((remote.mk && remote.mk.scores) || {})[gk]);
         });
@@ -5189,7 +5414,7 @@ function App() {
                       draw={mkDraw} onPublishDraw={publishMkDraw}
                       scores={mkScores} onScore={setMkScoreField} lineups={mkLineups}
                       isAdmin={false} isMod={false} locked={mkLocked} myNick={session.nick}
-                      ko={mkKo} onKoLineup={setMkKoLineup}
+                      ko={mkKo} onKoLineup={setMkKoLineup} onKoBet={placeKoBet} balance={me?.pc ?? 0}
                     />
                   ) : active.id === 'gwyf' ? (
                     // GOLF: CLASSIFICAÇÃO + RODADAS (mapas), igual ao MK. Pré-lançamento
@@ -5272,7 +5497,7 @@ function App() {
               />
             )}
             {view === 'tickets' && (
-              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} mkLineups={mkLineups} teamPlayers={teamPlayers || {}} onCancel={cancelBet} onGoApostas={() => setView('apostas')} />
+              <TicketsView bets={bets.filter(b => b.user === session.nick)} gamesById={gamesById} cs={cs} mkScores={mkScores} mkLineups={mkLineups} mkKo={mkKo} teamPlayers={teamPlayers || {}} onCancel={cancelBet} onGoApostas={() => setView('apostas')} />
             )}
             {view === 'ranking' && (
               <RankingView users={users} bets={bets} me={session.nick} teamPlayers={teamPlayers || {}} cs={cs} onOpenBetProfile={setBetProfileNick} />
@@ -8751,7 +8976,7 @@ function TicketsMini({ bets, limit = 6, onOpen }) {
   );
 }
 
-function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, teamPlayers, onCancel, limit, title, onGoApostas }) {
+function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, mkKo, teamPlayers, onCancel, limit, title, onGoApostas }) {
   const [showOld, setShowOld] = useState(false);
   // "22/05 14:32" — quando o ticket foi feito (auditoria pessoal).
   const fmtWhen = (ts) => {
@@ -8794,6 +9019,7 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, teamPlayers, on
     // travado (impede saída esperta antes da bola rolar).
     const hasSettled = t.legs.some(l => !!l.result);
     const hasLocked = t.legs.some(l => {
+      if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) return mkKoMatchStarted(((mkKo || {}).scores || {})[l.fixtureId.slice(5)]);
       if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) return mkGameClosed((mkScores || {})[l.fixtureId.slice(3)]);
       const g = resolveGame(l.fixtureId);
       return !!(g && g.locked);
@@ -8817,29 +9043,33 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, teamPlayers, on
           </div>
           <div className="pick">
             {t.legs.map((l, i) => {
-              const isMk = typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0;
-              const f = isMk ? null : resolveGame(l.fixtureId);
+              const isKo = typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0;
+              const isMk = !isKo && typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0;
+              const f = (isMk || isKo) ? null : resolveGame(l.fixtureId);
               const lg = { ...l, _fix: f };
               const iconName = l.result === 'win' ? 'check' : l.result === 'lose' ? 'x' : null;
               const iconColor = l.result === 'win' ? '#3a7d2a' : l.result === 'lose' ? '#c33' : 'rgba(28,22,18,0.5)';
               const lu = isMk ? (mkLineups || {})[l.fixtureId.slice(3)] : null;
               const out = isMk ? mkMatchOutcome((mkScores || {})[l.fixtureId.slice(3)] || {}) : null; // {winner H/A/D} ou null
-              // Mercado de LADO (VENCEDOR / 1º ROUND): o palpite é um JOGADOR (H/A).
+              // Mercado de LADO (VENCEDOR / 1º ROUND / KVENC): o palpite é um JOGADOR (H/A).
               // Destaca quem você escolheu — fica claro de relance o que foi apostado.
-              const sidePick = isMk && (l.market === 'VENC' || l.market === 'R1') ? (l.pick === 'H' ? 'home' : l.pick === 'A' ? 'away' : null) : null;
-              const label = isMk
-                ? l.home + ' × ' + l.away + ' · ' + (MK_MARKET_TITLE[l.market] || l.market) + ' ' + mkPickLabel(l.market, l.pick)
+              const sidePick = (isMk && (l.market === 'VENC' || l.market === 'R1')) || (isKo && l.market === 'KVENC') ? (l.pick === 'H' ? 'home' : l.pick === 'A' ? 'away' : null) : null;
+              const mktTitle = isKo ? (MK_KO_MARKET_TITLE[l.market] || l.market) : (MK_MARKET_TITLE[l.market] || l.market);
+              const pickTxt = isKo ? (mkKoPickLabel(l.market, l.pick, l.home, l.away) || '') : (mkPickLabel(l.market, l.pick) || '');
+              const label = (isMk || isKo)
+                ? l.home + ' × ' + l.away + ' · ' + mktTitle + ' ' + pickTxt
                 : (f ? legLabel(lg, teamPlayers) : '(jogo removido)');
               return (
                 <div key={i} className={'tk-leg' + (l.result === 'win' ? ' leg-won' : l.result === 'lose' ? ' leg-lost' : '')}>
                   <div className="tk-leg-main">
                     {iconName ? <span className="tk-res" style={{ color: iconColor }}><Icon name={iconName} size={12} /></span> : <span style={{ color: iconColor }}>•</span>}
-                    {isMk ? (
+                    {(isMk || isKo) ? (
                       <span>
+                        {isKo && <span className="tk-ko-chip">MATA-MATA</span>}
                         <span className={sidePick === 'home' ? 'tk-pickn' : undefined}>{l.home}</span>
                         {' × '}
                         <span className={sidePick === 'away' ? 'tk-pickn' : undefined}>{l.away}</span>
-                        {' · ' + (MK_MARKET_TITLE[l.market] || l.market) + ' ' + (mkPickLabel(l.market, l.pick) || '')}{' '}
+                        {' · ' + mktTitle + ' ' + pickTxt}{' '}
                         <span style={{ color: 'var(--pv-orange)' }}>@{l.odds.toFixed(2)}</span>
                       </span>
                     ) : (
@@ -10407,7 +10637,110 @@ function MkKoMyMatch({ match, myNick, ko, onKoLineup, teamPlayers }) {
   );
 }
 // SEÇÃO do mata-mata (prévia + oficial) — vive embaixo da classificação do MK.
-function MkKoSection({ players, teamPlayers, draw, scores, ko, myNick, onKoLineup }) {
+// APOSTAS do mata-mata: cada confronto ABERTO (2 lados, não começou) com os
+// mercados MD5 (QUEM PASSA / PLACAR / TOTAL) e um cupom próprio (champId 'mkko').
+// Odds vêm de computeMkKoOdds (força da liga -> prob por jogo -> melhor de 5).
+function MkKoBetting({ br, koScores, metrics, draw, scores, myNick, balance, onKoBet, teamPlayers }) {
+  const [cupom, setCupom] = useState([]);
+  const [stake, setStake] = useState('');
+  const [busy, setBusy] = useState(false);
+  const bettable = MK_KO_IDS.map(id => br[id]).filter(m => mkKoBettable(m, (koScores || {})[m.id]));
+  const bettableIds = bettable.map(m => m.id).join('|');
+  useEffect(() => { // tira do cupom picks de confrontos que fecharam/começaram
+    const set = new Set(bettableIds ? bettableIds.split('|') : []);
+    setCupom(prev => prev.filter(l => set.has(l.koMatch)));
+  }, [bettableIds]);
+  const toggle = (m, market, pick, odd) => {
+    if (m.home === myNick || m.away === myNick) { showToast('Você não pode apostar no próprio confronto.', 'error'); return; }
+    setCupom(prev => {
+      const same = prev.find(l => l.koMatch === m.id && l.market === market && l.pick === pick);
+      if (same) return prev.filter(l => l !== same); // toca de novo -> desmarca
+      // UM palpite por CONFRONTO (mercados são correlacionados): troca o pick anterior desse confronto.
+      return [...prev.filter(l => l.koMatch !== m.id), { koMatch: m.id, home: m.home, away: m.away, market, pick, odd }];
+    });
+  };
+  const inCupom = (mid, market, pick) => cupom.some(l => l.koMatch === mid && l.market === market && l.pick === pick);
+  const combined = cupom.length ? cupom.reduce((p, l) => p * l.odd, 1) : 0;
+  const st = Math.floor(Number(stake) || 0);
+  const canBet = cupom.length > 0 && st > 0 && st <= (balance || 0) && !busy;
+  const place = async () => {
+    if (!canBet) return;
+    setBusy(true);
+    const r = await onKoBet({ legs: cupom, stake: st, combined: +combined.toFixed(2), casada: cupom.length >= 2 });
+    setBusy(false);
+    if (r && r.ok) { setCupom([]); setStake(''); }
+  };
+  if (!bettable.length) {
+    return <div className="mk-ko-bet-empty"><Icon name="ticket" size={13} /> Nenhum confronto aberto pra aposta agora — abre quando os dois lados estão definidos e antes do 1º jogo do MD5.</div>;
+  }
+  return (
+    <div className="mk-ko-bet">
+      <div className="mk-ko-bet-h"><Icon name="ticket" size={14} /> APOSTAR NO MATA-MATA <span className="mk-ko-bet-sub">odds de MD5 · melhor de 5 · 1 palpite por confronto</span></div>
+      <div className="mk-ko-bet-cards">
+        {bettable.map(m => {
+          const odds = computeMkKoOdds(m.home, m.away, metrics, draw, scores);
+          const mine = m.home === myNick || m.away === myNick;
+          const groups = [
+            { key: 'KVENC', picks: [{ p: 'H', lab: m.home }, { p: 'A', lab: m.away }] },
+            { key: 'KPLACAR', picks: MK_KO_PLACAR_PICKS.map(p => ({ p, lab: p[0] + '×' + p[1] })) },
+            { key: 'KTOTAL', picks: ['3', '4', '5'].map(p => ({ p, lab: p })) },
+          ];
+          return (
+            <div key={m.id} className={'mk-ko-bet-card' + (mine ? ' own' : '')}>
+              <div className="mk-ko-bet-card-h">
+                <span className="mk-ko-bet-lb">{MK_KO_META[m.id].label}</span>
+                <span className="mk-ko-bet-vs"><Avatar nick={m.home} teamPlayers={teamPlayers} size={18} noBadge /> {m.home} <i>×</i> {m.away} <Avatar nick={m.away} teamPlayers={teamPlayers} size={18} noBadge /></span>
+              </div>
+              {mine ? (
+                <div className="mk-ko-bet-own"><Icon name="fist" size={11} /> Seu confronto — você não aposta nele.</div>
+              ) : groups.map(gr => (
+                <div key={gr.key} className="mk-ko-bet-mkt">
+                  <span className="mk-ko-bet-mkt-t">{MK_KO_MARKET_TITLE[gr.key]}</span>
+                  <div className="mk-ko-bet-picks">
+                    {gr.picks.map(pk => {
+                      const odd = odds[gr.key][pk.p];
+                      const on = inCupom(m.id, gr.key, pk.p);
+                      return (
+                        <button key={pk.p} type="button" className={'mk-ko-bet-pick' + (on ? ' on' : '')} onClick={() => toggle(m, gr.key, pk.p, odd)}>
+                          <span className="mk-ko-bet-pick-l">{gr.key === 'KTOTAL' ? pk.lab + ' jg' : pk.lab}</span>
+                          <span className="mk-ko-bet-pick-o">{odd.toFixed(2)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+      {cupom.length > 0 && (
+        <div className="mk-ko-bet-slip">
+          <div className="mk-ko-bet-slip-legs">
+            {cupom.map((l, i) => (
+              <div key={i} className="mk-ko-bet-slip-leg">
+                <button type="button" className="mk-ko-bet-slip-x" onClick={() => setCupom(prev => prev.filter(x => x !== l))} aria-label="tirar"><Icon name="x" size={11} /></button>
+                <span>{l.home}×{l.away} · <strong>{MK_KO_MARKET_TITLE[l.market]}</strong> {mkKoPickLabel(l.market, l.pick, l.home, l.away)}</span>
+                <span className="mk-ko-bet-slip-o">@{l.odd.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mk-ko-bet-slip-foot">
+            <span className="mk-ko-bet-slip-comb">{cupom.length >= 2 ? 'CASADA ' + cupom.length + ' · ' : ''}@{combined.toFixed(2)}</span>
+            <input className="mk-ko-bet-stake" inputMode="numeric" placeholder="quanto (PC)" value={stake} onChange={e => setStake(e.target.value.replace(/[^0-9]/g, ''))} />
+            <span className="mk-ko-bet-ret">retorno <strong>{st > 0 ? Math.round(st * combined) : 0}</strong></span>
+            <button type="button" className="tp-btn-go mk-ko-bet-go" disabled={!canBet} onClick={place}>
+              <Icon name="ticket" size={13} /> {busy ? 'APOSTANDO…' : 'APOSTAR ' + (st > 0 ? st + ' PC' : '')}
+            </button>
+          </div>
+          {st > (balance || 0) && <div className="mk-ko-bet-err"><Icon name="warning" size={11} /> Saldo insuficiente (você tem {balance || 0} PC).</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MkKoSection({ players, teamPlayers, draw, scores, ko, myNick, onKoLineup, onKoBet, balance }) {
   if (!draw || !draw.length) return null; // liga nem sorteada: nada a prever
   const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const published = !!(ko && ko.published);
@@ -10440,6 +10773,10 @@ function MkKoSection({ players, teamPlayers, draw, scores, ko, myNick, onKoLineu
         <MkKoPodium br={br} teamPlayers={teamPlayers} />
         <MkKoBracketView br={br} seedOf={seedOf} teamPlayers={teamPlayers} myNick={myNick} preview={!published} />
         {seeds.length < 8 && <div className="mk-ko-note" style={{ marginTop: 10 }}><Icon name="warning" size={11} /> Menos de 8 elegíveis na classificação — a chave completa aparece quando tiver 8.</div>}
+        {published && onKoBet && (
+          <MkKoBetting br={br} koScores={ko.scores || {}} metrics={computeMkPlayerMetrics(players, matches.filter(m => mkMatchOutcome(m.sc)))}
+            draw={draw} scores={scores} myNick={myNick} balance={balance} onKoBet={onKoBet} teamPlayers={teamPlayers} />
+        )}
       </div>
     </div>
   );
@@ -10504,7 +10841,7 @@ function MkKoLauncher({ ko, teamPlayers, onKoGame, myNick }) {
   );
 }
 
-function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPublishDraw, scores, onScore, isAdmin, isMod, locked, myNick, launchOnly, ko, onPublishKo, onResetKo, onKoGame, onKoLineup }) {
+function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPublishDraw, scores, onScore, isAdmin, isMod, locked, myNick, launchOnly, ko, onPublishKo, onResetKo, onKoGame, onKoLineup, onKoBet, balance }) {
   // draw/scores vêm do App (persistidos no doc de apostas, campo `mk`).
   // null = segue a 1ª rodada com jogo pendente (a "rodada atual"); número =
   // navegação manual do usuário pelas setas.
@@ -10857,7 +11194,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
           publica. DENTRO do .mk-grid ocupando as 2 colunas (o .mk-champ tem
           largura 0 — os filhos do grid é que definem a largura renderizada). */}
       <MkKoSection players={insc} teamPlayers={teamPlayers} draw={draw} scores={scores}
-        ko={ko} myNick={myNick} onKoLineup={onKoLineup} />
+        ko={ko} myNick={myNick} onKoLineup={onKoLineup} onKoBet={onKoBet} balance={balance} />
       </div>
     </div>
   );
@@ -15464,7 +15801,9 @@ function AdminBetsPanel({ bets, users, teamPlayers, cs, onVoidBet }) {
   // lista de apostadores (exceto admin) pro filtro por usuário
   const bettors = Array.from(new Set((bets || []).filter(b => b.user && b.user !== 'admin').map(b => b.user))).sort((a, b) => a.localeCompare(b));
 
+  const isKoLeg = (l) => typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0;
   const legMatchup = (l) => {
+    if (isKoLeg(l)) return l.home + ' x ' + l.away;
     if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) return l.home + ' x ' + l.away;
     const p = parseGameId(l.fixtureId);
     if (p && cs && cs.rounds && cs.rounds[p.ri] && cs.rounds[p.ri][p.gi]) {
@@ -15474,6 +15813,7 @@ function AdminBetsPanel({ bets, users, teamPlayers, cs, onVoidBet }) {
     return l.fixtureId || '?';
   };
   const legText = (l) => {
+    if (isKoLeg(l)) return 'MATA-MATA · ' + (MK_KO_MARKET_TITLE[l.market] || l.market) + ' ' + mkKoPickLabel(l.market, l.pick, l.home, l.away);
     const isMk = typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0;
     if (isMk) return (MK_MARKET_TITLE[l.market] || l.market) + ' ' + mkPickLabel(l.market, l.pick);
     return (l.market || '') + ' ' + (l.pick || '');
@@ -15481,7 +15821,7 @@ function AdminBetsPanel({ bets, users, teamPlayers, cs, onVoidBet }) {
   const searchable = (b) => {
     const parts = [b.user];
     (b.legs || []).forEach(l => {
-      if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) { parts.push(l.home, l.away); }
+      if (isKoLeg(l) || (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0)) { parts.push(l.home, l.away); }
       else { const p = parseGameId(l.fixtureId); if (p && cs && cs.rounds && cs.rounds[p.ri] && cs.rounds[p.ri][p.gi]) { const g = cs.rounds[p.ri][p.gi]; parts.push((teamPlayers || {})[g.home] || g.home, (teamPlayers || {})[g.away] || g.away); } }
     });
     return parts.filter(Boolean).join(' ').toLowerCase();
@@ -15529,6 +15869,7 @@ function AdminBetsPanel({ bets, users, teamPlayers, cs, onVoidBet }) {
             <option value="all">Todos os jogos</option>
             <option value="fifa">FIFA</option>
             <option value="mk">MK</option>
+            <option value="mkko">MK (mata-mata)</option>
           </select>
           <select value={statusF} onChange={e => setStatusF(e.target.value)} style={fld}>
             <option value="all">Todos os status</option>
@@ -15543,7 +15884,7 @@ function AdminBetsPanel({ bets, users, teamPlayers, cs, onVoidBet }) {
           const st = b.status || 'pending';
           const stLabel = st === 'won' ? 'GANHOU +' + (b.payout || 0) : st === 'lost' ? 'PERDEU' : 'EM ABERTO';
           const stColor = st === 'won' ? '#3a7d2a' : st === 'lost' ? '#c33' : 'var(--pv-orange)';
-          const champTag = (b.champId || 'fifa') === 'mk' ? 'MK' : 'FIFA';
+          const champTag = b.champId === 'mkko' ? 'MK KO' : (b.champId || 'fifa') === 'mk' ? 'MK' : 'FIFA';
           return (
             <div key={b.id} className="lb-row" style={{ gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'center', borderLeft: '3px solid ' + stColor, paddingLeft: 8 }}>
               <div style={{ minWidth: 0 }}>
