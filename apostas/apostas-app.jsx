@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260711-mkmata ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260711-celinwo ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -580,8 +580,9 @@ const mkInscritos = (interests) => Object.keys((interests && interests.mk) || {}
 // Confronto entre DOIS desistentes (ainda em aberto): vence por W.O. quem
 // desistiu DEPOIS (índice maior em MK_WO) — o primeiro a sair já tinha dado o
 // W.O. daquele jogo pro segundo, que na época ainda estava ativo. O jogo entre
-// eles que JÁ foi jogado continua valendo. (bamgu e vitinho — 2026-07-11.)
-const MK_WO = ['bamgu', 'vitinho'];
+// eles que JÁ foi jogado continua valendo. ORDEM = ordem de desistência.
+// (bamgu, vitinho e celin desistiram, nessa ordem — 2026-07-11.)
+const MK_WO = ['bamgu', 'vitinho', 'celin'];
 const mkIsWo = (nick) => MK_WO.indexOf(nick) !== -1;
 // jogo envolve um desistente? (aceita {home,away} de draw, match ou perna).
 const mkGameHasWo = (g) => !!g && (mkIsWo(g.home) || mkIsWo(g.away));
