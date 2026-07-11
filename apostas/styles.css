@@ -5629,11 +5629,11 @@
       .mk-ko-stamp { font-size: 34px; }
     }
 
-    /* ─── APOSTAS DO MATA-MATA (mk-ko-bet-*) ─────────────────────────────── */
-    .mk-ko-bet { margin-top: 16px; border-top: 3px double var(--pv-charcoal); padding-top: 14px; }
+    /* ─── APOSTAS DO MATA-MATA (mk-ko-bet-*) — no topo da box de apostas do MK ─ */
+    .mk-ko-bet { margin-bottom: 18px; border: 3px solid var(--pv-charcoal); border-left-width: 6px; border-left-color: var(--pv-orange); background: rgba(215,100,20,0.05); padding: 12px 14px; box-shadow: var(--sh-sm); }
     .mk-ko-bet-h { display: flex; align-items: center; gap: 7px; font-weight: 800; letter-spacing: 0.16em; font-size: 13px; margin-bottom: 12px; }
     .mk-ko-bet-sub { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,22,18,0.55); font-weight: 700; }
-    .mk-ko-bet-empty { margin-top: 16px; border-top: 3px double var(--pv-charcoal); padding-top: 14px; display: flex; align-items: center; gap: 7px; font-size: 12px; color: rgba(28,22,18,0.6); }
+    .mk-ko-bet-empty { margin-bottom: 18px; border: 2px dashed rgba(28,22,18,0.35); padding: 12px 14px; display: flex; align-items: center; gap: 7px; font-size: 12px; color: rgba(28,22,18,0.6); }
     .mk-ko-bet-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
     .mk-ko-bet-card { border: 2px solid var(--pv-charcoal); border-left-width: 5px; border-left-color: var(--pv-orange); background: var(--pv-bone); box-shadow: var(--sh-sm); padding: 10px 12px; }
     .mk-ko-bet-card.own { border-left-color: rgba(28,22,18,0.3); opacity: 0.92; }

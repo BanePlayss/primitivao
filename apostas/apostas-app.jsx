@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260711-koaposta ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260711-kotab ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5367,6 +5367,7 @@ function App() {
                     myNick={session.nick}
                     isAdmin={isAdmin} isMod={isMod}
                     balance={me?.pc ?? 0}
+                    ko={mkKo} onKoBet={placeKoBet}
                   />
                 </>
               ) : (
@@ -10740,7 +10741,7 @@ function MkKoBetting({ br, koScores, metrics, draw, scores, myNick, balance, onK
   );
 }
 
-function MkKoSection({ players, teamPlayers, draw, scores, ko, myNick, onKoLineup, onKoBet, balance }) {
+function MkKoSection({ players, teamPlayers, draw, scores, ko, myNick, onKoLineup }) {
   if (!draw || !draw.length) return null; // liga nem sorteada: nada a prever
   const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const published = !!(ko && ko.published);
@@ -10773,10 +10774,7 @@ function MkKoSection({ players, teamPlayers, draw, scores, ko, myNick, onKoLineu
         <MkKoPodium br={br} teamPlayers={teamPlayers} />
         <MkKoBracketView br={br} seedOf={seedOf} teamPlayers={teamPlayers} myNick={myNick} preview={!published} />
         {seeds.length < 8 && <div className="mk-ko-note" style={{ marginTop: 10 }}><Icon name="warning" size={11} /> Menos de 8 elegíveis na classificação — a chave completa aparece quando tiver 8.</div>}
-        {published && onKoBet && (
-          <MkKoBetting br={br} koScores={ko.scores || {}} metrics={computeMkPlayerMetrics(players, matches.filter(m => mkMatchOutcome(m.sc)))}
-            draw={draw} scores={scores} myNick={myNick} balance={balance} onKoBet={onKoBet} teamPlayers={teamPlayers} />
-        )}
+        {published && <div className="mk-ko-note" style={{ marginTop: 10 }}><Icon name="ticket" size={11} /> Aposte nos confrontos do mata-mata na aba <strong>APOSTAS</strong>.</div>}
       </div>
     </div>
   );
@@ -11194,7 +11192,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
           publica. DENTRO do .mk-grid ocupando as 2 colunas (o .mk-champ tem
           largura 0 — os filhos do grid é que definem a largura renderizada). */}
       <MkKoSection players={insc} teamPlayers={teamPlayers} draw={draw} scores={scores}
-        ko={ko} myNick={myNick} onKoLineup={onKoLineup} onKoBet={onKoBet} balance={balance} />
+        ko={ko} myNick={myNick} onKoLineup={onKoLineup} />
       </div>
     </div>
   );
@@ -11370,7 +11368,7 @@ function MkGameStats({ g, gkey, draw, scores, lineups, metrics, standings, charS
     </div>
   );
 }
-function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onMkScore, onOpenProfile, onEscalar, myNick, isAdmin, isMod, balance }) {
+function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onMkScore, onOpenProfile, onEscalar, myNick, isAdmin, isMod, balance, ko, onKoBet }) {
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
@@ -11436,6 +11434,9 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   })).filter(m => mkMatchOutcome(m.sc))) : [];
   const metrics = computeMkPlayerMetrics(insc, oddsMatches);
   const mkStandings = computeMkStandings(insc, oddsMatches);
+  // MATA-MATA: quando publicado, a aposta dos confrontos MD5 aparece AQUI (na aba
+  // de apostas), no topo — o chaveamento/visualização segue em CAMPEONATOS.
+  const koBr = ko && ko.published ? mkKoBracket(ko.seeds || [], ko.scores || {}) : null;
   // vitórias por boneco (todas as partidas com escalação) — "duelo dos bonecos".
   const charStats = useMemo(() => mkCharWinStats(draw, scores, lineups), [draw, scores, lineups]);
   // LISTA ÚNICA "LIBERADOS": todo jogo que dá pra apostar AGORA (de qualquer rodada,
@@ -11770,6 +11771,11 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
           <div className="empty"><div className="e1">SEM SORTEIO AINDA</div><div className="e2">O admin sorteia as rodadas em CAMPEONATOS → MK. Aí as odds aparecem aqui.</div></div>
         ) : (
           <>
+            {koBr && (
+              <MkKoBetting br={koBr} koScores={ko.scores || {}} metrics={metrics}
+                draw={draw} scores={scores} myNick={myNick} balance={balance}
+                onKoBet={onKoBet} teamPlayers={teamPlayers} />
+            )}
             <div className="mk-bet-layout">
               <div className="mk-bet-main">
                 {/* DESTAQUES: jogos marcados pelo MOD — cartão cheio (mesmo
