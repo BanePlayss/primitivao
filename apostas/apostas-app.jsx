@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260707-mktier2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260711-bamguwo ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -570,6 +570,19 @@ const mkGameVoid = (g) => !!g && (mkIsWithdrawn(g.home) || mkIsWithdrawn(g.away)
 // inscritos VÁLIDOS do MK (sem os retirados) a partir do top-level `interests`.
 const mkInscritos = (interests) => Object.keys((interests && interests.mk) || {}).filter(n => !mkIsWithdrawn(n));
 
+// ─── JOGADOR EM W.O. NO MK (desistência no meio) ────────────────────────────
+// DIFERENTE de MK_WITHDRAWN: o desistente NÃO some do campeonato — os jogos que
+// ele JÁ jogou seguem valendo. Só as partidas AINDA EM ABERTO viram W.O.: o
+// ADVERSÁRIO leva os 3 pontos (SEM contar rounds) e o jogo deixa de ficar
+// pendente/apostável. O placar do W.O. é um overlay in-memory (`sc.wo`) aplicado
+// na leitura (mkApplyWo) — NUNCA é gravado no Firestore (persistMk grava por
+// chave a partir do remoto), então basta tirar o nick da lista pra reverter.
+// (bamgu desistiu do MK — 2026-07-11.)
+const MK_WO = ['bamgu'];
+const mkIsWo = (nick) => MK_WO.indexOf(nick) !== -1;
+// jogo envolve um desistente? (aceita {home,away} de draw, match ou perna).
+const mkGameHasWo = (g) => !!g && (mkIsWo(g.home) || mkIsWo(g.away));
+
 // Sorteio todos-contra-todos IDA e VOLTA (método do círculo). Devolve as rodadas
 // [{ phase:'IDA'|'VOLTA', n, games:[{home,away}] }]. Ephemeral (regera no clique).
 function generateMkDraw(playersIn) {
@@ -599,6 +612,16 @@ function generateMkDraw(playersIn) {
 // sc = { p1h, p1a, p2h, p2a } (rounds de cada lado nas 2 partidas).
 function mkMatchOutcome(sc) {
   if (!sc) return null;
+  // W.O. (desistência): adversário vence sem contar rounds. sc.wo = 'H' | 'A'
+  // (lado vencedor). Vira um resultado VÁLIDO como qualquer outro — 3 pts pro
+  // vencedor, 0 rounds pros dois — então classificação/rodada-concluída/não-
+  // apostável funcionam iguais em todo lugar. Marcado com `wo:true` pra quem
+  // quiser tratar diferente (stats por round ignoram, liquidação congela).
+  if (sc.wo === 'H' || sc.wo === 'A') {
+    const confH = sc.wo === 'H' ? 2 : 0, confA = 2 - confH;
+    return { p1h: 0, p1a: 0, p2h: 0, p2a: 0, confH, confA, roundsH: 0, roundsA: 0,
+      total: 0, winner: sc.wo, wo: true };
+  }
   const v = ['p1h', 'p1a', 'p2h', 'p2a'].map(k => parseInt(sc[k], 10));
   if (v.some(x => Number.isNaN(x))) return null;
   const [p1h, p1a, p2h, p2a] = v;
@@ -611,6 +634,29 @@ function mkMatchOutcome(sc) {
   const roundsH = p1h + p2h, roundsA = p1a + p2a;
   return { p1h, p1a, p2h, p2a, confH, confA, roundsH, roundsA, total: roundsH + roundsA,
     winner: confH > confA ? 'H' : confH < confA ? 'A' : 'D' }; // D = empate (1×1)
+}
+
+// Overlay de W.O.: devolve uma cópia de `scores` onde CADA jogo AINDA EM ABERTO
+// de um desistente (MK_WO) recebe `wo` = lado do adversário (vencedor). Jogos já
+// jogados (resultado real) e jogos anulados (adversário retirado) são preservados
+// intactos. Aplicado só na LEITURA (nunca gravado) — some sozinho ao tirar o nick
+// de MK_WO. Idempotente (sc já com resultado real não é tocado). Sem desistentes
+// no chaveamento, devolve o próprio `scores` (sem alocar).
+function mkApplyWo(draw, scores) {
+  const base = scores || {};
+  if (!draw || !draw.length || !MK_WO.length) return base;
+  const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  let out = null;
+  (draw || []).forEach(r => (r.games || []).forEach((g, gi) => {
+    if (!mkGameHasWo(g) || mkGameVoid(g)) return;    // não é W.O. (ou é anulado)
+    const key = gk(r, gi);
+    const sc = base[key] || {};
+    if (mkMatchOutcome(sc)) return;                   // já resolvido (jogo já jogado)
+    const woSide = mkIsWo(g.home) ? 'A' : 'H';        // vencedor = quem NÃO desistiu
+    if (!out) out = { ...base };
+    out[key] = { ...sc, wo: woSide };
+  }));
+  return out || base;
 }
 
 // Round-dots de um confronto MK (estilo jogo de luta): 2 partidas, cada uma
@@ -829,7 +875,7 @@ function mkPlayerRecent(nick, draw, scores, limit) {
     if (g.home !== nick && g.away !== nick) return;
     if (mkGameVoid(g)) return;
     const o = mkMatchOutcome((scores || {})[gk(r, gi)]);
-    if (!o) return; // só concluídos
+    if (!o || o.wo) return; // só concluídos DE VERDADE (W.O. não entra na forma)
     const meHome = g.home === nick;
     const iWon = (meHome && o.winner === 'H') || (!meHome && o.winner === 'A');
     rows.push({ res: o.winner === 'D' ? 'E' : (iWon ? 'V' : 'D'), oppNick: meHome ? g.away : g.home });
@@ -865,7 +911,7 @@ function mkHeadToHead(a, b, draw, scores) {
     const pair = (g.home === a && g.away === b) || (g.home === b && g.away === a);
     if (!pair || mkGameVoid(g)) return;
     const o = mkMatchOutcome((scores || {})[gk(r, gi)]);
-    if (!o) return;
+    if (!o || o.wo) return; // W.O. não conta no confronto direto
     games++;
     const aR = g.home === a ? o.roundsH : o.roundsA;
     const bR = g.home === a ? o.roundsA : o.roundsH;
@@ -886,7 +932,7 @@ function mkPlayerTrendSeries(nick, draw, scores, limit) {
     if (g.home !== nick && g.away !== nick) return;
     if (mkGameVoid(g)) return;
     const o = mkMatchOutcome((scores || {})[gk(r, gi)]);
-    if (!o) return;
+    if (!o || o.wo) return; // W.O. não tem rounds pra tendência
     diffs.push(g.home === nick ? o.roundsH - o.roundsA : o.roundsA - o.roundsH);
   }));
   const series = [0];
@@ -904,7 +950,7 @@ function mkPlayerProStats(nick, draw, scores) {
     if (mkGameVoid(g)) return;
     const sc = (scores || {})[gk(r, gi)];
     const o = mkMatchOutcome(sc);
-    if (!o) return;
+    if (!o || o.wo) return; // W.O. não tem partidas/finalização/flawless
     const meHome = g.home === nick;
     // brutality é da PARTIDA: atribui ao vencedor dela.
     [[o.p1h, o.p1a, sc.finisher1], [o.p2h, o.p2a, sc.finisher2]].forEach(([h, aa, fin]) => {
@@ -928,7 +974,7 @@ function mkCharWinStats(draw, scores, lineups) {
     if (mkGameVoid(g)) return;
     const key = gk(r, gi);
     const o = mkMatchOutcome((scores || {})[key]);
-    if (!o) return;
+    if (!o || o.wo) return; // W.O. não tem escalação/rounds pro win% dos bonecos
     const ln = (lineups || {})[key] || {};
     [['p1', o.p1h, o.p1a], ['p2', o.p2h, o.p2a]].forEach(([p, h, a]) => {
       const part = ln[p] || {};
@@ -3298,7 +3344,7 @@ function App() {
         const mk = (remote.mk && typeof remote.mk === 'object') ? remote.mk : {};
         const mkUsers = remote.users && typeof remote.users === 'object' ? remote.users : {};
         const mkDrawVal = Array.isArray(mk.draw) ? mk.draw : null;
-        const mkScoresVal = mk.scores && typeof mk.scores === 'object' ? mk.scores : {};
+        const mkScoresVal = mkApplyWo(mkDrawVal, mk.scores && typeof mk.scores === 'object' ? mk.scores : {});
         setMkDraw(mkDrawVal);
         setMkScores(mkScoresVal);
         // Saneia os cards na leitura: remove bonecos que saíram do elenco do jogador
@@ -3577,6 +3623,7 @@ function App() {
               if (mkGameVoid(l)) return l; // jogo anulado (jogador retirado): não liquida nem reverte — preserva o histórico já decidido
               const gk = (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) ? l.fixtureId.slice(3) : null;
               const sc = gk ? (snap[gk] || {}) : {};
+              if (sc && sc.wo) return l; // jogo em W.O. (desistente): não liquida — o cupom é anulado (devolvido) pelo cleanup de apostas
               const done = !!mkMatchOutcome(sc);
               if (l.result && !done) { changed = true; return { ...l, result: undefined }; }
               if (!l.result && done) {
@@ -3644,6 +3691,44 @@ function App() {
     }, 600);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [mkScores]);
+
+  // ANULA (uma vez) apostas ABERTAS que caíram num confronto de W.O. (desistente).
+  // Um jogo em W.O. nunca terá resultado real, então a aposta não tem como
+  // liquidar de forma justa — devolve o valor apostado e remove o cupom (mesma
+  // regra do adminVoidBet). Só admin/mod dispara (é ação de moderação) e é
+  // idempotente: ao remover os cupons, não há mais o que reprocessar. Roda depois
+  // do settle (que CONGELA as pernas de W.O.), então não há corrida de saldo.
+  useEffect(() => {
+    if (!hasLoadedRef.current || !mkDraw) return;
+    const me = session && session.nick;
+    if (!me || !(me === ADMIN_NICK || MOD_NICKS.includes(me))) return;
+    // chaves dos jogos em W.O. (com overlay `wo` já aplicado em mkScores).
+    const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+    const woKeys = new Set();
+    mkDraw.forEach(r => (r.games || []).forEach((g, gi) => {
+      if (mkGameHasWo(g) && !mkGameVoid(g) && ((mkScores || {})[gk(r, gi)] || {}).wo) woKeys.add(gk(r, gi));
+    }));
+    if (!woKeys.size) return;
+    const legIsWo = (l) => typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0 && woKeys.has(l.fixtureId.slice(3));
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
+      try {
+        await commitBetDocUpdate(remote => {
+          const targets = (remote.bets || []).filter(b => b && b.status === 'pending' && (b.legs || []).some(legIsWo));
+          if (!targets.length) return null;
+          const users = { ...(remote.users || {}) };
+          targets.forEach(t => { // pending: só o valor apostado foi debitado -> devolve
+            const u = users[t.user];
+            if (u) users[t.user] = { ...u, pc: Math.max(0, (u.pc || 0) + (t.amount || 0)) };
+          });
+          const ids = new Set(targets.map(t => t.id));
+          return { ...remote, users, bets: (remote.bets || []).filter(b => !ids.has(b.id)) };
+        });
+      } catch (e) { if (!cancelled) console.warn('mk W.O. void failed', e); }
+    }, 900);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [mkDraw, mkScores, session]);
 
   // Derivados de cs.rounds: métricas dos times + jogos disponíveis com odds.
   const rounds   = cs?.rounds || [];
@@ -9844,7 +9929,7 @@ function MkResultLauncher({ draw, scores, lineups, teamPlayers, onScore }) {
                   <div className="mk-launch-h">
                     <span className="mk-launch-rod">RODADA {String(r.n).padStart(2, '0')} · {r.phase} · JOGO {String(gi + 1).padStart(2, '0')}</span>
                     <span className={'mk-launch-st ' + (done ? 'done' : 'pend')}>
-                      {done ? <><Icon name="check" size={11} /> {out.confH}×{out.confA}{out.winner === 'D' ? ' EMPATE' : ''}</> : <>A LANÇAR</>}
+                      {done ? <><Icon name="check" size={11} /> {out.wo ? 'W.O.' : <>{out.confH}×{out.confA}{out.winner === 'D' ? ' EMPATE' : ''}</>}</> : <>A LANÇAR</>}
                     </span>
                   </div>
                   <div className="mk-launch-match">
@@ -10114,7 +10199,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
                     <div key={gi} className={'mk-fx' + (done ? ' done' : '') + (mine ? ' mine' : '')}>
                       <div className="mk-fx-top">
                         <span className="mk-fx-jogo">JOGO {String(gi + 1).padStart(2, '0')}{mine && <span className="mk-fx-mine"><Icon name="fist" size={10} /> SEU JOGO</span>}</span>
-                        {done && <span className="mk-fx-done"><Icon name="check" size={11} /> {out.confH}×{out.confA}{out.winner === 'D' ? ' · EMPATE' : ''}</span>}
+                        {done && <span className="mk-fx-done"><Icon name="check" size={11} /> {out.wo ? 'W.O.' : <>{out.confH}×{out.confA}{out.winner === 'D' ? ' · EMPATE' : ''}</>}</span>}
                       </div>
                       <div className="mk-fx-body">
                         <div className="mk-fx-side home">
