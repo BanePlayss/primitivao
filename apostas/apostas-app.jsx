@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260711-celinwo ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260711-wogames ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -581,11 +581,23 @@ const mkInscritos = (interests) => Object.keys((interests && interests.mk) || {}
 // desistiu DEPOIS (índice maior em MK_WO) — o primeiro a sair já tinha dado o
 // W.O. daquele jogo pro segundo, que na época ainda estava ativo. O jogo entre
 // eles que JÁ foi jogado continua valendo. ORDEM = ordem de desistência.
-// (bamgu, vitinho e celin desistiram, nessa ordem — 2026-07-11.)
-const MK_WO = ['bamgu', 'vitinho', 'celin'];
+// (bamgu e vitinho desistiram, nessa ordem — 2026-07-11.)
+const MK_WO = ['bamgu', 'vitinho'];
 const mkIsWo = (nick) => MK_WO.indexOf(nick) !== -1;
 // jogo envolve um desistente? (aceita {home,away} de draw, match ou perna).
 const mkGameHasWo = (g) => !!g && (mkIsWo(g.home) || mkIsWo(g.away));
+
+// W.O. de PARTIDA específica: o jogador NÃO desistiu do campeonato — só ENTREGOU
+// aquele jogo. Diferente de MK_WO: quem entregou continua na tabela, pontua nos
+// outros jogos e SEGUE elegível pros seeds do mata-mata. Mapa gKey -> nick do
+// VENCEDOR (só vale se a partida ainda estiver EM ABERTO; jogo já jogado, ignora).
+// (celin entregou 3 jogos e magreza 1 — 2026-07-11.)
+const MK_WO_GAMES = {
+  'VOLTA-11-6': 'ivansf',      // ivansf x celin — celin entregou
+  'VOLTA-12-6': 'caco',        // caco x celin — celin entregou
+  'VOLTA-13-5': 'jucamelero',  // celin x jucamelero — celin entregou
+  'VOLTA-12-0': 'oldspriggan', // oldspriggan x magreza — magreza entregou
+};
 
 // Sorteio todos-contra-todos IDA e VOLTA (método do círculo). Devolve as rodadas
 // [{ phase:'IDA'|'VOLTA', n, games:[{home,away}] }]. Ephemeral (regera no clique).
@@ -648,23 +660,27 @@ function mkMatchOutcome(sc) {
 // no chaveamento, devolve o próprio `scores` (sem alocar).
 function mkApplyWo(draw, scores) {
   const base = scores || {};
-  if (!draw || !draw.length || !MK_WO.length) return base;
+  const hasGameWo = Object.keys(MK_WO_GAMES).length > 0;
+  if (!draw || !draw.length || (!MK_WO.length && !hasGameWo)) return base;
   const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   let out = null;
   (draw || []).forEach(r => (r.games || []).forEach((g, gi) => {
-    if (!mkGameHasWo(g) || mkGameVoid(g)) return;    // não é W.O. (ou é anulado)
+    if (mkGameVoid(g)) return;                         // anulado (retirado) tem prioridade
     const key = gk(r, gi);
     const sc = base[key] || {};
-    if (mkMatchOutcome(sc)) return;                   // já resolvido (jogo já jogado)
-    // Vencedor por W.O.: quem NÃO desistiu. Se OS DOIS desistiram, vence quem
-    // desistiu DEPOIS (índice maior em MK_WO) — quando o primeiro saiu, o segundo
-    // ainda estava ativo e já tinha levado o W.O. daquele confronto.
-    let woSide;
-    if (mkIsWo(g.home) && mkIsWo(g.away)) {
-      woSide = MK_WO.indexOf(g.home) > MK_WO.indexOf(g.away) ? 'H' : 'A';
-    } else {
-      woSide = mkIsWo(g.home) ? 'A' : 'H';
+    if (mkMatchOutcome(sc)) return;                    // já resolvido (jogo já jogado)
+    let woSide = null;
+    const forced = MK_WO_GAMES[key];                   // W.O. explícito de PARTIDA
+    if (forced) {
+      woSide = g.home === forced ? 'H' : g.away === forced ? 'A' : null; // vencedor tem que ser um dos dois
+    } else if (mkGameHasWo(g)) {                        // desistente(s) (MK_WO)
+      // Vencedor: quem NÃO desistiu. Se OS DOIS desistiram, vence quem desistiu
+      // DEPOIS (índice maior em MK_WO) — quando o 1º saiu, o 2º ainda estava ativo.
+      woSide = (mkIsWo(g.home) && mkIsWo(g.away))
+        ? (MK_WO.indexOf(g.home) > MK_WO.indexOf(g.away) ? 'H' : 'A')
+        : (mkIsWo(g.home) ? 'A' : 'H');
     }
+    if (!woSide) return;                               // não é W.O.
     if (!out) out = { ...base };
     out[key] = { ...sc, wo: woSide };
   }));
