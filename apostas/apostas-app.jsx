@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260711-kotab ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260711-kocards ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5333,7 +5333,7 @@ function App() {
                   <ChampSidebar value={apostasChampId} onChange={setChampionship} cs={cs} interests={interests || {}} mode="apostas" />
                   {/* MEUS TICKETS sobem; MEU JOGO desce (ordem pedida). */}
                   {!isAdmin && (
-                    <TicketsMini bets={(bets || []).filter(b => b.user === session.nick && (b.champId || 'fifa') === apostasChampId)} limit={6} onOpen={() => setView('tickets')} />
+                    <TicketsMini bets={(bets || []).filter(b => b.user === session.nick && ((b.champId || 'fifa') === apostasChampId || (apostasChampId === 'mk' && b.champId === 'mkko')))} limit={6} onOpen={() => setView('tickets')} />
                   )}
                   {/* MEU JOGO (mini): escalar abre só ao clicar VER MEUS JOGOS (M3). */}
                   {apostasChampId === 'mk' && mkInscrito && (
@@ -10637,109 +10637,6 @@ function MkKoMyMatch({ match, myNick, ko, onKoLineup, teamPlayers }) {
     </div>
   );
 }
-// SEÇÃO do mata-mata (prévia + oficial) — vive embaixo da classificação do MK.
-// APOSTAS do mata-mata: cada confronto ABERTO (2 lados, não começou) com os
-// mercados MD5 (QUEM PASSA / PLACAR / TOTAL) e um cupom próprio (champId 'mkko').
-// Odds vêm de computeMkKoOdds (força da liga -> prob por jogo -> melhor de 5).
-function MkKoBetting({ br, koScores, metrics, draw, scores, myNick, balance, onKoBet, teamPlayers }) {
-  const [cupom, setCupom] = useState([]);
-  const [stake, setStake] = useState('');
-  const [busy, setBusy] = useState(false);
-  const bettable = MK_KO_IDS.map(id => br[id]).filter(m => mkKoBettable(m, (koScores || {})[m.id]));
-  const bettableIds = bettable.map(m => m.id).join('|');
-  useEffect(() => { // tira do cupom picks de confrontos que fecharam/começaram
-    const set = new Set(bettableIds ? bettableIds.split('|') : []);
-    setCupom(prev => prev.filter(l => set.has(l.koMatch)));
-  }, [bettableIds]);
-  const toggle = (m, market, pick, odd) => {
-    if (m.home === myNick || m.away === myNick) { showToast('Você não pode apostar no próprio confronto.', 'error'); return; }
-    setCupom(prev => {
-      const same = prev.find(l => l.koMatch === m.id && l.market === market && l.pick === pick);
-      if (same) return prev.filter(l => l !== same); // toca de novo -> desmarca
-      // UM palpite por CONFRONTO (mercados são correlacionados): troca o pick anterior desse confronto.
-      return [...prev.filter(l => l.koMatch !== m.id), { koMatch: m.id, home: m.home, away: m.away, market, pick, odd }];
-    });
-  };
-  const inCupom = (mid, market, pick) => cupom.some(l => l.koMatch === mid && l.market === market && l.pick === pick);
-  const combined = cupom.length ? cupom.reduce((p, l) => p * l.odd, 1) : 0;
-  const st = Math.floor(Number(stake) || 0);
-  const canBet = cupom.length > 0 && st > 0 && st <= (balance || 0) && !busy;
-  const place = async () => {
-    if (!canBet) return;
-    setBusy(true);
-    const r = await onKoBet({ legs: cupom, stake: st, combined: +combined.toFixed(2), casada: cupom.length >= 2 });
-    setBusy(false);
-    if (r && r.ok) { setCupom([]); setStake(''); }
-  };
-  if (!bettable.length) {
-    return <div className="mk-ko-bet-empty"><Icon name="ticket" size={13} /> Nenhum confronto aberto pra aposta agora — abre quando os dois lados estão definidos e antes do 1º jogo do MD5.</div>;
-  }
-  return (
-    <div className="mk-ko-bet">
-      <div className="mk-ko-bet-h"><Icon name="ticket" size={14} /> APOSTAR NO MATA-MATA <span className="mk-ko-bet-sub">odds de MD5 · melhor de 5 · 1 palpite por confronto</span></div>
-      <div className="mk-ko-bet-cards">
-        {bettable.map(m => {
-          const odds = computeMkKoOdds(m.home, m.away, metrics, draw, scores);
-          const mine = m.home === myNick || m.away === myNick;
-          const groups = [
-            { key: 'KVENC', picks: [{ p: 'H', lab: m.home }, { p: 'A', lab: m.away }] },
-            { key: 'KPLACAR', picks: MK_KO_PLACAR_PICKS.map(p => ({ p, lab: p[0] + '×' + p[1] })) },
-            { key: 'KTOTAL', picks: ['3', '4', '5'].map(p => ({ p, lab: p })) },
-          ];
-          return (
-            <div key={m.id} className={'mk-ko-bet-card' + (mine ? ' own' : '')}>
-              <div className="mk-ko-bet-card-h">
-                <span className="mk-ko-bet-lb">{MK_KO_META[m.id].label}</span>
-                <span className="mk-ko-bet-vs"><Avatar nick={m.home} teamPlayers={teamPlayers} size={18} noBadge /> {m.home} <i>×</i> {m.away} <Avatar nick={m.away} teamPlayers={teamPlayers} size={18} noBadge /></span>
-              </div>
-              {mine ? (
-                <div className="mk-ko-bet-own"><Icon name="fist" size={11} /> Seu confronto — você não aposta nele.</div>
-              ) : groups.map(gr => (
-                <div key={gr.key} className="mk-ko-bet-mkt">
-                  <span className="mk-ko-bet-mkt-t">{MK_KO_MARKET_TITLE[gr.key]}</span>
-                  <div className="mk-ko-bet-picks">
-                    {gr.picks.map(pk => {
-                      const odd = odds[gr.key][pk.p];
-                      const on = inCupom(m.id, gr.key, pk.p);
-                      return (
-                        <button key={pk.p} type="button" className={'mk-ko-bet-pick' + (on ? ' on' : '')} onClick={() => toggle(m, gr.key, pk.p, odd)}>
-                          <span className="mk-ko-bet-pick-l">{gr.key === 'KTOTAL' ? pk.lab + ' jg' : pk.lab}</span>
-                          <span className="mk-ko-bet-pick-o">{odd.toFixed(2)}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
-      {cupom.length > 0 && (
-        <div className="mk-ko-bet-slip">
-          <div className="mk-ko-bet-slip-legs">
-            {cupom.map((l, i) => (
-              <div key={i} className="mk-ko-bet-slip-leg">
-                <button type="button" className="mk-ko-bet-slip-x" onClick={() => setCupom(prev => prev.filter(x => x !== l))} aria-label="tirar"><Icon name="x" size={11} /></button>
-                <span>{l.home}×{l.away} · <strong>{MK_KO_MARKET_TITLE[l.market]}</strong> {mkKoPickLabel(l.market, l.pick, l.home, l.away)}</span>
-                <span className="mk-ko-bet-slip-o">@{l.odd.toFixed(2)}</span>
-              </div>
-            ))}
-          </div>
-          <div className="mk-ko-bet-slip-foot">
-            <span className="mk-ko-bet-slip-comb">{cupom.length >= 2 ? 'CASADA ' + cupom.length + ' · ' : ''}@{combined.toFixed(2)}</span>
-            <input className="mk-ko-bet-stake" inputMode="numeric" placeholder="quanto (PC)" value={stake} onChange={e => setStake(e.target.value.replace(/[^0-9]/g, ''))} />
-            <span className="mk-ko-bet-ret">retorno <strong>{st > 0 ? Math.round(st * combined) : 0}</strong></span>
-            <button type="button" className="tp-btn-go mk-ko-bet-go" disabled={!canBet} onClick={place}>
-              <Icon name="ticket" size={13} /> {busy ? 'APOSTANDO…' : 'APOSTAR ' + (st > 0 ? st + ' PC' : '')}
-            </button>
-          </div>
-          {st > (balance || 0) && <div className="mk-ko-bet-err"><Icon name="warning" size={11} /> Saldo insuficiente (você tem {balance || 0} PC).</div>}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function MkKoSection({ players, teamPlayers, draw, scores, ko, myNick, onKoLineup }) {
   if (!draw || !draw.length) return null; // liga nem sorteada: nada a prever
@@ -11203,10 +11100,13 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
 // apostar tudo do mesmo card); jogos de rodadas diferentes valem — casada
 // MULTIPLICA as odds. Única trava: VENCEDOR e CHANCE DUPLA não juntos no card.
 function mkLegLabel(l) {
+  if (l.isKo) return mkKoPickLabel(l.market, l.pick, l.home, l.away); // perna do mata-mata
   // CHANCE DUPLA no cupom: usa os nicks reais (ex: "bane ou empate").
   if (l.market === 'DC') return l.pick === '1X' ? (l.home + ' ou empate') : l.pick === '12' ? (l.home + ' ou ' + l.away) : ('empate ou ' + l.away);
   return mkPickLabel(l.market, l.pick);
 }
+// Título do mercado da perna (liga ou mata-mata).
+function mkLegMktTitle(l) { return l.isKo ? (MK_KO_MARKET_TITLE[l.market] || l.market) : (MK_MARKET_TITLE[l.market] || l.market); }
 // Sparkline de tendência (saldo de rounds acumulado). SVG minúsculo, escala
 // automática; some com menos de 2 pontos (nenhum jogo concluído).
 function MkSparkline({ series, away }) {
@@ -11434,9 +11334,11 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   })).filter(m => mkMatchOutcome(m.sc))) : [];
   const metrics = computeMkPlayerMetrics(insc, oddsMatches);
   const mkStandings = computeMkStandings(insc, oddsMatches);
-  // MATA-MATA: quando publicado, a aposta dos confrontos MD5 aparece AQUI (na aba
-  // de apostas), no topo — o chaveamento/visualização segue em CAMPEONATOS.
-  const koBr = ko && ko.published ? mkKoBracket(ko.seeds || [], ko.scores || {}) : null;
+  // MATA-MATA: quando publicado, os confrontos MD5 abertos entram AQUI (na aba de
+  // apostas) como cards normais (mesmo visual/cupom da liga). Chave em CAMPEONATOS.
+  const koScores = (ko && ko.scores) || {};
+  const koBr = ko && ko.published ? mkKoBracket(ko.seeds || [], koScores) : null;
+  const koBettable = koBr ? MK_KO_IDS.map(id => koBr[id]).filter(m => mkKoBettable(m, koScores[m.id])) : [];
   // vitórias por boneco (todas as partidas com escalação) — "duelo dos bonecos".
   const charStats = useMemo(() => mkCharWinStats(draw, scores, lineups), [draw, scores, lineups]);
   // LISTA ÚNICA "LIBERADOS": todo jogo que dá pra apostar AGORA (de qualquer rodada,
@@ -11492,23 +11394,43 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
       }
     }
     const newLeg = { key, roundN: r.n, phase: r.phase, gi, home: g.home, away: g.away, market, pick, odd };
-    setCupom(prev => [...prev.filter(l => l.key !== key), newLeg]);
+    setCupom(prev => [...prev.filter(l => l.key !== key && !l.isKo), newLeg]); // cupom homogêneo (tira legs do KO)
+  };
+  // Palpite de um confronto do MATA-MATA no MESMO cupom. Chave por CONFRONTO
+  // (mkko-<id>): um palpite por confronto (KVENC/KPLACAR/KTOTAL são correlacionados).
+  const koPickInCupom = (matchId, market, pick) => cupom.some(l => l.isKo && l.koMatch === matchId && l.market === market && l.pick === pick);
+  const toggleKoLeg = (m, market, pick, odd) => {
+    if (myNick && (m.home === myNick || m.away === myNick)) { showToast('Você não pode apostar no próprio confronto.', 'error'); return; }
+    const key = 'mkko-' + m.id;
+    setCupom(prev => {
+      const ex = prev.find(l => l.key === key);
+      if (ex && ex.market === market && ex.pick === pick) return prev.filter(l => l.key !== key); // desmarca
+      // 1 palpite por confronto + cupom homogêneo (só legs do KO)
+      return [...prev.filter(l => l.key !== key && l.isKo), { key, isKo: true, koMatch: m.id, home: m.home, away: m.away, market, pick, odd }];
+    });
   };
   const combined = cupom.length ? cupom.reduce((p, l) => p * l.odd, 1) : 0; // MULTIPLICA (casada de verdade), sem teto
   const isCasada = cupom.length >= 2;
   const place = async (opts) => {
     if (!cupom.length || !(stake > 0)) return;
-    const first = cupom[0];
-    const res = await onPlaceBet({
-      nick: myNick, roundN: first.roundN, phase: first.phase,
-      legs: cupom.map(({ key, ...l }) => l), stake, combined: +combined.toFixed(2), casada: isCasada,
-      open: !!(opts && opts.open),
-    });
+    const isKoCupom = cupom.some(l => l.isKo);
+    let res;
+    if (isKoCupom) {
+      // aposta do mata-mata: fluxo próprio (placeKoBet mostra o próprio toast).
+      res = await onKoBet({ legs: cupom.map(l => ({ koMatch: l.koMatch, home: l.home, away: l.away, market: l.market, pick: l.pick, odd: l.odd })), stake, combined: +combined.toFixed(2), casada: isCasada });
+    } else {
+      const first = cupom[0];
+      res = await onPlaceBet({
+        nick: myNick, roundN: first.roundN, phase: first.phase,
+        legs: cupom.map(({ key, ...l }) => l), stake, combined: +combined.toFixed(2), casada: isCasada,
+        open: !!(opts && opts.open),
+      });
+    }
     if (res && res.err) return; // erro já avisado por toast
     setCupom([]);
     setCupomOpen(false);
-    // auto-cópia (cupom idêntico já na Mesa) já mostra o próprio toast em placeMkBet.
-    if (!(opts && opts.open) && !(res && res.autoCopied)) showToast((isCasada ? 'Casada' : 'Aposta') + ' feita! ' + stake + ' PC', 'success');
+    // liga: auto-cópia mostra o próprio toast; KO: placeKoBet já mostra o toast.
+    if (!isKoCupom && !(opts && opts.open) && !(res && res.autoCopied)) showToast((isCasada ? 'Casada' : 'Aposta') + ' feita! ' + stake + ' PC', 'success');
   };
   const betStatus = (bet) => {
     let pending = false;
@@ -11760,6 +11682,101 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     );
   };
 
+  // Card de um confronto do MATA-MATA — MESMA casca visual do renderGameCard
+  // (accordion, barra de probabilidade, botões de odd), mas com odds/mercados de
+  // MD5 e alimentando o MESMO cupom via toggleKoLeg.
+  const renderKoCard = (m) => {
+    const key = 'mkko-' + m.id;
+    const expanded = openGames.has(key);
+    const odds = computeMkKoOdds(m.home, m.away, metrics, draw, scores);
+    const d = odds._dist;
+    const ownGame = !!myNick && (m.home === myNick || m.away === myNick);
+    const meta = MK_KO_META[m.id];
+    const pctI = (x) => Math.round(x * 100);
+    return (
+      <div key={key} className={'mk-bet-game mk-ko-game' + (ownGame ? ' own' : '') + (expanded ? ' open' : '')}>
+        <div className="mk-bg-summary" role="button" tabIndex={0} aria-expanded={expanded}
+          onClick={() => toggleGame(key)}
+          onKeyDown={(e) => { if (e.target !== e.currentTarget) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleGame(key); } }}>
+          <div className="mk-bg-top">
+            <span className="mk-bet-rod"><Icon name="sword" size={11} /> MATA-MATA · {meta.label} · MELHOR DE 5</span>
+            <span className="mk-bg-caret">{expanded ? 'FECHAR' : 'VER MERCADOS'} <Icon name={expanded ? 'caret-up' : 'caret-down'} size={13} /></span>
+          </div>
+          <div className="mk-bet-match">
+            <button type="button" className="mk-bm-side" onClick={(e) => { e.stopPropagation(); onOpenProfile && onOpenProfile(m.home); }} title={'Ver perfil de ' + m.home}>
+              <Avatar nick={m.home} teamPlayers={teamPlayers} size={30} noBadge />
+              <span className="mk-bm-info"><span className="mk-bm-nick mand">{m.home}</span><span className="mk-bm-role mand">MANDANTE</span></span>
+            </button>
+            <span className="mk-bm-vs">×</span>
+            <button type="button" className="mk-bm-side right" onClick={(e) => { e.stopPropagation(); onOpenProfile && onOpenProfile(m.away); }} title={'Ver perfil de ' + m.away}>
+              <span className="mk-bm-info"><span className="mk-bm-nick">{m.away}</span><span className="mk-bm-role">VISITANTE</span></span>
+              <Avatar nick={m.away} teamPlayers={teamPlayers} size={30} noBadge />
+            </button>
+          </div>
+          <div className="mk-bg-prob" title="Chance de PASSAR (melhor de 5, pela força na liga)">
+            <div className="mk-bg-prob-bar">
+              <span className="mk-bg-prob-seg h" style={{ width: (d.win * 100) + '%' }} />
+              <span className="mk-bg-prob-seg a" style={{ width: (d.loss * 100) + '%' }} />
+            </div>
+            <div className="mk-bg-prob-lab">
+              <span className="mand">{m.home} {pctI(d.win)}%</span>
+              <span className="away">{m.away} {pctI(d.loss)}%</span>
+            </div>
+          </div>
+          <div className="mk-bg-odds">
+            <span className="mk-bg-odds-l">QUEM PASSA</span>
+            <span className="mk-bg-odd"><b>MAND</b> <i>{odds.KVENC.H.toFixed(2)}</i></span>
+            <span className="mk-bg-odd"><b>VIS</b> <i>{odds.KVENC.A.toFixed(2)}</i></span>
+          </div>
+          <div className="mk-bg-flags">
+            {ownGame && <span className="mk-bg-flag seu"><Icon name="fist" size={10} /> SEU CONFRONTO</span>}
+            <span className="mk-bg-flag mk-ko-flag"><Icon name="sword" size={10} /> MD5 · 1 PALPITE</span>
+          </div>
+        </div>
+        {expanded && (
+          <div className="mk-bg-body">
+            {ownGame && <div className="mk-bet-own seu"><span><Icon name="fist" size={11} /> SEU CONFRONTO — você não aposta nele</span></div>}
+            {MK_KO_MARKETS.map(mkt => {
+              const picks = mkKoMarketPicks(mkt);
+              const vals = picks.map(p => odds[mkt][p]);
+              const mx = Math.max(...vals), mn = Math.min(...vals);
+              const spread = picks.length > 1 && mx >= mn * 2;
+              return (
+                <div key={mkt} className="mk-bet-mkt">
+                  <div className="mk-bet-mkt-h">{MK_KO_MARKET_TITLE[mkt]}</div>
+                  <div className="mk-bet-picks">
+                    {picks.map(pick => {
+                      const on = koPickInCupom(m.id, mkt, pick);
+                      const v = odds[mkt][pick];
+                      const hot = spread && v === mx, fav = spread && v === mn;
+                      return (
+                        <button key={pick} type="button"
+                          className={'mk-odd' + (on ? ' on' : '') + (ownGame ? ' off' : '') + (hot ? ' hot' : '') + (fav ? ' fav' : '')}
+                          title={hot ? 'Maior prêmio do mercado' : fav ? 'Favorito do mercado' : undefined}
+                          onClick={() => toggleKoLeg(m, mkt, pick, v)} disabled={ownGame}>
+                          <span className="mk-odd-l">
+                            {mkt === 'KVENC' ? (pick === 'H' ? m.home : m.away)
+                              : mkt === 'KPLACAR' ? <span className="mk-odd-pl"><span className="mk-sc-h">{pick[0]}</span><span className="mk-sc-x">×</span><span className="mk-sc-a">{pick[1]}</span></span>
+                              : pick + ' jogos'}
+                          </span>
+                          <span className="mk-odd-v">
+                            {hot && <Icon name="fire" size={10} className="mk-odd-ic hot" />}
+                            {fav && <Icon name="target" size={10} className="mk-odd-ic fav" />}
+                            {v.toFixed(2)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className={'card mk-card mk-betting' + (cupom.length ? ' mk-betting--betbar' : '')}>
       <div className="card-head">
@@ -11771,13 +11788,19 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
           <div className="empty"><div className="e1">SEM SORTEIO AINDA</div><div className="e2">O admin sorteia as rodadas em CAMPEONATOS → MK. Aí as odds aparecem aqui.</div></div>
         ) : (
           <>
-            {koBr && (
-              <MkKoBetting br={koBr} koScores={ko.scores || {}} metrics={metrics}
-                draw={draw} scores={scores} myNick={myNick} balance={balance}
-                onKoBet={onKoBet} teamPlayers={teamPlayers} />
-            )}
             <div className="mk-bet-layout">
               <div className="mk-bet-main">
+                {/* MATA-MATA: confrontos abertos como cards normais (mesmo cupom). */}
+                {koBettable.length > 0 && (
+                  <div className="mk-lib-round mk-ko-libround">
+                    <div className="mk-lib-round-h"><Icon name="sword" size={12} /> MATA-MATA · CONFRONTOS ABERTOS <span className="mk-lib-round-c">{koBettable.length} JOGO{koBettable.length === 1 ? '' : 'S'}</span></div>
+                    <div className="mk-bet-games">{koBettable.map(renderKoCard)}</div>
+                  </div>
+                )}
+                {koBr && koBettable.length === 0 && liberados.length === 0 && (
+                  <div className="empty"><div className="e1">MATA-MATA EM ANDAMENTO</div><div className="e2">Os confrontos abertos aparecem aqui pra apostar. No momento nenhum está liberado (começaram ou terminaram). A chave completa fica em CAMPEONATOS → MK.</div></div>
+                )}
+                {(!koBr || liberados.length > 0) && (<>
                 {/* DESTAQUES: jogos marcados pelo MOD — cartão cheio (mesmo
                     renderGameCard da lista normal), pra dar pra apostar direto
                     sem precisar achar o jogo lá embaixo. */}
@@ -11823,6 +11846,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                     </div>
                   </div>
                 ))}
+                </>)}
               </div>
 
               <aside className={'mk-cupom-wrap' + (cupomOpen ? ' cupom-open' : '')}
@@ -11850,7 +11874,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                       {cupom.map(l => (
                         <div key={l.key} className="cupom-leg">
                           <div className="cupom-leg-txt">
-                            <div className="cupom-leg-mkt">{MK_MARKET_TITLE[l.market]}</div>
+                            <div className="cupom-leg-mkt">{l.isKo && <span className="cupom-leg-ko">MATA-MATA</span>}{mkLegMktTitle(l)}</div>
                             <div className="cupom-leg-pick">{l.home}×{l.away} - <strong>{mkLegLabel(l)}</strong></div>
                           </div>
                           <div className="cupom-leg-odd mono">{l.odd.toFixed(2)}</div>
@@ -11892,7 +11916,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                       {/* Todo cupom agora vai pra MESA DOS CARTOLAS automaticamente ao apostar. */}
                       <div className="cupom-public-note"><Icon name="cards" size={12} /> Toda aposta é pública na MESA DOS CARTOLAS — os outros podem copiar.</div>
                       <button type="button" className="cupom-share" onClick={() => {
-                        const txt = 'Cupom MK: ' + cupom.map(l => MK_MARKET_TITLE[l.market] + ' ' + mkLegLabel(l) + ' @' + l.odd.toFixed(2)).join(' + ') + ' = ' + combined.toFixed(2) + 'x';
+                        const txt = 'Cupom MK: ' + cupom.map(l => mkLegMktTitle(l) + ' ' + mkLegLabel(l) + ' @' + l.odd.toFixed(2)).join(' + ') + ' = ' + combined.toFixed(2) + 'x';
                         navigator.clipboard.writeText(txt).then(() => showToast('Cupom copiado!', 'success'), () => showToast('Falha ao copiar.', 'error'));
                       }}>
                         <Icon name="arrow-up-right" size={13} /> COMPARTILHAR CUPOM
