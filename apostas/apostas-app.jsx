@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260712-mkfut3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260712-mkfut4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -11596,9 +11596,10 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     market: mkt,
     title: MK_KO_TOURNEY_TITLE[mkt],
     picks: (ko.seeds || []).map(p => ({ player: p, prob: (koTourneyProbs[p] || {})[MK_KO_TOURNEY_PROB[mkt]] || 0 }))
-      // fora: já-garantidos/quase-certos (>~91%, viraria dinheiro grátis) E quem tem
-      // chance desprezível (<0.5%, exibiria "0%") — o mercado só lista disputa real.
-      .filter(x => mkKoTourneyPickBettable(x.prob) && x.prob >= 0.005)
+      // Lista TODO MUNDO que ainda pode chegar lá (até os azarões — chances minúsculas
+      // exibem "<1%"). Só corta os já-garantidos/quase-certos (>~91%, viraria dinheiro
+      // grátis pelo piso de odd) e os eliminados (prob 0). Ex: campeão mostra os 8.
+      .filter(x => mkKoTourneyPickBettable(x.prob))
       .map(x => ({ player: x.player, prob: x.prob, odd: mkKoOddFromProb(x.prob) }))
       .sort((a, b) => a.odd - b.odd),
   })).filter(m => m.picks.length > 0) : [];
@@ -12094,7 +12095,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     return (
       <div className="mk-lib-round mk-ko-libround mk-ko-tny-box">
         <div className="mk-lib-round-h"><Icon name="trophy" size={12} /> MERCADOS DO CAMPEONATO <span className="mk-lib-round-c">{koTourneyMarkets.length} MERCADO{koTourneyMarkets.length === 1 ? '' : 'S'}</span></div>
-        <div className="mk-ko-tny-sub">Aposte em quem leva o título, chega na final, na semi, fica com o vice ou sobe ao pódio. Quem já garantiu a vaga (ou está a um passo) sai do mercado — só aparece quem ainda tem disputa. Um palpite por mercado — casa com os confrontos.</div>
+        <div className="mk-ko-tny-sub">Aposte em quem leva o título, chega na final, na semi, fica com o vice ou sobe ao pódio. Aparece todo mundo que ainda pode chegar lá (até os azarões); só sai quem já garantiu a vaga ou está a um passo. Um palpite por mercado — casa com os confrontos.</div>
         <div className="mk-tny-list">
           {koTourneyMarkets.map(mkt => {
             const key = 'mkkot-' + mkt.market;
@@ -12126,7 +12127,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             {own && <span className="mk-tny-pk-you">VOCÊ</span>}
                           </span>
                           <span className="mk-tny-pk-r">
-                            <span className="mk-tny-pk-prob">{Math.round(pk.prob * 100)}%</span>
+                            <span className="mk-tny-pk-prob">{pk.prob >= 0.005 ? Math.round(pk.prob * 100) + '%' : '<1%'}</span>
                             <span className="mk-tny-pk-odd">{pk.odd.toFixed(2)}</span>
                           </span>
                         </button>
