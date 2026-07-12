@@ -5651,3 +5651,7 @@
     .mj-mini-ko-status.live { color: rgba(28,22,18,0.6); }
     .mj-mini-cta-ko { background: #b3231a; }
     .mj-mini-cta-ko:hover { background: var(--pv-bone); color: #b3231a; }
+
+    /* Lancador do KO: linhas do 1o golpe / 1o round */
+    .mk-ko-launch-meta .mk-ko-launch-gn { min-width: 64px; font-size: 9px; color: #b3231a; letter-spacing: 0.03em; font-family: inherit; font-weight: 800; }
+    .mk-ko-launch-meta { border-top: 1px dashed rgba(28,22,18,0.18); border-bottom: 1px dashed rgba(28,22,18,0.18); }

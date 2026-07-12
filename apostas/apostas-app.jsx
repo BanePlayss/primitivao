@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260712-kocasa ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260712-kogolpe ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -723,7 +723,7 @@ const MK_KO_DOWNSTREAM = {
 // Confronto JÁ COMEÇOU? Olha o DOC (qualquer gN lançado), não o outcome — o
 // outcome trunca no primeiro buraco (mod desfez o J1 com J2 lançado) e diria
 // "não começou" com jogo gravado, reabrindo a escalação blind já revelada.
-const mkKoMatchStarted = (sc) => !!sc && ['g1', 'g2', 'g3', 'g4', 'g5'].some(k => sc[k] === 'H' || sc[k] === 'A');
+const mkKoMatchStarted = (sc) => !!sc && ['g1', 'g2', 'g3', 'g4', 'g5', 'fh', 'fr'].some(k => sc[k] === 'H' || sc[k] === 'A');
 // Resultado de um confronto MD5: lê g1..g5 EM ORDEM e para no primeiro jogo sem
 // vencedor ou quando um lado fecha 3. Sempre devolve objeto (parcial serve pra UI).
 function mkKoOutcome(sc) {
@@ -1358,14 +1358,17 @@ function mkPickLabel(market, pick) {
 // força dos jogadores). Sem escalação visível (blind) -> charEdge não entra.
 // Mercados: KVENC (quem passa, sem empate), KPLACAR (3-0/3-1/3-2 dos dois lados),
 // KTOTAL (3/4/5 jogos). Pernas de aposta: champId 'mkko', fixtureId 'mkko:<id>'.
-// KG1/KG2/KG3 = quem vence CADA jogo do MD5 (o 1º, 2º e 3º SEMPRE são jogados —
-// um MD5 tem no mínimo 3 jogos; 4º/5º são condicionais, por isso não viram
-// mercado). KG1 é o "primeiro golpe" (quem abre o placar). Jogos são
-// independentes (cada um é uma luta primeiro-a-2), então a odd por jogo é a
-// mesma nos três, vinda da prob por jogo.
-const MK_KO_MARKETS = ['KVENC', 'KG1', 'KG2', 'KG3', 'KPLACAR', 'KTOTAL'];
-const MK_KO_MARKET_TITLE = { KVENC: 'QUEM PASSA', KG1: 'PRIMEIRO GOLPE (1º JOGO)', KG2: 'VENCE O 2º JOGO', KG3: 'VENCE O 3º JOGO', KPLACAR: 'PLACAR (MD5)', KTOTAL: 'TOTAL DE JOGOS' };
+// Mercados do confronto, do mais granular pro mais decisivo:
+//  KGOLPE (1º golpe: quem acerta primeiro) · KROUND (quem vence o 1º round) ·
+//  KG1/KG2/KG3 (quem vence cada JOGO/luta do MD5 — 1º/2º/3º sempre acontecem) ·
+//  KPLACAR/KTOTAL/KVENC (do confronto inteiro). São coisas DIFERENTES: golpe <
+//  round < jogo < confronto. KGOLPE e KROUND o MOD registra (sc.fh / sc.fr),
+//  igual o "primeiro round" da liga; os KGx saem de quem venceu cada jogo.
+const MK_KO_MARKETS = ['KVENC', 'KGOLPE', 'KROUND', 'KG1', 'KG2', 'KG3', 'KPLACAR', 'KTOTAL'];
+const MK_KO_MARKET_TITLE = { KVENC: 'QUEM PASSA', KGOLPE: '1º GOLPE (QUEM ACERTA PRIMEIRO)', KROUND: 'VENCE O 1º ROUND', KG1: 'VENCE O 1º JOGO', KG2: 'VENCE O 2º JOGO', KG3: 'VENCE O 3º JOGO', KPLACAR: 'PLACAR (MD5)', KTOTAL: 'TOTAL DE JOGOS' };
 const MK_KO_GAME_MARKETS = ['KG1', 'KG2', 'KG3'];
+// Mercados cujo palpite é um LADO (H/A) — rótulo vira o nick do jogador.
+const MK_KO_SIDE_MARKETS = ['KVENC', 'KGOLPE', 'KROUND', 'KG1', 'KG2', 'KG3'];
 const MK_KO_PLACAR_PICKS = ['30', '31', '32', '23', '13', '03']; // mandante 3-x / visitante x-3
 const MK_KO_TOTAL_PICKS = ['3', '4', '5'];
 // Distribuição do MD5 dado p = prob do MANDANTE vencer 1 jogo. Placar do lado que
@@ -1380,31 +1383,33 @@ function mkKoMd5Dist(p) {
     t3: s30 + s03, t4: s31 + s13, t5: s32 + s23,
   };
 }
-// Prob do mandante vencer UM jogo do MD5 (uma luta primeiro-a-2). Da força da
-// liga -> logit (sem bonecos, blind) -> prob de round -> prob de partida, clampada.
-function mkKoMatchupProb(home, away, metrics, draw, scores) {
-  const pRound = sigmoid(mkRoundLogit(home, away, metrics, null, {}, draw, scores));
-  return mkClampP(mkPartidaWinProb(pRound));
-}
-// Odds do confronto de mata-mata (mesma compressão/teto das odds da liga).
+// Odds do confronto de mata-mata (mesma compressão/teto das odds da liga). Da
+// força da liga sai a prob de round (pRound); dela a prob de jogo (pGame, base do
+// MD5) e a prob do 1º golpe (pHit, puxada pro 50-50 porque é mais aleatório).
 function computeMkKoOdds(home, away, metrics, draw, scores) {
-  const p = mkKoMatchupProb(home, away, metrics, draw, scores);
+  const pRound = mkClampP(sigmoid(mkRoundLogit(home, away, metrics, null, {}, draw, scores)));
+  const p = mkClampP(mkPartidaWinProb(pRound));       // prob de vencer 1 JOGO (base do MD5)
+  const pHit = mkClampP(0.5 + (pRound - 0.5) * 0.5);  // 1º golpe: mais perto de 50-50
   const d = mkKoMd5Dist(p);
   const mko = (pp) => (!(pp > 0) || !isFinite(pp)) ? MK_ODD_FALLBACK
     : Math.max(ODD_MIN, mkCapOdd(1 + (1 / pp - 1) * MK_ODD_K));
   const placar = {}; MK_KO_PLACAR_PICKS.forEach(k => { placar[k] = mko(d[k]); });
-  const perGame = { H: mko(p), A: mko(1 - p) }; // quem vence UM jogo (iid) — mesma odd nos 3
+  const perGame = { H: mko(p), A: mko(1 - p) };        // quem vence UM jogo (iid) — mesma odd nos 3
   return {
     KVENC:   { H: mko(d.win), A: mko(d.loss) },
+    KGOLPE:  { H: mko(pHit), A: mko(1 - pHit) },
+    KROUND:  { H: mko(pRound), A: mko(1 - pRound) },
     KG1: perGame, KG2: perGame, KG3: perGame,
     KPLACAR: placar,
     KTOTAL:  { '3': mko(d.t3), '4': mko(d.t4), '5': mko(d.t5) },
     _p: p, _dist: d,
   };
 }
-// Liquidação de uma perna do KO. sc = ko.scores[matchId]. Pendente enquanto o
-// MD5 não fecha (não vira derrota antes da hora).
+// Liquidação de uma perna do KO. sc = ko.scores[matchId].
 function mkKoLegResult(market, pick, sc) {
+  // 1º GOLPE / 1º ROUND: o mod registra sc.fh / sc.fr ('H'|'A'). Pendente até lá.
+  if (market === 'KGOLPE') { const v = sc && sc.fh; return (v !== 'H' && v !== 'A') ? 'pending' : (pick === v ? 'win' : 'lose'); }
+  if (market === 'KROUND') { const v = sc && sc.fr; return (v !== 'H' && v !== 'A') ? 'pending' : (pick === v ? 'win' : 'lose'); }
   // Mercados POR JOGO (KG1/KG2/KG3): liquidam assim que o jogo é lançado, mesmo
   // antes do confronto acabar. Pendente enquanto aquele jogo não saiu.
   if (MK_KO_GAME_MARKETS.indexOf(market) !== -1) {
@@ -1422,15 +1427,15 @@ function mkKoLegResult(market, pick, sc) {
     default: return 'pending';
   }
 }
-// Rótulo do palpite do KO (usa os nicks reais pra QUEM PASSA e por jogo).
+// Rótulo do palpite do KO (usa os nicks reais nos mercados de LADO).
 function mkKoPickLabel(market, pick, home, away) {
-  if (market === 'KVENC' || MK_KO_GAME_MARKETS.indexOf(market) !== -1) return pick === 'H' ? home : pick === 'A' ? away : pick;
+  if (MK_KO_SIDE_MARKETS.indexOf(market) !== -1) return pick === 'H' ? home : pick === 'A' ? away : pick;
   if (market === 'KPLACAR') return pick[0] + '×' + pick[1];
   if (market === 'KTOTAL') return pick + ' jogos';
   return pick;
 }
 function mkKoMarketPicks(market) {
-  if (market === 'KVENC' || MK_KO_GAME_MARKETS.indexOf(market) !== -1) return ['H', 'A'];
+  if (MK_KO_SIDE_MARKETS.indexOf(market) !== -1) return ['H', 'A'];
   if (market === 'KPLACAR') return MK_KO_PLACAR_PICKS;
   if (market === 'KTOTAL') return MK_KO_TOTAL_PICKS;
   return [];
@@ -3478,6 +3483,20 @@ function App() {
         (MK_KO_DOWNSTREAM[matchId] || []).forEach(id => { delete scores[id]; delete lineups[id]; });
       }
       return { ...ko, scores, lineups };
+    };
+    setMkKo(prev => (prev && prev.published) ? apply(prev) : prev);
+    return persistMk(mk => (!mk.ko || !mk.ko.published) ? mk : { ...mk, ko: apply(mk.ko) });
+  };
+  // MOD: registra o 1º GOLPE (fh) ou 1º ROUND (fr) de um confronto ('H'|'A'|null
+  // pra limpar). Não mexe no chaveamento (não cascateia).
+  const setMkKoField = (matchId, field, side) => {
+    if (field !== 'fh' && field !== 'fr') return;
+    const val = side === 'H' || side === 'A' ? side : undefined;
+    const apply = (ko) => {
+      const cur = (ko.scores || {})[matchId] || {};
+      const nextSc = { ...cur };
+      if (val) nextSc[field] = val; else delete nextSc[field];
+      return { ...ko, scores: { ...(ko.scores || {}), [matchId]: nextSc } };
     };
     setMkKo(prev => (prev && prev.published) ? apply(prev) : prev);
     return persistMk(mk => (!mk.ko || !mk.ko.published) ? mk : { ...mk, ko: apply(mk.ko) });
@@ -5545,7 +5564,7 @@ function App() {
                   draw={mkDraw} onPublishDraw={publishMkDraw}
                   scores={mkScores} onScore={setMkScoreField} lineups={mkLineups}
                   isAdmin={isAdmin} isMod={isMod} locked={mkLocked} myNick={session.nick} launchOnly
-                  ko={mkKo} onPublishKo={publishMkKo} onResetKo={resetMkKo} onKoGame={setMkKoGame}
+                  ko={mkKo} onPublishKo={publishMkKo} onResetKo={resetMkKo} onKoGame={setMkKoGame} onKoField={setMkKoField}
                 />
                 <div style={{ height: 18 }} />
                 <ClassificacaoView cs={cs} setCs={setCs} isAdmin={isMod}
@@ -10741,7 +10760,7 @@ function MkKoSection({ players, teamPlayers, draw, scores, ko, myNick, onKoLineu
 }
 // LANÇADOR do mata-mata (MOD): marca o vencedor de cada jogo do MD5, na ordem.
 // Revela os personagens do jogo só DEPOIS do resultado (mesma regra de todo mundo).
-function MkKoLauncher({ ko, teamPlayers, onKoGame, myNick }) {
+function MkKoLauncher({ ko, teamPlayers, onKoGame, onKoField, myNick }) {
   const br = mkKoBracket((ko && ko.seeds) || [], (ko && ko.scores) || {});
   const ready = MK_KO_IDS.map(id => br[id]).filter(m => m.home && m.away);
   const pend = ready.filter(m => !m.done), done = ready.filter(m => m.done);
@@ -10760,6 +10779,25 @@ function MkKoLauncher({ ko, teamPlayers, onKoGame, myNick }) {
           <span className="mk-ko-launch-side"><Avatar nick={m.away} teamPlayers={teamPlayers} size={20} noBadge /> {m.away}</span>
           {(!luH || !luA) && <span className="mk-ko-launch-warn"><Icon name="warning" size={10} /> {[!luH && m.home, !luA && m.away].filter(Boolean).join(' e ')} sem escalação blind</span>}
         </div>
+        {/* 1º GOLPE e 1º ROUND — quem foi o primeiro (mercados de aposta). */}
+        {onKoField && [{ f: 'fh', lb: '1º GOLPE' }, { f: 'fr', lb: '1º ROUND' }].map(({ f, lb }) => {
+          const raw = (((ko.scores || {})[m.id]) || {})[f];
+          const cur = raw === 'H' || raw === 'A' ? raw : null;
+          return (
+            <div key={f} className={'mk-ko-launch-g mk-ko-launch-meta' + (cur ? ' set' : '')}>
+              <span className="mk-ko-launch-gn">{lb}</span>
+              <button type="button" className={'mk-ko-gbtn h' + (cur === 'H' ? ' on' : '')}
+                onClick={() => onKoField(m.id, f, cur === 'H' ? null : 'H')} title={m.home + ' fez o ' + lb.toLowerCase()}>
+                <Icon name="fist" size={10} /> {m.home}
+              </button>
+              <span className="mk-ko-launch-gx">×</span>
+              <button type="button" className={'mk-ko-gbtn a' + (cur === 'A' ? ' on' : '')}
+                onClick={() => onKoField(m.id, f, cur === 'A' ? null : 'A')} title={m.away + ' fez o ' + lb.toLowerCase()}>
+                <Icon name="fist" size={10} /> {m.away}
+              </button>
+            </div>
+          );
+        })}
         {[1, 2, 3, 4, 5].map(n => {
           // vencedor do jogo DIRETO do doc (não do outcome, que trunca em buraco
           // de correção) — todo jogo gravado fica visível e desfazível.
@@ -10790,7 +10828,7 @@ function MkKoLauncher({ ko, teamPlayers, onKoGame, myNick }) {
   };
   return (
     <div className="mk-ko-launcher">
-      <div className="mk-admin-note" style={{ marginBottom: 10 }}><Icon name="whistle" size={12} /> MATA-MATA — toque no LADO que venceu cada jogo (na ordem). Personagens aparecem depois do resultado. Toque de novo pra corrigir.</div>
+      <div className="mk-admin-note" style={{ marginBottom: 10 }}><Icon name="whistle" size={12} /> MATA-MATA — marque o <strong>1º GOLPE</strong> e o <strong>1º ROUND</strong> (quem foi primeiro) e o LADO que venceu cada jogo (na ordem). Personagens aparecem depois do resultado. Toque de novo pra corrigir.</div>
       {pend.length === 0 && done.length === 0 && <div className="empty"><div className="e1">NADA A LANÇAR</div><div className="e2">Nenhum confronto do mata-mata com os dois lados definidos.</div></div>}
       {pend.map(row)}
       {done.length > 0 && <div className="mk-ko-launch-done-lb">JÁ ENCERRADOS</div>}
@@ -10799,7 +10837,7 @@ function MkKoLauncher({ ko, teamPlayers, onKoGame, myNick }) {
   );
 }
 
-function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPublishDraw, scores, onScore, isAdmin, isMod, locked, myNick, launchOnly, ko, onPublishKo, onResetKo, onKoGame, onKoLineup, onKoBet, balance }) {
+function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPublishDraw, scores, onScore, isAdmin, isMod, locked, myNick, launchOnly, ko, onPublishKo, onResetKo, onKoGame, onKoField, onKoLineup, onKoBet, balance }) {
   // draw/scores vêm do App (persistidos no doc de apostas, campo `mk`).
   // null = segue a 1ª rodada com jogo pendente (a "rodada atual"); número =
   // navegação manual do usuário pelas setas.
@@ -10880,7 +10918,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
         {koPublished && (
           <>
             <div style={{ height: 14 }} />
-            <MkKoLauncher ko={ko} teamPlayers={teamPlayers} onKoGame={onKoGame} myNick={myNick} />
+            <MkKoLauncher ko={ko} teamPlayers={teamPlayers} onKoGame={onKoGame} onKoField={onKoField} myNick={myNick} />
             {isAdmin && (
               <div className="mk-sorteio-bar" style={{ marginTop: 10 }}>
                 <span>Mata-mata publicado{ko.publishedAt ? ' em ' + new Date(ko.publishedAt).toLocaleDateString('pt-BR') : ''}.</span>
@@ -11850,7 +11888,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                           title={hot ? 'Maior prêmio do mercado' : fav ? 'Favorito do mercado' : undefined}
                           onClick={() => toggleKoLeg(m, mkt, pick, v)} disabled={ownGame}>
                           <span className="mk-odd-l">
-                            {(mkt === 'KVENC' || MK_KO_GAME_MARKETS.indexOf(mkt) !== -1) ? (pick === 'H' ? m.home : m.away)
+                            {MK_KO_SIDE_MARKETS.indexOf(mkt) !== -1 ? (pick === 'H' ? m.home : m.away)
                               : mkt === 'KPLACAR' ? <span className="mk-odd-pl"><span className="mk-sc-h">{pick[0]}</span><span className="mk-sc-x">×</span><span className="mk-sc-a">{pick[1]}</span></span>
                               : pick + ' jogos'}
                           </span>
