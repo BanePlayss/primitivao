@@ -5655,3 +5655,33 @@
     /* Lancador do KO: linhas do 1o golpe / 1o round */
     .mk-ko-launch-meta .mk-ko-launch-gn { min-width: 64px; font-size: 9px; color: #b3231a; letter-spacing: 0.03em; font-family: inherit; font-weight: 800; }
     .mk-ko-launch-meta { border-top: 1px dashed rgba(28,22,18,0.18); border-bottom: 1px dashed rgba(28,22,18,0.18); }
+
+    /* ─── MERCADOS DO CAMPEONATO (outright: campeão / final / semi / vice / pódio) ─── */
+    .mk-ko-tny-box .mk-lib-round-h { color: #b3231a; }
+    .mk-ko-tny-sub { font-size: 11px; line-height: 1.5; color: rgba(28,22,18,0.62); margin: -4px 0 12px; max-width: 60ch; }
+    .mk-tny-list { display: flex; flex-direction: column; gap: 8px; }
+    .mk-tny { border: 1.5px solid var(--pv-charcoal); background: var(--pv-bone-2); }
+    .mk-tny.open { box-shadow: 0 2px 0 rgba(28,22,18,0.12); }
+    .mk-tny-h { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; background: none; border: none; cursor: pointer; font-family: inherit; text-align: left; }
+    .mk-tny-h:hover { background: rgba(179,35,26,0.05); }
+    .mk-tny-title { display: flex; align-items: center; gap: 8px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 12px; letter-spacing: 0.1em; color: var(--pv-charcoal); }
+    .mk-tny-title svg { color: #b3231a; flex-shrink: 0; }
+    .mk-tny-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .mk-tny-fav { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; color: rgba(28,22,18,0.55); font-family: 'JetBrains Mono', monospace; }
+    .mk-tny-favp { color: var(--pv-charcoal); }
+    .mk-tny-favp i { color: var(--pv-orange); font-style: normal; font-weight: 800; margin-left: 3px; }
+    .mk-tny-meta > svg { color: rgba(28,22,18,0.4); flex-shrink: 0; }
+    .mk-tny-picks { display: flex; flex-direction: column; border-top: 1px dashed rgba(28,22,18,0.18); }
+    .mk-tny-pick { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; background: none; border: none; border-bottom: 1px solid rgba(28,22,18,0.07); cursor: pointer; font-family: inherit; text-align: left; transition: background .1s ease; }
+    .mk-tny-pick:last-child { border-bottom: none; }
+    .mk-tny-pick:hover { background: rgba(215,100,20,0.08); }
+    .mk-tny-pick.on { background: var(--pv-orange); }
+    .mk-tny-pick.on .mk-tny-pk-nick, .mk-tny-pick.on .mk-tny-pk-prob, .mk-tny-pick.on .mk-tny-pk-odd { color: #fff; }
+    .mk-tny-pick.off { opacity: 0.5; cursor: not-allowed; }
+    .mk-tny-pick.off:hover { background: none; }
+    .mk-tny-pk-l { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .mk-tny-pk-nick { font-weight: 700; font-size: 13px; color: var(--pv-charcoal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mk-tny-pk-you { font-size: 8px; font-weight: 800; letter-spacing: 0.08em; background: var(--pv-charcoal); color: var(--pv-bone); padding: 1px 5px; flex-shrink: 0; }
+    .mk-tny-pk-r { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .mk-tny-pk-prob { font-size: 11px; font-weight: 700; color: rgba(28,22,18,0.5); font-family: 'JetBrains Mono', monospace; min-width: 34px; text-align: right; }
+    .mk-tny-pk-odd { font-size: 15px; font-weight: 800; color: var(--pv-orange); font-family: 'JetBrains Mono', monospace; min-width: 44px; text-align: right; }

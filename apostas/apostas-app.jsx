@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260712-kogolpe ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260712-mkfut3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -724,6 +724,8 @@ const MK_KO_DOWNSTREAM = {
 // outcome trunca no primeiro buraco (mod desfez o J1 com J2 lançado) e diria
 // "não começou" com jogo gravado, reabrindo a escalação blind já revelada.
 const mkKoMatchStarted = (sc) => !!sc && ['g1', 'g2', 'g3', 'g4', 'g5', 'fh', 'fr'].some(k => sc[k] === 'H' || sc[k] === 'A');
+// Algum confronto do mata-mata já começou? (trava cancelamento de aposta outright).
+const mkKoAnyStarted = (koScores) => MK_KO_IDS.some(id => mkKoMatchStarted((koScores || {})[id]));
 // Resultado de um confronto MD5: lê g1..g5 EM ORDEM e para no primeiro jogo sem
 // vencedor ou quando um lado fecha 3. Sempre devolve objeto (parcial serve pra UI).
 function mkKoOutcome(sc) {
@@ -1445,6 +1447,91 @@ function mkKoMarketPicks(market) {
 function mkKoBettable(m, sc) {
   return !!(m && m.home && m.away && !m.done && !mkKoMatchStarted(sc));
 }
+// Odd a partir de uma prob (mesma compressão/teto/piso das outras odds do KO).
+function mkKoOddFromProb(pp) {
+  return (!(pp > 0) || !isFinite(pp)) ? MK_ODD_FALLBACK
+    : Math.max(ODD_MIN, mkCapOdd(1 + (1 / pp - 1) * MK_ODD_K));
+}
+
+// ─── MERCADOS DO CAMPEONATO (outright: campeão, finalista, etc.) ─────────────
+const MK_KO_TOURNEY_MARKETS = ['CHAMP', 'FINAL', 'SEMI', 'VICE', 'PODIUM'];
+const MK_KO_TOURNEY_TITLE = { CHAMP: 'CAMPEÃO DO MK', FINAL: 'CHEGA NA FINAL', SEMI: 'CHEGA NA SEMI', VICE: 'VICE-CAMPEÃO', PODIUM: 'PÓDIO (TOP 3)' };
+const MK_KO_TOURNEY_PROB = { CHAMP: 'champ', FINAL: 'final', SEMI: 'semi', VICE: 'vice', PODIUM: 'podium' };
+// Prob de cada jogador em cada estágio, simulando o chaveamento a partir dos seeds
+// + resultados JÁ decididos (fixos, prob 1) + prob de confronto pros futuros (P(a
+// vence b num MD5), da força da liga). Devolve { nick: { champ, final, semi, vice, podium } }.
+function mkKoTournamentProbs(seeds, koScores, metrics, draw, scores) {
+  const out = {};
+  (seeds || []).forEach(p => { if (p) out[p] = { champ: 0, final: 0, semi: 0, vice: 0, podium: 0 }; });
+  if (!seeds || seeds.filter(Boolean).length < 8) return out;
+  const S = (i) => seeds[i - 1];
+  const ks = koScores || {};
+  const cache = {};
+  const pWin = (a, b) => { const k = a + '|' + b; if (cache[k] != null) return cache[k]; const v = computeMkKoOdds(a, b, metrics, draw, scores)._dist.win; cache[k] = v; return v; };
+  const decided = (id, a, b) => { const o = mkKoOutcome(ks[id]); return (o.done && a && b) ? (o.winner === 'H' ? [a, b] : [b, a]) : null; };
+  const dist = (id, a, b) => { if (!a || !b) return []; const d = decided(id, a, b); if (d) return [[d[0], 1]]; const p = pWin(a, b); return [[a, p], [b, 1 - p]]; };
+  const agg = (list) => { const m = {}; list.forEach(([w, p]) => { m[w] = (m[w] || 0) + p; }); return Object.keys(m).map(w => [w, m[w]]); };
+  const dR1 = dist('R1', S(3), S(8)), dR2 = dist('R2', S(4), S(7)), dR3 = dist('R3', S(5), S(6));
+  const dR4 = [];
+  dR2.forEach(([w2, p2]) => dR3.forEach(([w3, p3]) => {
+    const d = decided('R4', w2, w3);
+    if (d) dR4.push([d[0], p2 * p3]);
+    else { const pw = pWin(w2, w3); dR4.push([w2, p2 * p3 * pw]); dR4.push([w3, p2 * p3 * (1 - pw)]); }
+  }));
+  const aR1 = agg(dR1), aR4 = agg(dR4);
+  out[S(1)].semi = 1; out[S(2)].semi = 1;               // cabeças de chave já estão na semi
+  aR1.forEach(([w, p]) => { out[w].semi += p; });
+  aR4.forEach(([w, p]) => { out[w].semi += p; });
+  const wSF1 = [], loSF1 = [], wSF2 = [], loSF2 = [];   // vencedores/perdedores das semis
+  aR1.forEach(([w, p]) => { const d = decided('SF1', S(1), w);
+    if (d) { wSF1.push([d[0], p]); loSF1.push([d[1], p]); }
+    else { const pw = pWin(S(1), w); wSF1.push([S(1), p * pw]); wSF1.push([w, p * (1 - pw)]); loSF1.push([w, p * pw]); loSF1.push([S(1), p * (1 - pw)]); } });
+  aR4.forEach(([w, p]) => { const d = decided('SF2', S(2), w);
+    if (d) { wSF2.push([d[0], p]); loSF2.push([d[1], p]); }
+    else { const pw = pWin(S(2), w); wSF2.push([S(2), p * pw]); wSF2.push([w, p * (1 - pw)]); loSF2.push([w, p * pw]); loSF2.push([S(2), p * (1 - pw)]); } });
+  const awSF1 = agg(wSF1), awSF2 = agg(wSF2), aloSF1 = agg(loSF1), aloSF2 = agg(loSF2);
+  awSF1.forEach(([w, p]) => { out[w].final += p; });
+  awSF2.forEach(([w, p]) => { out[w].final += p; });
+  awSF1.forEach(([a, pa]) => awSF2.forEach(([b, pb]) => { const p = pa * pb; const d = decided('F', a, b);
+    if (d) out[d[0]].champ += p; else { const pw = pWin(a, b); out[a].champ += p * pw; out[b].champ += p * (1 - pw); } }));
+  const p3 = {};                                        // 3º lugar = vence o T3 (perdedor SF1 vs perdedor SF2)
+  aloSF1.forEach(([a, pa]) => aloSF2.forEach(([b, pb]) => { const p = pa * pb; const d = decided('T3', a, b);
+    if (d) p3[d[0]] = (p3[d[0]] || 0) + p; else { const pw = pWin(a, b); p3[a] = (p3[a] || 0) + p * pw; p3[b] = (p3[b] || 0) + p * (1 - pw); } }));
+  Object.keys(out).forEach(x => { out[x].vice = Math.max(0, out[x].final - out[x].champ); out[x].podium = out[x].final + (p3[x] || 0); });
+  return out;
+}
+// Liquidação de uma perna de mercado do campeonato. br = mkKoBracket(seeds, koScores).
+function mkKoTourneyLegResult(market, player, br) {
+  if (!br || !br.F || !br.SF1 || !br.SF2 || !br.T3) return 'pending';
+  switch (market) {
+    case 'CHAMP':  return br.F.done ? (br.F.winner === player ? 'win' : 'lose') : 'pending';
+    case 'VICE':   return br.F.done ? (br.F.loser === player ? 'win' : 'lose') : 'pending';
+    case 'FINAL':  return (br.F.home && br.F.away) ? ((player === br.F.home || player === br.F.away) ? 'win' : 'lose') : 'pending';
+    case 'SEMI':   return (br.SF1.away && br.SF2.away) ? ([br.SF1.home, br.SF1.away, br.SF2.home, br.SF2.away].indexOf(player) !== -1 ? 'win' : 'lose') : 'pending';
+    case 'PODIUM':
+      // Campeão e vice JÁ estão no pódio assim que a final sai — não espera o 3º lugar
+      // (senão um palpite garantido ficaria pendente até o T3, que pode demorar/ser pulado).
+      if (br.F.done && (player === br.F.winner || player === br.F.loser)) return 'win';
+      return (br.F.done && br.T3.done) ? ([br.F.winner, br.F.loser, br.T3.winner].indexOf(player) !== -1 ? 'win' : 'lose') : 'pending';
+    default: return 'pending';
+  }
+}
+// Mercado do campeonato ainda ABERTO pra aposta? (o desfecho ainda não é conhecido)
+function mkKoTourneyOpen(market, br) {
+  switch (market) {
+    case 'CHAMP': case 'VICE': return !br.F.done;
+    case 'FINAL':  return !(br.F.home && br.F.away);
+    case 'SEMI':   return !(br.SF1.away && br.SF2.away);
+    case 'PODIUM': return !(br.F.done && br.T3.done);
+    default: return false;
+  }
+}
+// Um palpite outright só é OFERECIDO se ainda tem incerteza real: 0 < prob < 1/ODD_MIN.
+// Acima de 1/ODD_MIN o piso de odd (ODD_MIN) pagaria prêmio num evento quase certo
+// (ex: cabeça de chave "chega na semi" com prob≈1) — vira dinheiro grátis / +EV. Abaixo
+// do piso, a fórmula de compressão (mkKoOddFromProb) já garante margem da casa pra
+// qualquer prob<1. Vale no cliente (esconde) E no servidor (recusa) — sempre igual.
+function mkKoTourneyPickBettable(prob) { return prob > 0 && prob < 1 / ODD_MIN; }
 
 // ── PRÓXIMO JOGO PENDENTE (uso em UI — não trava mais o "liberados") ────────
 // Rodada do PRÓXIMO jogo pendente (não lançado) de um jogador. Infinity se já
@@ -4079,17 +4166,22 @@ function App() {
           // placar" [ko publicado, scores mudam] de "despublicou" [ko sumiu].)
           if (!ko || !ko.published) return null;
           const koScores = ko.scores || {};
+          const koBr = mkKoBracket(ko.seeds || [], koScores); // pras pernas de mercado do campeonato
           const newUsers = { ...(remote.users || {}) };
           let dirty = false;
           const newBets = remoteBets.map(b => {
             if (!b || b.champId !== 'mkko') return b;
             let changed = false;
             const legs = (b.legs || []).map(l => {
-              const mid = (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) ? l.fixtureId.slice(5) : l.koMatch;
-              const sc = mid ? (koScores[mid] || {}) : {};
-              // mkKoLegResult já sabe liquidar cada mercado na hora certa (por jogo:
-              // quando o jogo sai; confronto: quando o MD5 fecha). RE-AVALIA sempre.
-              const r = mkKoLegResult(l.market, l.pick, sc);
+              // mkKoLegResult (confronto) / mkKoTourneyLegResult (campeonato) já
+              // sabem liquidar cada mercado na hora certa. RE-AVALIA sempre.
+              let r;
+              if (l.tourney || (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkkot:') === 0)) {
+                r = mkKoTourneyLegResult(l.koTourneyMarket || l.market, l.pick, koBr);
+              } else {
+                const mid = (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) ? l.fixtureId.slice(5) : l.koMatch;
+                r = mkKoLegResult(l.market, l.pick, mid ? (koScores[mid] || {}) : {});
+              }
               const want = (r === 'win' || r === 'lose') ? r : undefined;
               if (want !== l.result) { changed = true; return { ...l, result: want }; }
               return l;
@@ -4431,6 +4523,9 @@ function App() {
         // Rejeita se algum jogo do cupom está travado pelo admin (FIFA: cs.rounds;
         // MK: mk.scores[gKey].locked — leg 'mk:<gKey>'). Jogo rolando = travado.
         const someLocked = t.legs.some(l => {
+          if (l.tourney || (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkkot:') === 0)) {
+            return mkKoAnyStarted((((remote.mk && remote.mk.ko) || {}).scores || {})); // outright: trava quando o mata-mata começa
+          }
           if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) {
             return mkKoMatchStarted((((remote.mk && remote.mk.ko) || {}).scores || {})[l.fixtureId.slice(5)]);
           }
@@ -4463,6 +4558,9 @@ function App() {
   // True se alguma perna já resolveu ou o jogo travou/jogou (não dá pra abrir/copiar).
   const legBusy = (legs, remote) => (legs || []).some(l => {
     if (l.result) return true;
+    if (l.tourney || (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkkot:') === 0)) {
+      return mkKoAnyStarted((((remote.mk && remote.mk.ko) || {}).scores || {}));
+    }
     if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) {
       return mkKoMatchStarted((((remote.mk && remote.mk.ko) || {}).scores || {})[l.fixtureId.slice(5)]);
     }
@@ -4628,7 +4726,36 @@ function App() {
         const seenKey = {};
         const legs = [];
         let combined = 1;
+        let tourneyProbs = null; // lazy — só computa se tiver perna de mercado do campeonato
         for (const l of payload.legs) {
+          // MERCADO DO CAMPEONATO (outright: campeão, finalista...). pick = jogador.
+          if (l.tourney) {
+            const mkt = l.koTourneyMarket;
+            if (MK_KO_TOURNEY_MARKETS.indexOf(mkt) === -1) return { __abort: true, result: { err: 'Mercado inválido.' } };
+            if (!mkKoTourneyOpen(mkt, br)) return { __abort: true, result: { err: 'Esse mercado já fechou.' } };
+            if (l.pick === nick) return { __abort: true, result: { err: 'Você não pode apostar em você mesmo.' } };
+            if ((ko.seeds || []).indexOf(l.pick) === -1) return { __abort: true, result: { err: 'Jogador inválido.' } };
+            const dkt = 'mkkot|' + mkt;
+            if (seenKey[dkt]) return { __abort: true, result: { err: 'Palpite repetido no mesmo mercado.' } };
+            seenKey[dkt] = 1;
+            // Um JOGADOR por cupom nos mercados do campeonato: CHAMP/FINAL/SEMI/VICE/PODIUM
+            // do mesmo jogador são eventos ENCAIXADOS (campeão⊂final⊂semi, campeão⊂pódio)
+            // ou EXCLUDENTES (campeão×vice). Casar dois pro mesmo nick ou paga muito além
+            // do justo (odds encaixadas multiplicam) ou é perda garantida — bloqueia os dois.
+            const dpl = 'mkkotP|' + l.pick;
+            if (seenKey[dpl]) return { __abort: true, result: { err: 'Só um mercado do campeonato por jogador no mesmo cupom (os mercados são ligados).' } };
+            seenKey[dpl] = 1;
+            if (!tourneyProbs) tourneyProbs = mkKoTournamentProbs(ko.seeds, ko.scores, metrics, draw, scoresOv);
+            const prob = (tourneyProbs[l.pick] || {})[MK_KO_TOURNEY_PROB[mkt]] || 0;
+            // Recusa palpite decidido/quase-certo (anti dinheiro-grátis pelo piso de odd).
+            // Mesma regra do cliente — servidor manda: não confia no que a UI mostrou.
+            if (!mkKoTourneyPickBettable(prob)) return { __abort: true, result: { err: prob > 0 ? (l.pick + ' já garantiu (ou está a um passo) — sem aposta nesse mercado.') : (l.pick + ' não tem mais chance nesse mercado.') } };
+            const serverOdd = mkKoOddFromProb(prob);
+            if (!(serverOdd > 1) || !isFinite(serverOdd)) return { __abort: true, result: { err: l.pick + ' não tem mais chance nesse mercado.' } };
+            combined *= serverOdd;
+            legs.push({ fixtureId: 'mkkot:' + mkt, tourney: true, koTourneyMarket: mkt, market: mkt, pick: l.pick, odds: serverOdd, odd: serverOdd });
+            continue;
+          }
           const m = br[l.koMatch];
           const sc = (ko.scores || {})[l.koMatch];
           if (!m || !mkKoBettable(m, sc)) return { __abort: true, result: { err: 'Esse confronto não está aberto pra aposta.' } };
@@ -4668,6 +4795,9 @@ function App() {
         if (t.status !== 'pending' || (t.legs || []).some(l => !!l.result)) return { __abort: true, result: { err: 'Aposta já em resolução.' } };
         // Jogo travado (em jogo) -> não pode cancelar.
         const locked = (t.legs || []).some(l => {
+          if (l.tourney || (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkkot:') === 0)) {
+            return mkKoAnyStarted((((remote.mk && remote.mk.ko) || {}).scores || {}));
+          }
           if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) {
             return mkKoMatchStarted((((remote.mk && remote.mk.ko) || {}).scores || {})[l.fixtureId.slice(5)]);
           }
@@ -9054,6 +9184,7 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, mkKo, teamPlaye
     // travado (impede saída esperta antes da bola rolar).
     const hasSettled = t.legs.some(l => !!l.result);
     const hasLocked = t.legs.some(l => {
+      if (l.tourney || (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkkot:') === 0)) return mkKoAnyStarted((mkKo || {}).scores || {});
       if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) return mkKoMatchStarted(((mkKo || {}).scores || {})[l.fixtureId.slice(5)]);
       if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) return mkGameClosed((mkScores || {})[l.fixtureId.slice(3)]);
       const g = resolveGame(l.fixtureId);
@@ -9078,9 +9209,10 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, mkKo, teamPlaye
           </div>
           <div className="pick">
             {t.legs.map((l, i) => {
-              const isKo = typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0;
-              const isMk = !isKo && typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0;
-              const f = (isMk || isKo) ? null : resolveGame(l.fixtureId);
+              const isKoT = l.tourney || (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkkot:') === 0);
+              const isKo = !isKoT && typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0;
+              const isMk = !isKoT && !isKo && typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0;
+              const f = (isMk || isKo || isKoT) ? null : resolveGame(l.fixtureId);
               const lg = { ...l, _fix: f };
               const iconName = l.result === 'win' ? 'check' : l.result === 'lose' ? 'x' : null;
               const iconColor = l.result === 'win' ? '#3a7d2a' : l.result === 'lose' ? '#c33' : 'rgba(28,22,18,0.5)';
@@ -9089,7 +9221,8 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, mkKo, teamPlaye
               // Mercado de LADO (VENCEDOR / 1º ROUND / KVENC): o palpite é um JOGADOR (H/A).
               // Destaca quem você escolheu — fica claro de relance o que foi apostado.
               const sidePick = (isMk && (l.market === 'VENC' || l.market === 'R1')) || (isKo && l.market === 'KVENC') ? (l.pick === 'H' ? 'home' : l.pick === 'A' ? 'away' : null) : null;
-              const mktTitle = isKo ? (MK_KO_MARKET_TITLE[l.market] || l.market) : (MK_MARKET_TITLE[l.market] || l.market);
+              const tMkt = isKoT ? (l.koTourneyMarket || l.market) : null;
+              const mktTitle = isKoT ? (MK_KO_TOURNEY_TITLE[tMkt] || tMkt) : isKo ? (MK_KO_MARKET_TITLE[l.market] || l.market) : (MK_MARKET_TITLE[l.market] || l.market);
               const pickTxt = isKo ? (mkKoPickLabel(l.market, l.pick, l.home, l.away) || '') : (mkPickLabel(l.market, l.pick) || '');
               const label = (isMk || isKo)
                 ? l.home + ' × ' + l.away + ' · ' + mktTitle + ' ' + pickTxt
@@ -9098,7 +9231,14 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, mkKo, teamPlaye
                 <div key={i} className={'tk-leg' + (l.result === 'win' ? ' leg-won' : l.result === 'lose' ? ' leg-lost' : '')}>
                   <div className="tk-leg-main">
                     {iconName ? <span className="tk-res" style={{ color: iconColor }}><Icon name={iconName} size={12} /></span> : <span style={{ color: iconColor }}>•</span>}
-                    {(isMk || isKo) ? (
+                    {isKoT ? (
+                      <span>
+                        <span className="tk-ko-chip">CAMPEONATO MK</span>
+                        <span className="tk-pickn">{l.pick}</span>
+                        {' · ' + mktTitle}{' '}
+                        <span style={{ color: 'var(--pv-orange)' }}>@{l.odds.toFixed(2)}</span>
+                      </span>
+                    ) : (isMk || isKo) ? (
                       <span>
                         {isKo && <span className="tk-ko-chip">MATA-MATA</span>}
                         <span className={sidePick === 'home' ? 'tk-pickn' : undefined}>{l.home}</span>
@@ -11207,13 +11347,14 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
 // apostar tudo do mesmo card); jogos de rodadas diferentes valem — casada
 // MULTIPLICA as odds. Única trava: VENCEDOR e CHANCE DUPLA não juntos no card.
 function mkLegLabel(l) {
+  if (l.tourney) return l.pick; // perna outright (campeão/finalista/etc): palpite é um nick
   if (l.isKo) return mkKoPickLabel(l.market, l.pick, l.home, l.away); // perna do mata-mata
   // CHANCE DUPLA no cupom: usa os nicks reais (ex: "bane ou empate").
   if (l.market === 'DC') return l.pick === '1X' ? (l.home + ' ou empate') : l.pick === '12' ? (l.home + ' ou ' + l.away) : ('empate ou ' + l.away);
   return mkPickLabel(l.market, l.pick);
 }
 // Título do mercado da perna (liga ou mata-mata).
-function mkLegMktTitle(l) { return l.isKo ? (MK_KO_MARKET_TITLE[l.market] || l.market) : (MK_MARKET_TITLE[l.market] || l.market); }
+function mkLegMktTitle(l) { return l.tourney ? (MK_KO_TOURNEY_TITLE[l.koTourneyMarket || l.market] || l.market) : l.isKo ? (MK_KO_MARKET_TITLE[l.market] || l.market) : (MK_MARKET_TITLE[l.market] || l.market); }
 // Sparkline de tendência (saldo de rounds acumulado). SVG minúsculo, escala
 // automática; some com menos de 2 pontos (nenhum jogo concluído).
 function MkSparkline({ series, away }) {
@@ -11447,6 +11588,20 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   const koScores = (ko && ko.scores) || {};
   const koBr = ko && ko.published ? mkKoBracket(ko.seeds || [], koScores) : null;
   const koBettable = koBr ? MK_KO_IDS.map(id => koBr[id]).filter(m => mkKoBettable(m, koScores[m.id])) : [];
+  // MERCADOS DO CAMPEONATO (outright): campeão / finalista / semi / vice / pódio.
+  // Probabilidade derivada do bracket + força (mkKoTournamentProbs); odd no MESMO
+  // modelo comprimido dos confrontos. Só mercados ABERTOS e jogadores ainda vivos.
+  const koTourneyProbs = koBr ? mkKoTournamentProbs(ko.seeds || [], koScores, metrics, draw, scores) : null;
+  const koTourneyMarkets = koBr ? MK_KO_TOURNEY_MARKETS.filter(mkt => mkKoTourneyOpen(mkt, koBr)).map(mkt => ({
+    market: mkt,
+    title: MK_KO_TOURNEY_TITLE[mkt],
+    picks: (ko.seeds || []).map(p => ({ player: p, prob: (koTourneyProbs[p] || {})[MK_KO_TOURNEY_PROB[mkt]] || 0 }))
+      // fora: já-garantidos/quase-certos (>~91%, viraria dinheiro grátis) E quem tem
+      // chance desprezível (<0.5%, exibiria "0%") — o mercado só lista disputa real.
+      .filter(x => mkKoTourneyPickBettable(x.prob) && x.prob >= 0.005)
+      .map(x => ({ player: x.player, prob: x.prob, odd: mkKoOddFromProb(x.prob) }))
+      .sort((a, b) => a.odd - b.odd),
+  })).filter(m => m.picks.length > 0) : [];
   // vitórias por boneco (todas as partidas com escalação) — "duelo dos bonecos".
   const charStats = useMemo(() => mkCharWinStats(draw, scores, lineups), [draw, scores, lineups]);
   // LISTA ÚNICA "LIBERADOS": todo jogo que dá pra apostar AGORA (de qualquer rodada,
@@ -11507,6 +11662,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   // Palpite de um confronto do MATA-MATA no MESMO cupom. Chave por CONFRONTO
   // (mkko-<id>): um palpite por confronto (KVENC/KPLACAR/KTOTAL são correlacionados).
   const koPickInCupom = (matchId, market, pick) => cupom.some(l => l.isKo && l.koMatch === matchId && l.market === market && l.pick === pick);
+  const koTourneyPickInCupom = (market, player) => cupom.some(l => l.tourney && l.koTourneyMarket === market && l.pick === player);
   const toggleKoLeg = (m, market, pick, odd) => {
     if (myNick && (m.home === myNick || m.away === myNick)) { showToast('Você não pode apostar no próprio confronto.', 'error'); return; }
     // Chave por (confronto, MERCADO) — igual à liga: dá pra casar mercados
@@ -11520,6 +11676,26 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
       return [...prev.filter(l => l.key !== key && l.isKo), { key, isKo: true, koMatch: m.id, home: m.home, away: m.away, market, pick, odd }];
     });
   };
+  // Mercado OUTRIGHT do campeonato (campeão / finalista / semi / vice / pódio).
+  // O palpite é um JOGADOR (nick). Um pick por mercado (clicar outro troca).
+  // Casa com os confrontos do KO (mesmo cupom, isKo).
+  const toggleKoTourneyLeg = (market, player, odd) => {
+    if (myNick && myNick === player) { showToast('Você não pode apostar em você mesmo.', 'error'); return; }
+    const key = 'mkkot-' + market;
+    const ex = cupom.find(l => l.key === key);
+    const isUnmark = ex && ex.pick === player; // clicar de novo no mesmo -> desmarca (sempre ok)
+    if (!isUnmark && cupom.some(l => l.tourney && l.key !== key && l.pick === player)) {
+      // já tem esse jogador em OUTRO mercado do campeonato — mercados encaixados/excludentes,
+      // não dá pra casar dois pro mesmo nick (ver placeKoBet).
+      showToast(player + ' já está em outro mercado do campeonato — um mercado por jogador no cupom.', 'error');
+      return;
+    }
+    setCupom(prev => {
+      const cur = prev.find(l => l.key === key);
+      if (cur && cur.pick === player) return prev.filter(l => l.key !== key); // toca de novo -> desmarca
+      return [...prev.filter(l => l.key !== key && l.isKo), { key, isKo: true, tourney: true, koTourneyMarket: market, market, pick: player, odd }];
+    });
+  };
   const combined = cupom.length ? cupom.reduce((p, l) => p * l.odd, 1) : 0; // MULTIPLICA (casada de verdade), sem teto
   const isCasada = cupom.length >= 2;
   const place = async (opts) => {
@@ -11528,7 +11704,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     let res;
     if (isKoCupom) {
       // aposta do mata-mata: fluxo próprio (placeKoBet mostra o próprio toast).
-      res = await onKoBet({ legs: cupom.map(l => ({ koMatch: l.koMatch, home: l.home, away: l.away, market: l.market, pick: l.pick, odd: l.odd })), stake, combined: +combined.toFixed(2), casada: isCasada });
+      res = await onKoBet({ legs: cupom.map(l => l.tourney ? ({ tourney: true, koTourneyMarket: l.koTourneyMarket, market: l.market, pick: l.pick, odd: l.odd }) : ({ koMatch: l.koMatch, home: l.home, away: l.away, market: l.market, pick: l.pick, odd: l.odd })), stake, combined: +combined.toFixed(2), casada: isCasada });
     } else {
       const first = cupom[0];
       res = await onPlaceBet({
@@ -11910,6 +12086,62 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     );
   };
 
+  // MERCADOS DO CAMPEONATO (outright). Cada mercado é um acordeão; dentro, os
+  // jogadores ainda vivos ordenados do favorito (menor odd) ao azarão.
+  const MK_KO_TOURNEY_ICON = { CHAMP: 'crown', FINAL: 'trophy', SEMI: 'sword', VICE: 'medal', PODIUM: 'medal-3' };
+  const renderKoTourneyBlock = () => {
+    if (!koTourneyMarkets.length) return null;
+    return (
+      <div className="mk-lib-round mk-ko-libround mk-ko-tny-box">
+        <div className="mk-lib-round-h"><Icon name="trophy" size={12} /> MERCADOS DO CAMPEONATO <span className="mk-lib-round-c">{koTourneyMarkets.length} MERCADO{koTourneyMarkets.length === 1 ? '' : 'S'}</span></div>
+        <div className="mk-ko-tny-sub">Aposte em quem leva o título, chega na final, na semi, fica com o vice ou sobe ao pódio. Quem já garantiu a vaga (ou está a um passo) sai do mercado — só aparece quem ainda tem disputa. Um palpite por mercado — casa com os confrontos.</div>
+        <div className="mk-tny-list">
+          {koTourneyMarkets.map(mkt => {
+            const key = 'mkkot-' + mkt.market;
+            const expanded = openGames.has(key);
+            const best = mkt.picks[0];
+            return (
+              <div key={mkt.market} className={'mk-tny' + (expanded ? ' open' : '')}>
+                <button type="button" className="mk-tny-h" aria-expanded={expanded} onClick={() => toggleGame(key)}>
+                  <span className="mk-tny-title"><Icon name={MK_KO_TOURNEY_ICON[mkt.market] || 'trophy'} size={14} /> {mkt.title}</span>
+                  <span className="mk-tny-meta">
+                    <span className="mk-tny-fav">{mkt.picks.length} <Icon name="user" size={10} /></span>
+                    <span className="mk-tny-fav mk-tny-favp">{best.player} <i>{best.odd.toFixed(2)}</i></span>
+                    <Icon name={expanded ? 'caret-up' : 'caret-down'} size={14} />
+                  </span>
+                </button>
+                {expanded && (
+                  <div className="mk-tny-picks">
+                    {mkt.picks.map(pk => {
+                      const on = koTourneyPickInCupom(mkt.market, pk.player);
+                      const own = !!myNick && myNick === pk.player;
+                      return (
+                        <button key={pk.player} type="button"
+                          className={'mk-tny-pick' + (on ? ' on' : '') + (own ? ' off' : '')}
+                          title={own ? 'Você não aposta em si mesmo' : undefined}
+                          onClick={() => toggleKoTourneyLeg(mkt.market, pk.player, pk.odd)} disabled={own}>
+                          <span className="mk-tny-pk-l">
+                            <Avatar nick={pk.player} teamPlayers={teamPlayers} size={22} noBadge />
+                            <span className="mk-tny-pk-nick">{pk.player}</span>
+                            {own && <span className="mk-tny-pk-you">VOCÊ</span>}
+                          </span>
+                          <span className="mk-tny-pk-r">
+                            <span className="mk-tny-pk-prob">{Math.round(pk.prob * 100)}%</span>
+                            <span className="mk-tny-pk-odd">{pk.odd.toFixed(2)}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className={'card mk-card mk-betting' + (cupom.length ? ' mk-betting--betbar' : '')}>
       <div className="card-head">
@@ -11953,7 +12185,9 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                     <div className="mk-bet-games">{koBettable.map(renderKoCard)}</div>
                   </div>
                 )}
-                {koBr && koBettable.length === 0 && liberados.length === 0 && (
+                {/* MERCADOS DO CAMPEONATO (outright: campeão, final, semi, vice, pódio). */}
+                {renderKoTourneyBlock()}
+                {koBr && koBettable.length === 0 && koTourneyMarkets.length === 0 && liberados.length === 0 && (
                   <div className="empty"><div className="e1">MATA-MATA EM ANDAMENTO</div><div className="e2">Os confrontos abertos aparecem aqui pra apostar. No momento nenhum está liberado (começaram ou terminaram). A chave completa fica em CAMPEONATOS → MK.</div></div>
                 )}
                 {(!koBr || liberados.length > 0) && (<>
@@ -12010,8 +12244,8 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                       {cupom.map(l => (
                         <div key={l.key} className="cupom-leg">
                           <div className="cupom-leg-txt">
-                            <div className="cupom-leg-mkt">{l.isKo && <span className="cupom-leg-ko">MATA-MATA</span>}{mkLegMktTitle(l)}</div>
-                            <div className="cupom-leg-pick">{l.home}×{l.away} - <strong>{mkLegLabel(l)}</strong></div>
+                            <div className="cupom-leg-mkt">{l.tourney ? <span className="cupom-leg-ko">CAMPEONATO MK</span> : l.isKo && <span className="cupom-leg-ko">MATA-MATA</span>}{mkLegMktTitle(l)}</div>
+                            <div className="cupom-leg-pick">{l.tourney ? <strong>{mkLegLabel(l)}</strong> : <>{l.home}×{l.away} - <strong>{mkLegLabel(l)}</strong></>}</div>
                           </div>
                           <div className="cupom-leg-odd mono">{l.odd.toFixed(2)}</div>
                           <button className="cupom-leg-x" onClick={() => setCupom(p => p.filter(x => x.key !== l.key))}><Icon name="x" size={12} /></button>
