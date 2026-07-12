@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260712-mkfut4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260712-mkfut6 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1447,10 +1447,22 @@ function mkKoMarketPicks(market) {
 function mkKoBettable(m, sc) {
   return !!(m && m.home && m.away && !m.done && !mkKoMatchStarted(sc));
 }
-// Odd a partir de uma prob (mesma compressão/teto/piso das outras odds do KO).
+// Odd a partir de uma prob (mercados do campeonato / outright). Mantém a COMPRESSÃO
+// (MK_ODD_K — margem da casa que protege a casada correlacionada) e o PISO (ODD_MIN),
+// mas SEM TETO: o azarão paga o quanto o modelo o acha improvável de ganhar (quase
+// impossível -> milhares de x). Os mercados de CONFRONTO seguem com teto (mkCapOdd);
+// aqui não, porque a prob de campeão/vice/etc chega a ser minúscula de verdade.
 function mkKoOddFromProb(pp) {
   return (!(pp > 0) || !isFinite(pp)) ? MK_ODD_FALLBACK
-    : Math.max(ODD_MIN, mkCapOdd(1 + (1 / pp - 1) * MK_ODD_K));
+    : Math.max(ODD_MIN, +(1 + (1 / pp - 1) * MK_ODD_K).toFixed(2));
+}
+// Texto da odd (mercados do campeonato podem passar de 1000x). Sem casas decimais
+// nos números grandes pra não poluir; 2 casas só nas odds pequenas (as normais).
+function mkOddText(o) {
+  if (!(o > 0) || !isFinite(o)) return '--';
+  if (o >= 100) return String(Math.round(o));
+  if (o >= 20) return o.toFixed(1);
+  return o.toFixed(2);
 }
 
 // ─── MERCADOS DO CAMPEONATO (outright: campeão, finalista, etc.) ─────────────
@@ -4722,6 +4734,12 @@ function App() {
         const leagueMatches = draw.flatMap(r => (r.games || []).map((g, gi) => ({ home: g.home, away: g.away, sc: scoresOv[gk(r, gi)] || {} }))).filter(m => !mkGameVoid(m) && mkMatchOutcome(m.sc));
         const metrics = computeMkPlayerMetrics(leaguePlayers, leagueMatches);
         const br = mkKoBracket(ko.seeds, ko.scores);
+        // MERCADO DO CAMPEONATO = APOSTA SIMPLES. Odds sem teto + mercados fortemente
+        // correlacionados: casar (produto das odds) pagaria muito acima do justo (+EV).
+        // Então cupom com perna do campeonato só pode ter ESSA perna. Servidor manda.
+        if (payload.legs.some(l => l.tourney) && payload.legs.length > 1) {
+          return { __abort: true, result: { err: 'Mercado do campeonato é aposta simples — não entra em casada.' } };
+        }
         const oddsCache = {};
         const seenKey = {};
         const legs = [];
@@ -9236,7 +9254,7 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, mkKo, teamPlaye
                         <span className="tk-ko-chip">CAMPEONATO MK</span>
                         <span className="tk-pickn">{l.pick}</span>
                         {' · ' + mktTitle}{' '}
-                        <span style={{ color: 'var(--pv-orange)' }}>@{l.odds.toFixed(2)}</span>
+                        <span style={{ color: 'var(--pv-orange)' }}>@{mkOddText(l.odds)}</span>
                       </span>
                     ) : (isMk || isKo) ? (
                       <span>
@@ -11670,32 +11688,31 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     // diferentes do MESMO confronto (VENCEDOR + TOTAL + PLACAR...). Um pick por
     // mercado (clicar outro pick do mesmo mercado troca).
     const key = 'mkko-' + m.id + '-' + market;
+    if (cupom.some(l => l.tourney)) showToast('Tirei o mercado do campeonato do cupom — ele é aposta simples.', 'info');
     setCupom(prev => {
       const ex = prev.find(l => l.key === key);
       if (ex && ex.pick === pick) return prev.filter(l => l.key !== key); // toca de novo -> desmarca
-      // cupom homogêneo (só legs do KO — a liga já acabou de qualquer forma)
-      return [...prev.filter(l => l.key !== key && l.isKo), { key, isKo: true, koMatch: m.id, home: m.home, away: m.away, market, pick, odd }];
+      // cupom homogêneo (só confrontos do KO; tira mercado do campeonato, que é simples)
+      return [...prev.filter(l => l.key !== key && l.isKo && !l.tourney), { key, isKo: true, koMatch: m.id, home: m.home, away: m.away, market, pick, odd }];
     });
   };
   // Mercado OUTRIGHT do campeonato (campeão / finalista / semi / vice / pódio).
-  // O palpite é um JOGADOR (nick). Um pick por mercado (clicar outro troca).
-  // Casa com os confrontos do KO (mesmo cupom, isKo).
+  // O palpite é um JOGADOR (nick). APOSTA SIMPLES: NÃO casa com nada — nem com
+  // outro mercado do campeonato nem com confronto. As odds são SEM TETO e os
+  // mercados são fortemente correlacionados (campeão⊂final, campeão×vice, o
+  // campeão passou por todos os confrontos...), então casar odds enormes
+  // correlacionadas pagaria MUITO acima do justo (+EV / dinheiro grátis). Por
+  // isso cada palpite do campeonato vira um cupom sozinho. (Ver placeKoBet, que
+  // recusa no servidor cupom do campeonato com mais de 1 perna.)
   const toggleKoTourneyLeg = (market, player, odd) => {
     if (myNick && myNick === player) { showToast('Você não pode apostar em você mesmo.', 'error'); return; }
     const key = 'mkkot-' + market;
-    const ex = cupom.find(l => l.key === key);
-    const isUnmark = ex && ex.pick === player; // clicar de novo no mesmo -> desmarca (sempre ok)
-    if (!isUnmark && cupom.some(l => l.tourney && l.key !== key && l.pick === player)) {
-      // já tem esse jogador em OUTRO mercado do campeonato — mercados encaixados/excludentes,
-      // não dá pra casar dois pro mesmo nick (ver placeKoBet).
-      showToast(player + ' já está em outro mercado do campeonato — um mercado por jogador no cupom.', 'error');
-      return;
+    const cur = cupom.find(l => l.key === key);
+    if (cur && cur.pick === player) { setCupom([]); return; } // clicar de novo -> desmarca (esvazia)
+    if (cupom.length && !(cupom.length === 1 && cupom[0].key === key)) {
+      showToast('Mercado do campeonato é aposta simples — troquei o cupom por este palpite.', 'info');
     }
-    setCupom(prev => {
-      const cur = prev.find(l => l.key === key);
-      if (cur && cur.pick === player) return prev.filter(l => l.key !== key); // toca de novo -> desmarca
-      return [...prev.filter(l => l.key !== key && l.isKo), { key, isKo: true, tourney: true, koTourneyMarket: market, market, pick: player, odd }];
-    });
+    setCupom([{ key, isKo: true, tourney: true, koTourneyMarket: market, market, pick: player, odd }]); // sempre sozinho
   };
   const combined = cupom.length ? cupom.reduce((p, l) => p * l.odd, 1) : 0; // MULTIPLICA (casada de verdade), sem teto
   const isCasada = cupom.length >= 2;
@@ -12095,7 +12112,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     return (
       <div className="mk-lib-round mk-ko-libround mk-ko-tny-box">
         <div className="mk-lib-round-h"><Icon name="trophy" size={12} /> MERCADOS DO CAMPEONATO <span className="mk-lib-round-c">{koTourneyMarkets.length} MERCADO{koTourneyMarkets.length === 1 ? '' : 'S'}</span></div>
-        <div className="mk-ko-tny-sub">Aposte em quem leva o título, chega na final, na semi, fica com o vice ou sobe ao pódio. Aparece todo mundo que ainda pode chegar lá (até os azarões); só sai quem já garantiu a vaga ou está a um passo. Um palpite por mercado — casa com os confrontos.</div>
+        <div className="mk-ko-tny-sub">Aposte em quem leva o título, chega na final, na semi, fica com o vice ou sobe ao pódio. Aparece todo mundo que ainda pode chegar lá (até os azarões, que pagam alto); só sai quem já garantiu a vaga ou está a um passo. Cada palpite é aposta simples — não entra em casada.</div>
         <div className="mk-tny-list">
           {koTourneyMarkets.map(mkt => {
             const key = 'mkkot-' + mkt.market;
@@ -12107,7 +12124,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                   <span className="mk-tny-title"><Icon name={MK_KO_TOURNEY_ICON[mkt.market] || 'trophy'} size={14} /> {mkt.title}</span>
                   <span className="mk-tny-meta">
                     <span className="mk-tny-fav">{mkt.picks.length} <Icon name="user" size={10} /></span>
-                    <span className="mk-tny-fav mk-tny-favp">{best.player} <i>{best.odd.toFixed(2)}</i></span>
+                    <span className="mk-tny-fav mk-tny-favp">{best.player} <i>{mkOddText(best.odd)}</i></span>
                     <Icon name={expanded ? 'caret-up' : 'caret-down'} size={14} />
                   </span>
                 </button>
@@ -12128,7 +12145,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                           </span>
                           <span className="mk-tny-pk-r">
                             <span className="mk-tny-pk-prob">{pk.prob >= 0.005 ? Math.round(pk.prob * 100) + '%' : '<1%'}</span>
-                            <span className="mk-tny-pk-odd">{pk.odd.toFixed(2)}</span>
+                            <span className="mk-tny-pk-odd">{mkOddText(pk.odd)}</span>
                           </span>
                         </button>
                       );
@@ -12248,13 +12265,13 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                             <div className="cupom-leg-mkt">{l.tourney ? <span className="cupom-leg-ko">CAMPEONATO MK</span> : l.isKo && <span className="cupom-leg-ko">MATA-MATA</span>}{mkLegMktTitle(l)}</div>
                             <div className="cupom-leg-pick">{l.tourney ? <strong>{mkLegLabel(l)}</strong> : <>{l.home}×{l.away} - <strong>{mkLegLabel(l)}</strong></>}</div>
                           </div>
-                          <div className="cupom-leg-odd mono">{l.odd.toFixed(2)}</div>
+                          <div className="cupom-leg-odd mono">{l.tourney ? mkOddText(l.odd) : l.odd.toFixed(2)}</div>
                           <button className="cupom-leg-x" onClick={() => setCupom(p => p.filter(x => x.key !== l.key))}><Icon name="x" size={12} /></button>
                         </div>
                       ))}
                       <div className="modal-row" style={{ marginTop: 10 }}>
                         <span className="lab">ODDS TOTAL</span>
-                        <span className="mono" style={{ color: 'var(--pv-orange)', fontWeight: 800 }}>{combined.toFixed(2)}x</span>
+                        <span className="mono" style={{ color: 'var(--pv-orange)', fontWeight: 800 }}>{mkOddText(combined)}x</span>
                       </div>
                       <div className="modal-row"><span className="lab">SALDO</span><span className="mono">{Number.isFinite(balance) ? balance + ' PC' : '∞'}</span></div>
 
@@ -12287,7 +12304,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                       {/* Todo cupom agora vai pra MESA DOS CARTOLAS automaticamente ao apostar. */}
                       <div className="cupom-public-note"><Icon name="cards" size={12} /> Toda aposta é pública na MESA DOS CARTOLAS — os outros podem copiar.</div>
                       <button type="button" className="cupom-share" onClick={() => {
-                        const txt = 'Cupom MK: ' + cupom.map(l => mkLegMktTitle(l) + ' ' + mkLegLabel(l) + ' @' + l.odd.toFixed(2)).join(' + ') + ' = ' + combined.toFixed(2) + 'x';
+                        const txt = 'Cupom MK: ' + cupom.map(l => mkLegMktTitle(l) + ' ' + mkLegLabel(l) + ' @' + (l.tourney ? mkOddText(l.odd) : l.odd.toFixed(2))).join(' + ') + ' = ' + mkOddText(combined) + 'x';
                         navigator.clipboard.writeText(txt).then(() => showToast('Cupom copiado!', 'success'), () => showToast('Falha ao copiar.', 'error'));
                       }}>
                         <Icon name="arrow-up-right" size={13} /> COMPARTILHAR CUPOM
@@ -12316,7 +12333,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                   </span>
                 </span>
                 <span className="mk-betbar-cta">
-                  <span className="mk-betbar-odd">{combined.toFixed(2)}x</span>
+                  <span className="mk-betbar-odd">{mkOddText(combined)}x</span>
                   <span className="mk-betbar-go">VER CUPOM <Icon name="caret-up" size={14} /></span>
                 </span>
               </button>
