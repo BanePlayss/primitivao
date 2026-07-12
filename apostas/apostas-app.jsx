@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260711-kototal ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260712-kocasa ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4606,7 +4606,7 @@ function App() {
         const metrics = computeMkPlayerMetrics(leaguePlayers, leagueMatches);
         const br = mkKoBracket(ko.seeds, ko.scores);
         const oddsCache = {};
-        const seenMatch = {};
+        const seenKey = {};
         const legs = [];
         let combined = 1;
         for (const l of payload.legs) {
@@ -4614,11 +4614,11 @@ function App() {
           const sc = (ko.scores || {})[l.koMatch];
           if (!m || !mkKoBettable(m, sc)) return { __abort: true, result: { err: 'Esse confronto não está aberto pra aposta.' } };
           if (m.home === nick || m.away === nick) return { __abort: true, result: { err: 'Você não pode apostar no próprio confronto.' } };
-          // UM palpite por CONFRONTO: KVENC/KPLACAR/KTOTAL saem da MESMA distribuição
-          // (são subconjuntos), então 2 pernas do mesmo confronto seriam correlacionadas
-          // e a odd combinada (produto) pagaria a mais. Uma perna por confronto só.
-          if (seenMatch[l.koMatch]) return { __abort: true, result: { err: 'Só um palpite por confronto no mesmo cupom.' } };
-          seenMatch[l.koMatch] = 1;
+          // Dá pra casar mercados DIFERENTES do mesmo confronto (igual à liga); só
+          // não pode 2 pernas do MESMO mercado no mesmo confronto (duplicata).
+          const dk = l.koMatch + '|' + l.market;
+          if (seenKey[dk]) return { __abort: true, result: { err: 'Palpite repetido (mesmo mercado no mesmo confronto).' } };
+          seenKey[dk] = 1;
           if (mkKoMarketPicks(l.market).indexOf(l.pick) === -1) return { __abort: true, result: { err: 'Palpite inválido.' } };
           const odds = oddsCache[l.koMatch] || (oddsCache[l.koMatch] = computeMkKoOdds(m.home, m.away, metrics, draw, scoresOv));
           const serverOdd = odds[l.market] && odds[l.market][l.pick];
@@ -11471,11 +11471,14 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   const koPickInCupom = (matchId, market, pick) => cupom.some(l => l.isKo && l.koMatch === matchId && l.market === market && l.pick === pick);
   const toggleKoLeg = (m, market, pick, odd) => {
     if (myNick && (m.home === myNick || m.away === myNick)) { showToast('Você não pode apostar no próprio confronto.', 'error'); return; }
-    const key = 'mkko-' + m.id;
+    // Chave por (confronto, MERCADO) — igual à liga: dá pra casar mercados
+    // diferentes do MESMO confronto (VENCEDOR + TOTAL + PLACAR...). Um pick por
+    // mercado (clicar outro pick do mesmo mercado troca).
+    const key = 'mkko-' + m.id + '-' + market;
     setCupom(prev => {
       const ex = prev.find(l => l.key === key);
-      if (ex && ex.market === market && ex.pick === pick) return prev.filter(l => l.key !== key); // desmarca
-      // 1 palpite por confronto + cupom homogêneo (só legs do KO)
+      if (ex && ex.pick === pick) return prev.filter(l => l.key !== key); // toca de novo -> desmarca
+      // cupom homogêneo (só legs do KO — a liga já acabou de qualquer forma)
       return [...prev.filter(l => l.key !== key && l.isKo), { key, isKo: true, koMatch: m.id, home: m.home, away: m.away, market, pick, odd }];
     });
   };
@@ -11819,7 +11822,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
           </div>
           <div className="mk-bg-flags">
             {ownGame && <span className="mk-bg-flag seu"><Icon name="fist" size={10} /> SEU CONFRONTO</span>}
-            <span className="mk-bg-flag mk-ko-flag"><Icon name="sword" size={10} /> MD5 · 1 PALPITE</span>
+            <span className="mk-bg-flag mk-ko-flag"><Icon name="sword" size={10} /> MELHOR DE 5</span>
             <button type="button" className="mk-bg-stats-btn" onClick={(e) => { e.stopPropagation(); setStatsGame({ g: statG, key }); }}>
               <Icon name="chart" size={11} /> ESTATÍSTICAS
             </button>
