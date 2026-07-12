@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260711-komkt ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260711-kototal ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -10730,7 +10730,7 @@ function MkKoSection({ players, teamPlayers, draw, scores, ko, myNick, onKoLineu
           <div className="mk-ko-rule"><span className="mk-ko-rule-ic"><Icon name="eye-off" size={14} /></span><div><strong>MD5 BLIND</strong><br />5 jogos, vence quem fizer 3. Cada um declara a ORDEM dos 5 personagens em segredo — o rival só descobre na hora de cada jogo.</div></div>
           <div className="mk-ko-rule"><span className="mk-ko-rule-ic"><Icon name="cards" size={14} /></span><div><strong>MÁX 2X</strong><br />Pode repetir personagem, no máximo 2 vezes. Vale qualquer um do elenco do MK 1 — não precisa ser os 3 da liga.</div></div>
         </div>
-        {myMatch && <MkKoMyMatch key={myMatch.id + ':' + ((((ko || {}).lineups || {})[myMatch.id] || {})[myNick] || '')} match={myMatch} myNick={myNick} ko={ko} onKoLineup={onKoLineup} teamPlayers={teamPlayers} />}
+        {myMatch && <div className="mk-ko-note" style={{ marginBottom: 12 }}><Icon name="fist" size={11} /> Você joga o <strong>{MK_KO_META[myMatch.id].label}</strong> — escale seus 5 personagens em <strong>MEU JOGO</strong> (na aba APOSTAS).</div>}
         <MkKoPodium br={br} teamPlayers={teamPlayers} />
         <MkKoBracketView br={br} seedOf={seedOf} teamPlayers={teamPlayers} myNick={myNick} preview={!published} />
         {seeds.length < 8 && <div className="mk-ko-note" style={{ marginTop: 10 }}><Icon name="warning" size={11} /> Menos de 8 elegíveis na classificação — a chave completa aparece quando tiver 8.</div>}
@@ -11363,8 +11363,8 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     try { localStorage.setItem('mk_bet_mode', m); } catch (_) {}
     // Ao entrar no SIMPLES, tira do cupom os palpites de mercados avançados que
     // somem da tela — senão ficariam "fantasmas" (visíveis só no cupom). Mantém
-    // VENC (liga) e KVENC (mata-mata), que são os mercados do modo simples.
-    if (m === 'simples') setCupom(prev => prev.filter(l => l.market === 'VENC' || l.market === 'KVENC'));
+    // os mercados do modo simples: VENC (liga), KVENC e KTOTAL (mata-mata).
+    if (m === 'simples') setCupom(prev => prev.filter(l => l.market === 'VENC' || l.market === 'KVENC' || l.market === 'KTOTAL'));
   };
   const visibleMarkets = betMode === 'avancado' ? MK_MARKETS : MK_MARKETS.filter(m => m === 'VENC' || m === 'DC' || m === 'R1');
   // POP-UP de estatísticas (em vez de esticar o card): guarda { g, key } do jogo.
@@ -11768,7 +11768,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     const trendH = mkPlayerTrendSeries(m.home, draw, scores);
     const trendA = mkPlayerTrendSeries(m.away, draw, scores);
     // SIMPLES = só QUEM PASSA; AVANÇADO = + PLACAR + TOTAL (mesmo toggle da liga).
-    const koMarkets = betMode === 'avancado' ? MK_KO_MARKETS : ['KVENC'];
+    const koMarkets = betMode === 'avancado' ? MK_KO_MARKETS : ['KVENC', 'KTOTAL'];
     const statG = { home: m.home, away: m.away };
     return (
       <div key={key} className={'mk-bet-game mk-ko-game' + (ownGame ? ' own' : '') + (expanded ? ' open' : '')}>
