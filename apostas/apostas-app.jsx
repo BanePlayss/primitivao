@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260711-kostats ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260711-komkt ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1358,8 +1358,14 @@ function mkPickLabel(market, pick) {
 // força dos jogadores). Sem escalação visível (blind) -> charEdge não entra.
 // Mercados: KVENC (quem passa, sem empate), KPLACAR (3-0/3-1/3-2 dos dois lados),
 // KTOTAL (3/4/5 jogos). Pernas de aposta: champId 'mkko', fixtureId 'mkko:<id>'.
-const MK_KO_MARKETS = ['KVENC', 'KPLACAR', 'KTOTAL'];
-const MK_KO_MARKET_TITLE = { KVENC: 'QUEM PASSA', KPLACAR: 'PLACAR (MD5)', KTOTAL: 'TOTAL DE JOGOS' };
+// KG1/KG2/KG3 = quem vence CADA jogo do MD5 (o 1º, 2º e 3º SEMPRE são jogados —
+// um MD5 tem no mínimo 3 jogos; 4º/5º são condicionais, por isso não viram
+// mercado). KG1 é o "primeiro golpe" (quem abre o placar). Jogos são
+// independentes (cada um é uma luta primeiro-a-2), então a odd por jogo é a
+// mesma nos três, vinda da prob por jogo.
+const MK_KO_MARKETS = ['KVENC', 'KG1', 'KG2', 'KG3', 'KPLACAR', 'KTOTAL'];
+const MK_KO_MARKET_TITLE = { KVENC: 'QUEM PASSA', KG1: 'PRIMEIRO GOLPE (1º JOGO)', KG2: 'VENCE O 2º JOGO', KG3: 'VENCE O 3º JOGO', KPLACAR: 'PLACAR (MD5)', KTOTAL: 'TOTAL DE JOGOS' };
+const MK_KO_GAME_MARKETS = ['KG1', 'KG2', 'KG3'];
 const MK_KO_PLACAR_PICKS = ['30', '31', '32', '23', '13', '03']; // mandante 3-x / visitante x-3
 const MK_KO_TOTAL_PICKS = ['3', '4', '5'];
 // Distribuição do MD5 dado p = prob do MANDANTE vencer 1 jogo. Placar do lado que
@@ -1387,8 +1393,10 @@ function computeMkKoOdds(home, away, metrics, draw, scores) {
   const mko = (pp) => (!(pp > 0) || !isFinite(pp)) ? MK_ODD_FALLBACK
     : Math.max(ODD_MIN, mkCapOdd(1 + (1 / pp - 1) * MK_ODD_K));
   const placar = {}; MK_KO_PLACAR_PICKS.forEach(k => { placar[k] = mko(d[k]); });
+  const perGame = { H: mko(p), A: mko(1 - p) }; // quem vence UM jogo (iid) — mesma odd nos 3
   return {
     KVENC:   { H: mko(d.win), A: mko(d.loss) },
+    KG1: perGame, KG2: perGame, KG3: perGame,
     KPLACAR: placar,
     KTOTAL:  { '3': mko(d.t3), '4': mko(d.t4), '5': mko(d.t5) },
     _p: p, _dist: d,
@@ -1397,6 +1405,13 @@ function computeMkKoOdds(home, away, metrics, draw, scores) {
 // Liquidação de uma perna do KO. sc = ko.scores[matchId]. Pendente enquanto o
 // MD5 não fecha (não vira derrota antes da hora).
 function mkKoLegResult(market, pick, sc) {
+  // Mercados POR JOGO (KG1/KG2/KG3): liquidam assim que o jogo é lançado, mesmo
+  // antes do confronto acabar. Pendente enquanto aquele jogo não saiu.
+  if (MK_KO_GAME_MARKETS.indexOf(market) !== -1) {
+    const gv = sc && sc['g' + market.slice(2)];
+    if (gv !== 'H' && gv !== 'A') return 'pending';
+    return pick === gv ? 'win' : 'lose';
+  }
   const o = mkKoOutcome(sc);
   if (!o.done) return 'pending';
   const placar = o.winner === 'H' ? ('3' + o.a) : (o.h + '3'); // vencedor fez 3
@@ -1407,15 +1422,15 @@ function mkKoLegResult(market, pick, sc) {
     default: return 'pending';
   }
 }
-// Rótulo do palpite do KO (usa os nicks reais pro VENCEDOR).
+// Rótulo do palpite do KO (usa os nicks reais pra QUEM PASSA e por jogo).
 function mkKoPickLabel(market, pick, home, away) {
-  if (market === 'KVENC') return pick === 'H' ? home : pick === 'A' ? away : pick;
+  if (market === 'KVENC' || MK_KO_GAME_MARKETS.indexOf(market) !== -1) return pick === 'H' ? home : pick === 'A' ? away : pick;
   if (market === 'KPLACAR') return pick[0] + '×' + pick[1];
   if (market === 'KTOTAL') return pick + ' jogos';
   return pick;
 }
 function mkKoMarketPicks(market) {
-  if (market === 'KVENC') return ['H', 'A'];
+  if (market === 'KVENC' || MK_KO_GAME_MARKETS.indexOf(market) !== -1) return ['H', 'A'];
   if (market === 'KPLACAR') return MK_KO_PLACAR_PICKS;
   if (market === 'KTOTAL') return MK_KO_TOTAL_PICKS;
   return [];
@@ -4053,10 +4068,10 @@ function App() {
             const legs = (b.legs || []).map(l => {
               const mid = (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) ? l.fixtureId.slice(5) : l.koMatch;
               const sc = mid ? (koScores[mid] || {}) : {};
-              const o = mkKoOutcome(sc);
-              let want;
-              if (!o.done) want = undefined;
-              else { const r = mkKoLegResult(l.market, l.pick, sc); want = (r === 'win' || r === 'lose') ? r : undefined; }
+              // mkKoLegResult já sabe liquidar cada mercado na hora certa (por jogo:
+              // quando o jogo sai; confronto: quando o MD5 fecha). RE-AVALIA sempre.
+              const r = mkKoLegResult(l.market, l.pick, sc);
+              const want = (r === 'win' || r === 'lose') ? r : undefined;
               if (want !== l.result) { changed = true; return { ...l, result: want }; }
               return l;
             });
@@ -5340,7 +5355,7 @@ function App() {
                     <MeuJogoMini
                       nick={session.nick} users={users} interests={interests || {}}
                       draw={mkDraw} scores={mkScores} lineups={mkLineups} teamPlayers={teamPlayers || {}}
-                      onOpen={() => setMeuJogoOpen(true)}
+                      onOpen={() => setMeuJogoOpen(true)} ko={mkKo}
                     />
                   )}
                 </div>
@@ -5446,7 +5461,7 @@ function App() {
                       <MeuJogoMini
                         nick={session.nick} users={users} interests={interests || {}}
                         draw={mkDraw} scores={mkScores} lineups={mkLineups} teamPlayers={teamPlayers || {}}
-                        onOpen={() => setMeuJogoOpen(true)}
+                        onOpen={() => setMeuJogoOpen(true)} ko={mkKo}
                       />
                     </div>
                   )}
@@ -5507,7 +5522,7 @@ function App() {
               <MeuJogoView
                 nick={session.nick} isAdmin={isAdmin} users={users} interests={interests || {}} onSave={setMkChars}
                 draw={mkDraw} scores={mkScores} lineups={mkLineups} onSlot={setMkLineupSlot}
-                teamPlayers={teamPlayers || {}}
+                teamPlayers={teamPlayers || {}} ko={mkKo} onKoLineup={setMkKoLineup}
               />
             )}
             {view === 'loja' && (
@@ -5586,7 +5601,7 @@ function App() {
             <MeuJogoView
               nick={session.nick} isAdmin={isAdmin} users={users} interests={interests || {}} onSave={setMkChars}
               draw={mkDraw} scores={mkScores} lineups={mkLineups} onSlot={setMkLineupSlot}
-              teamPlayers={teamPlayers || {}}
+              teamPlayers={teamPlayers || {}} ko={mkKo} onKoLineup={setMkKoLineup}
             />
           </div>
         </div>
@@ -10042,9 +10057,16 @@ function MkFighterShow({ nick, char, teamPlayers }) {
 // Versao MINI do MEU JOGO pro trilho esquerdo de CAMPEONATOS (embaixo da sidebar):
 // mostra o ELENCO (3 personagens) e o CONFRONTO da rodada com os icones dos
 // personagens. Clica e abre o MEU JOGO completo (escalacao/edicao).
-function MeuJogoMini({ nick, users, interests, draw, scores, lineups, teamPlayers, onOpen }) {
+function MeuJogoMini({ nick, users, interests, draw, scores, lineups, teamPlayers, onOpen, ko }) {
   const isInscrito = !!(((interests && interests.mk) || {})[nick]) && !mkIsWithdrawn(nick);
   const myChars = ((users || {})[nick] || {}).mkChars || [];
+  // MATA-MATA publicado: o foco vira o confronto do KO (escalação blind MD5).
+  const koPub = !!(ko && ko.published);
+  const koBrMini = koPub ? mkKoBracket(ko.seeds || [], ko.scores || {}) : null;
+  const koMyMatch = koBrMini ? MK_KO_IDS.map(id => koBrMini[id]).find(m => m.home && m.away && !m.done && (m.home === nick || m.away === nick)) : null;
+  const koOpp = koMyMatch ? (koMyMatch.home === nick ? koMyMatch.away : koMyMatch.home) : null;
+  const koStarted = koMyMatch ? mkKoMatchStarted((ko.scores || {})[koMyMatch.id]) : false;
+  const koSaved = koMyMatch ? (mkKoDecodeLineup((((ko.lineups || {})[koMyMatch.id]) || {})[nick]) || []).length === 5 : false;
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   // MEU JOGO segue o PRÓXIMO jogo DO JOGADOR (1ª rodada pendente dele), não a
   // rodada do campeonato — assim quem adiantou já vê/escala o próximo confronto.
@@ -10070,6 +10092,35 @@ function MeuJogoMini({ nick, users, interests, draw, scores, lineups, teamPlayer
       </button>
       {!isInscrito ? (
         <div className="mj-mini-empty">Você não está no MK.</div>
+      ) : koPub ? (
+        // MATA-MATA: escala os 5 personagens (blind) do seu confronto aqui.
+        koMyMatch ? (
+          <>
+            <div className="mj-mini-lbl mj-mini-lbl-ko"><Icon name="sword" size={11} /> MATA-MATA · {MK_KO_META[koMyMatch.id].label}</div>
+            <div className="mj-mini-game">
+              <div className="mj-mini-vs">
+                <Avatar nick={nick} teamPlayers={teamPlayers} size={18} noBadge />
+                <span className="mj-mini-x">×</span>
+                <Avatar nick={koOpp} teamPlayers={teamPlayers} size={18} noBadge />
+                <span className="mj-mini-opp">{koOpp}</span>
+              </div>
+              <div className={'mj-mini-ko-status ' + (koStarted ? 'live' : koSaved ? 'ok' : 'warn')}>
+                {koStarted ? <><Icon name="lock" size={10} /> em andamento — ordem travada</>
+                  : koSaved ? <><Icon name="check" size={10} /> escalação blind salva (dá pra editar)</>
+                  : <><Icon name="warning" size={10} /> escale seus 5 personagens (máx 2x)</>}
+              </div>
+            </div>
+            <button type="button" className="mj-mini-cta mj-mini-cta-ko" onClick={onOpen}>
+              {koStarted ? 'VER CONFRONTO' : koSaved ? 'EDITAR ESCALAÇÃO' : 'ESCALAR MD5'} <Icon name="chevron-right" size={11} />
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="mj-mini-lbl mj-mini-lbl-ko"><Icon name="sword" size={11} /> MATA-MATA</div>
+            <div className="mj-mini-warn">Sem confronto aberto pra você agora. Acompanhe a chave em CAMPEONATOS.</div>
+            <button type="button" className="mj-mini-cta" onClick={onOpen}>VER MEUS JOGOS <Icon name="chevron-right" size={11} /></button>
+          </>
+        )
       ) : (
         <>
           <div className="mj-mini-lbl">MEU ELENCO <span>{myChars.length}/{MK_MAX_CHARS}</span></div>
@@ -10117,7 +10168,7 @@ function MeuJogoMini({ nick, users, interests, draw, scores, lineups, teamPlayer
   );
 }
 
-function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, lineups, onSlot, teamPlayers }) {
+function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, lineups, onSlot, teamPlayers, ko, onKoLineup }) {
   const inscritos = mkInscritos(interests).sort();
   const [target, setTarget] = useState(isAdmin ? (inscritos[0] || '') : nick);
   const [sel, setSel] = useState(((users || {})[isAdmin ? (inscritos[0] || '') : nick] || {}).mkChars || []);
@@ -10170,7 +10221,18 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
   // Atualiza um slot da escalação (mandante). lineups[key] = { p1:{home,away}, p2:{home,away} }
   const setSlot = (key, part, side, val) => onSlot(key, part, side, val);
 
+  // MATA-MATA: escalação BLIND do MD5 (5 personagens em ordem) do PRÓPRIO
+  // confronto ativo do jogador LOGADO — aparece no topo do MEU JOGO quando o KO
+  // está publicado. (No KO cada um escala o seu, diferente da liga.)
+  const koBrMJ = ko && ko.published ? mkKoBracket(ko.seeds || [], ko.scores || {}) : null;
+  const koMyMatch = koBrMJ ? MK_KO_IDS.map(id => koBrMJ[id]).find(m => m.home && m.away && !m.done && (m.home === nick || m.away === nick)) : null;
+
   return (
+    <>
+    {koMyMatch && (
+      <MkKoMyMatch key={koMyMatch.id + ':' + ((((ko || {}).lineups || {})[koMyMatch.id] || {})[nick] || '')}
+        match={koMyMatch} myNick={nick} ko={ko} onKoLineup={onKoLineup} teamPlayers={teamPlayers} />
+    )}
     <div className="card mk-card" style={{ marginBottom: 14 }}>
       <div className="card-head">
         <div className="title"><Icon name="fist" size={16} /> MEU JOGO · MORTAL KOMBAT</div>
@@ -10329,6 +10391,7 @@ function MeuJogoView({ nick, isAdmin, users, interests, onSave, draw, scores, li
         )}
       </div>
     </div>
+    </>
   );
 }
 
@@ -10840,9 +10903,15 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
     <div className="mk-champ">
       {curtain && <MkCurtainOpening onDone={closeCurtain} />}
       <div className="grid mk-grid">
-      <div className="card mk-card">
+      {/* OFICIAL: o mata-mata sobe pro TOPO (foco); a classificação vira secundária
+          abaixo. Enquanto é só prévia, ele fica embaixo (ver o outro render). */}
+      {koPublished && (
+        <MkKoSection players={insc} teamPlayers={teamPlayers} draw={draw} scores={scores}
+          ko={ko} myNick={myNick} onKoLineup={onKoLineup} />
+      )}
+      <div className={'card mk-card' + (koPublished ? ' mk-card-secondary' : '')}>
         <div className="card-head">
-          <div className="title"><Icon name="skull" size={16} /> CLASSIFICAÇÃO · MORTAL KOMBAT</div>
+          <div className="title"><Icon name="skull" size={16} /> CLASSIFICAÇÃO · MORTAL KOMBAT{koPublished && <span className="mk-secondary-tag"> · pontos corridos (encerrado)</span>}</div>
           <div className="sub">{insc.length} INSCRITOS · TOP 8 VAI PRO MATA-MATA</div>
         </div>
         <div className="card-body">
@@ -11085,11 +11154,11 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
         </div>
       </div>
       </aside>
-      {/* MATA-MATA: prévia enquanto a liga roda; oficial depois que o admin
-          publica. DENTRO do .mk-grid ocupando as 2 colunas (o .mk-champ tem
-          largura 0 — os filhos do grid é que definem a largura renderizada). */}
-      <MkKoSection players={insc} teamPlayers={teamPlayers} draw={draw} scores={scores}
-        ko={ko} myNick={myNick} onKoLineup={onKoLineup} />
+      {/* PRÉVIA (liga rodando): o mata-mata fica embaixo. Oficial já subiu pro topo. */}
+      {!koPublished && (
+        <MkKoSection players={insc} teamPlayers={teamPlayers} draw={draw} scores={scores}
+          ko={ko} myNick={myNick} onKoLineup={onKoLineup} />
+      )}
       </div>
     </div>
   );
@@ -11778,7 +11847,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                           title={hot ? 'Maior prêmio do mercado' : fav ? 'Favorito do mercado' : undefined}
                           onClick={() => toggleKoLeg(m, mkt, pick, v)} disabled={ownGame}>
                           <span className="mk-odd-l">
-                            {mkt === 'KVENC' ? (pick === 'H' ? m.home : m.away)
+                            {(mkt === 'KVENC' || MK_KO_GAME_MARKETS.indexOf(mkt) !== -1) ? (pick === 'H' ? m.home : m.away)
                               : mkt === 'KPLACAR' ? <span className="mk-odd-pl"><span className="mk-sc-h">{pick[0]}</span><span className="mk-sc-x">×</span><span className="mk-sc-a">{pick[1]}</span></span>
                               : pick + ' jogos'}
                           </span>

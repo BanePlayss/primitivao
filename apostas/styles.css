@@ -5637,3 +5637,17 @@
     .mk-bg-flag.mk-ko-flag { background: #b3231a; color: var(--pv-bone); }
     .cupom-leg-ko { display: inline-block; background: #b3231a; color: var(--pv-bone); font-size: 8px; font-weight: 800; letter-spacing: 0.1em; padding: 1px 5px; margin-right: 6px; vertical-align: middle; }
     .tk-ko-chip { display: inline-block; background: var(--pv-charcoal); color: var(--pv-bone); font-size: 8px; font-weight: 800; letter-spacing: 0.1em; padding: 1px 5px; margin-right: 5px; vertical-align: middle; }
+
+    /* CLASSIFICAÇÃO secundária quando o mata-mata é o foco (KO publicado) */
+    .mk-card-secondary { opacity: 0.9; }
+    .mk-card-secondary .card-head .title { font-size: 14px; letter-spacing: 0.02em; }
+    .mk-secondary-tag { font-size: 9px; letter-spacing: 0.08em; color: rgba(28,22,18,0.5); font-weight: 700; text-transform: none; }
+
+    /* MEU JOGO mini — bloco do mata-mata (escalação blind) */
+    .mj-mini-lbl-ko { color: #b3231a; }
+    .mj-mini-ko-status { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; margin-top: 6px; letter-spacing: 0.04em; }
+    .mj-mini-ko-status.warn { color: var(--pv-red-bright, #c33); }
+    .mj-mini-ko-status.ok { color: var(--pv-green, #4d6a2e); }
+    .mj-mini-ko-status.live { color: rgba(28,22,18,0.6); }
+    .mj-mini-cta-ko { background: #b3231a; }
+    .mj-mini-cta-ko:hover { background: var(--pv-bone); color: #b3231a; }
