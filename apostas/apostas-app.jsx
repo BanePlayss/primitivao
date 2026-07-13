@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260712-mkfut8 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260712-mkfut9 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1473,6 +1473,8 @@ function mkOddText(o) {
 // ─── MERCADOS DO CAMPEONATO (outright: campeão, finalista, etc.) ─────────────
 const MK_KO_TOURNEY_MARKETS = ['CHAMP', 'FINAL', 'SEMI', 'VICE', 'PODIUM'];
 const MK_KO_TOURNEY_TITLE = { CHAMP: 'CAMPEÃO DO MK', FINAL: 'CHEGA NA FINAL', SEMI: 'CHEGA NA SEMI', VICE: 'VICE-CAMPEÃO', PODIUM: 'PÓDIO (TOP 3)' };
+// Título do GRUPO EXATO (cravar quem forma a final/semi) — mesmos estágios FINAL/SEMI.
+const MK_KO_GROUP_TITLE = { FINAL: 'OS 2 FINALISTAS', SEMI: 'OS 4 SEMIFINALISTAS' };
 const MK_KO_TOURNEY_PROB = { CHAMP: 'champ', FINAL: 'final', SEMI: 'semi', VICE: 'vice', PODIUM: 'podium' };
 // Prob de cada jogador em cada estágio, simulando o chaveamento a partir dos seeds
 // + resultados JÁ decididos (fixos, prob 1) + prob de confronto pros futuros (P(a
@@ -1550,6 +1552,72 @@ function mkKoTourneyOpen(market, br) {
 // desfecho único, o +EV mínimo do piso pra prob>~0.99 não dá pra farmar (ver
 // MK_KO_TOURNEY_ODD_MIN). Vale no cliente (esconde) E no servidor (recusa) — igual.
 function mkKoTourneyPickBettable(prob) { return prob > 0 && prob < 1; }
+
+// ─── GRUPO EXATO (cravar os 2 finalistas / os 4 semifinalistas) ──────────────
+// O chaveamento tem DUAS METADES independentes (sem jogo em comum até a final):
+//   ESQUERDA (lado da SF1) = S1, S3, S8   → 1 finalista sai daqui
+//   DIREITA  (lado da SF2) = S2, S4,S5,S6,S7 → 1 finalista sai daqui
+// Semifinalistas = S1, S2 (byes) + vencedor(R1 = S3×S8) + vencedor(R4 = lado direito).
+// Como as metades são independentes, P(grupo exato) = produto das marginais dos picks
+// CONTESTADOS (final[x]·final[y] pra final; semi[a]·semi[b] pros 2 não-byes da semi).
+function mkKoHalves(seeds) {
+  const S = (i) => (seeds || [])[i - 1] || null;
+  return {
+    left: [S(1), S(3), S(8)].filter(Boolean),              // possíveis finalistas da esquerda
+    right: [S(2), S(4), S(5), S(6), S(7)].filter(Boolean), // possíveis finalistas da direita
+    byes: [S(1), S(2)].filter(Boolean),                    // já garantidos na semi
+    semiLeft: [S(3), S(8)].filter(Boolean),                // disputam a 3ª vaga da semi (R1)
+    semiRight: [S(4), S(5), S(6), S(7)].filter(Boolean),   // disputam a 4ª vaga da semi (R4)
+  };
+}
+function mkSameSet(a, b) {
+  if (!a || !b || a.length !== b.length) return false;
+  const B = new Set(b);
+  return a.every(x => B.has(x));
+}
+// P(o grupo EXATO de finalistas (2) / semifinalistas (4) ser `set`). Set estruturalmente
+// impossível (mesma metade, sem os byes, contagem errada) → 0.
+function mkKoTourneySetProb(set, stage, probs, seeds) {
+  const H = mkKoHalves(seeds);
+  const s = Array.from(new Set((set || []).filter(Boolean)));
+  const pf = (nick, key) => ((probs || {})[nick] || {})[key] || 0;
+  if (stage === 'FINAL') {
+    if (s.length !== 2) return 0;
+    const inL = s.filter(p => H.left.indexOf(p) !== -1);
+    const inR = s.filter(p => H.right.indexOf(p) !== -1);
+    if (inL.length !== 1 || inR.length !== 1) return 0;   // um de cada metade
+    return pf(inL[0], 'final') * pf(inR[0], 'final');
+  }
+  if (stage === 'SEMI') {
+    if (s.length !== 4) return 0;
+    if (!H.byes.every(b => s.indexOf(b) !== -1)) return 0; // os 2 byes SEMPRE estão
+    const cl = s.filter(p => H.semiLeft.indexOf(p) !== -1);
+    const cr = s.filter(p => H.semiRight.indexOf(p) !== -1);
+    if (cl.length !== 1 || cr.length !== 1) return 0;      // 1 de cada lado contestado
+    return pf(cl[0], 'semi') * pf(cr[0], 'semi');
+  }
+  return 0;
+}
+// Liquida o grupo exato: ganha se o conjunto real de finalistas/semifinalistas == set.
+function mkKoTourneySetResult(set, stage, br) {
+  if (!br || !br.SF1 || !br.SF2 || !br.F) return 'pending';
+  const s = Array.from(new Set((set || []).filter(Boolean)));
+  if (stage === 'FINAL') {
+    if (!(br.F.home && br.F.away)) return 'pending';       // finalistas ainda não definidos
+    return mkSameSet(s, [br.F.home, br.F.away]) ? 'win' : 'lose';
+  }
+  if (stage === 'SEMI') {
+    if (!(br.SF1.away && br.SF2.away)) return 'pending';   // R1/R4 ainda não decididos
+    return mkSameSet(s, [br.SF1.home, br.SF1.away, br.SF2.home, br.SF2.away]) ? 'win' : 'lose';
+  }
+  return 'pending';
+}
+// Mercado do grupo ainda aberto? (mesmo gate do "reaches" do estágio)
+function mkKoTourneySetOpen(stage, br) {
+  if (stage === 'FINAL') return !(br.F.home && br.F.away);
+  if (stage === 'SEMI') return !(br.SF1.away && br.SF2.away);
+  return false;
+}
 
 // ── PRÓXIMO JOGO PENDENTE (uso em UI — não trava mais o "liberados") ────────
 // Rodada do PRÓXIMO jogo pendente (não lançado) de um jogador. Infinity se já
@@ -4195,7 +4263,8 @@ function App() {
               // sabem liquidar cada mercado na hora certa. RE-AVALIA sempre.
               let r;
               if (l.tourney || (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkkot:') === 0)) {
-                r = mkKoTourneyLegResult(l.koTourneyMarket || l.market, l.pick, koBr);
+                r = l.koSet ? mkKoTourneySetResult(l.koSet, l.koTourneyMarket || l.market, koBr)
+                            : mkKoTourneyLegResult(l.koTourneyMarket || l.market, l.pick, koBr);
               } else {
                 const mid = (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) ? l.fixtureId.slice(5) : l.koMatch;
                 r = mkKoLegResult(l.market, l.pick, mid ? (koScores[mid] || {}) : {});
@@ -4755,6 +4824,27 @@ function App() {
           // MERCADO DO CAMPEONATO (outright: campeão, finalista...). pick = jogador.
           if (l.tourney) {
             const mkt = l.koTourneyMarket;
+            // GRUPO EXATO (cravar os finalistas/semifinalistas): a perna tem koSet.
+            if (l.koSet) {
+              if (mkt !== 'FINAL' && mkt !== 'SEMI') return { __abort: true, result: { err: 'Grupo só na final/semi.' } };
+              if (!mkKoTourneySetOpen(mkt, br)) return { __abort: true, result: { err: 'Esse grupo já fechou.' } };
+              const set = Array.from(new Set((l.koSet || []).filter(Boolean)));
+              const need = mkt === 'FINAL' ? 2 : 4;
+              if (set.length !== need) return { __abort: true, result: { err: 'Monte o grupo completo (' + need + ').' } };
+              if (set.some(p => (ko.seeds || []).indexOf(p) === -1)) return { __abort: true, result: { err: 'Jogador inválido no grupo.' } };
+              if (set.indexOf(nick) !== -1) return { __abort: true, result: { err: 'Você não pode se incluir no grupo.' } };
+              const dks = 'mkkot|' + mkt;
+              if (seenKey[dks]) return { __abort: true, result: { err: 'Palpite repetido no mesmo mercado.' } };
+              seenKey[dks] = 1;
+              if (!tourneyProbs) tourneyProbs = mkKoTournamentProbs(ko.seeds, ko.scores, metrics, draw, scoresOv);
+              const gp = mkKoTourneySetProb(set, mkt, tourneyProbs, ko.seeds);
+              if (!(gp > 0)) return { __abort: true, result: { err: 'Esse grupo é impossível (jogadores da mesma chave do mata-mata).' } };
+              const gOdd = mkKoOddFromProb(gp);
+              if (!(gOdd > 1) || !isFinite(gOdd)) return { __abort: true, result: { err: 'Esse grupo já está decidido — sem aposta.' } };
+              combined *= gOdd;
+              legs.push({ fixtureId: 'mkkot:' + mkt, tourney: true, koTourneyMarket: mkt, koSet: set, market: mkt, odds: gOdd, odd: gOdd });
+              continue;
+            }
             if (MK_KO_TOURNEY_MARKETS.indexOf(mkt) === -1) return { __abort: true, result: { err: 'Mercado inválido.' } };
             if (!mkKoTourneyOpen(mkt, br)) return { __abort: true, result: { err: 'Esse mercado já fechou.' } };
             if (l.pick === nick) return { __abort: true, result: { err: 'Você não pode apostar em você mesmo.' } };
@@ -9246,7 +9336,7 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, mkKo, teamPlaye
               // Destaca quem você escolheu — fica claro de relance o que foi apostado.
               const sidePick = (isMk && (l.market === 'VENC' || l.market === 'R1')) || (isKo && l.market === 'KVENC') ? (l.pick === 'H' ? 'home' : l.pick === 'A' ? 'away' : null) : null;
               const tMkt = isKoT ? (l.koTourneyMarket || l.market) : null;
-              const mktTitle = isKoT ? (MK_KO_TOURNEY_TITLE[tMkt] || tMkt) : isKo ? (MK_KO_MARKET_TITLE[l.market] || l.market) : (MK_MARKET_TITLE[l.market] || l.market);
+              const mktTitle = isKoT ? (l.koSet ? (MK_KO_GROUP_TITLE[tMkt] || tMkt) : (MK_KO_TOURNEY_TITLE[tMkt] || tMkt)) : isKo ? (MK_KO_MARKET_TITLE[l.market] || l.market) : (MK_MARKET_TITLE[l.market] || l.market);
               const pickTxt = isKo ? (mkKoPickLabel(l.market, l.pick, l.home, l.away) || '') : (mkPickLabel(l.market, l.pick) || '');
               const label = (isMk || isKo)
                 ? l.home + ' × ' + l.away + ' · ' + mktTitle + ' ' + pickTxt
@@ -9258,7 +9348,7 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, mkKo, teamPlaye
                     {isKoT ? (
                       <span>
                         <span className="tk-ko-chip">CAMPEONATO MK</span>
-                        <span className="tk-pickn">{l.pick}</span>
+                        <span className="tk-pickn">{l.koSet ? l.koSet.join(' + ') : l.pick}</span>
                         {' · ' + mktTitle}{' '}
                         <span style={{ color: 'var(--pv-orange)' }}>@{mkOddText(l.odds)}</span>
                       </span>
@@ -11371,6 +11461,7 @@ function MkChampionshipView({ players, users, teamPlayers, draw, lineups, onPubl
 // apostar tudo do mesmo card); jogos de rodadas diferentes valem — casada
 // MULTIPLICA as odds. Única trava: VENCEDOR e CHANCE DUPLA não juntos no card.
 function mkLegLabel(l) {
+  if (l.koSet) return l.koSet.join(' + '); // grupo exato: lista os nicks
   if (l.tourney) return l.pick; // perna outright (campeão/finalista/etc): palpite é um nick
   if (l.isKo) return mkKoPickLabel(l.market, l.pick, l.home, l.away); // perna do mata-mata
   // CHANCE DUPLA no cupom: usa os nicks reais (ex: "bane ou empate").
@@ -11378,7 +11469,7 @@ function mkLegLabel(l) {
   return mkPickLabel(l.market, l.pick);
 }
 // Título do mercado da perna (liga ou mata-mata).
-function mkLegMktTitle(l) { return l.tourney ? (MK_KO_TOURNEY_TITLE[l.koTourneyMarket || l.market] || l.market) : l.isKo ? (MK_KO_MARKET_TITLE[l.market] || l.market) : (MK_MARKET_TITLE[l.market] || l.market); }
+function mkLegMktTitle(l) { return l.koSet ? (MK_KO_GROUP_TITLE[l.koTourneyMarket || l.market] || l.market) : l.tourney ? (MK_KO_TOURNEY_TITLE[l.koTourneyMarket || l.market] || l.market) : l.isKo ? (MK_KO_MARKET_TITLE[l.market] || l.market) : (MK_MARKET_TITLE[l.market] || l.market); }
 // Sparkline de tendência (saldo de rounds acumulado). SVG minúsculo, escala
 // automática; some com menos de 2 pontos (nenhum jogo concluído).
 function MkSparkline({ series, away }) {
@@ -11554,6 +11645,13 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     if (n.has(key)) n.delete(key); else n.add(key);
     return n;
   });
+  // GRUPO EXATO (cravar finalistas/semifinalistas): seleção por slot de cada estágio.
+  // grpSel[stage] = { L: nick, R: nick } (os picks CONTESTADOS; byes da semi são implícitos).
+  const [grpSel, setGrpSel] = useState({});
+  const pickGrpSlot = (stage, slot, nick) => setGrpSel(prev => {
+    const cur = prev[stage] || {};
+    return { ...prev, [stage]: { ...cur, [slot]: cur[slot] === nick ? null : nick } };
+  });
   // #8: dois modos de apostador. SIMPLES (padrão) mostra só o VENCEDOR (quem
   // ganha o confronto) — menos informação pro apostador casual. AVANÇADO abre
   // todos os mercados (placares por partida, total de rounds, finalização,
@@ -11629,6 +11727,9 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
       .map(x => ({ player: x.player, prob: x.prob, odd: mkKoOddFromProb(x.prob) }))
       .sort((a, b) => a.odd - b.odd),
   })).filter(m => m.picks.length > 0) : [];
+  // Metades do chaveamento + nº do seed (posição do top-8) pro GRUPO EXATO e as stats.
+  const koHalves = koBr ? mkKoHalves(ko.seeds || []) : null;
+  const koSeedNum = {}; (koBr ? (ko.seeds || []) : []).forEach((n, i) => { if (n) koSeedNum[n] = i + 1; });
   // vitórias por boneco (todas as partidas com escalação) — "duelo dos bonecos".
   const charStats = useMemo(() => mkCharWinStats(draw, scores, lineups), [draw, scores, lineups]);
   // LISTA ÚNICA "LIBERADOS": todo jogo que dá pra apostar AGORA (de qualquer rodada,
@@ -11722,6 +11823,15 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     }
     setCupom([{ key, isKo: true, tourney: true, koTourneyMarket: market, market, pick: player, odd }]); // sempre sozinho
   };
+  // GRUPO EXATO (cravar os finalistas/semifinalistas). Perna outright com koSet — mesma
+  // regra de aposta simples (é uma perna tourney). set já vem montado e validado pelos slots.
+  const toggleKoGroupLeg = (stage, set, odd) => {
+    const key = 'mkkot-' + stage; // mesma chave do "chega na" — um por estágio no cupom
+    const cur = cupom.find(l => l.key === key);
+    if (cur && cur.koSet && mkSameSet(cur.koSet, set)) { setCupom([]); return; } // clicar de novo -> desmarca
+    setCupom([{ key, isKo: true, tourney: true, koTourneyMarket: stage, koSet: set, market: stage, odd }]); // sozinho
+  };
+  const koGroupInCupom = (stage, set) => cupom.some(l => l.koSet && (l.koTourneyMarket === stage) && mkSameSet(l.koSet, set));
   const combined = cupom.length ? cupom.reduce((p, l) => p * l.odd, 1) : 0; // MULTIPLICA (casada de verdade), sem teto
   const isCasada = cupom.length >= 2;
   const place = async (opts) => {
@@ -11730,7 +11840,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     let res;
     if (isKoCupom) {
       // aposta do mata-mata: fluxo próprio (placeKoBet mostra o próprio toast).
-      res = await onKoBet({ legs: cupom.map(l => l.tourney ? ({ tourney: true, koTourneyMarket: l.koTourneyMarket, market: l.market, pick: l.pick, odd: l.odd }) : ({ koMatch: l.koMatch, home: l.home, away: l.away, market: l.market, pick: l.pick, odd: l.odd })), stake, combined: +combined.toFixed(2), casada: isCasada });
+      res = await onKoBet({ legs: cupom.map(l => l.tourney ? ({ tourney: true, koTourneyMarket: l.koTourneyMarket, koSet: l.koSet, market: l.market, pick: l.pick, odd: l.odd }) : ({ koMatch: l.koMatch, home: l.home, away: l.away, market: l.market, pick: l.pick, odd: l.odd })), stake, combined: +combined.toFixed(2), casada: isCasada });
     } else {
       const first = cupom[0];
       res = await onPlaceBet({
@@ -12115,21 +12225,105 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   // MERCADOS DO CAMPEONATO (outright). Cada mercado é um acordeão; dentro, os
   // jogadores ainda vivos ordenados do favorito (menor odd) ao azarão.
   const MK_KO_TOURNEY_ICON = { CHAMP: 'crown', FINAL: 'trophy', SEMI: 'sword', VICE: 'medal', PODIUM: 'medal-3' };
+  const koProbPct = (p) => p >= 0.005 ? Math.round(p * 100) + '%' : '<1%';
+  // Linha de um jogador num mercado single (seed do top-8 + barra de prob de fundo + odd).
+  const renderKoTnyPickRow = (market, pk) => {
+    const on = koTourneyPickInCupom(market, pk.player);
+    const own = !!myNick && myNick === pk.player;
+    return (
+      <button key={pk.player} type="button"
+        className={'mk-tny-pick' + (on ? ' on' : '') + (own ? ' off' : '')}
+        title={own ? 'Você não aposta em si mesmo' : undefined}
+        onClick={() => toggleKoTourneyLeg(market, pk.player, pk.odd)} disabled={own}
+        style={{ ['--pk-fill']: Math.max(2, Math.round(pk.prob * 100)) + '%' }}>
+        <span className="mk-tny-pk-l">
+          {koSeedNum[pk.player] && <span className="mk-tny-seed">{koSeedNum[pk.player]}º</span>}
+          <Avatar nick={pk.player} teamPlayers={teamPlayers} size={22} noBadge />
+          <span className="mk-tny-pk-nick">{pk.player}</span>
+          {own && <span className="mk-tny-pk-you">VOCÊ</span>}
+        </span>
+        <span className="mk-tny-pk-r">
+          <span className="mk-tny-pk-prob">{koProbPct(pk.prob)}</span>
+          <span className="mk-tny-pk-odd">{mkOddText(pk.odd)}</span>
+        </span>
+      </button>
+    );
+  };
+  // GRUPO EXATO — cravar QUEM forma a final (2) / a semi (4). Odd = prob CONJUNTA do
+  // bracket (fair, sem furo de casada porque é uma perna só). Slots por metade da chave.
+  const renderKoGroupBuilder = (stage) => {
+    if (!koHalves) return null;
+    const probKey = stage === 'FINAL' ? 'final' : 'semi';
+    const alive = (nick) => ((koTourneyProbs[nick] || {})[probKey] || 0) > 0;
+    const byes = stage === 'SEMI' ? koHalves.byes : [];
+    const slots = stage === 'FINAL'
+      ? [{ key: 'L', label: 'FINALISTA · CHAVE DE CIMA', cands: koHalves.left.filter(alive) },
+         { key: 'R', label: 'FINALISTA · CHAVE DE BAIXO', cands: koHalves.right.filter(alive) }]
+      : [{ key: 'L', label: '3º SEMIFINALISTA (' + koHalves.semiLeft.join(' × ') + ')', cands: koHalves.semiLeft.filter(alive) },
+         { key: 'R', label: '4º SEMIFINALISTA (chave da direita)', cands: koHalves.semiRight.filter(alive) }];
+    const sel = grpSel[stage] || {};
+    const complete = sel.L && sel.R;
+    const setArr = complete ? [...byes, sel.L, sel.R] : null;
+    const gp = complete ? mkKoTourneySetProb(setArr, stage, koTourneyProbs, ko.seeds) : 0;
+    const gOdd = complete && gp > 0 ? mkKoOddFromProb(gp) : 0;
+    const on = complete && koGroupInCupom(stage, setArr);
+    const selfIn = complete && setArr.indexOf(myNick) !== -1;
+    return (
+      <div className="mk-grp">
+        <div className="mk-grp-h"><Icon name="crosshair" size={12} /> CRAVE O GRUPO EXATO <span className="mk-grp-tag">paga alto</span></div>
+        <div className="mk-grp-sub">Acerte {stage === 'FINAL' ? 'os 2 que fazem a FINAL — um de cada chave.' : 'os 4 que chegam na SEMI — os 2 cabeças já entram, escolha os outros 2.'}</div>
+        {byes.length > 0 && (
+          <div className="mk-grp-byes">
+            <span className="mk-grp-byes-lbl">JÁ NA SEMI:</span>
+            {byes.map(b => <span key={b} className="mk-grp-bye"><Avatar nick={b} teamPlayers={teamPlayers} size={16} noBadge /> {b} <Icon name="lock" size={8} /></span>)}
+          </div>
+        )}
+        {slots.map(slot => (
+          <div key={slot.key} className="mk-grp-slot">
+            <div className="mk-grp-slot-lbl">{slot.label}</div>
+            <div className="mk-grp-chips">
+              {slot.cands.map(c => {
+                const chosen = sel[slot.key] === c;
+                const own = !!myNick && myNick === c;
+                return (
+                  <button key={c} type="button" className={'mk-grp-chip' + (chosen ? ' on' : '') + (own ? ' off' : '')}
+                    disabled={own} title={own ? 'Você não entra no seu próprio grupo' : undefined}
+                    onClick={() => pickGrpSlot(stage, slot.key, c)}>
+                    <Avatar nick={c} teamPlayers={teamPlayers} size={18} noBadge /> {c}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        {complete && (selfIn
+          ? <div className="mk-grp-warn"><Icon name="warning" size={11} /> Você está no grupo — não dá pra apostar em si mesmo.</div>
+          : gOdd > 1
+            ? <button type="button" className={'mk-grp-go' + (on ? ' on' : '')} onClick={() => toggleKoGroupLeg(stage, setArr, gOdd)}>
+                <span className="mk-grp-go-l"><Icon name={on ? 'check' : 'ticket'} size={12} /> {on ? 'NO CUPOM' : 'APOSTAR NO GRUPO'} · {koProbPct(gp)}</span>
+                <span className="mk-grp-go-odd">{mkOddText(gOdd)}</span>
+              </button>
+            : <div className="mk-grp-warn"><Icon name="warning" size={11} /> Combinação impossível (mesma chave) ou já decidida.</div>
+        )}
+      </div>
+    );
+  };
   const renderKoTourneyBlock = () => {
     if (!koTourneyMarkets.length) return null;
     return (
       <div className="mk-lib-round mk-ko-libround mk-ko-tny-box">
         <div className="mk-lib-round-h"><Icon name="trophy" size={12} /> MERCADOS DO CAMPEONATO <span className="mk-lib-round-c">{koTourneyMarkets.length} MERCADO{koTourneyMarkets.length === 1 ? '' : 'S'}</span></div>
-        <div className="mk-ko-tny-sub">Aposte em quem leva o título, chega na final, na semi, fica com o vice ou sobe ao pódio. Aparece todo mundo que ainda pode chegar lá (até os azarões, que pagam alto); só sai quem já garantiu a vaga ou está a um passo. Cada palpite é aposta simples — não entra em casada.</div>
+        <div className="mk-ko-tny-sub">Quem leva o título, chega na final/semi, fica com o vice ou sobe ao pódio — a barra de fundo é a chance e o nº é a posição no top-8. Na final e na semi dá pra <strong>cravar o grupo exato</strong> (paga bem mais alto). Cada palpite é aposta simples — não entra em casada.</div>
         <div className="mk-tny-list">
           {koTourneyMarkets.map(mkt => {
             const key = 'mkkot-' + mkt.market;
             const expanded = openGames.has(key);
             const best = mkt.picks[0];
+            const hasGroup = mkt.market === 'FINAL' || mkt.market === 'SEMI';
             return (
               <div key={mkt.market} className={'mk-tny' + (expanded ? ' open' : '')}>
                 <button type="button" className="mk-tny-h" aria-expanded={expanded} onClick={() => toggleGame(key)}>
-                  <span className="mk-tny-title"><Icon name={MK_KO_TOURNEY_ICON[mkt.market] || 'trophy'} size={14} /> {mkt.title}</span>
+                  <span className="mk-tny-title"><Icon name={MK_KO_TOURNEY_ICON[mkt.market] || 'trophy'} size={14} /> {mkt.title}{hasGroup && <span className="mk-tny-grpflag">+ GRUPO</span>}</span>
                   <span className="mk-tny-meta">
                     <span className="mk-tny-fav">{mkt.picks.length} <Icon name="user" size={10} /></span>
                     <span className="mk-tny-fav mk-tny-favp">{best.player} <i>{mkOddText(best.odd)}</i></span>
@@ -12138,26 +12332,9 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                 </button>
                 {expanded && (
                   <div className="mk-tny-picks">
-                    {mkt.picks.map(pk => {
-                      const on = koTourneyPickInCupom(mkt.market, pk.player);
-                      const own = !!myNick && myNick === pk.player;
-                      return (
-                        <button key={pk.player} type="button"
-                          className={'mk-tny-pick' + (on ? ' on' : '') + (own ? ' off' : '')}
-                          title={own ? 'Você não aposta em si mesmo' : undefined}
-                          onClick={() => toggleKoTourneyLeg(mkt.market, pk.player, pk.odd)} disabled={own}>
-                          <span className="mk-tny-pk-l">
-                            <Avatar nick={pk.player} teamPlayers={teamPlayers} size={22} noBadge />
-                            <span className="mk-tny-pk-nick">{pk.player}</span>
-                            {own && <span className="mk-tny-pk-you">VOCÊ</span>}
-                          </span>
-                          <span className="mk-tny-pk-r">
-                            <span className="mk-tny-pk-prob">{pk.prob >= 0.005 ? Math.round(pk.prob * 100) + '%' : '<1%'}</span>
-                            <span className="mk-tny-pk-odd">{mkOddText(pk.odd)}</span>
-                          </span>
-                        </button>
-                      );
-                    })}
+                    {hasGroup && <div className="mk-tny-sech">QUEM CHEGA (individual)</div>}
+                    {mkt.picks.map(pk => renderKoTnyPickRow(mkt.market, pk))}
+                    {hasGroup && renderKoGroupBuilder(mkt.market)}
                   </div>
                 )}
               </div>

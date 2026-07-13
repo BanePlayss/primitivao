@@ -5685,3 +5685,37 @@
     .mk-tny-pk-r { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
     .mk-tny-pk-prob { font-size: 11px; font-weight: 700; color: rgba(28,22,18,0.5); font-family: 'JetBrains Mono', monospace; min-width: 34px; text-align: right; }
     .mk-tny-pk-odd { font-size: 15px; font-weight: 800; color: var(--pv-orange); font-family: 'JetBrains Mono', monospace; min-width: 44px; text-align: right; }
+
+    /* Stats na linha: barra de prob de fundo + nº do seed (posição no top-8) */
+    .mk-tny-pick { position: relative; overflow: hidden; }
+    .mk-tny-pick::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: var(--pk-fill, 0%); background: rgba(215,100,20,0.10); pointer-events: none; z-index: 0; transition: width .2s ease; }
+    .mk-tny-pick.on::before { background: rgba(255,255,255,0.16); }
+    .mk-tny-pick > * { position: relative; z-index: 1; }
+    .mk-tny-seed { display: inline-flex; align-items: center; justify-content: center; min-width: 21px; height: 18px; padding: 0 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 800; color: #b3231a; background: rgba(179,35,26,0.10); flex-shrink: 0; }
+    .mk-tny-pick.on .mk-tny-seed { color: #fff; background: rgba(255,255,255,0.22); }
+    .mk-tny-grpflag { margin-left: 8px; font-size: 8px; font-weight: 800; letter-spacing: 0.08em; color: var(--pv-bone); background: #b3231a; padding: 1px 5px; vertical-align: middle; }
+    .mk-tny-sech { font-size: 9px; font-weight: 800; letter-spacing: 0.14em; color: rgba(28,22,18,0.4); padding: 9px 12px 3px; }
+
+    /* GRUPO EXATO (cravar os finalistas / semifinalistas) */
+    .mk-grp { border-top: 2px solid rgba(179,35,26,0.18); margin-top: 4px; padding: 12px; background: rgba(179,35,26,0.035); }
+    .mk-grp-h { display: flex; align-items: center; gap: 6px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 11px; letter-spacing: 0.1em; color: #b3231a; }
+    .mk-grp-h svg { flex-shrink: 0; }
+    .mk-grp-tag { margin-left: auto; font-size: 8px; font-weight: 800; letter-spacing: 0.06em; color: var(--pv-bone); background: #b3231a; padding: 1px 6px; border-radius: 999px; }
+    .mk-grp-sub { font-size: 10.5px; line-height: 1.45; color: rgba(28,22,18,0.62); margin: 5px 0 11px; }
+    .mk-grp-byes { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 11px; }
+    .mk-grp-byes-lbl { font-size: 8px; font-weight: 800; letter-spacing: 0.1em; color: rgba(28,22,18,0.45); }
+    .mk-grp-bye { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: var(--pv-charcoal); background: rgba(28,22,18,0.06); padding: 2px 8px 2px 3px; border-radius: 999px; }
+    .mk-grp-bye svg { color: rgba(28,22,18,0.4); }
+    .mk-grp-slot { margin-bottom: 10px; }
+    .mk-grp-slot-lbl { font-size: 9px; font-weight: 800; letter-spacing: 0.09em; color: rgba(28,22,18,0.55); margin-bottom: 5px; }
+    .mk-grp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .mk-grp-chip { display: inline-flex; align-items: center; gap: 5px; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--pv-charcoal); background: var(--pv-bone-2); border: 1.5px solid var(--pv-charcoal); padding: 3px 9px 3px 4px; cursor: pointer; transition: background .1s, border-color .1s; }
+    .mk-grp-chip:hover { background: rgba(215,100,20,0.1); }
+    .mk-grp-chip.on { background: #b3231a; border-color: #b3231a; color: #fff; }
+    .mk-grp-chip.off { opacity: 0.4; cursor: not-allowed; }
+    .mk-grp-go { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; padding: 10px 12px; background: #b3231a; border: none; cursor: pointer; font-family: inherit; }
+    .mk-grp-go:hover { background: #9a1e16; }
+    .mk-grp-go.on { background: var(--pv-charcoal); }
+    .mk-grp-go-l { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 11px; letter-spacing: 0.05em; color: var(--pv-bone); }
+    .mk-grp-go-odd { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 17px; color: #fff; }
+    .mk-grp-warn { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; color: #b3231a; padding: 6px 0 2px; }
