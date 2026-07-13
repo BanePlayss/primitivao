@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260712-mkfut7 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260712-mkfut8 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1447,16 +1447,19 @@ function mkKoMarketPicks(market) {
 function mkKoBettable(m, sc) {
   return !!(m && m.home && m.away && !m.done && !mkKoMatchStarted(sc));
 }
-// Odd a partir de uma prob (mercados do campeonato / outright). Só a COMPRESSÃO
-// (MK_ODD_K — margem da casa): SEM TETO e SEM PISO. Sem teto, o azarão paga o quanto
-// o modelo o acha improvável (quase impossível -> milhares de x). Sem piso (ODD_MIN),
-// o quase-certo paga pouco de verdade (ex: 97% -> ~1.01) e AINDA é margem da casa
-// (EV = p+(1-p)*K < 1 pra todo p<1, já que K<1) — por isso dá pra MOSTRAR os favoritos
-// (ivan/mohamed "chega na final", bane "chega na semi") sem virar dinheiro grátis, o
-// que o piso causava. Os mercados de CONFRONTO seguem com teto+piso (mkCapOdd/ODD_MIN).
+// Piso das odds dos mercados do campeonato. BEM menor que o ODD_MIN dos confrontos
+// (1.10): serve só pra dar um prêmio simbólico ao quase-certo (ex: ivan/mohamed
+// ~99% no pódio) e poder MOSTRÁ-LO. É seguro porque outright é APOSTA SIMPLES e de
+// desfecho ÚNICO (liquida uma vez por campeonato) — não dá pra farmar o +EV mínimo
+// (<1%) que o piso cria pra prob>~0.99, e ainda é risco péssimo pro apostador.
+const MK_KO_TOURNEY_ODD_MIN = 1.01;
+// Odd a partir de uma prob (outright). Só a COMPRESSÃO (MK_ODD_K = margem da casa) +
+// esse piso simbólico, SEM TETO: o azarão paga o quanto é improvável (quase impossível
+// -> milhares de x); o quase-certo paga o piso (~1.01). Sem o piso a fórmula sozinha
+// já é house-edge pra todo p<1 (EV=p+(1-p)*K<1). Confronto usa teto+piso (mkCapOdd/ODD_MIN).
 function mkKoOddFromProb(pp) {
   return (!(pp > 0) || !isFinite(pp)) ? MK_ODD_FALLBACK
-    : Math.max(1, +(1 + (1 / pp - 1) * MK_ODD_K).toFixed(2));
+    : Math.max(MK_KO_TOURNEY_ODD_MIN, +(1 + (1 / pp - 1) * MK_ODD_K).toFixed(2));
 }
 // Texto da odd (mercados do campeonato podem passar de 1000x). Sem casas decimais
 // nos números grandes pra não poluir; 2 casas só nas odds pequenas (as normais).
@@ -1541,11 +1544,11 @@ function mkKoTourneyOpen(market, br) {
   }
 }
 // Um palpite outright é OFERECIDO se ainda tem QUALQUER incerteza: 0 < prob < 1.
-// Sem piso de odd (mkKoOddFromProb), a compressão sozinha já garante margem da casa
-// pra todo prob<1 (EV=p+(1-p)*K<1), então dá pra mostrar até o quase-certo (favorito
-// "chega na final/semi" ~97% paga ~1.01). Só o CERTO (prob=1, ex: cabeça de chave no
-// próprio "chega na semi") fica de fora — pagaria odd 1.00 (nada) e é garantido.
-// Vale no cliente (esconde) E no servidor (recusa) — sempre igual.
+// Mostra TODO MUNDO vivo — favorito quase-certo (ivan/mohamed "pódio" ~99% paga o piso
+// ~1.01) E azarão. Corta só o CERTO (prob=1, ex: cabeça de chave no próprio "chega na
+// semi" — garantido, sem aposta) e o eliminado (prob 0). Como é aposta simples de
+// desfecho único, o +EV mínimo do piso pra prob>~0.99 não dá pra farmar (ver
+// MK_KO_TOURNEY_ODD_MIN). Vale no cliente (esconde) E no servidor (recusa) — igual.
 function mkKoTourneyPickBettable(prob) { return prob > 0 && prob < 1; }
 
 // ── PRÓXIMO JOGO PENDENTE (uso em UI — não trava mais o "liberados") ────────
@@ -11618,12 +11621,12 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     title: MK_KO_TOURNEY_TITLE[mkt],
     picks: (ko.seeds || []).map(p => ({ player: p, prob: (koTourneyProbs[p] || {})[MK_KO_TOURNEY_PROB[mkt]] || 0 }))
       // Lista TODO MUNDO que ainda pode chegar lá — favoritos quase-certos (ivan/mohamed
-      // "chega na final", bane "chega na semi" ~97% -> odd baixa ~1.01) E azarões (chances
-      // minúsculas exibem "<1%"). Corta só os já-CERTOS (prob 1, ex: cabeça de chave no
-      // próprio "chega na semi" -> odd 1.00, sem prêmio) e os eliminados (prob 0).
+      // "chega na final" ~97% e "pódio" ~99% -> piso ~1.01, bane "chega na semi" ~97%) E
+      // azarões (chances minúsculas exibem "<1%"). Corta só os já-CERTOS (prob 1, ex: cabeça
+      // de chave no próprio "chega na semi") e os eliminados (prob 0). Odd tem piso simbólico,
+      // então todo pick vivo paga algo (>1) e é apostável.
       .filter(x => mkKoTourneyPickBettable(x.prob))
       .map(x => ({ player: x.player, prob: x.prob, odd: mkKoOddFromProb(x.prob) }))
-      .filter(x => x.odd > 1) // sem prêmio (quase-certo que arredonda pra 1.00) o servidor recusaria — não oferece
       .sort((a, b) => a.odd - b.odd),
   })).filter(m => m.picks.length > 0) : [];
   // vitórias por boneco (todas as partidas com escalação) — "duelo dos bonecos".
