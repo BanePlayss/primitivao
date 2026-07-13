@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260712-mkfut12 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260712-mkfut13 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -724,9 +724,10 @@ const MK_KO_DOWNSTREAM = {
 // outcome trunca no primeiro buraco (mod desfez o J1 com J2 lançado) e diria
 // "não começou" com jogo gravado, reabrindo a escalação blind já revelada.
 const mkKoMatchStarted = (sc) => !!sc && ['g1', 'g2', 'g3', 'g4', 'g5', 'fh', 'fr'].some(k => sc[k] === 'H' || sc[k] === 'A');
-// Confronto FECHADO pra cancelar/apostar: já começou (placar lançado) OU o mod travou.
-// (o travar do mod fecha a aposta antes do jogo, então também trava o cancelamento — anti-hedge.)
-const mkKoConfrontoClosed = (sc) => mkKoMatchStarted(sc) || !!(sc && sc.locked);
+// Confronto FECHADO pra cancelar/apostar: já começou (placar lançado) OU o mod fechou
+// (trava dura `locked` ou cronômetro `lockAt` vencido — via mkGameClosed, igual à liga).
+// (fechar antes do jogo também trava o cancelamento — anti-hedge.)
+const mkKoConfrontoClosed = (sc) => mkKoMatchStarted(sc) || mkGameClosed(sc);
 // Algum confronto do mata-mata já começou? (trava cancelamento de aposta outright).
 const mkKoAnyStarted = (koScores) => MK_KO_IDS.some(id => mkKoMatchStarted((koScores || {})[id]));
 // Resultado de um confronto MD5: lê g1..g5 EM ORDEM e para no primeiro jogo sem
@@ -1452,9 +1453,9 @@ function mkKoMarketPicks(market) {
 function mkKoShowable(m, sc) {
   return !!(m && m.home && m.away && !m.done && !mkKoMatchStarted(sc));
 }
-// DÁ PRA APOSTAR: aparece E não foi travado manualmente pelo mod (ko.scores[id].locked).
+// DÁ PRA APOSTAR: aparece E não foi fechado pelo mod (trava dura ou cronômetro vencido).
 function mkKoBettable(m, sc) {
-  return mkKoShowable(m, sc) && !(sc && sc.locked);
+  return mkKoShowable(m, sc) && !mkGameClosed(sc);
 }
 // Piso das odds dos mercados do campeonato. BEM menor que o ODD_MIN dos confrontos
 // (1.10): serve só pra dar um prêmio simbólico ao quase-certo (ex: ivan/mohamed
@@ -3735,14 +3736,16 @@ function App() {
     setMkKo(prev => (prev && prev.published) ? apply(prev) : prev);
     return persistMk(mk => (!mk.ko || !mk.ko.published) ? mk : { ...mk, ko: apply(mk.ko) });
   };
-  // MOD trava/destrava a aposta de um CONFRONTO do mata-mata (igual "TRAVAR APOSTAS" da
-  // liga) — grava ko.scores[id].locked. Fecha a aposta ANTES/DURANTE o jogo (senão só
-  // fecharia quando o mod lançasse o 1º placar). Não é resultado — mkKoMatchStarted ignora.
-  const setMkKoLock = (matchId, locked) => {
+  // MOD trava/destrava a aposta de um CONFRONTO do mata-mata (igual à liga) — grava em
+  // ko.scores[id] os campos `locked` (trava dura) e/ou `lockAt` (cronômetro de fechamento,
+  // timestamp ms). patch = { locked?, lockAt? } (undefined/null limpa). Fecha a aposta
+  // ANTES/DURANTE o jogo. Não é resultado — mkKoMatchStarted/bracket ignoram locked/lockAt.
+  const setMkKoLock = (matchId, patch) => {
     const apply = (ko) => {
       const cur = (ko.scores || {})[matchId] || {};
       const nextSc = { ...cur };
-      if (locked) nextSc.locked = true; else delete nextSc.locked;
+      if ('locked' in patch) { if (patch.locked) nextSc.locked = true; else delete nextSc.locked; }
+      if ('lockAt' in patch) { if (patch.lockAt) nextSc.lockAt = patch.lockAt; else delete nextSc.lockAt; }
       return { ...ko, scores: { ...(ko.scores || {}), [matchId]: nextSc } };
     };
     setMkKo(prev => (prev && prev.published) ? apply(prev) : prev);
@@ -5757,6 +5760,7 @@ function App() {
                     isAdmin={isAdmin} isMod={isMod}
                     balance={me?.pc ?? 0}
                     ko={mkKo} onKoBet={placeKoBet} onKoLock={setMkKoLock}
+                    onKoGame={setMkKoGame} onKoField={setMkKoField}
                   />
                 </>
               ) : (
@@ -11123,74 +11127,75 @@ function MkKoSection({ players, teamPlayers, draw, scores, ko, myNick, onKoLineu
     </div>
   );
 }
+// UMA linha do lançador do MD5 (MOD): 1º golpe, 1º round e o vencedor de cada jogo, na
+// ordem. Personagens revelam só DEPOIS do resultado (regra blind). Componente reusável —
+// usado no painel MOD (MkKoLauncher) E inline no card de aposta do confronto.
+function MkKoLaunchRow({ m, ko, teamPlayers, onKoGame, onKoField, myNick }) {
+  const lineupFor = (mm, nick) => mkKoDecodeLineup(((((ko && ko.lineups) || {})[mm.id]) || {})[nick]);
+  const luH = lineupFor(m, m.home), luA = lineupFor(m, m.away);
+  return (
+    <div key={m.id} className={'mk-ko-launch' + (m.done ? ' done' : '')}>
+      <div className="mk-ko-launch-h">
+        <span className="mk-ko-launch-lb">{MK_KO_META[m.id].label} · {MK_KO_META[m.id].phase}</span>
+        <span className={'mk-launch-st ' + (m.done ? 'done' : 'pend')}>{m.done ? <><Icon name="check" size={11} /> {m.o.h}×{m.o.a}</> : 'MD5 · ' + m.o.h + '×' + m.o.a}</span>
+      </div>
+      <div className="mk-ko-launch-vs">
+        <span className="mk-ko-launch-side"><Avatar nick={m.home} teamPlayers={teamPlayers} size={20} noBadge /> {m.home}</span>
+        <span className="mk-ko-launch-x">×</span>
+        <span className="mk-ko-launch-side"><Avatar nick={m.away} teamPlayers={teamPlayers} size={20} noBadge /> {m.away}</span>
+        {(!luH || !luA) && <span className="mk-ko-launch-warn"><Icon name="warning" size={10} /> {[!luH && m.home, !luA && m.away].filter(Boolean).join(' e ')} sem escalação blind</span>}
+      </div>
+      {onKoField && [{ f: 'fh', lb: '1º GOLPE' }, { f: 'fr', lb: '1º ROUND' }].map(({ f, lb }) => {
+        const raw = ((((ko && ko.scores) || {})[m.id]) || {})[f];
+        const cur = raw === 'H' || raw === 'A' ? raw : null;
+        return (
+          <div key={f} className={'mk-ko-launch-g mk-ko-launch-meta' + (cur ? ' set' : '')}>
+            <span className="mk-ko-launch-gn">{lb}</span>
+            <button type="button" className={'mk-ko-gbtn h' + (cur === 'H' ? ' on' : '')}
+              onClick={() => onKoField(m.id, f, cur === 'H' ? null : 'H')} title={m.home + ' fez o ' + lb.toLowerCase()}>
+              <Icon name="fist" size={10} /> {m.home}
+            </button>
+            <span className="mk-ko-launch-gx">×</span>
+            <button type="button" className={'mk-ko-gbtn a' + (cur === 'A' ? ' on' : '')}
+              onClick={() => onKoField(m.id, f, cur === 'A' ? null : 'A')} title={m.away + ' fez o ' + lb.toLowerCase()}>
+              <Icon name="fist" size={10} /> {m.away}
+            </button>
+          </div>
+        );
+      })}
+      {[1, 2, 3, 4, 5].map(n => {
+        const raw = ((((ko && ko.scores) || {})[m.id]) || {})['g' + n];
+        const w = raw === 'H' || raw === 'A' ? raw : null;
+        const enabled = !!w || (!m.done && m.o.next === n);
+        const revH = luH && mkKoPickRevealed(m.o, n, m.home, myNick);
+        const revA = luA && mkKoPickRevealed(m.o, n, m.away, myNick);
+        return (
+          <div key={n} className={'mk-ko-launch-g' + (w ? ' set' : '') + (!enabled ? ' off' : '')}>
+            <span className="mk-ko-launch-gn">J{n}</span>
+            <button type="button" disabled={!enabled} className={'mk-ko-gbtn h' + (w === 'H' ? ' on' : '')}
+              onClick={() => onKoGame(m.id, n, w === 'H' ? null : 'H')}
+              title={w === 'H' ? 'toque pra desfazer (apaga também os jogos seguintes)' : m.home + ' venceu o J' + n}>
+              {revH ? <><MkCharIcon name={luH[n - 1]} sm /> {luH[n - 1]}</> : <><Icon name="eye-off" size={10} /> {m.home}</>}
+            </button>
+            <span className="mk-ko-launch-gx">×</span>
+            <button type="button" disabled={!enabled} className={'mk-ko-gbtn a' + (w === 'A' ? ' on' : '')}
+              onClick={() => onKoGame(m.id, n, w === 'A' ? null : 'A')}
+              title={w === 'A' ? 'toque pra desfazer (apaga também os jogos seguintes)' : m.away + ' venceu o J' + n}>
+              {revA ? <><MkCharIcon name={luA[n - 1]} sm /> {luA[n - 1]}</> : <><Icon name="eye-off" size={10} /> {m.away}</>}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 // LANÇADOR do mata-mata (MOD): marca o vencedor de cada jogo do MD5, na ordem.
 // Revela os personagens do jogo só DEPOIS do resultado (mesma regra de todo mundo).
 function MkKoLauncher({ ko, teamPlayers, onKoGame, onKoField, myNick }) {
   const br = mkKoBracket((ko && ko.seeds) || [], (ko && ko.scores) || {});
   const ready = MK_KO_IDS.map(id => br[id]).filter(m => m.home && m.away);
   const pend = ready.filter(m => !m.done), done = ready.filter(m => m.done);
-  const lineupFor = (m, nick) => mkKoDecodeLineup((((ko.lineups || {})[m.id]) || {})[nick]);
-  const row = (m) => {
-    const luH = lineupFor(m, m.home), luA = lineupFor(m, m.away);
-    return (
-      <div key={m.id} className={'mk-ko-launch' + (m.done ? ' done' : '')}>
-        <div className="mk-ko-launch-h">
-          <span className="mk-ko-launch-lb">{MK_KO_META[m.id].label} · {MK_KO_META[m.id].phase}</span>
-          <span className={'mk-launch-st ' + (m.done ? 'done' : 'pend')}>{m.done ? <><Icon name="check" size={11} /> {m.o.h}×{m.o.a}</> : 'MD5 · ' + m.o.h + '×' + m.o.a}</span>
-        </div>
-        <div className="mk-ko-launch-vs">
-          <span className="mk-ko-launch-side"><Avatar nick={m.home} teamPlayers={teamPlayers} size={20} noBadge /> {m.home}</span>
-          <span className="mk-ko-launch-x">×</span>
-          <span className="mk-ko-launch-side"><Avatar nick={m.away} teamPlayers={teamPlayers} size={20} noBadge /> {m.away}</span>
-          {(!luH || !luA) && <span className="mk-ko-launch-warn"><Icon name="warning" size={10} /> {[!luH && m.home, !luA && m.away].filter(Boolean).join(' e ')} sem escalação blind</span>}
-        </div>
-        {/* 1º GOLPE e 1º ROUND — quem foi o primeiro (mercados de aposta). */}
-        {onKoField && [{ f: 'fh', lb: '1º GOLPE' }, { f: 'fr', lb: '1º ROUND' }].map(({ f, lb }) => {
-          const raw = (((ko.scores || {})[m.id]) || {})[f];
-          const cur = raw === 'H' || raw === 'A' ? raw : null;
-          return (
-            <div key={f} className={'mk-ko-launch-g mk-ko-launch-meta' + (cur ? ' set' : '')}>
-              <span className="mk-ko-launch-gn">{lb}</span>
-              <button type="button" className={'mk-ko-gbtn h' + (cur === 'H' ? ' on' : '')}
-                onClick={() => onKoField(m.id, f, cur === 'H' ? null : 'H')} title={m.home + ' fez o ' + lb.toLowerCase()}>
-                <Icon name="fist" size={10} /> {m.home}
-              </button>
-              <span className="mk-ko-launch-gx">×</span>
-              <button type="button" className={'mk-ko-gbtn a' + (cur === 'A' ? ' on' : '')}
-                onClick={() => onKoField(m.id, f, cur === 'A' ? null : 'A')} title={m.away + ' fez o ' + lb.toLowerCase()}>
-                <Icon name="fist" size={10} /> {m.away}
-              </button>
-            </div>
-          );
-        })}
-        {[1, 2, 3, 4, 5].map(n => {
-          // vencedor do jogo DIRETO do doc (não do outcome, que trunca em buraco
-          // de correção) — todo jogo gravado fica visível e desfazível.
-          const raw = (((ko.scores || {})[m.id]) || {})['g' + n];
-          const w = raw === 'H' || raw === 'A' ? raw : null;
-          const enabled = !!w || (!m.done && m.o.next === n);
-          const revH = luH && mkKoPickRevealed(m.o, n, m.home, myNick);
-          const revA = luA && mkKoPickRevealed(m.o, n, m.away, myNick);
-          return (
-            <div key={n} className={'mk-ko-launch-g' + (w ? ' set' : '') + (!enabled ? ' off' : '')}>
-              <span className="mk-ko-launch-gn">J{n}</span>
-              <button type="button" disabled={!enabled} className={'mk-ko-gbtn h' + (w === 'H' ? ' on' : '')}
-                onClick={() => onKoGame(m.id, n, w === 'H' ? null : 'H')}
-                title={w === 'H' ? 'toque pra desfazer (apaga também os jogos seguintes)' : m.home + ' venceu o J' + n}>
-                {revH ? <><MkCharIcon name={luH[n - 1]} sm /> {luH[n - 1]}</> : <><Icon name="eye-off" size={10} /> {m.home}</>}
-              </button>
-              <span className="mk-ko-launch-gx">×</span>
-              <button type="button" disabled={!enabled} className={'mk-ko-gbtn a' + (w === 'A' ? ' on' : '')}
-                onClick={() => onKoGame(m.id, n, w === 'A' ? null : 'A')}
-                title={w === 'A' ? 'toque pra desfazer (apaga também os jogos seguintes)' : m.away + ' venceu o J' + n}>
-                {revA ? <><MkCharIcon name={luA[n - 1]} sm /> {luA[n - 1]}</> : <><Icon name="eye-off" size={10} /> {m.away}</>}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
+  const row = (m) => <MkKoLaunchRow key={m.id} m={m} ko={ko} teamPlayers={teamPlayers} onKoGame={onKoGame} onKoField={onKoField} myNick={myNick} />;
   return (
     <div className="mk-ko-launcher">
       <div className="mk-admin-note" style={{ marginBottom: 10 }}><Icon name="whistle" size={12} /> MATA-MATA — marque o <strong>1º GOLPE</strong> e o <strong>1º ROUND</strong> (quem foi primeiro) e o LADO que venceu cada jogo (na ordem). Personagens aparecem depois do resultado. Toque de novo pra corrigir.</div>
@@ -11742,7 +11747,7 @@ function MkGameStats({ g, gkey, draw, scores, lineups, metrics, standings, charS
     </div>
   );
 }
-function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onMkScore, onOpenProfile, onEscalar, myNick, isAdmin, isMod, balance, ko, onKoBet, onKoLock }) {
+function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onMkScore, onOpenProfile, onEscalar, myNick, isAdmin, isMod, balance, ko, onKoBet, onKoLock, onKoGame, onKoField }) {
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
@@ -11798,7 +11803,8 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   // regressiva andar e fecha o jogo sozinho quando lockAt vence. Só tica se há
   // algum cronômetro ativo — senão fica parado pra não re-renderizar à toa.
   const [now, setNow] = useState(() => Date.now());
-  const anyCountdown = Object.values(scores || {}).some(s => s && s.lockAt && !s.locked && s.lockAt > now);
+  const hasCd = (obj) => Object.values(obj || {}).some(s => s && s.lockAt && !s.locked && s.lockAt > now);
+  const anyCountdown = hasCd(scores) || hasCd((ko && ko.scores)); // liga OU confronto do KO com cronômetro
   useEffect(() => {
     if (!anyCountdown) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -11827,7 +11833,11 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   // apostas) como cards normais (mesmo visual/cupom da liga). Chave em CAMPEONATOS.
   const koScores = (ko && ko.scores) || {};
   const koBr = ko && ko.published ? mkKoBracket(ko.seeds || [], koScores) : null;
-  const koBettable = koBr ? MK_KO_IDS.map(id => koBr[id]).filter(m => mkKoShowable(m, koScores[m.id])) : []; // inclui travados (aparecem como TRAVADO)
+  // Lista de cards de confronto: abertos + travados (aparecem como TRAVADO). MOD também vê
+  // os EM ANDAMENTO (com placar, não encerrados) pra lançar o resultado direto no card.
+  const koBettable = koBr ? MK_KO_IDS.map(id => koBr[id]).filter(m =>
+    m.home && m.away && !m.done && (isMod || mkKoShowable(m, koScores[m.id]))
+  ) : [];
   // MERCADOS DO CAMPEONATO (outright): campeão / finalista / semi / vice / pódio.
   // Probabilidade derivada do bracket + força (mkKoTournamentProbs); odd no MESMO
   // modelo comprimido dos confrontos. Só mercados ABERTOS e jogadores ainda vivos.
@@ -12233,8 +12243,14 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     const odds = computeMkKoOdds(m.home, m.away, metrics, draw, scores);
     const d = odds._dist;
     const ownGame = !!myNick && (m.home === myNick || m.away === myNick);
-    const koLocked = !!(koScores[m.id] && koScores[m.id].locked); // travado pelo mod
-    const locked = ownGame || koLocked; // não dá pra apostar (nem no próprio, nem travado)
+    const koSc = koScores[m.id];
+    const koStarted = mkKoMatchStarted(koSc);        // já tem placar lançado (em andamento)
+    const koClosed = mkGameClosed(koSc, now);         // trava dura (locked) ou cronômetro (lockAt) vencido
+    const koSecsLeft = mkLockSecondsLeft(koSc, now);
+    const koCounting = koSecsLeft > 0;
+    const canBet = !ownGame && !koStarted && !koClosed; // dá pra apostar agora
+    const locked = !canBet;                            // odds desabilitadas
+    const showLaunch = isMod && onKoGame && (koStarted || koClosed); // mod lança resultado no card
     const meta = MK_KO_META[m.id];
     const pctI = (x) => Math.round(x * 100);
     const frH = mkFirstRoundStats(m.home, draw, scores);
@@ -12245,7 +12261,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     const koMarkets = betMode === 'avancado' ? MK_KO_MARKETS : ['KVENC', 'KTOTAL'];
     const statG = { home: m.home, away: m.away };
     return (
-      <div key={key} className={'mk-bet-game mk-ko-game' + (ownGame ? ' own' : '') + (koLocked ? ' locked' : '') + (expanded ? ' open' : '')}>
+      <div key={key} className={'mk-bet-game mk-ko-game' + (ownGame ? ' own' : '') + ((koClosed || koStarted) ? ' locked' : '') + (koCounting && !koClosed ? ' closing' : '') + (expanded ? ' open' : '')}>
         <div className="mk-bg-summary" role="button" tabIndex={0} aria-expanded={expanded}
           onClick={() => toggleGame(key)}
           onKeyDown={(e) => { if (e.target !== e.currentTarget) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleGame(key); } }}>
@@ -12292,7 +12308,9 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
             <span className="mk-bg-odd"><b>VIS</b> <i>{odds.KVENC.A.toFixed(2)}</i></span>
           </div>
           <div className="mk-bg-flags">
-            {koLocked && <span className="mk-bg-flag lock"><Icon name="lock" size={10} /> TRAVADO</span>}
+            {koStarted && <span className="mk-bg-flag lock"><Icon name="sword" size={10} /> EM ANDAMENTO</span>}
+            {koClosed && !koStarted && <span className="mk-bg-flag lock"><Icon name="lock" size={10} /> TRAVADO</span>}
+            {koCounting && !koClosed && <span className="mk-bg-flag closing"><Icon name="warning" size={10} /> FECHA {fmtSecs(koSecsLeft)}</span>}
             {ownGame && <span className="mk-bg-flag seu"><Icon name="fist" size={10} /> SEU CONFRONTO</span>}
             <span className="mk-bg-flag mk-ko-flag"><Icon name="sword" size={10} /> MELHOR DE 5</span>
             <button type="button" className="mk-bg-stats-btn" onClick={(e) => { e.stopPropagation(); setStatsGame({ g: statG, key }); }}>
@@ -12303,7 +12321,49 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
         {expanded && (
           <div className="mk-bg-body">
             {ownGame && <div className="mk-bet-own seu"><span><Icon name="fist" size={11} /> SEU CONFRONTO — você não aposta nele</span></div>}
-            {koLocked && !ownGame && <div className="mk-bet-own lock"><span><Icon name="lock" size={11} /> APOSTAS TRAVADAS</span></div>}
+            {koStarted && !ownGame && <div className="mk-bet-own lock"><span><Icon name="sword" size={11} /> CONFRONTO EM ANDAMENTO — apostas fechadas</span></div>}
+            {koClosed && !koStarted && !ownGame && <div className="mk-bet-own lock"><span><Icon name="lock" size={11} /> APOSTAS TRAVADAS</span></div>}
+            {koCounting && !koClosed && !ownGame && (
+              <div className="mk-bet-countdown" role="timer" aria-live="polite">
+                <Icon name="warning" size={12} /> <span className="mk-cd-label">FECHA EM</span>
+                <span className="mk-cd-time">{fmtSecs(koSecsLeft)}</span> <span className="mk-cd-hint">última chamada!</span>
+              </div>
+            )}
+            {/* MOD: travar com contagem / travar já / destravar — igual à liga. */}
+            {isMod && onKoLock && !koStarted && (
+              <div className="mk-bet-locktoggle">
+                {koClosed ? (
+                  <button type="button" className="mk-bet-lockbtn on" onClick={() => onKoLock(m.id, { locked: false, lockAt: null })}>
+                    <Icon name="unlock" size={11} /> DESTRAVAR APOSTAS
+                  </button>
+                ) : koCounting ? (
+                  <>
+                    <button type="button" className="mk-bet-lockbtn ghost" onClick={() => onKoLock(m.id, { lockAt: null })}>
+                      <Icon name="x" size={11} /> CANCELAR ({fmtSecs(koSecsLeft)})
+                    </button>
+                    <button type="button" className="mk-bet-lockbtn danger" onClick={() => onKoLock(m.id, { locked: true, lockAt: null })}>
+                      <Icon name="lock" size={11} /> TRAVAR JÁ
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" className="mk-bet-lockbtn" onClick={() => onKoLock(m.id, { lockAt: Date.now() + MK_LOCK_COUNTDOWN_S * 1000, locked: false })}>
+                      <Icon name="warning" size={11} /> FECHAR EM {MK_LOCK_COUNTDOWN_S}s
+                    </button>
+                    <button type="button" className="mk-bet-lockbtn danger" onClick={() => onKoLock(m.id, { locked: true, lockAt: null })}>
+                      <Icon name="lock" size={11} /> TRAVAR JÁ
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+            {/* MOD: lançar o resultado do MD5 direto no card (uma vez fechado/em andamento). */}
+            {showLaunch && (
+              <div className="mk-bet-launch">
+                <div className="mk-bet-launch-h"><Icon name="whistle" size={12} /> LANÇAR RESULTADO</div>
+                <MkKoLaunchRow m={m} ko={ko} teamPlayers={teamPlayers} onKoGame={onKoGame} onKoField={onKoField} myNick={myNick} />
+              </div>
+            )}
             {koMarkets.map(mkt => {
               const picks = mkKoMarketPicks(mkt);
               const vals = picks.map(p => odds[mkt][p]);
@@ -12339,19 +12399,6 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                 </div>
               );
             })}
-            {isMod && onKoLock && (
-              <div className="mk-ko-modrow">
-                {koLocked ? (
-                  <button type="button" className="mk-bet-lockbtn on" onClick={() => onKoLock(m.id, false)}>
-                    <Icon name="unlock" size={11} /> DESTRAVAR APOSTAS
-                  </button>
-                ) : (
-                  <button type="button" className="mk-bet-lockbtn danger" onClick={() => onKoLock(m.id, true)}>
-                    <Icon name="lock" size={11} /> TRAVAR APOSTAS
-                  </button>
-                )}
-              </div>
-            )}
           </div>
         )}
       </div>
