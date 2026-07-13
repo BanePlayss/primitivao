@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260712-mkfut13 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260712-mkfut14 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4944,7 +4944,7 @@ function App() {
               const need = mkt === 'FINAL' ? 2 : mkt === 'PODIUM' ? 3 : 4;
               if (set.length !== need) return { __abort: true, result: { err: 'Monte o grupo completo (' + need + ').' } };
               if (set.some(p => (ko.seeds || []).indexOf(p) === -1)) return { __abort: true, result: { err: 'Jogador inválido no grupo.' } };
-              if (set.indexOf(nick) !== -1) return { __abort: true, result: { err: 'Você não pode se incluir no grupo.' } };
+              // PODE se incluir no grupo (mercado do campeonato: incentivo alinhado, não é o próprio confronto).
               const dks = 'mkkot|' + mkt;
               if (seenKey[dks]) return { __abort: true, result: { err: 'Palpite repetido no mesmo mercado.' } };
               seenKey[dks] = 1;
@@ -4960,7 +4960,7 @@ function App() {
             }
             if (MK_KO_TOURNEY_MARKETS.indexOf(mkt) === -1) return { __abort: true, result: { err: 'Mercado inválido.' } };
             if (!mkKoTourneyOpen(mkt, br)) return { __abort: true, result: { err: 'Esse mercado já fechou.' } };
-            if (l.pick === nick) return { __abort: true, result: { err: 'Você não pode apostar em você mesmo.' } };
+            // PODE apostar em si mesmo nos mercados do campeonato (só o confronto bloqueia).
             if ((ko.seeds || []).indexOf(l.pick) === -1) return { __abort: true, result: { err: 'Jogador inválido.' } };
             const dkt = 'mkkot|' + mkt;
             if (seenKey[dkt]) return { __abort: true, result: { err: 'Palpite repetido no mesmo mercado.' } };
@@ -11943,7 +11943,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   // isso cada palpite do campeonato vira um cupom sozinho. (Ver placeKoBet, que
   // recusa no servidor cupom do campeonato com mais de 1 perna.)
   const toggleKoTourneyLeg = (market, player, odd) => {
-    if (myNick && myNick === player) { showToast('Você não pode apostar em você mesmo.', 'error'); return; }
+    // Mercado do campeonato: PODE apostar em si mesmo (incentivo alinhado — você quer vencer).
     const key = 'mkkot-' + market;
     const cur = cupom.find(l => l.key === key);
     if (cur && cur.pick === player) { setCupom([]); return; } // clicar de novo -> desmarca (esvazia)
@@ -12412,12 +12412,12 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   // Linha de um jogador num mercado single (seed do top-8 + barra de prob de fundo + odd).
   const renderKoTnyPickRow = (market, pk) => {
     const on = koTourneyPickInCupom(market, pk.player);
-    const own = !!myNick && myNick === pk.player;
+    const own = !!myNick && myNick === pk.player; // nos mercados do campeonato PODE apostar em si mesmo (só marca "VOCÊ")
     return (
       <button key={pk.player} type="button"
-        className={'mk-tny-pick' + (on ? ' on' : '') + (own ? ' off' : '')}
-        title={own ? 'Você não aposta em si mesmo' : undefined}
-        onClick={() => toggleKoTourneyLeg(market, pk.player, pk.odd)} disabled={own}
+        className={'mk-tny-pick' + (on ? ' on' : '')}
+        title={own ? 'Você pode apostar em você mesmo aqui' : undefined}
+        onClick={() => toggleKoTourneyLeg(market, pk.player, pk.odd)}
         style={{ ['--pk-fill']: Math.max(2, Math.round(pk.prob * 100)) + '%' }}>
         <span className="mk-tny-pk-l">
           {koSeedNum[pk.player] && <span className="mk-tny-seed">{koSeedNum[pk.player]}º</span>}
@@ -12450,7 +12450,6 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     const gp = complete ? mkKoTourneySetProb(setArr, stage, koTourneyProbs, ko.seeds) : 0;
     const gOdd = complete && gp > 0 ? mkKoOddFromProb(gp) : 0;
     const on = complete && koGroupInCupom(stage, setArr);
-    const selfIn = complete && setArr.indexOf(myNick) !== -1;
     return (
       <div className="mk-grp">
         <div className="mk-grp-h"><Icon name="crosshair" size={12} /> CRAVE O GRUPO EXATO <span className="mk-grp-tag">paga alto</span></div>
@@ -12467,21 +12466,20 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
             <div className="mk-grp-chips">
               {slot.cands.map(c => {
                 const chosen = sel[slot.key] === c;
-                const own = !!myNick && myNick === c;
+                const own = !!myNick && myNick === c; // pode se incluir no grupo (incentivo alinhado)
                 return (
-                  <button key={c} type="button" className={'mk-grp-chip' + (chosen ? ' on' : '') + (own ? ' off' : '')}
-                    disabled={own} title={own ? 'Você não entra no seu próprio grupo' : undefined}
+                  <button key={c} type="button" className={'mk-grp-chip' + (chosen ? ' on' : '')}
+                    title={own ? 'você' : undefined}
                     onClick={() => pickGrpSlot(stage, slot.key, c)}>
-                    <Avatar nick={c} teamPlayers={teamPlayers} size={18} noBadge /> {c}
+                    <Avatar nick={c} teamPlayers={teamPlayers} size={18} noBadge /> {c}{own ? ' (você)' : ''}
                   </button>
                 );
               })}
             </div>
           </div>
         ))}
-        {complete && (selfIn
-          ? <div className="mk-grp-warn"><Icon name="warning" size={11} /> Você está no grupo — não dá pra apostar em si mesmo.</div>
-          : gOdd > 1
+        {complete && (
+          gOdd > 1
             ? <button type="button" className={'mk-grp-go' + (on ? ' on' : '')} onClick={() => toggleKoGroupLeg(stage, setArr, gOdd)}>
                 <span className="mk-grp-go-l"><Icon name={on ? 'check' : 'ticket'} size={12} /> {on ? 'NO CUPOM' : 'APOSTAR NO GRUPO'} · {koProbPct(gp)}</span>
                 <span className="mk-grp-go-odd">{mkOddText(gOdd)}</span>
@@ -12501,7 +12499,6 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     const gp = complete ? mkKoPodiumSetProb(picks, ko.seeds, koScores, metrics, draw, scores) : 0;
     const gOdd = complete && gp > 0 ? mkKoOddFromProb(gp) : 0;
     const on = complete && koGroupInCupom('PODIUM', picks);
-    const selfIn = complete && picks.indexOf(myNick) !== -1;
     return (
       <div className="mk-grp">
         <div className="mk-grp-h"><Icon name="crosshair" size={12} /> CRAVE O PÓDIO EXATO <span className="mk-grp-tag">paga alto</span></div>
@@ -12509,20 +12506,19 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
         <div className="mk-grp-chips">
           {cands.map(c => {
             const chosen = picks.indexOf(c) !== -1;
-            const own = !!myNick && myNick === c;
-            const dis = own || (!chosen && picks.length >= 3);
+            const own = !!myNick && myNick === c; // pode se incluir no próprio pódio
+            const dis = !chosen && picks.length >= 3; // só bloqueia o 4º (já tem 3)
             return (
               <button key={c} type="button" className={'mk-grp-chip' + (chosen ? ' on' : '') + (dis ? ' off' : '')}
-                disabled={dis} title={own ? 'Você não entra no seu próprio pódio' : undefined}
+                disabled={dis} title={own ? 'você' : undefined}
                 onClick={() => togglePodiumPick(c)}>
-                <Avatar nick={c} teamPlayers={teamPlayers} size={18} noBadge /> {c}
+                <Avatar nick={c} teamPlayers={teamPlayers} size={18} noBadge /> {c}{own ? ' (você)' : ''}
               </button>
             );
           })}
         </div>
-        {complete && (selfIn
-          ? <div className="mk-grp-warn"><Icon name="warning" size={11} /> Você está no pódio — não dá pra apostar em si mesmo.</div>
-          : gOdd > 1
+        {complete && (
+          gOdd > 1
             ? <button type="button" className={'mk-grp-go' + (on ? ' on' : '')} onClick={() => toggleKoGroupLeg('PODIUM', picks, gOdd)}>
                 <span className="mk-grp-go-l"><Icon name={on ? 'check' : 'ticket'} size={12} /> {on ? 'NO CUPOM' : 'APOSTAR NO PÓDIO'} · {koProbPct(gp)}</span>
                 <span className="mk-grp-go-odd">{mkOddText(gOdd)}</span>
