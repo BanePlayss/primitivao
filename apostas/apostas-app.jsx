@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260712-mkfut15 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260712-mkfut16 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -17159,19 +17159,23 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, s
   };
   // Crédito manual de PC pra TODOS de uma vez (botão da aba USUÁRIOS).
   const [granting, setGranting] = useState(false);
+  const [grantAmt, setGrantAmt] = useState(1000); // valor do bônus pra todos (editável)
   const handleGrantAll = async () => {
     if (granting) return;
+    const amt = Math.floor(Number(grantAmt) || 0);
+    if (!(amt > 0)) { showToast('Digite um valor maior que 0.', 'error'); return; }
     const n = Object.keys(users || {}).length;
+    const fmt = amt.toLocaleString('pt-BR');
     if (!(await confirmModal({
-      title: 'DAR +1000 PC PRA TODOS?',
-      body: 'Soma 1000 PC ao saldo de TODOS os ' + n + ' jogadores cadastrados. Isso é manual e some no histórico — cada clique credita de novo.',
-      confirmLabel: 'CREDITAR +1000 A TODOS', danger: true,
+      title: 'DAR +' + fmt + ' PC PRA TODOS?',
+      body: 'Soma ' + fmt + ' PC ao saldo de TODOS os ' + n + ' jogadores cadastrados (não reseta — só soma). Isso é manual e some no histórico — cada clique credita de novo.',
+      confirmLabel: 'CREDITAR +' + fmt + ' A TODOS', danger: true,
     }))) return;
     setGranting(true);
     try {
-      const r = await grantAllPc(1000);
+      const r = await grantAllPc(amt);
       if (r && r.err) showToast('Erro: ' + r.err, 'error');
-      else showToast('+1000 PC creditados pra todos os ' + n + ' jogadores!', 'success');
+      else showToast('+' + fmt + ' PC creditados pra todos os ' + n + ' jogadores!', 'success');
     } finally { setGranting(false); }
   };
   // REMOVER TIMES (migrar FIFA pra @nick). Deliberado (botão), idempotente.
@@ -17263,14 +17267,24 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, s
           <div className="card-body">
             <div style={{ marginBottom: 14, padding: 12, border: '2px solid var(--pv-green, #2a8f3f)', background: 'rgba(42,143,63,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="coin" size={14} /> DAR +1000 PC PRA TODOS</div>
+                <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="coin" size={14} /> DAR PC PRA TODOS</div>
                 <div style={{ fontSize: 11, color: 'rgba(28,22,18,0.7)', lineHeight: 1.4, marginTop: 4 }}>
-                  Credita 1000 PC pra cada um dos {Object.keys(users).length} jogadores. Manual — cada clique soma de novo.
+                  SOMA o valor ao saldo de cada um dos {Object.keys(users).length} jogadores (não reseta). Manual — cada clique soma de novo. Atalhos: 1k / 10k / 100k.
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                  {[1000, 10000, 100000].map(v => (
+                    <button key={v} type="button" onClick={() => setGrantAmt(v)} style={{ background: grantAmt === v ? 'var(--pv-green, #2a8f3f)' : 'transparent', color: grantAmt === v ? 'var(--pv-bone)' : 'var(--pv-charcoal)', border: '1.5px solid var(--pv-green, #2a8f3f)', padding: '3px 10px', fontWeight: 800, fontSize: 11, cursor: 'pointer', fontFamily: 'JetBrains Mono, monospace' }}>
+                      {v.toLocaleString('pt-BR')}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <button onClick={handleGrantAll} disabled={granting} style={{ background: 'var(--pv-green, #2a8f3f)', color: 'var(--pv-bone)', border: 'none', padding: '10px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.1em', cursor: granting ? 'wait' : 'pointer', flexShrink: 0 }}>
-                {granting ? 'CREDITANDO…' : '+1000 PRA TODOS'}
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                <input type="number" min="1" value={grantAmt} onChange={e => setGrantAmt(Math.max(0, Math.floor(+e.target.value || 0)))} style={{ width: 120, padding: '8px 10px', border: '1.5px solid var(--pv-green, #2a8f3f)', fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, fontSize: 13, textAlign: 'right' }} />
+                <button onClick={handleGrantAll} disabled={granting} style={{ background: 'var(--pv-green, #2a8f3f)', color: 'var(--pv-bone)', border: 'none', padding: '10px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.1em', cursor: granting ? 'wait' : 'pointer' }}>
+                  {granting ? 'CREDITANDO…' : 'DAR PRA TODOS'}
+                </button>
+              </div>
             </div>
             <div style={{ marginBottom: 14, padding: 12, border: '2px solid var(--pv-orange)', background: 'rgba(215,100,20,0.08)' }}>
               <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: '0.06em' }}>SEPARAR MOEDAS — PC (apostas) × CAMPEÃO COINS (loja)</div>
