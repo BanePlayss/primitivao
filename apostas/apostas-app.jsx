@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260712-mkfut9 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260712-mkfut10 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -1720,6 +1720,9 @@ const MAX_OPEN_TICKETS = 3; // tickets abertos simultâneos por dono (anti-flood
 const MESA_MIN_ODDS = 5;      // piso padrão (FIFA e demais)
 const MESA_MIN_ODDS_MK = 2;   // piso do MK (odds mais baixas)
 const mesaMinOddsFor = (champId) => champId === 'mk' ? MESA_MIN_ODDS_MK : MESA_MIN_ODDS;
+// As apostas do mata-mata (champId 'mkko') pertencem ao campeonato MK ('mk') na Mesa:
+// aparecem/copiam junto com as da liga. Sem isso ficavam invisíveis (champId != 'mk').
+const mesaChampFamily = (c) => (c === 'mkko' ? 'mk' : (c || 'fifa'));
 const REP_LEVELS = [
   { min: 0,    name: 'NOVATO',       icon: 'ticket',  color: '#8c8478' },
   { min: 50,   name: 'PALPITEIRO',   icon: 'target',  color: '#3f9e57' },
@@ -2368,8 +2371,16 @@ function legLabel(leg, teamPlayers) {
 // MK traz home/away/market/pick na própria perna; FIFA precisa do jogo (gamesById).
 function legSummary(leg, teamPlayers, gamesById) {
   if (!leg) return '—';
-  const isMk = typeof leg.fixtureId === 'string' && leg.fixtureId.indexOf('mk:') === 0;
-  if (isMk) {
+  const fid = typeof leg.fixtureId === 'string' ? leg.fixtureId : '';
+  // MK CAMPEONATO (outright / grupo exato): fixtureId 'mkkot:' (ou flag tourney)
+  if (fid.indexOf('mkkot:') === 0 || leg.tourney) {
+    return mkLegMktTitle(leg) + ' · ' + (leg.koSet ? leg.koSet.join(' + ') : leg.pick);
+  }
+  // MK MATA-MATA (confronto MD5): fixtureId 'mkko:'
+  if (fid.indexOf('mkko:') === 0) {
+    return leg.home + ' × ' + leg.away + ' · ' + (MK_KO_MARKET_TITLE[leg.market] || leg.market) + ' ' + (mkKoPickLabel(leg.market, leg.pick, leg.home, leg.away) || '');
+  }
+  if (fid.indexOf('mk:') === 0) { // liga (pontos corridos)
     return leg.home + ' × ' + leg.away + ' · ' + (MK_MARKET_TITLE[leg.market] || leg.market) + ' ' + (mkPickLabel(leg.market, leg.pick) || '');
   }
   const fx = gamesById && gamesById[leg.fixtureId];
@@ -4234,8 +4245,8 @@ function App() {
   // Liquidação das apostas do MATA-MATA (champId 'mkko'): keyed em mk.ko.scores.
   // RE-AVALIA toda perna a cada passada (idempotente) — assim correção do mod
   // (desfazer/trocar vencedor) reverte pagamento e re-liquida certo, inclusive
-  // flip vencedor->outro sem passar por "pendente". Não mexe em cópia/cashback
-  // (aposta de KO não é copiável).
+  // flip vencedor->outro sem passar por "pendente". Trata cópia/cashback/gorjeta/
+  // reputação IGUAL à liga (aposta de KO agora é copiável na Mesa dos Cartolas).
   useEffect(() => {
     if (!hasLoadedRef.current) return;
     let cancelled = false;
@@ -4278,6 +4289,7 @@ function App() {
             const oldStatus = b.status;
             const oldPayout = b.payout || 0;
             let newPayout = b.payout;
+            let gorjeta = 0; // gorjeta do cartola (quando uma cópia vence) — igual à liga/FIFA
             // reverte pagamento anterior se saiu de 'won'
             if (oldStatus === 'won' && newStatus !== 'won' && oldPayout > 0 && newUsers[b.user]) {
               newUsers[b.user] = { ...newUsers[b.user], pc: Math.max(0, newUsers[b.user].pc - oldPayout) };
@@ -4285,13 +4297,45 @@ function App() {
             const offOn = !!(remote.officialDay && remote.officialDay.active);
             if (newStatus === 'won' && oldStatus !== 'won') {
               const gross = Math.round(b.amount * b.combinedOdds * (offOn ? OFFICIAL_DAY_MULT : 1));
-              newPayout = gross;
+              const profit = Math.max(0, gross - (b.amount || 0));
+              // Cópia que vence paga taxa de seguidor (FOLLOW_FEE do lucro); metade vira gorjeta do dono.
+              const fee = b.copyOf ? Math.round(profit * FOLLOW_FEE) : 0;
+              gorjeta = b.copyOf ? Math.round(profit * TIP_COMMISSION) : 0;
+              newPayout = gross - fee;
               if (newUsers[b.user]) newUsers[b.user] = { ...newUsers[b.user], pc: (newUsers[b.user].pc || 0) + newPayout };
             } else if (newStatus === 'lost') { newPayout = 0; }
             else if (newStatus === 'pending') { newPayout = undefined; }
             dirty = true;
             const settledAt = newStatus === 'pending' ? undefined : (oldStatus !== newStatus ? Date.now() : b.settledAt);
-            return { ...b, legs, status: newStatus, payout: newPayout, settledAt, officialBonus: newStatus === 'won' ? offOn : false };
+            // M9: cópia de ticket do mata-mata resolvida -> reputação + gorjeta do DONO (1x).
+            if (b.copyOf && b.copyOwner && (newStatus === 'won' || newStatus === 'lost')) {
+              const ow = newUsers[b.copyOwner];
+              if (ow) {
+                const rep = ow.rep || {};
+                if (!(rep.graded && rep.graded[b.id])) {
+                  const repWon = newStatus === 'won';
+                  const delta = repDeltaForCopy(b, repWon);
+                  newUsers[b.copyOwner] = { ...ow, pc: (ow.pc || 0) + gorjeta, rep: {
+                    score: Math.max(0, (rep.score || 0) + delta),
+                    followersWon: (rep.followersWon || 0) + (repWon ? 1 : 0),
+                    followersLost: (rep.followersLost || 0) + (repWon ? 0 : 1),
+                    tips: (rep.tips || 0) + gorjeta,
+                    graded: { ...(rep.graded || {}), [b.id]: 1 },
+                  } };
+                }
+              }
+            }
+            // SEGURO da cópia: cashback (10% do stake) volta só na DERROTA, creditado 1x.
+            let cashbackPaid = b.cashbackPaid;
+            if (b.copyOf && b.cashbackDeferred && !b.cashbackPaid && newStatus === 'lost' && (b.cashback || 0) > 0 && newUsers[b.user]) {
+              newUsers[b.user] = { ...newUsers[b.user], pc: newUsers[b.user].pc + b.cashback };
+              cashbackPaid = true;
+            } else if (b.copyOf && b.cashbackPaid && newStatus !== 'lost' && (b.cashback || 0) > 0 && newUsers[b.user]) {
+              // mod corrigiu lose->won/pending: estorna o seguro que já tinha voltado (senão fica 10% grátis).
+              newUsers[b.user] = { ...newUsers[b.user], pc: Math.max(0, newUsers[b.user].pc - b.cashback) };
+              cashbackPaid = false;
+            }
+            return { ...b, legs, status: newStatus, payout: newPayout, settledAt, officialBonus: newStatus === 'won' ? offOn : false, cashbackPaid };
           });
           if (!dirty) return null;
           return { ...remote, users: newUsers, bets: newBets };
@@ -4781,8 +4825,10 @@ function App() {
       return { ok: true, autoCopied: !!autoCopyInfo };
     } catch (e) { console.warn('placeMkBet failed', e); showToast('Erro ao apostar. Tenta de novo.', 'error'); return { err: String(e) }; }
   };
-  // APOSTA DO MATA-MATA (champId 'mkko'): fluxo próprio (sem Mesa/cópia), pra NÃO
-  // tocar no dinheiro da liga. Valida TUDO na transação a partir do ko remoto:
+  // APOSTA DO MATA-MATA (champId 'mkko'): fluxo próprio de placeBet (pra NÃO tocar no
+  // dinheiro da liga), mas nasce PÚBLICA (open:true) e copiável na Mesa dos Cartolas
+  // (a liquidação do KO trata cópia/cashback igual à liga). Valida TUDO na transação
+  // a partir do ko remoto:
   // confronto apostável (2 lados, não começou), não é o próprio confronto, palpite
   // válido. Debita o stake. Liquida no effect de KO abaixo.
   const placeKoBet = async (payload) => {
@@ -4891,6 +4937,7 @@ function App() {
         const ticket = {
           id: ticketId, user: nick, amount: stake, status: 'pending', createdAt,
           champId: 'mkko', combinedOdds: combined, casada, nick, stake, combined, legs,
+          open: true, openMeta: { publishedAt: createdAt }, // público na MESA DOS CARTOLAS (copiável)
         };
         if ((remote.bets || []).some(b => b.id === ticket.id)) return null;
         return { ...remote, users: { ...remote.users, [nick]: { ...u, pc: u.pc - stake } }, bets: [ticket, ...(remote.bets || [])] };
@@ -9190,7 +9237,7 @@ function OpenTicketsFeed({ bets, users, teamPlayers, gamesById, myNick, champId,
   const all = bets || [];
   // Cupom PÚBLICO e ousado: pendente, não-cópia, do campeonato atual e com odd
   // combinada >= MESA_MIN_ODDS (curadoria — só as calls que valem copiar).
-  const open = all.filter(b => !b.copyOf && b.status === 'pending' && (b.champId || 'fifa') === champId && Number(b.combinedOdds || 0) >= mesaMinOddsFor(champId))
+  const open = all.filter(b => !b.copyOf && b.status === 'pending' && mesaChampFamily(b.champId) === champId && Number(b.combinedOdds || 0) >= mesaMinOddsFor(champId))
     .sort((a, b) => repScoreOf((users || {})[b.user]) - repScoreOf((users || {})[a.user]) || (b.openMeta?.publishedAt || 0) - (a.openMeta?.publishedAt || 0));
   if (!open.length) return null;
   return (
