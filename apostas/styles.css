@@ -5632,6 +5632,8 @@
     /* ─── MATA-MATA na box de apostas: usa os cards/cupom normais (mk-bet-*),
        só um acento pra destacar que é MD5 + o chip no cupom ────────────────── */
     .mk-ko-game { border-left-color: #b3231a; }
+    .mk-ko-game.locked { opacity: 0.92; }
+    .mk-ko-modrow { display: flex; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(28,22,18,0.15); }
     .mk-ko-game .mk-bet-rod { color: #b3231a; }
     .mk-ko-libround .mk-lib-round-h { color: #b3231a; }
     .mk-bg-flag.mk-ko-flag { background: #b3231a; color: var(--pv-bone); }

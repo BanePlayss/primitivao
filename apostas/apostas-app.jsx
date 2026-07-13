@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260712-mkfut11 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260712-mkfut12 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -724,6 +724,9 @@ const MK_KO_DOWNSTREAM = {
 // outcome trunca no primeiro buraco (mod desfez o J1 com J2 lançado) e diria
 // "não começou" com jogo gravado, reabrindo a escalação blind já revelada.
 const mkKoMatchStarted = (sc) => !!sc && ['g1', 'g2', 'g3', 'g4', 'g5', 'fh', 'fr'].some(k => sc[k] === 'H' || sc[k] === 'A');
+// Confronto FECHADO pra cancelar/apostar: já começou (placar lançado) OU o mod travou.
+// (o travar do mod fecha a aposta antes do jogo, então também trava o cancelamento — anti-hedge.)
+const mkKoConfrontoClosed = (sc) => mkKoMatchStarted(sc) || !!(sc && sc.locked);
 // Algum confronto do mata-mata já começou? (trava cancelamento de aposta outright).
 const mkKoAnyStarted = (koScores) => MK_KO_IDS.some(id => mkKoMatchStarted((koScores || {})[id]));
 // Resultado de um confronto MD5: lê g1..g5 EM ORDEM e para no primeiro jogo sem
@@ -1444,8 +1447,14 @@ function mkKoMarketPicks(market) {
 }
 // Confronto do KO está APOSTÁVEL? Os dois lados definidos, ainda não começou
 // (nenhum jogo lançado) e não terminou. `m` = item de mkKoBracket; sc = ko.scores[id].
-function mkKoBettable(m, sc) {
+// APARECE na lista de apostas do KO: confronto definido (2 lados), não terminou e sem
+// placar lançado. (Inclui os TRAVADOS pelo mod — eles aparecem como "TRAVADO".)
+function mkKoShowable(m, sc) {
   return !!(m && m.home && m.away && !m.done && !mkKoMatchStarted(sc));
+}
+// DÁ PRA APOSTAR: aparece E não foi travado manualmente pelo mod (ko.scores[id].locked).
+function mkKoBettable(m, sc) {
+  return mkKoShowable(m, sc) && !(sc && sc.locked);
 }
 // Piso das odds dos mercados do campeonato. BEM menor que o ODD_MIN dos confrontos
 // (1.10): serve só pra dar um prêmio simbólico ao quase-certo (ex: ivan/mohamed
@@ -3726,6 +3735,19 @@ function App() {
     setMkKo(prev => (prev && prev.published) ? apply(prev) : prev);
     return persistMk(mk => (!mk.ko || !mk.ko.published) ? mk : { ...mk, ko: apply(mk.ko) });
   };
+  // MOD trava/destrava a aposta de um CONFRONTO do mata-mata (igual "TRAVAR APOSTAS" da
+  // liga) — grava ko.scores[id].locked. Fecha a aposta ANTES/DURANTE o jogo (senão só
+  // fecharia quando o mod lançasse o 1º placar). Não é resultado — mkKoMatchStarted ignora.
+  const setMkKoLock = (matchId, locked) => {
+    const apply = (ko) => {
+      const cur = (ko.scores || {})[matchId] || {};
+      const nextSc = { ...cur };
+      if (locked) nextSc.locked = true; else delete nextSc.locked;
+      return { ...ko, scores: { ...(ko.scores || {}), [matchId]: nextSc } };
+    };
+    setMkKo(prev => (prev && prev.published) ? apply(prev) : prev);
+    return persistMk(mk => (!mk.ko || !mk.ko.published) ? mk : { ...mk, ko: apply(mk.ko) });
+  };
   // JOGADOR: declara a escalação blind (5 picks em ordem) do PRÓPRIO confronto.
   // Valida no reducer: participante do confronto, lista válida, confronto ainda
   // sem NENHUM jogo lançado no doc (mkKoMatchStarted — robusto a buraco).
@@ -4699,7 +4721,7 @@ function App() {
             return mkKoAnyStarted((((remote.mk && remote.mk.ko) || {}).scores || {})); // outright: trava quando o mata-mata começa
           }
           if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) {
-            return mkKoMatchStarted((((remote.mk && remote.mk.ko) || {}).scores || {})[l.fixtureId.slice(5)]);
+            return mkKoConfrontoClosed((((remote.mk && remote.mk.ko) || {}).scores || {})[l.fixtureId.slice(5)]);
           }
           if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) {
             const gk = l.fixtureId.slice(3);
@@ -4734,7 +4756,7 @@ function App() {
       return mkKoAnyStarted((((remote.mk && remote.mk.ko) || {}).scores || {}));
     }
     if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) {
-      return mkKoMatchStarted((((remote.mk && remote.mk.ko) || {}).scores || {})[l.fixtureId.slice(5)]);
+      return mkKoConfrontoClosed((((remote.mk && remote.mk.ko) || {}).scores || {})[l.fixtureId.slice(5)]);
     }
     if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) {
       return mkGameClosed(((remote.mk && remote.mk.scores) || {})[l.fixtureId.slice(3)]);
@@ -5002,7 +5024,7 @@ function App() {
             return mkKoAnyStarted((((remote.mk && remote.mk.ko) || {}).scores || {}));
           }
           if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) {
-            return mkKoMatchStarted((((remote.mk && remote.mk.ko) || {}).scores || {})[l.fixtureId.slice(5)]);
+            return mkKoConfrontoClosed((((remote.mk && remote.mk.ko) || {}).scores || {})[l.fixtureId.slice(5)]);
           }
           const gk = (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) ? l.fixtureId.slice(3) : null;
           return gk && mkGameClosed(((remote.mk && remote.mk.scores) || {})[gk]);
@@ -5734,7 +5756,7 @@ function App() {
                     myNick={session.nick}
                     isAdmin={isAdmin} isMod={isMod}
                     balance={me?.pc ?? 0}
-                    ko={mkKo} onKoBet={placeKoBet}
+                    ko={mkKo} onKoBet={placeKoBet} onKoLock={setMkKoLock}
                   />
                 </>
               ) : (
@@ -9388,7 +9410,7 @@ function TicketsView({ bets, gamesById, cs, mkScores, mkLineups, mkKo, teamPlaye
     const hasSettled = t.legs.some(l => !!l.result);
     const hasLocked = t.legs.some(l => {
       if (l.tourney || (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkkot:') === 0)) return mkKoAnyStarted((mkKo || {}).scores || {});
-      if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) return mkKoMatchStarted(((mkKo || {}).scores || {})[l.fixtureId.slice(5)]);
+      if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mkko:') === 0) return mkKoConfrontoClosed(((mkKo || {}).scores || {})[l.fixtureId.slice(5)]);
       if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('mk:') === 0) return mkGameClosed((mkScores || {})[l.fixtureId.slice(3)]);
       const g = resolveGame(l.fixtureId);
       return !!(g && g.locked);
@@ -11720,7 +11742,7 @@ function MkGameStats({ g, gkey, draw, scores, lineups, metrics, standings, charS
     </div>
   );
 }
-function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onMkScore, onOpenProfile, onEscalar, myNick, isAdmin, isMod, balance, ko, onKoBet }) {
+function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bets, onPlaceBet, onRemoveBet, onSetGameLock, onMkScore, onOpenProfile, onEscalar, myNick, isAdmin, isMod, balance, ko, onKoBet, onKoLock }) {
   const insc = (players || []).slice().sort();
   const gKey = (r, gi) => r.phase + '-' + r.n + '-' + gi;
   const skey = (phase, n, gi) => phase + '-' + n + '-' + gi;
@@ -11805,7 +11827,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   // apostas) como cards normais (mesmo visual/cupom da liga). Chave em CAMPEONATOS.
   const koScores = (ko && ko.scores) || {};
   const koBr = ko && ko.published ? mkKoBracket(ko.seeds || [], koScores) : null;
-  const koBettable = koBr ? MK_KO_IDS.map(id => koBr[id]).filter(m => mkKoBettable(m, koScores[m.id])) : [];
+  const koBettable = koBr ? MK_KO_IDS.map(id => koBr[id]).filter(m => mkKoShowable(m, koScores[m.id])) : []; // inclui travados (aparecem como TRAVADO)
   // MERCADOS DO CAMPEONATO (outright): campeão / finalista / semi / vice / pódio.
   // Probabilidade derivada do bracket + força (mkKoTournamentProbs); odd no MESMO
   // modelo comprimido dos confrontos. Só mercados ABERTOS e jogadores ainda vivos.
@@ -11889,6 +11911,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
   const koTourneyPickInCupom = (market, player) => cupom.some(l => l.tourney && l.koTourneyMarket === market && l.pick === player);
   const toggleKoLeg = (m, market, pick, odd) => {
     if (myNick && (m.home === myNick || m.away === myNick)) { showToast('Você não pode apostar no próprio confronto.', 'error'); return; }
+    if (koScores[m.id] && koScores[m.id].locked) { showToast('As apostas desse confronto estão travadas.', 'error'); return; }
     // Chave por (confronto, MERCADO) — igual à liga: dá pra casar mercados
     // diferentes do MESMO confronto (VENCEDOR + TOTAL + PLACAR...). Um pick por
     // mercado (clicar outro pick do mesmo mercado troca).
@@ -12210,6 +12233,8 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     const odds = computeMkKoOdds(m.home, m.away, metrics, draw, scores);
     const d = odds._dist;
     const ownGame = !!myNick && (m.home === myNick || m.away === myNick);
+    const koLocked = !!(koScores[m.id] && koScores[m.id].locked); // travado pelo mod
+    const locked = ownGame || koLocked; // não dá pra apostar (nem no próprio, nem travado)
     const meta = MK_KO_META[m.id];
     const pctI = (x) => Math.round(x * 100);
     const frH = mkFirstRoundStats(m.home, draw, scores);
@@ -12220,7 +12245,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     const koMarkets = betMode === 'avancado' ? MK_KO_MARKETS : ['KVENC', 'KTOTAL'];
     const statG = { home: m.home, away: m.away };
     return (
-      <div key={key} className={'mk-bet-game mk-ko-game' + (ownGame ? ' own' : '') + (expanded ? ' open' : '')}>
+      <div key={key} className={'mk-bet-game mk-ko-game' + (ownGame ? ' own' : '') + (koLocked ? ' locked' : '') + (expanded ? ' open' : '')}>
         <div className="mk-bg-summary" role="button" tabIndex={0} aria-expanded={expanded}
           onClick={() => toggleGame(key)}
           onKeyDown={(e) => { if (e.target !== e.currentTarget) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleGame(key); } }}>
@@ -12267,6 +12292,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
             <span className="mk-bg-odd"><b>VIS</b> <i>{odds.KVENC.A.toFixed(2)}</i></span>
           </div>
           <div className="mk-bg-flags">
+            {koLocked && <span className="mk-bg-flag lock"><Icon name="lock" size={10} /> TRAVADO</span>}
             {ownGame && <span className="mk-bg-flag seu"><Icon name="fist" size={10} /> SEU CONFRONTO</span>}
             <span className="mk-bg-flag mk-ko-flag"><Icon name="sword" size={10} /> MELHOR DE 5</span>
             <button type="button" className="mk-bg-stats-btn" onClick={(e) => { e.stopPropagation(); setStatsGame({ g: statG, key }); }}>
@@ -12277,6 +12303,7 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
         {expanded && (
           <div className="mk-bg-body">
             {ownGame && <div className="mk-bet-own seu"><span><Icon name="fist" size={11} /> SEU CONFRONTO — você não aposta nele</span></div>}
+            {koLocked && !ownGame && <div className="mk-bet-own lock"><span><Icon name="lock" size={11} /> APOSTAS TRAVADAS</span></div>}
             {koMarkets.map(mkt => {
               const picks = mkKoMarketPicks(mkt);
               const vals = picks.map(p => odds[mkt][p]);
@@ -12292,9 +12319,9 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                       const hot = spread && v === mx, fav = spread && v === mn;
                       return (
                         <button key={pick} type="button"
-                          className={'mk-odd' + (on ? ' on' : '') + (ownGame ? ' off' : '') + (hot ? ' hot' : '') + (fav ? ' fav' : '')}
+                          className={'mk-odd' + (on ? ' on' : '') + (locked ? ' off' : '') + (hot ? ' hot' : '') + (fav ? ' fav' : '')}
                           title={hot ? 'Maior prêmio do mercado' : fav ? 'Favorito do mercado' : undefined}
-                          onClick={() => toggleKoLeg(m, mkt, pick, v)} disabled={ownGame}>
+                          onClick={() => toggleKoLeg(m, mkt, pick, v)} disabled={locked}>
                           <span className="mk-odd-l">
                             {MK_KO_SIDE_MARKETS.indexOf(mkt) !== -1 ? (pick === 'H' ? m.home : m.away)
                               : mkt === 'KPLACAR' ? <span className="mk-odd-pl"><span className="mk-sc-h">{pick[0]}</span><span className="mk-sc-x">×</span><span className="mk-sc-a">{pick[1]}</span></span>
@@ -12312,6 +12339,19 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                 </div>
               );
             })}
+            {isMod && onKoLock && (
+              <div className="mk-ko-modrow">
+                {koLocked ? (
+                  <button type="button" className="mk-bet-lockbtn on" onClick={() => onKoLock(m.id, false)}>
+                    <Icon name="unlock" size={11} /> DESTRAVAR APOSTAS
+                  </button>
+                ) : (
+                  <button type="button" className="mk-bet-lockbtn danger" onClick={() => onKoLock(m.id, true)}>
+                    <Icon name="lock" size={11} /> TRAVAR APOSTAS
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
