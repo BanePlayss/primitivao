@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260712-mkfut14 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260712-mkfut15 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -803,9 +803,10 @@ function mkKoLineupProblems(list) {
 // Revela o pick do jogo N de um jogador? Regra única pra TODO MUNDO (inclusive
 // mod): o próprio dono sempre vê; os outros só veem picks de jogos que JÁ têm
 // resultado lançado (o "na hora do jogo" acontece na live, não no app).
-function mkKoPickRevealed(matchOutcome, gameN, ownerNick, viewerNick) {
+function mkKoPickRevealed(matchOutcome, gameN, ownerNick, viewerNick, revealed) {
+  if (revealed) return true;                                    // mod clicou REVELAR (ambos escalados)
   if (ownerNick && viewerNick && ownerNick === viewerNick) return true;
-  return (matchOutcome.games || []).some(g => g.n === gameN);
+  return (matchOutcome.games || []).some(g => g.n === gameN);   // ou o jogo já foi lançado
 }
 
 // Round-dots de um confronto MK (estilo jogo de luta): 2 partidas, cada uma
@@ -3746,6 +3747,7 @@ function App() {
       const nextSc = { ...cur };
       if ('locked' in patch) { if (patch.locked) nextSc.locked = true; else delete nextSc.locked; }
       if ('lockAt' in patch) { if (patch.lockAt) nextSc.lockAt = patch.lockAt; else delete nextSc.lockAt; }
+      if ('revealed' in patch) { if (patch.revealed) nextSc.revealed = true; else delete nextSc.revealed; } // REVELAR escalações
       return { ...ko, scores: { ...(ko.scores || {}), [matchId]: nextSc } };
     };
     setMkKo(prev => (prev && prev.published) ? apply(prev) : prev);
@@ -3767,7 +3769,7 @@ function App() {
       const br = mkKoBracket(mk.ko.seeds, mk.ko.scores);
       const match = br[matchId];
       if (!match || (match.home !== nick && match.away !== nick)) return mk; // não é seu confronto
-      if (mkKoMatchStarted((mk.ko.scores || {})[matchId])) return mk; // já começou: travado
+      { const s = (mk.ko.scores || {})[matchId]; if (mkKoMatchStarted(s) || (s && s.revealed)) return mk; } // já começou OU foi revelado: travado
       saved = true;
       return { ...mk, ko: { ...mk.ko, lineups: { ...(mk.ko.lineups || {}), [matchId]: { ...((mk.ko.lineups || {})[matchId] || {}), [nick]: enc } } } };
     });
@@ -11050,7 +11052,7 @@ function MkKoMyMatch({ match, myNick, ko, onKoLineup, teamPlayers }) {
       <div className="mk-ko-my-slots">
         {[0, 1, 2, 3, 4].map(i => {
           const played = (match.o.games || []).find(g => g.n === i + 1);
-          const oppRevealed = oppList && mkKoPickRevealed(match.o, i + 1, opp, myNick);
+          const oppRevealed = oppList && mkKoPickRevealed(match.o, i + 1, opp, myNick, !!(((ko.scores || {})[match.id]) || {}).revealed);
           const myWon = played && ((played.winner === 'H') === (match.home === myNick));
           return (
             <div key={i} className={'mk-ko-slot' + (played ? (myWon ? ' won' : ' lost') : '')}>
@@ -11133,6 +11135,7 @@ function MkKoSection({ players, teamPlayers, draw, scores, ko, myNick, onKoLineu
 function MkKoLaunchRow({ m, ko, teamPlayers, onKoGame, onKoField, myNick }) {
   const lineupFor = (mm, nick) => mkKoDecodeLineup(((((ko && ko.lineups) || {})[mm.id]) || {})[nick]);
   const luH = lineupFor(m, m.home), luA = lineupFor(m, m.away);
+  const koRevealed = !!((((ko && ko.scores) || {})[m.id]) || {}).revealed; // mod revelou -> mostra os personagens já
   return (
     <div key={m.id} className={'mk-ko-launch' + (m.done ? ' done' : '')}>
       <div className="mk-ko-launch-h">
@@ -11167,8 +11170,8 @@ function MkKoLaunchRow({ m, ko, teamPlayers, onKoGame, onKoField, myNick }) {
         const raw = ((((ko && ko.scores) || {})[m.id]) || {})['g' + n];
         const w = raw === 'H' || raw === 'A' ? raw : null;
         const enabled = !!w || (!m.done && m.o.next === n);
-        const revH = luH && mkKoPickRevealed(m.o, n, m.home, myNick);
-        const revA = luA && mkKoPickRevealed(m.o, n, m.away, myNick);
+        const revH = luH && mkKoPickRevealed(m.o, n, m.home, myNick, koRevealed);
+        const revA = luA && mkKoPickRevealed(m.o, n, m.away, myNick, koRevealed);
         return (
           <div key={n} className={'mk-ko-launch-g' + (w ? ' set' : '') + (!enabled ? ' off' : '')}>
             <span className="mk-ko-launch-gn">J{n}</span>
@@ -12251,6 +12254,14 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
     const canBet = !ownGame && !koStarted && !koClosed; // dá pra apostar agora
     const locked = !canBet;                            // odds desabilitadas
     const showLaunch = isMod && onKoGame && (koStarted || koClosed); // mod lança resultado no card
+    // ESCALAÇÃO BLIND: decodifica os 5 personagens de cada lado. REVELAR (mod) só quando
+    // AMBOS escalaram — mostra os 5 jogos no card com as fotinhas e trava/fecha a aposta.
+    const koLuH = mkKoDecodeLineup(((((ko && ko.lineups) || {})[m.id]) || {})[m.home]);
+    const koLuA = mkKoDecodeLineup(((((ko && ko.lineups) || {})[m.id]) || {})[m.away]);
+    const bothLined = koLuH && koLuH.length === 5 && koLuA && koLuA.length === 5;
+    const koRevealed = !!(koSc && koSc.revealed);
+    const showRevealBtn = isMod && onKoLock && bothLined && !koRevealed && !koStarted;
+    const showMatchups = bothLined && (koRevealed || koStarted); // 5 jogos no card (revelados ou já rolando)
     const meta = MK_KO_META[m.id];
     const pctI = (x) => Math.round(x * 100);
     const frH = mkFirstRoundStats(m.home, draw, scores);
@@ -12355,6 +12366,39 @@ function MkBettingView({ players, users, teamPlayers, draw, scores, lineups, bet
                     </button>
                   </>
                 )}
+              </div>
+            )}
+            {/* MOD: REVELAR — quando os 2 já escalaram, mostra os 5 confrontos e fecha a aposta. */}
+            {showRevealBtn && (
+              <button type="button" className="mk-ko-revealbtn" onClick={() => onKoLock(m.id, { revealed: true, locked: true })}>
+                <Icon name="eye" size={13} /> REVELAR ESCALAÇÕES
+              </button>
+            )}
+            {isMod && !bothLined && !koStarted && (
+              <div className="mk-bet-own"><span><Icon name="eye-off" size={11} /> Aguardando os 2 escalarem os 5 personagens pra revelar</span></div>
+            )}
+            {/* OS 5 JOGOS — matchups do MD5 com as fotinhas dos personagens (revela ao clicar REVELAR). */}
+            {showMatchups && (
+              <div className="mk-ko-reveal">
+                <div className="mk-ko-reveal-h"><Icon name="eye" size={12} /> OS 5 JOGOS {koRevealed && !koStarted && <span className="mk-ko-reveal-tag">REVELADO</span>}</div>
+                {[1, 2, 3, 4, 5].map(n => {
+                  const played = (m.o.games || []).find(g => g.n === n);
+                  const winH = played && played.winner === 'H';
+                  const revH = mkKoPickRevealed(m.o, n, m.home, myNick, koRevealed);
+                  const revA = mkKoPickRevealed(m.o, n, m.away, myNick, koRevealed);
+                  return (
+                    <div key={n} className={'mk-ko-rev-g' + (played ? ' played' : '')}>
+                      <span className="mk-ko-rev-n">J{n}</span>
+                      <span className={'mk-ko-rev-side h' + (played ? (winH ? ' win' : ' lose') : '')}>
+                        {revH && koLuH[n - 1] ? <><MkCharIcon name={koLuH[n - 1]} sm /> <span className="mk-ko-rev-nm">{koLuH[n - 1]}</span></> : <span className="mk-ko-rev-hidden"><Icon name="eye-off" size={10} /> oculto</span>}
+                      </span>
+                      <span className="mk-ko-rev-x">×</span>
+                      <span className={'mk-ko-rev-side a' + (played ? (winH ? ' lose' : ' win') : '')}>
+                        {revA && koLuA[n - 1] ? <><MkCharIcon name={koLuA[n - 1]} sm /> <span className="mk-ko-rev-nm">{koLuA[n - 1]}</span></> : <span className="mk-ko-rev-hidden"><Icon name="eye-off" size={10} /> oculto</span>}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
             {/* MOD: lançar o resultado do MD5 direto no card (uma vez fechado/em andamento). */}
