@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260713-golf1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260713-golf2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3650,7 +3650,7 @@ function App() {
   const setGolfStrokes = (mapN, nick, strokes) => {
     if (!isMod && !isAdmin) return;
     const raw = strokes === '' || strokes == null ? null : Math.floor(+strokes);
-    const val = raw == null || Number.isNaN(raw) ? null : Math.max(0, Math.min(GWYF_MAX_STROKES, raw));
+    const val = raw == null || Number.isNaN(raw) ? null : Math.max(0, raw); // nº real de tacadas, SEM teto
     const apply = (scores) => {
       const map = { ...((scores || {})[mapN] || {}) };
       if (val == null) delete map[nick]; else map[nick] = val;
@@ -6300,7 +6300,7 @@ function computeGolfStandings(schedule, scores, players) {
     }
     const best = +ms[sorted[0]];
     sorted.forEach(nk => { if (+ms[nk] === best) { rec[nk].wins++; rec[nk].pts += 2; } });
-    entries.forEach(nk => { rec[nk].tac += Math.min(+ms[nk], GWYF_MAX_STROKES); rec[nk].played++; });
+    entries.forEach(nk => { rec[nk].tac += +ms[nk]; rec[nk].played++; }); // TAC = tacadas reais (sem teto)
   });
   return Object.values(rec).sort((a, b) => b.pts - a.pts || a.tac - b.tac || b.wins - a.wins || a.nick.localeCompare(b.nick));
 }
@@ -6317,11 +6317,11 @@ function computeGolfMapStandings(scores, mapN, players) {
 
 // Banner de pré-lançamento + inscrição (topo da GolfView). A inscrição é o mesmo
 // toggle dos campeonatos "em breve" (campo TOP-LEVEL interests.gwyf, fora do json).
-function GolfBanner({ accent, interested, count, onToggleInterest }) {
+function GolfBanner({ accent, interested, count, onToggleInterest, started }) {
   const [busy, setBusy] = useState(false);
   const [errMsg, setErrMsg] = useState('');
   const click = async () => {
-    if (busy) return;
+    if (busy || started) return; // campeonato começou: inscrição travada
     setBusy(true); setErrMsg('');
     try { await onToggleInterest(); }
     catch (e) { setErrMsg('Não consegui registrar. Tenta de novo em alguns segundos.'); }
@@ -6330,12 +6330,14 @@ function GolfBanner({ accent, interested, count, onToggleInterest }) {
   return (
     <div className="golf-banner" style={{ '--golf': accent }}>
       <div className="golf-banner-main">
-        <span className="golf-banner-tag"><Icon name="flag" size={12} /> TEMPORADA ABERTA</span>
+        <span className="golf-banner-tag"><Icon name="flag" size={12} /> {started ? 'TEMPORADA ROLANDO' : 'TEMPORADA ABERTA'}</span>
         <div className="golf-banner-tt">GOLF WITH YOUR FRIENDS</div>
-        <p className="golf-banner-sub">O <b>Mortal Kombat</b> acabou — o golfe <b>começou</b>. Inscrições abertas; abaixo a classificação e as rodadas. <b>Apostas chegando.</b></p>
+        <p className="golf-banner-sub">O <b>Mortal Kombat</b> acabou — o golfe <b>começou</b>. {started ? <>Inscrições <b>encerradas</b> (o campeonato já começou). Abaixo a classificação e as rodadas.</> : <>Inscrições abertas; abaixo a classificação e as rodadas.</>} <b>Apostas chegando.</b></p>
       </div>
       <div className="golf-banner-side">
-        {interested ? (
+        {started ? (
+          interested ? <span className="golf-insc-ok"><Icon name="check" size={13} /> INSCRITO</span> : null
+        ) : interested ? (
           <>
             <span className="golf-insc-ok"><Icon name="check" size={13} /> INSCRITO</span>
             <button className="golf-btn golf-btn-out" onClick={click} disabled={busy}>{busy ? 'AGUARDE…' : 'CANCELAR'}</button>
@@ -6343,8 +6345,8 @@ function GolfBanner({ accent, interested, count, onToggleInterest }) {
         ) : (
           <button className="golf-btn" onClick={click} disabled={busy}>{busy ? 'AGUARDE…' : 'QUERO PARTICIPAR'}</button>
         )}
-        <span className="golf-insc-count">{count} {count === 1 ? 'INSCRITO' : 'INSCRITOS'}</span>
-        {errMsg && <span className="golf-insc-err"><Icon name="x" size={12} /> {errMsg}</span>}
+        <span className="golf-insc-count">{count} {count === 1 ? 'INSCRITO' : 'INSCRITOS'}{started ? ' · INSCRIÇÕES ENCERRADAS' : ''}</span>
+        {!started && errMsg && <span className="golf-insc-err"><Icon name="x" size={12} /> {errMsg}</span>}
       </div>
     </div>
   );
@@ -6369,10 +6371,11 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest, golfScore
   const selRound = GWYF_SCHEDULE[selMap];
   const mapStand = computeGolfMapStandings(scores, selRound.n, inscritos); // classificação DO mapa selecionado
   const mapPlayed = mapStand.length > 0;
+  const started = (CHAMP_BY_ID.gwyf || {}).status === 'active'; // campeonato começou -> inscrição travada (não dá pra entrar/sair)
   const accIco = { color: accent, display: 'inline-flex', flexShrink: 0 };
   return (
     <div className="mk-champ golf-champ" style={{ '--golf': accent }}>
-      <GolfBanner accent={accent} interested={interested} count={inscritos.length} onToggleInterest={onToggleInterest} />
+      <GolfBanner accent={accent} interested={interested} count={inscritos.length} onToggleInterest={onToggleInterest} started={started} />
       <div className="grid mk-grid">
 
         {/* CLASSIFICAÇÃO GERAL */}
@@ -6413,7 +6416,7 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest, golfScore
             )}
             <div className="mk-legend">
               <strong>PTS</strong> = pontos somados nos mapas. Em cada mapa, com <strong>N jogadores</strong>: 1º leva <strong>N</strong>, 2º N−1, 3º N−2… e o último 1. O <strong>vencedor do mapa</strong> ganha pontuação extra.
-              <br /><strong>TAC</strong> = total de tacadas — desempate, quanto menos melhor. Limite de <strong>{GWYF_MAX_STROKES}</strong> por mapa; quem não completa conta <strong>+{GWYF_MAX_STROKES}</strong>. <strong>V</strong> = mapas vencidos.
+              <br /><strong>TAC</strong> = total de tacadas somadas nos mapas — desempate, quanto menos melhor. <strong>V</strong> = mapas vencidos.
             </div>
           </div>
         </div>
@@ -6490,19 +6493,19 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest, golfScore
                 )}
                 {isMod && (
                   <div className="golf-launcher">
-                    <div className="golf-launcher-h"><span style={accIco}><Icon name="flag" size={12} /></span> LANÇAR TACADAS — RODADA {String(selRound.n).padStart(2, '0')} <span className="golf-launcher-sub">(mod · menos é melhor · teto {GWYF_MAX_STROKES})</span></div>
+                    <div className="golf-launcher-h"><span style={accIco}><Icon name="flag" size={12} /></span> LANÇAR TACADAS — RODADA {String(selRound.n).padStart(2, '0')} <span className="golf-launcher-sub">(mod · nº de tacadas no mapa · menos é melhor)</span></div>
                     <div className="golf-launcher-list">
                       {inscritos.map(nk => (
                         <label key={nk} className="golf-launcher-row">
                           <Avatar nick={nk} teamPlayers={teamPlayers} size={22} />
                           <span className="golf-launcher-nk">{nk}</span>
-                          <input type="number" min="0" max={GWYF_MAX_STROKES} value={(scores[selRound.n] || {})[nk] ?? ''} onChange={e => onSetStrokes(selRound.n, nk, e.target.value)} placeholder="—" className="golf-launcher-in" />
+                          <input type="number" min="0" value={(scores[selRound.n] || {})[nk] ?? ''} onChange={e => onSetStrokes(selRound.n, nk, e.target.value)} placeholder="—" className="golf-launcher-in" />
                         </label>
                       ))}
                     </div>
                   </div>
                 )}
-                <div className="mk-legend" style={{ marginTop: 8 }}>Classificação do mapa: <strong>TAC</strong> = tacadas (teto {GWYF_MAX_STROKES}); <strong>PTS</strong> = pontos do mapa (menos tacadas = mais pontos, +2 pro vencedor).</div>
+                <div className="mk-legend" style={{ marginTop: 8 }}>Classificação do mapa: <strong>TAC</strong> = tacadas no mapa; <strong>PTS</strong> = pontos do mapa (menos tacadas = mais pontos, +2 pro vencedor).</div>
               </div>
             </div>
           </div>
