@@ -5774,3 +5774,47 @@
     .golf-bet-payout { flex: 1; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 12px; color: rgba(28,22,18,0.7); }
     .golf-bet-go { background: var(--golf, #6f9b1f); color: var(--pv-bone); border: none; padding: 9px 18px; font-weight: 800; font-size: 12px; letter-spacing: 0.08em; cursor: pointer; }
     .golf-bet-go:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* GOLF apostas v2 — cupom estilo MK (mercados por mapa em acordeão) */
+    .golf-betting.mk-betting { border-color: var(--golf, #6f9b1f); }
+    .golf-map-card { margin: 0 0 12px; }
+    .golf-map-card:last-child { margin-bottom: 0; }
+    .golf-map-card > .card-body { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+    .golf-mkt { border: 1.5px solid rgba(28,22,18,0.12); background: var(--pv-bone, #f4ead7); }
+    .golf-mkt-h { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 11px; border: none; background: transparent; cursor: pointer; font-family: inherit; text-align: left; color: var(--pv-charcoal); }
+    .golf-mkt-h.open { border-bottom: 1.5px solid rgba(28,22,18,0.12); }
+    .golf-mkt-h:hover { background: color-mix(in srgb, var(--golf, #6f9b1f) 7%, transparent); }
+    .golf-mkt-t { flex: 1; font-weight: 800; font-size: 11.5px; letter-spacing: 0.05em; }
+    .golf-mkt-h svg { color: var(--golf, #6f9b1f); flex-shrink: 0; }
+    .golf-mkt-c { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 11px; min-width: 18px; height: 18px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; background: var(--golf, #6f9b1f); color: var(--pv-bone); border-radius: 9px; }
+    .golf-mkt-body { padding: 8px; }
+    .golf-bet-opt.self, .golf-bet-opt:disabled { opacity: 0.55; cursor: not-allowed; }
+    .golf-bet-opt.self:hover { border-color: rgba(28,22,18,0.15); }
+    .golf-sim-list { display: flex; flex-direction: column; gap: 5px; }
+    .golf-sim-row { display: flex; align-items: center; gap: 8px; padding: 4px 2px; }
+    .golf-sim-row.self { opacity: 0.55; }
+    .golf-sim-btn { min-width: 74px; padding: 6px 8px; border: 1.5px solid rgba(28,22,18,0.18); background: var(--pv-bone, #f4ead7); cursor: pointer; font-family: inherit; font-weight: 800; font-size: 10.5px; letter-spacing: 0.05em; color: var(--pv-charcoal); display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .golf-sim-btn b { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--golf, #6f9b1f); }
+    .golf-sim-btn:hover:not(:disabled) { border-color: var(--golf, #6f9b1f); }
+    .golf-sim-btn.on { border-color: var(--golf, #6f9b1f); border-width: 2px; background: color-mix(in srgb, var(--golf, #6f9b1f) 12%, var(--pv-bone, #f4ead7)); }
+    .golf-sim-btn.no.on { border-color: var(--pv-red, #b3231a); background: color-mix(in srgb, var(--pv-red, #b3231a) 10%, var(--pv-bone, #f4ead7)); }
+    .golf-sim-btn.no.on b { color: var(--pv-red, #b3231a); }
+    .golf-sim-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* GOLF launcher (mod) — toggles DESISTIU / HOLE-IN-ONE / METADE < PAR */
+    .golf-launcher-in:disabled { opacity: 0.55; cursor: not-allowed; }
+    .golf-launcher-tog { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+    .golf-tog { padding: 4px 7px; border: 1.4px solid rgba(28,22,18,0.2); background: var(--pv-bone, #f4ead7); cursor: pointer; font-family: inherit; font-weight: 800; font-size: 9px; letter-spacing: 0.04em; color: rgba(28,22,18,0.65); white-space: nowrap; }
+    .golf-tog:hover { border-color: var(--golf, #6f9b1f); color: var(--pv-charcoal); }
+    .golf-tog.on { border-color: var(--golf, #6f9b1f); border-width: 2px; background: color-mix(in srgb, var(--golf, #6f9b1f) 14%, var(--pv-bone, #f4ead7)); color: var(--pv-charcoal); }
+    .golf-tog.dnf.on { border-color: var(--pv-red, #b3231a); background: color-mix(in srgb, var(--pv-red, #b3231a) 12%, var(--pv-bone, #f4ead7)); }
+    .golf-launcher-legend { margin-top: 8px; font-size: 10px; line-height: 1.4; color: rgba(28,22,18,0.55); font-weight: 600; }
+    /* GOLF: finalizar rodada (libera liquidação dos cupons) */
+    .golf-finalize { margin-top: 10px; padding-top: 10px; border-top: 1.5px dashed rgba(28,22,18,0.18); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .golf-finalize-info { flex: 1; min-width: 160px; }
+    .golf-finalize-st { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 800; letter-spacing: 0.04em; color: rgba(28,22,18,0.6); }
+    .golf-finalize-st svg { flex-shrink: 0; }
+    .golf-finalize-st.on { color: var(--golf, #6f9b1f); }
+    .golf-finalize-btn { background: var(--golf, #6f9b1f); color: var(--pv-bone); border: none; padding: 9px 16px; font-weight: 800; font-size: 11px; letter-spacing: 0.06em; cursor: pointer; }
+    .golf-finalize-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .golf-finalize-btn.reopen { background: transparent; color: var(--pv-charcoal); border: 1.5px solid rgba(28,22,18,0.3); }
