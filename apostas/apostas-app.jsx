@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260713-mktro1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260713-golf1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3525,6 +3525,7 @@ function App() {
   //   mk = { draw, scores, lineups, locked }
   const [mkDraw, setMkDraw] = useState(null);
   const [mkScores, setMkScores] = useState({});
+  const [golfScores, setGolfScores] = useState({}); // GOLF: { [mapN]: { [nick]: tacadas } } (campo gwyf.scores do json)
   // MEU JOGO: escalação por confronto montada pelo MANDANTE (os dois lados das 2
   // partidas). Keyed por gKey: mkLineups[gKey] = { p1:{home,away}, p2:{home,away} }.
   const [mkLineups, setMkLineups] = useState({});
@@ -3641,6 +3642,25 @@ function App() {
   const toggleMkGameLock = (key) => {
     const cur = !!((mkScores || {})[key] || {}).locked;
     return setMkScoreField(key, { locked: !cur });
+  };
+
+  // GOLF (mod): lança/edita as tacadas de um jogador num mapa. Grava em
+  // gwyf.scores[mapN][nick] (campo `gwyf` do json, irmão do `mk`). Otimista local
+  // + transação. String vazia/nula remove. Teto GWYF_MAX_STROKES.
+  const setGolfStrokes = (mapN, nick, strokes) => {
+    if (!isMod && !isAdmin) return;
+    const raw = strokes === '' || strokes == null ? null : Math.floor(+strokes);
+    const val = raw == null || Number.isNaN(raw) ? null : Math.max(0, Math.min(GWYF_MAX_STROKES, raw));
+    const apply = (scores) => {
+      const map = { ...((scores || {})[mapN] || {}) };
+      if (val == null) delete map[nick]; else map[nick] = val;
+      return { ...(scores || {}), [mapN]: map };
+    };
+    setGolfScores(prev => apply(prev));
+    return commitBetDocUpdate(remote => {
+      const gwyf = (remote.gwyf && typeof remote.gwyf === 'object') ? remote.gwyf : {};
+      return { ...remote, gwyf: { ...gwyf, scores: apply(gwyf.scores) } };
+    });
   };
 
   // ── MATA-MATA DO MK ────────────────────────────────────────────────────────
@@ -3972,6 +3992,9 @@ function App() {
         ));
         setMkLocked(!!mk.locked);
         setMkKo(mk.ko && typeof mk.ko === 'object' ? mk.ko : null);
+        // Estado do GOLF (campo `gwyf` do mesmo doc): { scores: { [mapN]: { [nick]: tacadas } } }.
+        const gwyf = (remote.gwyf && typeof remote.gwyf === 'object') ? remote.gwyf : {};
+        setGolfScores(gwyf.scores && typeof gwyf.scores === 'object' ? gwyf.scores : {});
         setOfficialDayState(remote.officialDay && typeof remote.officialDay === 'object' ? remote.officialDay : null);
         hasLoadedRef.current = true; setSynced(true);
         // Migração one-shot: promove interests do json pra campo top-level.
@@ -5780,6 +5803,7 @@ function App() {
                   teamPlayers={teamPlayers || {}}
                   session={session}
                   onToggleInterest={() => toggleInterest('gwyf')}
+                  golfScores={golfScores} onSetStrokes={setGolfStrokes} isMod={isMod} users={users}
                 />
               ) : (
                 <ApostarView
@@ -5836,6 +5860,7 @@ function App() {
                       teamPlayers={teamPlayers || {}}
                       session={session}
                       onToggleInterest={() => toggleInterest('gwyf')}
+                      golfScores={golfScores} onSetStrokes={setGolfStrokes} isMod={isMod} users={users}
                     />
                   ) : showPlaceholder ? (
                 <ChampionshipPlaceholder
@@ -6251,6 +6276,45 @@ const GWYF_SCHEDULE = [
 // nunca o nome. (O nome real segue no schedule pro dia do jogo.)
 const gwyfMapLabel = (r) => (r && r.kind === 'random') ? 'Mapa aleatório' : 'Mapa oculto';
 
+// GOLF: classificação a partir das tacadas. scores = { [mapN]: { [nick]: tacadas } }.
+// Por mapa (N jogadores com tacada): ranqueia por tacadas asc; 1º leva N pontos,
+// 2º N−1, … último 1 (empate de tacadas = mesma pontuação, a melhor). Vencedor(es)
+// do mapa ganham +2 de bônus e +1 vitória. TAC = soma das tacadas (desempate,
+// menor melhor; teto GWYF_MAX_STROKES por mapa). Devolve ordenado.
+function computeGolfStandings(schedule, scores, players) {
+  const rec = {};
+  (players || []).forEach(p => { rec[p] = { nick: p, pts: 0, tac: 0, wins: 0, played: 0 }; });
+  (schedule || []).forEach(r => {
+    const ms = (scores || {})[r.n] || {};
+    const entries = Object.keys(ms).filter(nk => rec[nk] && Number.isFinite(+ms[nk]));
+    if (!entries.length) return;
+    const N = entries.length;
+    const sorted = entries.slice().sort((a, b) => (+ms[a]) - (+ms[b]));
+    let i = 0;
+    while (i < sorted.length) {
+      let j = i;
+      while (j + 1 < sorted.length && +ms[sorted[j + 1]] === +ms[sorted[i]]) j++;
+      const pts = N - i; // empatados dividem a MELHOR posição
+      for (let k = i; k <= j; k++) rec[sorted[k]].pts += pts;
+      i = j + 1;
+    }
+    const best = +ms[sorted[0]];
+    sorted.forEach(nk => { if (+ms[nk] === best) { rec[nk].wins++; rec[nk].pts += 2; } });
+    entries.forEach(nk => { rec[nk].tac += Math.min(+ms[nk], GWYF_MAX_STROKES); rec[nk].played++; });
+  });
+  return Object.values(rec).sort((a, b) => b.pts - a.pts || a.tac - b.tac || b.wins - a.wins || a.nick.localeCompare(b.nick));
+}
+
+// Classificação de UM mapa do golf (menor tacada primeiro). Devolve [{nick,tac,pos}].
+function computeGolfMapStandings(scores, mapN, players) {
+  const ms = (scores || {})[mapN] || {};
+  const rows = (players || []).filter(nk => Number.isFinite(+ms[nk])).map(nk => ({ nick: nk, tac: +ms[nk] }));
+  rows.sort((a, b) => a.tac - b.tac || a.nick.localeCompare(b.nick));
+  let pos = 0, prev = null;
+  rows.forEach((r, i) => { if (prev === null || r.tac !== prev) { pos = i + 1; prev = r.tac; } r.pos = pos; });
+  return rows;
+}
+
 // Banner de pré-lançamento + inscrição (topo da GolfView). A inscrição é o mesmo
 // toggle dos campeonatos "em breve" (campo TOP-LEVEL interests.gwyf, fora do json).
 function GolfBanner({ accent, interested, count, onToggleInterest }) {
@@ -6291,14 +6355,20 @@ function GolfBanner({ accent, interested, count, onToggleInterest }) {
 // classificação lista os inscritos zerados e as 9 rodadas ficam "AGUARDANDO".
 // Mantém o campeonato como 'soon' (não vira apostável) — o motor de pontuação
 // (lançar tacadas por mapa) entra quando o golf virar 'active', depois do MK.
-function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
+function GolfView({ interests, teamPlayers, session, onToggleInterest, golfScores, onSetStrokes, isMod, users }) {
   const accent = tabloidTheme('gwyf').color;
   const [selMap, setSelMap] = useState(0); // rodada/mapa selecionado (índice no GWYF_SCHEDULE)
   const reg = (interests && interests.gwyf) || {};
   const inscritos = Object.keys(reg).sort();
   const interested = !!(session && reg[session.nick]);
-  // Sem resultados ainda: todos zerados, ordem alfabética.
-  const rows = inscritos.map((nick, i) => ({ pos: i + 1, nick, pts: 0, tac: null, wins: 0 }));
+  const scores = golfScores || {};
+  // Classificação geral (PTS/TAC/V) a partir das tacadas lançadas pelo mod.
+  const stand = computeGolfStandings(GWYF_SCHEDULE, scores, inscritos);
+  const rows = stand.map((s, i) => ({ pos: i + 1, nick: s.nick, pts: s.pts, tac: s.played ? s.tac : null, wins: s.wins }));
+  const anyPlayed = stand.some(s => s.played > 0);
+  const selRound = GWYF_SCHEDULE[selMap];
+  const mapStand = computeGolfMapStandings(scores, selRound.n, inscritos); // classificação DO mapa selecionado
+  const mapPlayed = mapStand.length > 0;
   const accIco = { color: accent, display: 'inline-flex', flexShrink: 0 };
   return (
     <div className="mk-champ golf-champ" style={{ '--golf': accent }}>
@@ -6312,7 +6382,7 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
             <div className="sub">{inscritos.length} INSCRITOS · {GWYF_SCHEDULE.length} RODADAS</div>
           </div>
           <div className="card-body">
-            <div className="mk-admin-note" style={{ width: '100%', marginBottom: 12 }}><span style={accIco}><Icon name="flag" size={12} /></span> Classificação geral — soma os pontos de cada mapa. Ainda sem resultados (pré-lançamento).</div>
+            <div className="mk-admin-note" style={{ width: '100%', marginBottom: 12 }}><span style={accIco}><Icon name="flag" size={12} /></span> Classificação geral — soma os pontos de cada mapa. {anyPlayed ? 'Temporada em andamento.' : 'Aguardando o 1º mapa rolar.'}</div>
             {inscritos.length === 0 ? (
               <div className="empty"><div className="e1">SEM INSCRITOS</div><div className="e2">Ninguém inscrito no golfe ainda. Seja o primeiro no botão acima.</div></div>
             ) : (
@@ -6374,44 +6444,65 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest }) {
                 ))}
               </div>
 
-              {/* CLASSIFICAÇÃO DA RODADA SELECIONADA (zerada — pré-lançamento) */}
+              {/* CLASSIFICAÇÃO DO MAPA SELECIONADO (ao vivo) + lançador do mod */}
               <div className="golf-map-class">
                 <div className="golf-map-class-h">
-                  <span className="golf-map-class-n" style={{ background: GWYF_SCHEDULE[selMap].kind === 'random' ? 'rgba(28,22,18,0.4)' : accent }}>{String(GWYF_SCHEDULE[selMap].n).padStart(2, '0')}</span>
+                  <span className="golf-map-class-n" style={{ background: selRound.kind === 'random' ? 'rgba(28,22,18,0.4)' : accent }}>{String(selRound.n).padStart(2, '0')}</span>
                   <span className="golf-map-class-tt">
-                    <span className="golf-map-class-k">RODADA {String(GWYF_SCHEDULE[selMap].n).padStart(2, '0')} · {GWYF_SCHEDULE[selMap].kind === 'random' ? 'MAPA ALEATÓRIO' : 'MAPA FIXO'}</span>
-                    <span className="golf-map-class-m">{gwyfMapLabel(GWYF_SCHEDULE[selMap])}</span>
+                    <span className="golf-map-class-k">RODADA {String(selRound.n).padStart(2, '0')} · {selRound.kind === 'random' ? 'MAPA ALEATÓRIO' : 'MAPA FIXO'}</span>
+                    <span className="golf-map-class-m">{gwyfMapLabel(selRound)}</span>
                   </span>
-                  <span className="golf-round-st" style={{ marginLeft: 'auto' }}>AGUARDANDO</span>
+                  <span className="golf-round-st" style={{ marginLeft: 'auto' }}>{mapPlayed ? 'JOGADO' : 'AGUARDANDO'}</span>
                 </div>
                 {inscritos.length === 0 ? (
                   <div className="empty" style={{ padding: '18px 12px' }}><div className="e1">SEM INSCRITOS</div></div>
-                ) : (
+                ) : mapPlayed ? (
                   <div style={{ overflowX: 'auto' }}>
                     <table className="std-table">
                       <thead>
                         <tr><th>#</th><th style={{ textAlign: 'left' }}>JOGADOR</th><th>TAC</th><th>PTS</th></tr>
                       </thead>
                       <tbody>
-                        {rows.map(r => (
-                          <tr key={r.nick}>
-                            <td className="std-pos">{String(r.pos).padStart(2, '0')}</td>
-                            <td>
-                              <div className="tnm">
-                                <Avatar nick={r.nick} teamPlayers={teamPlayers} size={22} />
-                                <span>{r.nick}</span>
-                                {r.nick === session.nick && <span className="stats-rail-you">VOCÊ</span>}
-                              </div>
-                            </td>
-                            <td style={{ color: 'rgba(28,22,18,0.45)' }}>—</td>
-                            <td style={{ fontFamily: 'Anton, Impact', fontSize: 15 }}>0</td>
-                          </tr>
-                        ))}
+                        {mapStand.map(r => {
+                          const N = mapStand.length;
+                          const mp = (N - (r.pos - 1)) + (r.pos === 1 ? 2 : 0);
+                          return (
+                            <tr key={r.nick}>
+                              <td className="std-pos">{String(r.pos).padStart(2, '0')}</td>
+                              <td>
+                                <div className="tnm">
+                                  <Avatar nick={r.nick} teamPlayers={teamPlayers} size={22} />
+                                  <span>{r.nick}</span>
+                                  {r.nick === session.nick && <span className="stats-rail-you">VOCÊ</span>}
+                                  {r.pos === 1 && <span style={accIco}><Icon name="flag" size={13} /></span>}
+                                </div>
+                              </td>
+                              <td style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800 }}>{r.tac}</td>
+                              <td style={{ fontFamily: 'Anton, Impact', fontSize: 15 }}>{mp}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
+                ) : (
+                  <div className="empty" style={{ padding: '16px 12px' }}><div className="e1">AGUARDANDO O MAPA</div><div className="e2">O mod ainda não lançou as tacadas dessa rodada.</div></div>
                 )}
-                <div className="mk-legend" style={{ marginTop: 8 }}>Classificação do mapa: <strong>TAC</strong> = total de tacadas (teto {GWYF_MAX_STROKES}); <strong>PTS</strong> = pontos do mapa (menos tacadas = mais pontos). Vazio até o mapa rolar.</div>
+                {isMod && (
+                  <div className="golf-launcher">
+                    <div className="golf-launcher-h"><span style={accIco}><Icon name="flag" size={12} /></span> LANÇAR TACADAS — RODADA {String(selRound.n).padStart(2, '0')} <span className="golf-launcher-sub">(mod · menos é melhor · teto {GWYF_MAX_STROKES})</span></div>
+                    <div className="golf-launcher-list">
+                      {inscritos.map(nk => (
+                        <label key={nk} className="golf-launcher-row">
+                          <Avatar nick={nk} teamPlayers={teamPlayers} size={22} />
+                          <span className="golf-launcher-nk">{nk}</span>
+                          <input type="number" min="0" max={GWYF_MAX_STROKES} value={(scores[selRound.n] || {})[nk] ?? ''} onChange={e => onSetStrokes(selRound.n, nk, e.target.value)} placeholder="—" className="golf-launcher-in" />
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="mk-legend" style={{ marginTop: 8 }}>Classificação do mapa: <strong>TAC</strong> = tacadas (teto {GWYF_MAX_STROKES}); <strong>PTS</strong> = pontos do mapa (menos tacadas = mais pontos, +2 pro vencedor).</div>
               </div>
             </div>
           </div>
