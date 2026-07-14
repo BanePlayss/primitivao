@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260714-golfbet8 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260714-mkpos1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -14119,7 +14119,15 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
   const mkPlayers = mkInscritos(interests);
   const mkMatchesAll = (mkDraw || []).flatMap(r => r.games.map((g, gi) => ({ home: g.home, away: g.away, sc: (mkScores || {})[gKey(r, gi)] || {} }))).filter(m => !mkGameVoid(m));
   const mkStand = computeMkStandings(mkPlayers, mkMatchesAll);
-  const mkPos = (n) => { const i = mkStand.findIndex(s => s.nick === n); return i < 0 ? null : i + 1; };
+  // Colocação FINAL do MK: se o mata-mata fechou, o PÓDIO (campeão/vice/3º/4º) vem
+  // do KO e o resto pela liga (mkFinalOrder). Senão, cai na liga. Sem isso a stats
+  // mostrava a posição da LIGA (ex: celin 7º) em vez da final (celin 3º pelo KO).
+  const mkConcl = mkMatchesAll.filter(m => mkMatchOutcome(m.sc));
+  const mkFinal = mkFinalOrder(mkPlayers, mkConcl, mkKo);
+  const mkPos = (n) => {
+    if (mkFinal.length >= 2) { const i = mkFinal.indexOf(n); return i < 0 ? null : i + 1; }
+    const i = mkStand.findIndex(s => s.nick === n); return i < 0 ? null : i + 1;
+  };
 
   const trophiesOf = (n) => trophiesForNick(n, cs, teamPlayers || {});
   const titlesOf = (n) => titlesForNick(n, ctx);
@@ -14515,9 +14523,15 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
     if (sc && mkMatchOutcome(sc)) mkConcluded.push({ home: g.home, away: g.away, sc });
   }));
   const mkStand = mkInscrito ? computeMkStandings(mkPlayers, mkConcluded) : [];
-  const myMkIdx = mkStand.findIndex(s => s.nick === nick);
-  const myMkPos = myMkIdx >= 0 ? myMkIdx + 1 : 0;
-  const myMkRec = myMkIdx >= 0 ? mkStand[myMkIdx] : null;
+  // Colocação FINAL: pódio do mata-mata (KO) + resto pela liga. Sem isso o perfil
+  // mostrava a posição da LIGA em vez da final (ex: mostrava 3º quando terminou 4º).
+  const mkFinal = mkInscrito ? mkFinalOrder(mkPlayers, mkConcluded, (_mkChampData || {}).ko) : [];
+  const myMkPos = mkFinal.length >= 2
+    ? (mkFinal.indexOf(nick) >= 0 ? mkFinal.indexOf(nick) + 1 : 0)
+    : (mkStand.findIndex(s => s.nick === nick) >= 0 ? mkStand.findIndex(s => s.nick === nick) + 1 : 0);
+  const myMkTotal = mkFinal.length >= 2 ? mkFinal.length : mkStand.length;
+  const myMkRecIdx = mkStand.findIndex(s => s.nick === nick);
+  const myMkRec = myMkRecIdx >= 0 ? mkStand[myMkRecIdx] : null;
   const myMkChars = Array.isArray(me?.mkChars) ? me.mkChars : [];
   const myMkGames = [];
   (mkDraw || []).forEach((r, ri) => (r.games || []).forEach((g, gi) => {
@@ -14528,7 +14542,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
     }
   }));
   const mkAllConcluded = (mkDraw || []).length > 0 && mkDraw.every(r => (r.games || []).every((g, gi) => mkGameVoid(g) || !!mkMatchOutcome((mkScores || {})[mkGKeyP(r, gi)])));
-  const mkResult = mkAllConcluded ? posResult(myMkPos, mkStand.length) : null;
+  const mkResult = mkAllConcluded ? posResult(myMkPos, myMkTotal) : null;
 
   return (
     <div className="perfil perfil-grid" style={{ '--ap-accent': ((me && me.title && getTitleDef(me.title)) || {}).color || '#d76414' }}>
@@ -14717,7 +14731,7 @@ function MeuPerfilView({ nick, me, cs, bets, users, teamPlayers, worldcup, isAdm
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontFamily: 'Anton, Impact', fontSize: 24, lineHeight: 1 }}>{nick}</div>
                     <div className="perfil-team-result" style={{ color: mkResult ? mkResult.color : 'var(--pv-orange)' }}>
-                      <Icon name={mkResult ? mkResult.icon : 'fist'} size={15} /> {myMkPos ? `${myMkPos}º de ${mkStand.length}` : '—'}{mkResult ? ` · ${mkResult.label}` : ''}
+                      <Icon name={mkResult ? mkResult.icon : 'fist'} size={15} /> {myMkPos ? `${myMkPos}º de ${myMkTotal}` : '—'}{mkResult ? ` · ${mkResult.label}` : ''}
                     </div>
                     <div className="perfil-team-status">{mkAllConcluded ? <><Icon name="check" size={11} /> MK SEASON 1 · ENCERRADO</> : <>MK SEASON 1 · AO VIVO</>}</div>
                     {myMkRec && (
