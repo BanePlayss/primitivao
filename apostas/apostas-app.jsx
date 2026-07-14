@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260714-golfbet2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260714-golfbet3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6914,7 +6914,8 @@ function GolfBettingView({ interests, golfScores, golfProps, teamPlayers, sessio
       const others = prev.filter(l => l.mapN !== mapN); // casada só junta MAPAS diferentes → troca a perna do mapa
       return [...others, { key, mapN, market, pick, side: side || null, odd }];
     });
-    if (typeof window !== 'undefined' && window.innerWidth < 900) setCupomOpen(true);
+    // NÃO abre a gaveta a cada clique (senão no mobile a gaveta tapa os cards e não
+    // dá pra montar casada). A barra `.mk-betbar` embaixo abre o cupom quando quiser.
   };
   const place = async () => {
     if (!cupom.length || busy || !(stake > 0)) return;
@@ -6977,6 +6978,7 @@ function GolfBettingView({ interests, golfScores, golfProps, teamPlayers, sessio
         {upcoming.length === 0 ? (
           <div className="empty"><div className="e1">SEM MAPAS ABERTOS</div><div className="e2">Todos os mapas já rolaram — aguarde a próxima temporada.</div></div>
         ) : (
+          <>
           <div className="mk-bet-layout">
             <div className="mk-bet-main">
               <div className="mk-bet-mode" role="tablist" aria-label="Modo de aposta">
@@ -7033,6 +7035,28 @@ function GolfBettingView({ interests, golfScores, golfProps, teamPlayers, sessio
               </div>
             </aside>
           </div>
+          {/* Backdrop do bottom-sheet (mobile): toca fora pra fechar. */}
+          {cupomOpen && (
+            <button className="cupom-sheet-backdrop" type="button" aria-label="Fechar cupom" onClick={() => setCupomOpen(false)} />
+          )}
+          {/* BARRA DO CUPOM (a "abinha" embaixo): aparece quando há palpites, mostra
+              resumo + retorno e ABRE a gaveta do cupom. Igual ao MK. */}
+          {cupom.length > 0 && !cupomOpen && (
+            <button className="mk-betbar" onClick={() => setCupomOpen(true)} type="button">
+              <span className="mk-betbar-main">
+                <span className="mk-betbar-badge"><Icon name="ticket" size={16} /> {cupom.length}</span>
+                <span className="mk-betbar-info">
+                  <span className="mk-betbar-title">{cupom.length === 1 ? '1 PALPITE' : cupom.length + ' PALPITES'}{isCasada ? ' · CASADA' : ''}</span>
+                  <span className="mk-betbar-sub">retorno ~{compactPC(Math.round(stake * combined))} PC</span>
+                </span>
+              </span>
+              <span className="mk-betbar-cta">
+                <span className="mk-betbar-odd">{mkOddText(combined)}x</span>
+                <span className="mk-betbar-go">VER CUPOM <Icon name="caret-up" size={14} /></span>
+              </span>
+            </button>
+          )}
+          </>
         )}
       </div>
     </div>
