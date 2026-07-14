@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260713-close2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260713-titfix1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5353,7 +5353,7 @@ function App() {
             teamPlayers: remote.teamPlayers || {},
             cs, worldcup, interests,
             comments: comments || {},
-            mk: { draw: mkDraw, scores: mkScores },
+            mk: { draw: mkDraw, scores: mkScores, ko: mkKo },
           });
           if (!earned.some(t => t.id === titleId)) return null;
         }
@@ -5549,7 +5549,7 @@ function App() {
           const ctx = {
             bets: remote.bets || [], users: remote.users || {},
             teamPlayers: remote.teamPlayers || {}, cs, worldcup, interests,
-            comments: comments || {}, mk: { draw: mkDraw, scores: mkScores },
+            comments: comments || {}, mk: { draw: mkDraw, scores: mkScores, ko: mkKo },
           };
           const inv = effectiveInventory(userNick, u, ctx);
           if (!inv.includes(itemId)) return null;
@@ -5904,7 +5904,7 @@ function App() {
               <EstatisticasView
                 nick={session.nick} users={users} cs={cs} bets={bets}
                 teamPlayers={teamPlayers || {}} worldcup={worldcup}
-                mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} interests={interests || {}}
+                mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} mkKo={mkKo} interests={interests || {}}
                 comments={comments || {}}
               />
             )}
@@ -13314,8 +13314,8 @@ function BetProfileModal({ nick, users, bets, cs, teamPlayers, onClose }) {
   );
 }
 
-function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw, mkScores, mkLineups, interests, comments }) {
-  const ctx = { users: users || {}, bets: bets || [], teamPlayers: teamPlayers || {}, cs, worldcup, interests: interests || {}, comments: comments || {}, mk: { draw: mkDraw, scores: mkScores } };
+function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw, mkScores, mkLineups, mkKo, interests, comments }) {
+  const ctx = { users: users || {}, bets: bets || [], teamPlayers: teamPlayers || {}, cs, worldcup, interests: interests || {}, comments: comments || {}, mk: { draw: mkDraw, scores: mkScores, ko: mkKo } };
 
   // universo de jogadores (menos o admin e quem se retirou), em ordem alfabética
   const players = Object.keys(users || {}).filter(n => n && n !== ADMIN_NICK && !mkIsWithdrawn(n)).sort((a, b) => a.localeCompare(b));
