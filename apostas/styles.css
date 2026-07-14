@@ -5775,31 +5775,69 @@
     .golf-bet-go { background: var(--golf, #6f9b1f); color: var(--pv-bone); border: none; padding: 9px 18px; font-weight: 800; font-size: 12px; letter-spacing: 0.08em; cursor: pointer; }
     .golf-bet-go:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* GOLF apostas v2 — cupom estilo MK (mercados por mapa em acordeão) */
+    /* GOLF apostas v3 — cupom estilo MK + cards estilo casa de aposta */
     .golf-betting.mk-betting { border-color: var(--golf, #6f9b1f); }
-    .golf-map-card { margin: 0 0 12px; }
-    .golf-map-card:last-child { margin-bottom: 0; }
-    .golf-map-card > .card-body { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
-    .golf-mkt { border: 1.5px solid rgba(28,22,18,0.12); background: var(--pv-bone, #f4ead7); }
-    .golf-mkt-h { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 11px; border: none; background: transparent; cursor: pointer; font-family: inherit; text-align: left; color: var(--pv-charcoal); }
-    .golf-mkt-h.open { border-bottom: 1.5px solid rgba(28,22,18,0.12); }
-    .golf-mkt-h:hover { background: color-mix(in srgb, var(--golf, #6f9b1f) 7%, transparent); }
-    .golf-mkt-t { flex: 1; font-weight: 800; font-size: 11.5px; letter-spacing: 0.05em; }
-    .golf-mkt-h svg { color: var(--golf, #6f9b1f); flex-shrink: 0; }
-    .golf-mkt-c { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 11px; min-width: 18px; height: 18px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; background: var(--golf, #6f9b1f); color: var(--pv-bone); border-radius: 9px; }
+    /* EVENTO (rodada) — cabeçalho forte */
+    .golf-event { border: 2px solid var(--golf, #6f9b1f); background: var(--pv-bone, #f4ead7); }
+    .golf-event-h { display: flex; align-items: center; gap: 11px; padding: 12px 14px; background: color-mix(in srgb, var(--golf, #6f9b1f) 15%, var(--pv-bone, #f4ead7)); border-bottom: 2px solid var(--golf, #6f9b1f); }
+    .golf-event-badge { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; min-width: 46px; height: 46px; padding: 0 8px; background: var(--golf, #6f9b1f); color: var(--pv-bone); font-family: 'Anton', Impact, sans-serif; font-size: 21px; letter-spacing: 0.02em; }
+    .golf-event-badge.lg { min-width: 66px; height: 66px; font-size: 30px; margin: 0 auto 12px; }
+    .golf-event-tt { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+    .golf-event-k { font-size: 9.5px; font-weight: 800; letter-spacing: 0.16em; color: color-mix(in srgb, var(--golf, #6f9b1f) 65%, var(--pv-charcoal)); }
+    .golf-event-m { font-family: 'Bungee Inline', 'Anton', sans-serif; font-size: 17px; letter-spacing: 0.01em; color: var(--pv-charcoal); line-height: 1.05; }
+    .golf-event-open { flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; background: var(--pv-green, #2e7d32); color: #fff; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; }
+    .golf-event-open svg { flex-shrink: 0; }
+    .golf-event-note { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 10.5px; font-weight: 600; color: rgba(28,22,18,0.6); border-bottom: 1px solid rgba(28,22,18,0.1); }
+    .golf-event-note svg { flex-shrink: 0; color: var(--golf, #6f9b1f); }
+    .golf-event-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .golf-live-empty { display: flex; flex-direction: column; align-items: center; }
+
+    /* MERCADO (acordeão rico) */
+    .golf-mkt { border: 1.5px solid rgba(28,22,18,0.14); background: #fff; }
+    .golf-mkt.open { border-color: var(--golf, #6f9b1f); box-shadow: 0 2px 0 color-mix(in srgb, var(--golf, #6f9b1f) 28%, transparent); }
+    .golf-mkt-h { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: none; background: transparent; cursor: pointer; font-family: inherit; text-align: left; color: var(--pv-charcoal); }
+    .golf-mkt.open .golf-mkt-h { border-bottom: 1.5px solid rgba(28,22,18,0.1); background: color-mix(in srgb, var(--golf, #6f9b1f) 6%, transparent); }
+    .golf-mkt-h:hover { background: color-mix(in srgb, var(--golf, #6f9b1f) 8%, transparent); }
+    .golf-mkt-ic { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1.5px solid var(--golf, #6f9b1f); color: var(--golf, #6f9b1f); }
+    .golf-mkt-tt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .golf-mkt-t { font-weight: 800; font-size: 12px; letter-spacing: 0.04em; }
+    .golf-mkt-sub { font-size: 9.5px; font-weight: 600; letter-spacing: 0.02em; color: rgba(28,22,18,0.5); }
+    .golf-mkt-h > svg:last-child { color: var(--golf, #6f9b1f); flex-shrink: 0; }
+    .golf-mkt-c { flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 11px; min-width: 20px; height: 20px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; background: var(--golf, #6f9b1f); color: var(--pv-bone); border-radius: 10px; }
     .golf-mkt-body { padding: 8px; }
-    .golf-bet-opt.self, .golf-bet-opt:disabled { opacity: 0.55; cursor: not-allowed; }
-    .golf-bet-opt.self:hover { border-color: rgba(28,22,18,0.15); }
-    .golf-sim-list { display: flex; flex-direction: column; gap: 5px; }
-    .golf-sim-row { display: flex; align-items: center; gap: 8px; padding: 4px 2px; }
-    .golf-sim-row.self { opacity: 0.55; }
-    .golf-sim-btn { min-width: 74px; padding: 6px 8px; border: 1.5px solid rgba(28,22,18,0.18); background: var(--pv-bone, #f4ead7); cursor: pointer; font-family: inherit; font-weight: 800; font-size: 10.5px; letter-spacing: 0.05em; color: var(--pv-charcoal); display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; }
-    .golf-sim-btn b { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--golf, #6f9b1f); }
-    .golf-sim-btn:hover:not(:disabled) { border-color: var(--golf, #6f9b1f); }
-    .golf-sim-btn.on { border-color: var(--golf, #6f9b1f); border-width: 2px; background: color-mix(in srgb, var(--golf, #6f9b1f) 12%, var(--pv-bone, #f4ead7)); }
-    .golf-sim-btn.no.on { border-color: var(--pv-red, #b3231a); background: color-mix(in srgb, var(--pv-red, #b3231a) 10%, var(--pv-bone, #f4ead7)); }
-    .golf-sim-btn.no.on b { color: var(--pv-red, #b3231a); }
-    .golf-sim-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* CAMPO (WIN/LOSE) — leaderboard de odds */
+    .golf-field { display: flex; flex-direction: column; gap: 5px; }
+    .golf-opt { position: relative; overflow: hidden; display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 11px; border: 1.5px solid rgba(28,22,18,0.14); background: var(--pv-bone, #f4ead7); cursor: pointer; font-family: inherit; text-align: left; }
+    .golf-opt::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--pk-fill, 0%); background: color-mix(in srgb, var(--golf, #6f9b1f) 12%, transparent); pointer-events: none; }
+    .golf-opt > * { position: relative; z-index: 1; }
+    .golf-opt:hover:not(:disabled) { border-color: var(--golf, #6f9b1f); }
+    .golf-opt.on { border-color: var(--golf, #6f9b1f); border-width: 2px; background: color-mix(in srgb, var(--golf, #6f9b1f) 12%, var(--pv-bone, #f4ead7)); }
+    .golf-opt.self, .golf-opt:disabled { opacity: 0.5; cursor: not-allowed; }
+    .golf-opt-rank { flex-shrink: 0; width: 40px; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 800; letter-spacing: 0.02em; color: rgba(28,22,18,0.45); }
+    .golf-opt-rank.fav { color: var(--golf, #6f9b1f); }
+    .golf-opt-rank.dog { color: var(--pv-orange, #d76414); }
+    .golf-opt-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .golf-opt-nk { font-weight: 800; font-size: 13.5px; color: var(--pv-charcoal); display: inline-flex; align-items: center; gap: 6px; }
+    .golf-opt-form { font-size: 9.5px; font-weight: 600; letter-spacing: 0.02em; color: rgba(28,22,18,0.5); }
+    .golf-opt-odd { flex-shrink: 0; min-width: 60px; text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 18px; color: var(--golf, #6f9b1f); }
+    .golf-opt-odd i { font-size: 11px; font-style: normal; opacity: 0.55; }
+
+    /* SIM/NÃO (FINISH/HALFDONE/HALFPAR/HIO) */
+    .golf-simlist { display: flex; flex-direction: column; gap: 5px; }
+    .golf-simrow { display: flex; align-items: center; gap: 9px; padding: 5px 4px; }
+    .golf-simrow.self { opacity: 0.5; }
+    .golf-simrow-nk { flex: 1; min-width: 0; font-weight: 800; font-size: 13px; color: var(--pv-charcoal); display: inline-flex; align-items: center; gap: 6px; }
+    .golf-simrow-btns { flex-shrink: 0; display: flex; gap: 6px; }
+    .golf-sidebtn { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 62px; padding: 6px 10px; border: 1.5px solid rgba(28,22,18,0.16); background: var(--pv-bone, #f4ead7); cursor: pointer; font-family: inherit; color: var(--pv-charcoal); }
+    .golf-sidebtn b { font-size: 9.5px; font-weight: 800; letter-spacing: 0.08em; }
+    .golf-sidebtn i { font-family: 'JetBrains Mono', monospace; font-style: normal; font-size: 14px; font-weight: 800; }
+    .golf-sidebtn.sim i { color: var(--pv-green, #2e7d32); }
+    .golf-sidebtn.nao i { color: var(--pv-red, #b3231a); }
+    .golf-sidebtn:hover:not(:disabled) { border-color: var(--golf, #6f9b1f); }
+    .golf-sidebtn.sim.on { border-color: var(--pv-green, #2e7d32); border-width: 2px; background: color-mix(in srgb, var(--pv-green, #2e7d32) 12%, var(--pv-bone, #f4ead7)); }
+    .golf-sidebtn.nao.on { border-color: var(--pv-red, #b3231a); border-width: 2px; background: color-mix(in srgb, var(--pv-red, #b3231a) 12%, var(--pv-bone, #f4ead7)); }
+    .golf-sidebtn:disabled { opacity: 0.45; cursor: not-allowed; }
 
     /* GOLF launcher (mod) — toggles DESISTIU / HOLE-IN-ONE / METADE < PAR */
     .golf-launcher-in:disabled { opacity: 0.55; cursor: not-allowed; }
