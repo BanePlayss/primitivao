@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260712-mkfut16 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260713-mktit1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5408,12 +5408,13 @@ function App() {
 
   // Contexto ÚNICO das conquistas (score/CC/drops/latch). Inclui TUDO que algum
   // predicado ACH pode olhar: bets/users/teamPlayers/cs/worldcup/interests +
-  // comments (comentarista) + mk { draw, scores } (campeão/flawless do MK).
+  // comments (comentarista) + mk { draw, scores, ko } (campeão/vice/3º/lanterna
+  // e flawless do MK — o pódio sai do KO quando o mata-mata fecha).
   const ccCtx = useMemo(() => ({
     bets, users, teamPlayers, cs, worldcup, interests,
     comments: comments || {},
-    mk: { draw: mkDraw, scores: mkScores },
-  }), [bets, users, teamPlayers, cs, worldcup, interests, comments, mkDraw, mkScores]);
+    mk: { draw: mkDraw, scores: mkScores, ko: mkKo },
+  }), [bets, users, teamPlayers, cs, worldcup, interests, comments, mkDraw, mkScores, mkKo]);
 
   const adjustPc = async (nick, delta) => {
     try {
@@ -9635,10 +9636,14 @@ function betProfileStats(nick, bets) {
 // Posição do nick no ranking de apostas de cada SEASON ENCERRADA. Base dos
 // títulos de apostas (rei/vice/mico). Retorna [{ champId, pos, total, lucro,
 // apostas }] — uma entrada por season fechada em que o nick apostou.
-function bettingSeasonRanks(nick, cs, bets) {
+function bettingSeasonRanks(nick, cs, bets, mkClosed) {
   const out = [];
   for (const c of CHAMPIONSHIPS) {
-    if (computeChampStandings(c.id, cs).status !== 'closed') continue;
+    // O MK não passa pelo computeChampStandings (que só entende FIFA); ele fecha
+    // quando o mata-mata acaba. `mkClosed` vem dos predicados de conquista (que
+    // enxergam ctx.mk.ko) pra liberar o REI DAS APOSTAS do MK.
+    const isClosed = c.id === 'mk' ? !!mkClosed : computeChampStandings(c.id, cs).status === 'closed';
+    if (!isClosed) continue;
     const rank = seasonBettingRanking(c.id, bets);
     const idx = rank.findIndex(r => r.nick === nick);
     if (idx < 0) continue;
@@ -9718,6 +9723,16 @@ function participationCount(nick, interests) {
 //   won      = nº de confrontos vencidos (concluídos)
 //   flawless = venceu ALGUM confronto sem ceder nenhum round (2×0 / 2×0)
 //   champion = terminou em 1º numa season de MK 100% concluída
+// Ordem do pódio do mata-mata do MK (campeão, vice, 3º, 4º) quando o KO está
+// publicado e a final + disputa de 3º já foram decididas. null se ainda não
+// fechou. É o KO que crava o campeão do MK (não a liga, que só semeou os seeds).
+function mkKoPodiumOrder(ko) {
+  if (!ko || !ko.published || !Array.isArray(ko.seeds)) return null;
+  const br = mkKoBracket(ko.seeds, ko.scores || {});
+  if (!br || !br.F || !br.T3 || !br.F.done || !br.T3.done) return null;
+  return [br.F.winner, br.F.loser, br.T3.winner, br.T3.loser].filter(Boolean);
+}
+
 function mkStatsFor(nick, ctx) {
   const mk = (ctx && ctx.mk) || {};
   const draw = Array.isArray(mk.draw) ? mk.draw : [];
@@ -9744,16 +9759,30 @@ function mkStatsFor(nick, ctx) {
       if (conceded === 0) flawless = true;
     }
   }));
-  const allDone = draw.length > 0 && draw.every(r => (r.games || []).every((g, gi) =>
-    mkGameVoid(g) || !!mkMatchOutcome(scores[key(r, gi)])));
+  // Classificação FINAL do MK. Se o mata-mata (KO) fechou (final + disputa de 3º
+  // decididas), o PÓDIO vem do KO — campeão/vice/3º/4º — e o resto pela liga.
+  // Senão, cai só na liga (quando todas as partidas da liga acabaram). O "último"
+  // (vexame / SACO DE PANCADA) é a lanterna entre quem de fato jogou.
+  const koOrder = mkKoPodiumOrder(mk.ko);
   let champion = false, pos = 0, total = 0, isLast = false;
-  if (allDone && players.length >= 2) {
-    const stand = computeMkStandings(players, concluded);
-    const idx = stand.findIndex(s => s.nick === nick);
-    if (idx >= 0 && stand[idx].j > 0) {
-      pos = idx + 1; total = stand.length;
-      champion = pos === 1;
-      isLast = pos === total;
+  const league = computeMkStandings(players, concluded).filter(s => s.j > 0);
+  if (koOrder && koOrder.length >= 4 && league.length >= 2) {
+    const leagueNicks = league.map(s => s.nick);
+    const rest = leagueNicks.filter(n => koOrder.indexOf(n) < 0);
+    const order = koOrder.filter(n => leagueNicks.indexOf(n) >= 0).concat(rest);
+    const idx = order.indexOf(nick);
+    if (idx >= 0) { pos = idx + 1; total = order.length; champion = pos === 1; isLast = pos === total; }
+  } else {
+    const allDone = draw.length > 0 && draw.every(r => (r.games || []).every((g, gi) =>
+      mkGameVoid(g) || !!mkMatchOutcome(scores[key(r, gi)])));
+    if (allDone && players.length >= 2) {
+      const stand = computeMkStandings(players, concluded);
+      const idx = stand.findIndex(s => s.nick === nick);
+      if (idx >= 0 && stand[idx].j > 0) {
+        pos = idx + 1; total = stand.length;
+        champion = pos === 1;
+        isLast = pos === total;
+      }
     }
   }
   return { won, flawless, champion, pos, total, isLast, beat };
@@ -9826,9 +9855,9 @@ const ACH = {
   ironStreak:  ({ nick, bets }) => maxBetStreak(bets, nick, 'won') >= 10,
   cursed:      ({ nick, bets }) => maxBetStreak(bets, nick, 'lost') >= 10,
   // Apostas por SEASON encerrada: rei (1º), vice (2º), mico (último no vermelho).
-  betKing:     ({ nick, cs, bets }) => bettingSeasonRanks(nick, cs, bets).some(r => r.pos === 1),
-  betVice:     ({ nick, cs, bets }) => bettingSeasonRanks(nick, cs, bets).some(r => r.pos === 2 && r.total >= 3),
-  betMico:     ({ nick, cs, bets }) => bettingSeasonRanks(nick, cs, bets).some(r => r.pos === r.total && r.total >= 3 && r.lucro < 0 && r.apostas >= 5),
+  betKing:     ({ nick, cs, bets, mk }) => bettingSeasonRanks(nick, cs, bets, !!mkKoPodiumOrder((mk || {}).ko)).some(r => r.pos === 1),
+  betVice:     ({ nick, cs, bets, mk }) => bettingSeasonRanks(nick, cs, bets, !!mkKoPodiumOrder((mk || {}).ko)).some(r => r.pos === 2 && r.total >= 3),
+  betMico:     ({ nick, cs, bets, mk }) => bettingSeasonRanks(nick, cs, bets, !!mkKoPodiumOrder((mk || {}).ko)).some(r => r.pos === r.total && r.total >= 3 && r.lucro < 0 && r.apostas >= 5),
   // ── NOVAS (gamificação 2026-06) ──
   rookie:      ({ nick, bets }) => betsOf(bets, nick).length >= 1,
   centurion:   ({ nick, bets }) => betsOf(bets, nick).length >= 200,
