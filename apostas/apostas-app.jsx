@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260713-titfix1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260713-titfix2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -13474,6 +13474,34 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
                           const editions = group.map(t => { const cc = CHAMP_BY_ID[t.champId]; return { tag: (cc && cc.tag) || t.champId, season: (cc && cc.season) || '' }; });
                           return <TrophyGroup key={kind} kind={kind} editions={editions} />;
                         })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* CONQUISTAS (títulos) de cada perfil — aparece pra TODOS (não só o campeão
+            de MK que se logou). Usa titlesForNick (KO incluso via ctx.mk.ko). */}
+        <div className="card">
+          <div className="card-head"><div className="title"><Icon name="medal" size={16} /> CONQUISTAS</div></div>
+          <div className="card-body">
+            <div className={'stats-tro-cols' + (profiles.length > 1 ? '' : ' single')}>
+              {profiles.map((p, pi) => {
+                const tit = titlesOf(p);
+                return (
+                  <div key={p + pi} className="stats-prof">
+                    <div className={'stats-tro-name' + (p === nick ? ' me' : '')}>{p}{p === nick && <span className="stats-you">VOCÊ</span>}</div>
+                    <div className="stats-tro-h">CONQUISTAS · {tit.length}</div>
+                    {tit.length === 0 ? <div className="stats-none">Sem conquistas ainda.</div> : (
+                      <div className="stats-conq-list">
+                        {tit.map(t => (
+                          <span key={t.id} className="stats-conq-chip" style={{ '--cq': t.color || 'var(--pv-orange)' }} title={t.desc || t.name}>
+                            <Icon name={t.icon || 'trophy'} size={13} /> {t.name}
+                          </span>
+                        ))}
                       </div>
                     )}
                   </div>

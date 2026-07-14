@@ -5738,3 +5738,9 @@
     .mk-grp-go-l { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 11px; letter-spacing: 0.05em; color: var(--pv-bone); }
     .mk-grp-go-odd { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 17px; color: #fff; }
     .mk-grp-warn { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; color: #b3231a; padding: 6px 0 2px; }
+
+    /* CONQUISTAS (títulos) na ESTATÍSTICAS — chips por jogador. Texto charcoal
+       pra ler no card claro (regra tema-escuro); borda + ícone na cor do título. */
+    .stats-conq-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .stats-conq-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border: 1.5px solid var(--cq, var(--pv-orange)); color: var(--pv-charcoal); background: transparent; font-weight: 800; font-size: 11px; letter-spacing: 0.03em; line-height: 1.15; }
+    .stats-conq-chip svg { color: var(--cq, var(--pv-orange)); flex-shrink: 0; }
