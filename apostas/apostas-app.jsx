@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260714-golfbet7 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260714-golfbet8 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6742,7 +6742,6 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest, golfScore
   const accIco = { color: accent, display: 'inline-flex', flexShrink: 0 };
   return (
     <div className="mk-champ golf-champ" style={{ '--golf': accent }}>
-      <GolfBanner accent={accent} interested={interested} count={inscritos.length} onToggleInterest={onToggleInterest} started={started} />
       <div className="grid mk-grid">
 
         {/* CLASSIFICAÇÃO GERAL */}
