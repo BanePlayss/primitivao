@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260713-golf2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260713-golf3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5795,16 +5795,18 @@ function App() {
                   />
                 </>
               ) : (apostasChampId === 'gwyf') ? (
-                // GOLF: temporada ABERTA mas as apostas ainda não (motor de tacadas +
-                // mercados vêm na próxima etapa). Mostra a própria view (classificação +
-                // rodadas + banner "apostas chegando") em vez do slip genérico "SEM JOGOS".
-                <GolfView
-                  interests={interests || {}}
-                  teamPlayers={teamPlayers || {}}
-                  session={session}
-                  onToggleInterest={() => toggleInterest('gwyf')}
-                  golfScores={golfScores} onSetStrokes={setGolfStrokes} isMod={isMod} users={users}
-                />
+                // GOLF na aba APOSTAS = SÓ aposta (a classificação + rodadas ficam em
+                // CAMPEONATOS — o Lucas pediu pra tirar daqui). Os cards dos 3 mercados
+                // vêm no próximo build; por ora, um aviso limpo em vez da classificação.
+                <div className="card">
+                  <div className="card-head"><div className="title"><Icon name="flag" size={16} /> APOSTAS · GOLF</div><div className="sub">EM CONSTRUÇÃO</div></div>
+                  <div className="card-body">
+                    <div className="empty">
+                      <div className="e1">CARDS DE APOSTA CHEGANDO</div>
+                      <div className="e2">Vêm 3 mercados por mapa: <b>vencedor do mapa</b>, <b>completa/desiste</b> e <b>pódio (top 3)</b>. A classificação e as rodadas do golfe ficam na aba <b>CAMPEONATOS</b>.</div>
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <ApostarView
                   games={games} gamesById={gamesById} bets={bets} me={me} session={session} users={users}
