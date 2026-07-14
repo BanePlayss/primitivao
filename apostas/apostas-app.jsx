@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260713-golf3 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260714-season0 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4618,6 +4618,21 @@ function App() {
     } catch (e) { console.warn('grantAllPc failed', e); return { err: 'falha' }; }
   };
 
+  // ZERA todos os saldos de PC (virada de temporada). SET pc=0 pra todo mundo,
+  // mantém o resto do user (title/earnedTitles/cosmetics/rep...). Destrutivo e
+  // irreversível — o botão pede backup + confirmação. Usa o caminho seguro
+  // (commitBetDocUpdate/protectMap; users não fica {}, só o pc zera).
+  const zeroAllPc = async () => {
+    try {
+      const res = await commitBetDocUpdate(remote => {
+        const users = {};
+        for (const [nk, u] of Object.entries(remote.users || {})) users[nk] = { ...u, pc: 0 };
+        return { ...remote, users };
+      });
+      return res || { ok: true };
+    } catch (e) { console.warn('zeroAllPc failed', e); return { err: 'falha' }; }
+  };
+
   // ADMIN/MOD: liga/desliga o DIA OFICIAL (+25% PC em apostas vencedoras).
   // Grava no JSON (sibling de users/bets/mk) — coberto pelo backup do json.
   const setOfficialDay = async (active) => {
@@ -5984,7 +5999,7 @@ function App() {
                 <AdminView
                   isFullAdmin={isAdmin}
                   bets={bets} users={users} adjustPc={adjustPc} adjustCc={adjustCc}
-                  grantAllPc={grantAllPc}
+                  grantAllPc={grantAllPc} zeroAllPc={zeroAllPc}
                   splitCurrency={splitCurrency} ccCtx={ccCtx}
                   teamPlayers={teamPlayers || {}} setTeamPlayer={setTeamPlayer}
                   discordWebhook={discordWebhook} remoteNews={remoteNews}
@@ -17398,7 +17413,7 @@ async function migrateStateRoundsTeamsToNicks(origTeamPlayers) {
   });
 }
 
-function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, splitCurrency, ccCtx, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, worldcup, wcFixtures, onVoidBet }) {
+function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, zeroAllPc, splitCurrency, ccCtx, teamPlayers, setTeamPlayer, discordWebhook, remoteNews, cs, worldcup, wcFixtures, onVoidBet }) {
   const [splitting, setSplitting] = useState(false);
   const handleSplit = async () => {
     if (splitting) return;
@@ -17434,6 +17449,29 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, s
       if (r && r.err) showToast('Erro: ' + r.err, 'error');
       else showToast('+' + fmt + ' PC creditados pra todos os ' + n + ' jogadores!', 'success');
     } finally { setGranting(false); }
+  };
+  // ZERAR TODOS OS SALDOS (virada de temporada). Destrutivo/irreversível — dupla
+  // confirmação + aviso de backup. Só o pc zera; título/troféu/conquista ficam.
+  const [zeroing, setZeroing] = useState(false);
+  const handleZeroAll = async () => {
+    if (zeroing) return;
+    const n = Object.keys(users || {}).length;
+    if (!(await confirmModal({
+      title: 'ZERAR TODOS OS SALDOS DE PC?',
+      body: 'Coloca o PC de TODOS os ' + n + ' jogadores em ZERO (virada de temporada). IRREVERSÍVEL. FAÇA UM BACKUP ANTES na aba BACKUP. Mantém títulos, troféus, conquistas e cosméticos — só o saldo zera.',
+      confirmLabel: 'ZERAR TODO MUNDO', danger: true,
+    }))) return;
+    if (!(await confirmModal({
+      title: 'CERTEZA? NÃO TEM VOLTA.',
+      body: 'Isso apaga TODOS os saldos de PC (inclusive os grandes). Só confirme se já baixou o backup na aba BACKUP.',
+      confirmLabel: 'SIM, ZERAR TUDO', danger: true,
+    }))) return;
+    setZeroing(true);
+    try {
+      const r = await zeroAllPc();
+      if (r && r.err) showToast('Erro: ' + r.err, 'error');
+      else showToast('Todos os saldos zerados — nova temporada começa do zero.', 'success');
+    } finally { setZeroing(false); }
   };
   // REMOVER TIMES (migrar FIFA pra @nick). Deliberado (botão), idempotente.
   // Ordem: 1) reescreve cs.rounds com o mapa ORIGINAL (teamId->nick); 2) zera
@@ -17542,6 +17580,17 @@ function AdminView({ isFullAdmin, bets, users, adjustPc, adjustCc, grantAllPc, s
                   {granting ? 'CREDITANDO…' : 'DAR PRA TODOS'}
                 </button>
               </div>
+            </div>
+            <div style={{ marginBottom: 14, padding: 12, border: '2px solid #c33', background: 'rgba(195,51,51,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6, color: '#c33' }}><Icon name="warning" size={14} /> ZERAR SALDOS (VIRADA DE TEMPORADA)</div>
+                <div style={{ fontSize: 11, color: 'rgba(28,22,18,0.7)', lineHeight: 1.4, marginTop: 4 }}>
+                  Coloca o PC de TODOS os {Object.keys(users).length} jogadores em ZERO. Irreversível — <b>baixe o backup</b> (aba BACKUP) antes. Mantém títulos, troféus e conquistas; só o saldo zera. Dupla confirmação.
+                </div>
+              </div>
+              <button onClick={handleZeroAll} disabled={zeroing} style={{ background: '#c33', color: 'var(--pv-bone)', border: 'none', padding: '10px 16px', fontWeight: 800, fontSize: 12, letterSpacing: '0.1em', cursor: zeroing ? 'wait' : 'pointer', flexShrink: 0 }}>
+                {zeroing ? 'ZERANDO…' : 'ZERAR TUDO'}
+              </button>
             </div>
             <div style={{ marginBottom: 14, padding: 12, border: '2px solid var(--pv-orange)', background: 'rgba(215,100,20,0.08)' }}>
               <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: '0.06em' }}>SEPARAR MOEDAS — PC (apostas) × CAMPEÃO COINS (loja)</div>
