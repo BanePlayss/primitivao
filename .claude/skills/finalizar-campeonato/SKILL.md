@@ -95,6 +95,20 @@ Confere que o histórico de partidas mostra TODAS as fases. No MK o
 4. Commit BanePlayss + push com rebase-sobre-o-bot.
 5. Avisa o Lucas pra dar Ctrl+Shift+R.
 
+## Passo 8 — VIRADA DE TEMPORADA: zerar os saldos
+Quando a season de apostas daquele jogo fecha e vai começar a próxima (ex: MK S1
+→ Golf), o Lucas **ZERA todos os saldos de PC** pra começar do zero. Ferramenta:
+ADMIN → **MOD** → aba **USUÁRIOS** → card **ZERAR SALDOS (virada de temporada)** →
+**ZERAR TUDO** (dupla confirmação). `zeroAllPc` faz SET pc=0 pra todos via
+`commitBetDocUpdate`; mantém títulos, troféus, conquistas, cosméticos e CC — só o
+PC zera. **BACKUP ANTES** (aba BACKUP, ou captura os saldos por REST — ver
+firestore-safety). ISSO NÃO É o mesmo que "as apostas zeram" (essa é o reset
+automático do RANKING de aposta por-season). Depois de zerar, todo mundo fica em 0
+— pra apostar na season nova precisa de um saldo inicial (dar via **DAR PC PRA
+TODOS** se o Lucas quiser um valor pra todos). Supera a nota antiga "nunca resetar
+saldo" ([[saldos-legitimos-e-exploit-cashback]]): reset é POR virada de temporada,
+decidido pelo dono.
+
 ## Cosmético que dá pra deixar pra depois
 - Hall da Fama/Vergonha do jogo não-FIFA (usa `buildShowcase`/`ShowcaseItem` que
   assume teamId da FIFA; pra nick precisa da via `copaNick`).
