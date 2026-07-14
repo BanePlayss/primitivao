@@ -5753,3 +5753,24 @@
     .golf-launcher-row { display: flex; align-items: center; gap: 8px; }
     .golf-launcher-nk { flex: 1; font-weight: 700; font-size: 12px; color: var(--pv-charcoal); }
     .golf-launcher-in { width: 60px; padding: 5px 8px; border: 1.5px solid var(--golf, #6f9b1f); font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 13px; text-align: center; background: var(--pv-bone, #f4ead7); color: var(--pv-charcoal); }
+
+    /* GOLF apostas — cards de VENCEDOR DO MAPA (aba APOSTAS). Texto charcoal (card claro). */
+    .golf-bet-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .golf-bet-bal { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 12px; color: var(--pv-charcoal); }
+    .golf-bet-field { display: flex; flex-direction: column; gap: 5px; }
+    .golf-bet-opt { position: relative; overflow: hidden; display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 10px; border: 1.5px solid rgba(28,22,18,0.15); background: var(--pv-bone, #f4ead7); cursor: pointer; font-family: inherit; text-align: left; }
+    .golf-bet-opt::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--pk-fill, 0%); background: color-mix(in srgb, var(--golf, #6f9b1f) 14%, transparent); pointer-events: none; }
+    .golf-bet-opt:hover { border-color: var(--golf, #6f9b1f); }
+    .golf-bet-opt.on { border-color: var(--golf, #6f9b1f); border-width: 2px; background: color-mix(in srgb, var(--golf, #6f9b1f) 10%, var(--pv-bone, #f4ead7)); }
+    .golf-bet-opt > * { position: relative; z-index: 1; }
+    .golf-bet-nk { flex: 1; font-weight: 800; font-size: 13px; color: var(--pv-charcoal); display: inline-flex; align-items: center; gap: 6px; }
+    .golf-bet-pct { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: rgba(28,22,18,0.5); min-width: 34px; text-align: right; }
+    .golf-bet-odd { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 15px; color: var(--golf, #6f9b1f); min-width: 46px; text-align: right; }
+    .golf-bet-slip { position: sticky; bottom: 0; margin-top: 10px; border: 2px solid var(--golf, #6f9b1f); background: var(--pv-bone, #f4ead7); padding: 10px 12px; z-index: 5; }
+    .golf-bet-slip-info { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 700; color: var(--pv-charcoal); }
+    .golf-bet-slip-odd { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 16px; color: var(--golf, #6f9b1f); }
+    .golf-bet-slip-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+    .golf-bet-amt { width: 90px; padding: 7px 9px; border: 1.5px solid rgba(28,22,18,0.25); font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 14px; text-align: right; background: #fff; color: var(--pv-charcoal); }
+    .golf-bet-payout { flex: 1; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 12px; color: rgba(28,22,18,0.7); }
+    .golf-bet-go { background: var(--golf, #6f9b1f); color: var(--pv-bone); border: none; padding: 9px 18px; font-weight: 800; font-size: 12px; letter-spacing: 0.08em; cursor: pointer; }
+    .golf-bet-go:disabled { opacity: 0.5; cursor: not-allowed; }
