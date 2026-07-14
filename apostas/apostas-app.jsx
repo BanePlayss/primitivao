@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260714-golfbet6 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260714-golfbet7 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6579,7 +6579,11 @@ const golfCasadaOdd = (oddsProduct, nLegs) => nLegs >= 2 ? +(1 + (oddsProduct - 
 // Recusa bundle comonotônico (WIN+LOSE juntos, ou 2+ PAR do mesmo lado). Devolve
 // string de erro ou null se OK. Serve cliente e servidor (mesma regra).
 function golfCasadaReject(legs) {
-  if ((legs || []).some(l => l.market === 'WIN') && legs.some(l => l.market === 'LOSE')) return 'Não dá pra casar QUEM GANHA e QUEM É O PIOR na mesma rodada — é quase a mesma aposta.';
+  const nWin = (legs || []).filter(l => l.market === 'WIN').length;
+  const nLose = (legs || []).filter(l => l.market === 'LOSE').length;
+  if (nWin > 1) return 'Só dá pra escolher UM vencedor da rodada (é seleção única).';
+  if (nLose > 1) return 'Só dá pra escolher UM pior da rodada (é seleção única).';
+  if (nWin && nLose) return 'Não dá pra casar QUEM GANHA e QUEM É O PIOR na mesma rodada — é quase a mesma aposta.';
   const seen = {};
   for (const l of legs || []) if (l.market === 'PAR') { if (seen[l.side]) return 'No PAR, só um palpite de cada lado por cupom (ex: um ABAIXO e um ACIMA).'; seen[l.side] = 1; }
   return null;
@@ -6959,7 +6963,10 @@ function GolfBettingView({ interests, golfScores, golfProps, golfFinals, teamPla
       if (prev.some(l => l.key === key)) return prev.filter(l => l.key !== key);
       // ESCALAÇÃO: uma perna por (mapa, jogador). Clicar outro mercado/via no MESMO
       // jogador TROCA o papel dele (não empilha) — evita casada correlacionada.
-      const others = prev.filter(l => !(l.mapN === mapN && l.pick === pick));
+      let others = prev.filter(l => !(l.mapN === mapN && l.pick === pick));
+      // GANHA A RODADA / QUEM É O PIOR = seleção ÚNICA (só há 1 vencedor / 1 pior por
+      // rodada): escolher outro jogador TROCA o palpite (não dá pra marcar vários).
+      if (GOLF_FIELD_MARKETS.indexOf(market) >= 0) others = others.filter(l => !(l.mapN === mapN && l.market === market));
       return [...others, { key, mapN, market, pick, side: side || null, odd }];
     });
     // NÃO abre a gaveta a cada clique. A barra `.mk-betbar` embaixo abre o cupom.
