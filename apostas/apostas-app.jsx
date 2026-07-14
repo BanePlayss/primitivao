@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260714-golfbet4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260714-golfbet6 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2432,12 +2432,10 @@ function legSummary(leg, teamPlayers, gamesById) {
   if (fid.indexOf('gwyf:') === 0) {
     const rod = 'GOLF · R' + String(leg.mapN).padStart(2, '0') + ' · ' + leg.pick + ' · ';
     const sim = leg.side !== 'NAO';
-    if (leg.market === 'WIN') return rod + 'menos tacadas (vence)';
-    if (leg.market === 'LOSE') return rod + 'mais tacadas (pior)';
-    if (leg.market === 'FINISH') return rod + (sim ? 'completa o mapa' : 'desiste');
-    if (leg.market === 'HALFDONE') return rod + 'completa metade do mapa ' + (sim ? 'SIM' : 'NÃO');
+    if (leg.market === 'WIN') return rod + 'ganha a rodada';
+    if (leg.market === 'LOSE') return rod + 'o pior da rodada';
     if (leg.market === 'HIO') return rod + 'hole in one ' + (sim ? 'SIM' : 'NÃO');
-    if (leg.market === 'HALFPAR') return rod + 'metade abaixo do par ' + (sim ? 'SIM' : 'NÃO');
+    if (leg.market === 'PAR') return rod + 'termina ' + golfParLabel(golfParOf(leg.side));
     return rod + (leg.market || '');
   }
   // MK CAMPEONATO (outright / grupo exato): fixtureId 'mkkot:' (ou flag tourney)
@@ -4539,7 +4537,7 @@ function App() {
             // Prêmio (winnings) do novo estado. Void = devolve o stake (refund), mas
             // isso NÃO é "payout" no campo (fica 0). eff = produto só das pernas GANHAS.
             let won = 0;
-            if (newStatus === 'won') { let eff = 1; b.legs.forEach((l, i) => { if (results[i] === 'win') eff *= (l.odd || 1); }); won = Math.round(amount * eff * (offOn ? OFFICIAL_DAY_MULT : 1)); }
+            if (newStatus === 'won') { let eff = 1, nWin = 0; b.legs.forEach((l, i) => { if (results[i] === 'win') { eff *= (l.odd || 1); nWin++; } }); won = Math.round(amount * golfCasadaOdd(eff, nWin) * (offOn ? OFFICIAL_DAY_MULT : 1)); } // desconto de correlação nas pernas ganhas
             const storedPayout = newStatus === 'pending' ? undefined : won; // won→prêmio; void/lost→0
             const sameBonus = newStatus !== 'won' || (!!b.officialBonus === offOn);
             // Idempotente: mesmo status E mesmo prêmio E mesmo bônus. (Um won→won com
@@ -4783,27 +4781,34 @@ function App() {
         if (!players.length) return { __abort: true, result: { err: 'Campo do golf indisponível. Tenta de novo.' } };
         const gscores = (remote.gwyf && remote.gwyf.scores) || {};
         const gprops = (remote.gwyf && remote.gwyf.props) || {};
-        const seenMap = {};
+        // CASADA do golf = ESCALAÇÃO: UMA perna por (mapa, jogador). Dá pra casar
+        // mercados diferentes de jogadores diferentes; NÃO dá pra empilhar 2 palpites
+        // no MESMO jogador (evita casada correlacionada +EV: "ganha" + "abaixo do par"
+        // no mesmo cara). Um jogador = um papel no cupom.
+        const seenPP = {};
         let combined = 1;
         const legs = [];
         for (const l of payload.legs) {
           if (GOLF_MARKETS.indexOf(l.market) < 0) return { __abort: true, result: { err: 'Mercado inválido.' } };
           if (l.mapN == null || players.indexOf(l.pick) < 0) return { __abort: true, result: { err: 'Palpite inválido.' } };
           if (l.pick === nick) return { __abort: true, result: { err: 'Não dá pra apostar em você mesmo.' } };
-          if (golfMapPlayed(gscores, l.mapN, players)) return { __abort: true, result: { err: 'Um mapa do cupom já começou — aposta fechada.' } };
-          if (seenMap[l.mapN]) return { __abort: true, result: { err: 'Casada de golf só junta MAPAS diferentes.' } };
-          seenMap[l.mapN] = 1;
+          if (golfMapPlayed(gscores, l.mapN, players)) return { __abort: true, result: { err: 'Uma rodada do cupom já começou — aposta fechada.' } };
+          const ppKey = l.mapN + ':' + l.pick;
+          if (seenPP[ppKey]) return { __abort: true, result: { err: 'Só um palpite por jogador em cada rodada (monta a escalação).' } };
+          seenPP[ppKey] = 1;
           const isField = GOLF_FIELD_MARKETS.indexOf(l.market) >= 0;
-          const side = isField ? null : (l.side === 'NAO' ? 'NAO' : 'SIM');
-          let odd;
-          if (l.market === 'WIN') odd = golfOdd(golfWinProbs(GWYF_SCHEDULE, gscores, players)[l.pick]);
-          else if (l.market === 'LOSE') odd = golfOdd(golfLoseProbs(GWYF_SCHEDULE, gscores, players)[l.pick]);
-          else odd = golfSideOdd(golfSimProb(l.market, GWYF_SCHEDULE, gscores, gprops, l.pick), side);
+          let side, odd;
+          if (l.market === 'WIN') { side = null; odd = golfOdd(golfWinProbs(GWYF_SCHEDULE, gscores, players)[l.pick]); }
+          else if (l.market === 'LOSE') { side = null; odd = golfOdd(golfLoseProbs(GWYF_SCHEDULE, gscores, players)[l.pick]); }
+          else if (l.market === 'PAR') { side = GOLF_PAR_SIDES.some(s => s.k === l.side) ? l.side : 'PAR'; odd = golfParOdd(GWYF_SCHEDULE, gscores, gprops, l.pick, side); }
+          else { side = l.side === 'NAO' ? 'NAO' : 'SIM'; odd = golfSideOdd(golfSimProb(l.market, GWYF_SCHEDULE, gscores, gprops, l.pick), side); } // HIO
           if (!(odd > 1) || !isFinite(odd)) return { __abort: true, result: { err: 'Odd indisponível pra um palpite.' } };
           combined *= odd;
           legs.push({ fixtureId: 'gwyf:' + l.market.toLowerCase() + ':' + l.mapN + ':' + l.pick, champId: 'gwyf', market: l.market, mapN: l.mapN, pick: l.pick, side, odd, odds: odd });
         }
-        combined = +combined.toFixed(2);
+        const corrErr = golfCasadaReject(legs);
+        if (corrErr) return { __abort: true, result: { err: corrErr } };
+        combined = golfCasadaOdd(combined, legs.length); // desconto de correlação (mesma rodada)
         const ticket = {
           id: ticketId, user: nick, amount: stake, status: 'pending', createdAt,
           champId: 'gwyf', combinedOdds: combined, casada: legs.length >= 2, legs,
@@ -6553,15 +6558,36 @@ function golfPlayerForm(schedule, scores, nick) {
   (schedule || []).forEach(r => { const v = ((scores || {})[r.n] || {})[nick]; if (typeof v === 'number' && Number.isFinite(v)) { sum += v; n++; } });
   return n ? sum / n : null;
 }
-// Os 5 MERCADOS do golf (por mapa). WIN/LOSE = de CAMPO (escolhe 1 jogador);
-// FINISH/HIO/HALFPAR = SIM/NÃO por jogador. SIMPLES mostra WIN/LOSE; AVANÇADO tudo.
-const GOLF_MARKETS = ['WIN', 'LOSE', 'FINISH', 'HALFDONE', 'HALFPAR', 'HIO'];
-const GOLF_FIELD_MARKETS = ['WIN', 'LOSE']; // de campo (1 vencedor)
+// Os 4 MERCADOS do golf (por mapa). WIN/LOSE = de CAMPO (escolhe 1 jogador);
+// HIO = SIM/NÃO por jogador; PAR = 3 vias por jogador (ABAIXO/PAR/ACIMA).
+// SIMPLES mostra WIN/LOSE; AVANÇADO mostra tudo.
+const GOLF_MARKETS = ['WIN', 'LOSE', 'HIO', 'PAR'];
+const GOLF_FIELD_MARKETS = ['WIN', 'LOSE']; // de campo (1 escolhido)
 const GOLF_SIMPLES = ['WIN', 'LOSE'];
-const GOLF_MKT_TITLE = { WIN: 'MENOS TACADAS · vence o mapa', LOSE: 'MAIS TACADAS · pior do mapa', FINISH: 'COMPLETA O MAPA INTEIRO?', HALFDONE: 'COMPLETA METADE DO MAPA?', HALFPAR: 'METADE DO MAPA ABAIXO DO PAR?', HIO: 'HOLE IN ONE?' };
-const GOLF_MKT_SHORT = { WIN: 'MENOS TACADAS', LOSE: 'MAIS TACADAS', FINISH: 'COMPLETA O MAPA', HALFDONE: 'METADE DO MAPA', HALFPAR: 'METADE < PAR', HIO: 'HOLE IN ONE' };
-const GOLF_MKT_SUB = { WIN: 'aposta em quem faz MENOS tacadas', LOSE: 'aposta em quem faz MAIS tacadas', FINISH: 'termina todos os buracos do mapa', HALFDONE: 'chega pelo menos na metade dos buracos', HALFPAR: 'faz a 1ª metade do mapa abaixo do par', HIO: 'acerta um buraco numa tacada só' };
-const GOLF_DEF = { FINISH: 0.80, HALFDONE: 0.90, HALFPAR: 0.30, HIO: 0.05 }; // prob "Sim" padrão sem histórico
+const GOLF_MKT_TITLE = { WIN: 'QUEM GANHA A RODADA?', LOSE: 'QUEM VAI SER O PIOR?', HIO: 'ACERTA ALGUM HOLE IN ONE?', PAR: 'TERMINA ABAIXO, NO PAR OU ACIMA?' };
+const GOLF_MKT_SHORT = { WIN: 'GANHA A RODADA', LOSE: 'O PIOR', HIO: 'HOLE IN ONE', PAR: 'PAR DO MAPA' };
+const GOLF_MKT_SUB = { WIN: 'quem faz MENOS tacadas na rodada', LOSE: 'quem faz MAIS tacadas na rodada', HIO: 'acerta um buraco numa tacada só', PAR: 'resultado do jogador em relação ao par do mapa' };
+const GOLF_DEF = { HIO: 0.05 }; // prob "Sim" padrão do HIO sem histórico
+// CASADA de golf junta pernas da MESMA rodada (mesmo evento) → correlacionadas
+// (dificuldade do mapa é fator comum: mapa fácil empurra muita gente pra baixo do
+// par ao mesmo tempo). Preço = produto das odds SUPERESTIMA o pagamento. Corrige:
+// (1) bloqueia os casos comonotônicos fortes (WIN+LOSE juntos; 2+ PAR do mesmo
+// lado) e (2) aplica um DESCONTO de correlação no pagamento pra manter margem da
+// casa (EV<1). combinado = 1 + (produto-1) * CORR^(nPernas-1).
+const GOLF_CASADA_CORR = 0.7;
+const golfCasadaOdd = (oddsProduct, nLegs) => nLegs >= 2 ? +(1 + (oddsProduct - 1) * Math.pow(GOLF_CASADA_CORR, nLegs - 1)).toFixed(2) : +(+oddsProduct).toFixed(2);
+// Recusa bundle comonotônico (WIN+LOSE juntos, ou 2+ PAR do mesmo lado). Devolve
+// string de erro ou null se OK. Serve cliente e servidor (mesma regra).
+function golfCasadaReject(legs) {
+  if ((legs || []).some(l => l.market === 'WIN') && legs.some(l => l.market === 'LOSE')) return 'Não dá pra casar QUEM GANHA e QUEM É O PIOR na mesma rodada — é quase a mesma aposta.';
+  const seen = {};
+  for (const l of legs || []) if (l.market === 'PAR') { if (seen[l.side]) return 'No PAR, só um palpite de cada lado por cupom (ex: um ABAIXO e um ACIMA).'; seen[l.side] = 1; }
+  return null;
+}
+// PAR = 3 vias. side ∈ ABAIXO/PAR/ACIMA ↔ prop.par 'under'/'even'/'over'.
+const GOLF_PAR_SIDES = [{ k: 'ABAIXO', par: 'under', def: 0.33 }, { k: 'PAR', par: 'even', def: 0.12 }, { k: 'ACIMA', par: 'over', def: 0.55 }];
+const golfParOf = (side) => side === 'ABAIXO' ? 'under' : side === 'ACIMA' ? 'over' : 'even';
+const golfParLabel = (par) => par === 'under' ? 'ABAIXO' : par === 'over' ? 'ACIMA' : 'NO PAR';
 
 // MENOS TACADAS (vencedor) / MAIS TACADAS (pior). Sem forma → parelha (1/N).
 // força = 1/média (WIN) ou média (LOSE, invert). Menos tacadas = mais força pra vencer.
@@ -6583,25 +6609,24 @@ function golfRate(schedule, get, nick) {
   (schedule || []).forEach(r => { const i = get(r.n, nick); if (i.played) { played++; if (i.hit) hit++; } });
   return played ? hit / played : null;
 }
-const golfFinishGet = (scores) => (mapN, nick) => { const v = ((scores || {})[mapN] || {})[nick]; return { played: v !== undefined, hit: typeof v === 'number' }; };
 const golfPropGet = (scores, props, key) => (mapN, nick) => { const v = ((scores || {})[mapN] || {})[nick]; return { played: v !== undefined, hit: !!(((props || {})[mapN] || {})[nick] || {})[key] }; };
-// COMPLETA METADE = terminou o mapa (auto) OU o mod marcou 'halfdone' (chegou na
-// metade dos buracos mas não terminou).
-const golfHalfdoneGet = (scores, props) => (mapN, nick) => { const v = ((scores || {})[mapN] || {})[nick]; return { played: v !== undefined, hit: (typeof v === 'number') || !!(((props || {})[mapN] || {})[nick] || {}).halfdone }; };
+// PAR: taxa de um resultado (under/even/over) sobre os mapas que o nick COMPLETOU.
+const golfParGet = (scores, props, target) => (mapN, nick) => { const v = ((scores || {})[mapN] || {})[nick]; return { played: typeof v === 'number', hit: (((props || {})[mapN] || {})[nick] || {}).par === target }; };
 function golfRateProb(schedule, get, nick, def) { const r = golfRate(schedule, get, nick); return golfClampP(r == null ? def : (def * 0.35 + r * 0.65)); }
-const golfFinishProb = (schedule, scores, nick) => golfRateProb(schedule, golfFinishGet(scores), nick, GOLF_DEF.FINISH);
-const golfHalfdoneProb = (schedule, scores, props, nick) => golfRateProb(schedule, golfHalfdoneGet(scores, props), nick, GOLF_DEF.HALFDONE);
 const golfHioProb = (schedule, scores, props, nick) => golfRateProb(schedule, golfPropGet(scores, props, 'hio'), nick, GOLF_DEF.HIO);
-const golfHalfProb = (schedule, scores, props, nick) => golfRateProb(schedule, golfPropGet(scores, props, 'half'), nick, GOLF_DEF.HALFPAR);
-// prob "Sim" de um mercado binário por jogador pro próximo mapa.
+// PAR (3 vias): prob de um resultado específico em relação ao par.
+function golfParProb(schedule, scores, props, nick, target) {
+  const def = (GOLF_PAR_SIDES.find(s => s.par === target) || {}).def || 0.33;
+  return golfRateProb(schedule, golfParGet(scores, props, target), nick, def);
+}
+// prob "Sim" do HIO (único mercado binário restante).
 function golfSimProb(market, schedule, scores, props, nick) {
-  if (market === 'FINISH') return golfFinishProb(schedule, scores, nick);
-  if (market === 'HALFDONE') return golfHalfdoneProb(schedule, scores, props, nick);
   if (market === 'HIO') return golfHioProb(schedule, scores, props, nick);
-  if (market === 'HALFPAR') return golfHalfProb(schedule, scores, props, nick);
   return 0.5;
 }
 const golfSideOdd = (pSim, side) => golfOdd(side === 'NAO' ? 1 - pSim : pSim);
+// Odd de uma via do PAR (ABAIXO/PAR/ACIMA) por jogador.
+const golfParOdd = (schedule, scores, props, nick, side) => golfOdd(golfParProb(schedule, scores, props, nick, golfParOf(side)));
 // Já COMEÇOU esse mapa? (tem QUALQUER lançamento) → fecha as APOSTAS. Um lançamento
 // basta pra travar (não dá pra apostar no que já rolou).
 function golfMapPlayed(scores, mapN, players) { return (players || []).some(nk => ((scores || {})[mapN] || {})[nk] !== undefined); }
@@ -6642,12 +6667,14 @@ function golfLegResult(market, pick, side, mapN, scores, props, players, finaliz
     return ext.indexOf(pick) >= 0 ? 'win' : 'lose';
   }
   if (v === undefined) return 'void'; // per-player: não participou → devolve
-  const yes = side !== 'NAO';
   const pr = ((props || {})[mapN] || {})[pick] || {};
-  if (market === 'FINISH') return ((typeof v === 'number') === yes) ? 'win' : 'lose'; // DNF → não completou → NÃO ganha
-  if (market === 'HALFDONE') return (((typeof v === 'number') || !!pr.halfdone) === yes) ? 'win' : 'lose'; // terminou (auto) OU mod marcou metade
-  if (market === 'HALFPAR') return ((!!pr.half) === yes) ? 'win' : 'lose';
-  if (market === 'HIO') return ((!!pr.hio) === yes) ? 'win' : 'lose';
+  if (market === 'HIO') { const yes = side !== 'NAO'; return ((!!pr.hio) === yes) ? 'win' : 'lose'; }
+  if (market === 'PAR') {
+    // Mercado de PAR só vale pra quem COMPLETOU o mapa (tem par). DNF → void.
+    if (typeof v !== 'number') return 'void';
+    if (!pr.par) return 'void'; // mod não marcou o par → devolve
+    return pr.par === golfParOf(side) ? 'win' : 'lose';
+  }
   return 'pending';
 }
 
@@ -6842,15 +6869,18 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest, golfScore
                             <input type="number" min="0" value={dnf ? '' : (raw ?? '')} disabled={dnf} onChange={e => onSetStrokes(selRound.n, nk, e.target.value)} placeholder={dnf ? 'DNF' : '—'} className="golf-launcher-in" />
                             <div className="golf-launcher-tog">
                               <button type="button" className={'golf-tog dnf' + (dnf ? ' on' : '')} onClick={() => onSetDnf(selRound.n, nk, !dnf)} title="Desistiu — não completou o mapa">DESISTIU</button>
-                              <button type="button" disabled={typeof raw === 'number'} className={'golf-tog' + ((typeof raw === 'number' || pr.halfdone) ? ' on' : '')} onClick={() => onSetProp(selRound.n, nk, 'halfdone', !pr.halfdone)} title="Chegou pelo menos na metade dos buracos (automático se terminou o mapa)">METADE DO MAPA</button>
-                              <button type="button" className={'golf-tog' + (pr.half ? ' on' : '')} onClick={() => onSetProp(selRound.n, nk, 'half', !pr.half)} title="Terminou a 1ª metade do mapa abaixo do par">METADE {'<'} PAR</button>
                               <button type="button" className={'golf-tog' + (pr.hio ? ' on' : '')} onClick={() => onSetProp(selRound.n, nk, 'hio', !pr.hio)} title="Fez um hole in one nesse mapa">HOLE-IN-ONE</button>
+                              <span className="golf-tog-par">PAR:
+                                {GOLF_PAR_SIDES.map(s => (
+                                  <button key={s.par} type="button" disabled={dnf} className={'golf-tog par' + (pr.par === s.par ? ' on' : '')} onClick={() => onSetProp(selRound.n, nk, 'par', pr.par === s.par ? null : s.par)} title={'Terminou ' + s.k + ' do par'}>{s.k}</button>
+                                ))}
+                              </span>
                             </div>
                           </div>
                         );
                       })}
                     </div>
-                    <div className="golf-launcher-legend">DESISTIU = não completou (vira DNF, sem tacada). METADE DO MAPA é automático pra quem terminou. HOLE-IN-ONE, METADE {'<'} PAR e METADE DO MAPA (pra quem desistiu) liquidam os mercados.</div>
+                    <div className="golf-launcher-legend">DESISTIU = não completou (vira DNF, sem tacada). HOLE-IN-ONE e o PAR (ABAIXO / NO PAR / ACIMA) liquidam os mercados — marca só pra quem completou o mapa.</div>
                     {(() => {
                       const allIn = golfMapFinal(scores, selRound.n, inscritos); // todo inscrito lançado?
                       const done = !!((golfFinals || {})[selRound.n]);
@@ -6905,20 +6935,21 @@ function GolfBettingView({ interests, golfScores, golfProps, golfFinals, teamPla
   const [cupom, setCupom] = useState([]);
   const [stake, setStake] = useState(50);
   const [betMode, setBetMode] = useState('simples');
+  const [tab, setTab] = useState('WIN'); // mercado selecionado (aba)
   const [busy, setBusy] = useState(false);
   const [cupomOpen, setCupomOpen] = useState(false);
-  const [exp, setExp] = useState({}); // acordeões abertos: { `${mapN}:${market}`: true }
   const accIco = { color: accent, display: 'inline-flex', flexShrink: 0 };
   const bal = Number.isFinite(balance) ? balance : 0;
   const isCasada = cupom.length >= 2;
   const visibleMarkets = betMode === 'avancado' ? GOLF_MARKETS : GOLF_SIMPLES;
   const legKey = (mapN, market, pick, side) => 'g-' + mapN + '-' + market + '-' + pick + '-' + (side || '');
   const inCupom = (mapN, market, pick, side) => cupom.some(l => l.key === legKey(mapN, market, pick, side));
-  const oddFor = (mapN, market, pick, side) => market === 'WIN' ? golfOdd(winProbs[pick]) : market === 'LOSE' ? golfOdd(loseProbs[pick]) : golfSideOdd(golfSimProb(market, GWYF_SCHEDULE, scores, props, pick), side);
+  const oddFor = (mapN, market, pick, side) => market === 'WIN' ? golfOdd(winProbs[pick]) : market === 'LOSE' ? golfOdd(loseProbs[pick]) : market === 'PAR' ? golfParOdd(GWYF_SCHEDULE, scores, props, pick, side) : golfSideOdd(golfSimProb(market, GWYF_SCHEDULE, scores, props, pick), side);
   // Odd AO VIVO da perna (recalcula do placar atual). O servidor recomputa na hora
   // de apostar, então o cupom mostra a odd corrente, não a congelada no clique.
   const legLiveOdd = (l) => oddFor(l.mapN, l.market, l.pick, l.side) || l.odd || 1;
-  const combined = +cupom.reduce((a, l) => a * legLiveOdd(l), 1).toFixed(2);
+  const combined = golfCasadaOdd(cupom.reduce((a, l) => a * legLiveOdd(l), 1), cupom.length); // já com desconto de correlação
+  const cupomErr = golfCasadaReject(cupom); // bundle comonotônico (WIN+LOSE / 2+ PAR mesmo lado)
   const toggle = (mapN, market, pick, side) => {
     if (pick === me) return; // não aposta em si mesmo
     const odd = oddFor(mapN, market, pick, side);
@@ -6926,14 +6957,15 @@ function GolfBettingView({ interests, golfScores, golfProps, golfFinals, teamPla
     const key = legKey(mapN, market, pick, side);
     setCupom(prev => {
       if (prev.some(l => l.key === key)) return prev.filter(l => l.key !== key);
-      const others = prev.filter(l => l.mapN !== mapN); // casada só junta MAPAS diferentes → troca a perna do mapa
+      // ESCALAÇÃO: uma perna por (mapa, jogador). Clicar outro mercado/via no MESMO
+      // jogador TROCA o papel dele (não empilha) — evita casada correlacionada.
+      const others = prev.filter(l => !(l.mapN === mapN && l.pick === pick));
       return [...others, { key, mapN, market, pick, side: side || null, odd }];
     });
-    // NÃO abre a gaveta a cada clique (senão no mobile a gaveta tapa os cards e não
-    // dá pra montar casada). A barra `.mk-betbar` embaixo abre o cupom quando quiser.
+    // NÃO abre a gaveta a cada clique. A barra `.mk-betbar` embaixo abre o cupom.
   };
   const place = async () => {
-    if (!cupom.length || busy || !(stake > 0)) return;
+    if (!cupom.length || busy || !(stake > 0) || cupomErr) return;
     setBusy(true);
     try {
       const r = await onPlaceBet({ legs: cupom.map(l => ({ market: l.market, pick: l.pick, side: l.side, mapN: l.mapN })), stake });
@@ -6942,62 +6974,64 @@ function GolfBettingView({ interests, golfScores, golfProps, golfFinals, teamPla
   };
   if (!players.length) return <div className="card"><div className="card-body"><div className="empty"><div className="e1">SEM INSCRITOS</div><div className="e2">Ninguém inscrito no golfe.</div></div></div></div>;
 
-  const GOLF_MKT_ICON = { WIN: 'trophy', LOSE: 'skull', FINISH: 'flag', HALFDONE: 'check', HALFPAR: 'chart', HIO: 'crosshair' };
-  const fieldRow = (mapN, market, nk, rank, total) => {
-    const pr = market === 'WIN' ? winProbs : loseProbs;
-    const p = pr[nk] || 0; const odd = golfOdd(p); const mine = nk === me; const on = inCupom(mapN, market, nk, null);
-    const form = golfPlayerForm(GWYF_SCHEDULE, scores, nk);
-    const maxP = Math.max.apply(null, players.map(x => pr[x] || 0)) || 1;
-    const fav = rank === 0, dog = rank === total - 1 && total > 2;
+  const GOLF_MKT_ICON = { WIN: 'trophy', LOSE: 'skull', HIO: 'crosshair', PAR: 'flag' };
+  const mapN = activeRound ? activeRound.n : 0;
+  const curMarket = visibleMarkets.indexOf(tab) >= 0 ? tab : visibleMarkets[0];
+  const playerLeg = (nk) => cupom.find(l => l.mapN === mapN && l.pick === nk); // 1 por jogador
+  const legTag = (l) => l ? GOLF_MKT_SHORT[l.market] + (l.market === 'PAR' ? ' ' + golfParLabel(golfParOf(l.side)) : l.market === 'HIO' ? (l.side === 'NAO' ? ' NÃO' : ' SIM') : '') : '';
+  // WIN/LOSE — tile no grid (avatar + nick + odd). "escalado" se o jogador já tem
+  // outro papel no cupom.
+  const fieldCell = (market, nk, rank) => {
+    const p = (market === 'WIN' ? winProbs : loseProbs)[nk] || 0; const odd = golfOdd(p); const mine = nk === me;
+    const on = inCupom(mapN, market, nk, null); const other = playerLeg(nk) && !on;
     return (
-      <button key={nk} type="button" disabled={mine || !odd} className={'golf-opt' + (on ? ' on' : '') + (mine ? ' self' : '')}
-        style={{ '--pk-fill': Math.round((p / maxP) * 100) + '%' }} onClick={() => toggle(mapN, market, nk, null)}>
-        <span className={'golf-opt-rank' + (fav ? ' fav' : '') + (dog ? ' dog' : '')}>{fav ? 'FAV' : dog ? 'ZEBRA' : String(rank + 1).padStart(2, '0')}</span>
-        <Avatar nick={nk} teamPlayers={teamPlayers} size={30} noBadge />
-        <span className="golf-opt-mid">
-          <span className="golf-opt-nk">{nk}{mine && <span className="stats-rail-you">VOCÊ</span>}</span>
-          <span className="golf-opt-form">{form != null ? 'forma ' + form.toFixed(1) + ' tac' : 'sem histórico'} · {p < 0.005 ? '<1' : Math.round(p * 100)}%</span>
+      <button key={nk} type="button" disabled={mine || !odd} className={'golf-cell' + (on ? ' on' : '') + (mine ? ' self' : '') + (other ? ' used' : '')} onClick={() => toggle(mapN, market, nk, null)}>
+        <Avatar nick={nk} teamPlayers={teamPlayers} size={28} noBadge />
+        <span className="golf-cell-body">
+          <span className="golf-cell-nk">{nk}{mine && <span className="stats-rail-you">VOCÊ</span>}</span>
+          <span className="golf-cell-meta">{other ? 'escalado: ' + legTag(playerLeg(nk)) : rank === 0 && !mine ? 'favorito' : (p < 0.005 ? '<1%' : Math.round(p * 100) + '% chance')}</span>
         </span>
-        <span className="golf-opt-odd">{mine || !odd ? '—' : odd.toFixed(2)}<i>x</i></span>
+        <span className="golf-cell-odd">{mine || !odd ? '—' : odd.toFixed(2)}<i>x</i></span>
       </button>
     );
   };
-  const simRow = (mapN, market, nk) => {
-    const pSim = golfSimProb(market, GWYF_SCHEDULE, scores, props, nk); const mine = nk === me;
-    const oS = golfSideOdd(pSim, 'SIM'), oN = golfSideOdd(pSim, 'NAO');
+  // HIO — linha larga com SIM/NÃO.
+  const hioCell = (nk) => {
+    const pSim = golfSimProb('HIO', GWYF_SCHEDULE, scores, props, nk); const mine = nk === me;
+    const oS = golfSideOdd(pSim, 'SIM'), oN = golfSideOdd(pSim, 'NAO'); const other = playerLeg(nk) && playerLeg(nk).market !== 'HIO';
     return (
-      <div key={nk} className={'golf-simrow' + (mine ? ' self' : '')}>
+      <div key={nk} className={'golf-cell wide' + (mine ? ' self' : '') + (other ? ' used' : '')}>
         <Avatar nick={nk} teamPlayers={teamPlayers} size={26} noBadge />
-        <span className="golf-simrow-nk">{nk}{mine && <span className="stats-rail-you">VOCÊ</span>}</span>
-        <div className="golf-simrow-btns">
-          <button type="button" disabled={mine || !oS} className={'golf-sidebtn sim' + (inCupom(mapN, market, nk, 'SIM') ? ' on' : '')} onClick={() => toggle(mapN, market, nk, 'SIM')}><b>SIM</b><i>{mine || !oS ? '—' : oS.toFixed(2)}</i></button>
-          <button type="button" disabled={mine || !oN} className={'golf-sidebtn nao' + (inCupom(mapN, market, nk, 'NAO') ? ' on' : '')} onClick={() => toggle(mapN, market, nk, 'NAO')}><b>NÃO</b><i>{mine || !oN ? '—' : oN.toFixed(2)}</i></button>
+        <span className="golf-cell-nk">{nk}{mine && <span className="stats-rail-you">VOCÊ</span>}{other && <span className="golf-cell-used">esc: {legTag(playerLeg(nk))}</span>}</span>
+        <div className="golf-cell-opts">
+          <button type="button" disabled={mine || !oS} className={'golf-pick sim' + (inCupom(mapN, 'HIO', nk, 'SIM') ? ' on' : '')} onClick={() => toggle(mapN, 'HIO', nk, 'SIM')}><b>SIM</b><i>{mine || !oS ? '—' : oS.toFixed(2)}</i></button>
+          <button type="button" disabled={mine || !oN} className={'golf-pick nao' + (inCupom(mapN, 'HIO', nk, 'NAO') ? ' on' : '')} onClick={() => toggle(mapN, 'HIO', nk, 'NAO')}><b>NÃO</b><i>{mine || !oN ? '—' : oN.toFixed(2)}</i></button>
         </div>
       </div>
     );
   };
-  const renderMarket = (mapN, market, forceOpen) => {
-    const isField = GOLF_FIELD_MARKETS.indexOf(market) >= 0;
-    const ekey = mapN + ':' + market; const open = forceOpen || !!exp[ekey];
-    const pr = market === 'WIN' ? winProbs : loseProbs;
-    const order = isField ? players.slice().sort((a, b) => (pr[b] || 0) - (pr[a] || 0)) : players.slice();
-    const nIn = cupom.filter(l => l.mapN === mapN && l.market === market).length;
+  // PAR — linha larga com 3 vias (ABAIXO/PAR/ACIMA).
+  const parRow = (nk) => {
+    const mine = nk === me; const other = playerLeg(nk) && playerLeg(nk).market !== 'PAR';
     return (
-      <div key={market} className={'golf-mkt' + (open ? ' open' : '')}>
-        <button type="button" className="golf-mkt-h" onClick={() => setExp(e => ({ ...e, [ekey]: !e[ekey] }))}>
-          <span className="golf-mkt-ic"><Icon name={GOLF_MKT_ICON[market] || 'flag'} size={15} /></span>
-          <span className="golf-mkt-tt">
-            <span className="golf-mkt-t">{GOLF_MKT_TITLE[market]}</span>
-            <span className="golf-mkt-sub">{GOLF_MKT_SUB[market]}</span>
-          </span>
-          {nIn > 0 && <span className="golf-mkt-c">{nIn}</span>}
-          <Icon name={open ? 'caret-up' : 'caret-down'} size={14} />
-        </button>
-        {open && <div className="golf-mkt-body">{isField
-          ? <div className="golf-field">{order.map((nk, i) => fieldRow(mapN, market, nk, i, order.length))}</div>
-          : <div className="golf-simlist">{order.map(nk => simRow(mapN, market, nk))}</div>}</div>}
+      <div key={nk} className={'golf-cell wide' + (mine ? ' self' : '') + (other ? ' used' : '')}>
+        <Avatar nick={nk} teamPlayers={teamPlayers} size={26} noBadge />
+        <span className="golf-cell-nk">{nk}{mine && <span className="stats-rail-you">VOCÊ</span>}{other && <span className="golf-cell-used">esc: {legTag(playerLeg(nk))}</span>}</span>
+        <div className="golf-cell-opts par3">
+          {GOLF_PAR_SIDES.map(s => { const odd = golfParOdd(GWYF_SCHEDULE, scores, props, nk, s.k); return (
+            <button key={s.k} type="button" disabled={mine || !odd} className={'golf-pick par' + (inCupom(mapN, 'PAR', nk, s.k) ? ' on' : '')} onClick={() => toggle(mapN, 'PAR', nk, s.k)}><b>{s.k}</b><i>{mine || !odd ? '—' : odd.toFixed(2)}</i></button>
+          ); })}
+        </div>
       </div>
     );
+  };
+  const renderField = (market) => {
+    if (market === 'WIN' || market === 'LOSE') {
+      const order = players.slice().sort((a, b) => ((market === 'WIN' ? winProbs : loseProbs)[b] || 0) - ((market === 'WIN' ? winProbs : loseProbs)[a] || 0));
+      return <div className="golf-grid">{order.map((nk, i) => fieldCell(market, nk, i))}</div>;
+    }
+    if (market === 'HIO') return <div className="golf-rows">{players.map(nk => hioCell(nk))}</div>;
+    return <div className="golf-rows">{players.map(nk => parRow(nk))}</div>; // PAR
   };
 
   return (
@@ -7019,13 +7053,6 @@ function GolfBettingView({ interests, golfScores, golfProps, golfFinals, teamPla
           <>
           <div className="mk-bet-layout">
             <div className="mk-bet-main">
-              <div className="mk-bet-mode" role="tablist" aria-label="Modo de aposta">
-                <div className="mk-bet-mode-tabs">
-                  <button type="button" role="tab" aria-selected={betMode === 'simples'} className={'mk-bet-mode-btn' + (betMode === 'simples' ? ' on' : '')} onClick={() => setBetMode('simples')}><Icon name="target" size={11} /> SIMPLES</button>
-                  <button type="button" role="tab" aria-selected={betMode === 'avancado'} className={'mk-bet-mode-btn' + (betMode === 'avancado' ? ' on' : '')} onClick={() => setBetMode('avancado')}><Icon name="chart" size={11} /> AVANÇADO</button>
-                </div>
-                <span className="mk-bet-mode-hint">{betMode === 'simples' ? 'Menos / mais tacadas. Casada junta MAPAS diferentes — as odds multiplicam.' : 'Tudo: completa o mapa, metade do mapa, metade abaixo do par, hole in one.'}</span>
-              </div>
               <div className="golf-event">
                 <div className="golf-event-h">
                   <span className="golf-event-badge">R{String(activeRound.n).padStart(2, '0')}</span>
@@ -7035,8 +7062,23 @@ function GolfBettingView({ interests, golfScores, golfProps, golfFinals, teamPla
                   </span>
                   <span className="golf-event-open"><Icon name="unlock" size={12} /> ABERTA</span>
                 </div>
-                <div className="golf-event-note"><Icon name="pin" size={11} /> Só a rodada atual abre. A próxima aparece quando essa acabar. Toca numa odd pra montar o cupom.</div>
-                <div className="golf-event-body">{visibleMarkets.map((m, i) => renderMarket(activeRound.n, m, i === 0))}</div>
+                <div className="mk-bet-mode golf-mode" role="tablist" aria-label="Modo de aposta">
+                  <div className="mk-bet-mode-tabs">
+                    <button type="button" role="tab" aria-selected={betMode === 'simples'} className={'mk-bet-mode-btn' + (betMode === 'simples' ? ' on' : '')} onClick={() => setBetMode('simples')}><Icon name="target" size={11} /> SIMPLES</button>
+                    <button type="button" role="tab" aria-selected={betMode === 'avancado'} className={'mk-bet-mode-btn' + (betMode === 'avancado' ? ' on' : '')} onClick={() => setBetMode('avancado')}><Icon name="chart" size={11} /> AVANÇADO</button>
+                  </div>
+                  <span className="mk-bet-mode-hint">Casada = <strong>escalação</strong>: um palpite por jogador, misturando mercados. As odds multiplicam.</span>
+                </div>
+                <div className="golf-tabs" role="tablist" aria-label="Mercados">
+                  {visibleMarkets.map(m => { const n = cupom.filter(l => l.market === m).length; return (
+                    <button key={m} type="button" role="tab" aria-selected={curMarket === m} className={'golf-tab' + (curMarket === m ? ' on' : '')} onClick={() => setTab(m)}>
+                      <Icon name={GOLF_MKT_ICON[m] || 'flag'} size={13} /> <span>{GOLF_MKT_SHORT[m]}</span>
+                      {n > 0 && <span className="golf-tab-c">{n}</span>}
+                    </button>
+                  ); })}
+                </div>
+                <div className="golf-tab-desc"><strong>{GOLF_MKT_TITLE[curMarket]}</strong> · {GOLF_MKT_SUB[curMarket]}</div>
+                <div className="golf-event-body">{renderField(curMarket)}</div>
               </div>
             </div>
             <aside className={'mk-cupom-wrap' + (cupomOpen ? ' cupom-open' : '')} style={cupomOpen ? { transform: 'translateY(0)' } : undefined}>
@@ -7045,12 +7087,12 @@ function GolfBettingView({ interests, golfScores, golfProps, golfFinals, teamPla
                 <div className="card-head"><div className="title">CUPOM {isCasada ? '· CASADA' : ''}</div><div className="sub">{cupom.length} {cupom.length === 1 ? 'PALPITE' : 'PALPITES'}</div></div>
                 <div className="card-body">
                   {cupom.length === 0 ? (
-                    <div className="empty"><div className="e1">VAZIO</div><div className="e2">Clica nas odds pra montar. 2+ palpites de MAPAS diferentes = casada.</div></div>
+                    <div className="empty"><div className="e1">VAZIO</div><div className="e2">Toca nos jogadores pra montar sua escalação. 2+ palpites = casada — as odds multiplicam.</div></div>
                   ) : (<>
                     {cupom.map(l => (
                       <div key={l.key} className="cupom-leg">
                         <div className="cupom-leg-txt">
-                          <div className="cupom-leg-mkt"><span className="cupom-leg-ko" style={{ background: accent }}>R{String(l.mapN).padStart(2, '0')}</span>{GOLF_MKT_SHORT[l.market]}{l.side ? ' · ' + (l.side === 'NAO' ? 'NÃO' : 'SIM') : ''}</div>
+                          <div className="cupom-leg-mkt"><span className="cupom-leg-ko" style={{ background: accent }}>R{String(l.mapN).padStart(2, '0')}</span>{GOLF_MKT_SHORT[l.market]}{l.market === 'PAR' ? ' · ' + golfParLabel(golfParOf(l.side)) : l.market === 'HIO' ? ' · ' + (l.side === 'NAO' ? 'NÃO' : 'SIM') : ''}</div>
                           <div className="cupom-leg-pick"><strong>{l.pick}</strong></div>
                         </div>
                         <div className="cupom-leg-odd mono">{legLiveOdd(l).toFixed(2)}</div>
@@ -7068,10 +7110,11 @@ function GolfBettingView({ interests, golfScores, golfProps, golfFinals, teamPla
                       <button onClick={() => setStake(bal)}>MAX</button>
                     </div>
                     <div className="payout-box"><div className="nm">RETORNO POTENCIAL</div><div className="v">{compactPC(Math.round(stake * combined))} <span style={{ fontSize: 12, letterSpacing: '0.3em', fontFamily: 'Space Grotesk' }}>PC</span></div><div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, color: 'var(--pv-orange)', marginTop: 4 }}>LUCRO: +{compactPC(Math.round(stake * combined) - stake)} PC</div></div>
-                    {isCasada && <div style={{ fontSize: 10, letterSpacing: '0.12em', color: 'rgba(28,22,18,0.6)', fontWeight: 700, marginTop: 10, display: 'flex', alignItems: 'flex-start', gap: 6 }}><Icon name="warning" size={12} /> <span>CASADA: precisa acertar TODOS os {cupom.length} palpites pra ganhar.</span></div>}
+                    {cupomErr ? <div style={{ fontSize: 10.5, letterSpacing: '0.04em', color: 'var(--pv-red, #b3231a)', fontWeight: 800, marginTop: 10, display: 'flex', alignItems: 'flex-start', gap: 6 }}><Icon name="warning" size={12} /> <span>{cupomErr}</span></div>
+                      : isCasada && <div style={{ fontSize: 10, letterSpacing: '0.12em', color: 'rgba(28,22,18,0.6)', fontWeight: 700, marginTop: 10, display: 'flex', alignItems: 'flex-start', gap: 6 }}><Icon name="warning" size={12} /> <span>CASADA: precisa acertar TODOS os {cupom.length} palpites. Odds da mesma rodada têm desconto de correlação.</span></div>}
                     <div className="modal-btns">
                       <button className="btn-secondary" onClick={() => setCupom([])}>LIMPAR</button>
-                      <button className="btn-primary" disabled={busy || !cupom.length || !(stake > 0) || stake > bal} onClick={place}>{stake > bal ? 'SEM SALDO' : busy ? '...' : 'APOSTAR ' + stake + ' PC'}</button>
+                      <button className="btn-primary" disabled={busy || !cupom.length || !(stake > 0) || stake > bal || !!cupomErr} onClick={place}>{cupomErr ? 'CUPOM INVÁLIDO' : stake > bal ? 'SEM SALDO' : busy ? '...' : 'APOSTAR ' + stake + ' PC'}</button>
                     </div>
                     <div className="cupom-public-note"><Icon name="cards" size={12} /> Toda aposta é pública na MESA DOS CARTOLAS.</div>
                   </>)}
