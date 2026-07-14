@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260714-mkpos1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260714-mkpos2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -14163,6 +14163,19 @@ function EstatisticasView({ nick, users, cs, bets, teamPlayers, worldcup, mkDraw
       if (!o) return;
       out.push({ game: 'mk', label: 'MK · ' + (r.phase === 'IDA' ? 'IDA' : 'VOLTA') + ' R' + String(r.n).padStart(2, '0'), home: g.home, away: g.away, homeLabel: g.home, awayLabel: g.away, sh: o.confH, sa: o.confA, winner: o.winner === 'H' ? g.home : o.winner === 'A' ? g.away : 'D' });
     }));
+    // MATA-MATA (KO): confrontos entre a e b no chaveamento (repescagem/semi/3º/
+    // final). Faltava — o H2H só via FIFA + liga do MK. Lê o mesmo ref do histórico.
+    const koH2H = mkKo || (_mkChampData || {}).ko;
+    if (koH2H && koH2H.published && Array.isArray(koH2H.seeds)) {
+      const br = mkKoBracket(koH2H.seeds, koH2H.scores || {});
+      const koLbl = { R1: 'REPESCAGEM', R2: 'REPESCAGEM', R3: 'REPESCAGEM', R4: 'REPESCAGEM', SF1: 'SEMIFINAL', SF2: 'SEMIFINAL', T3: 'DISPUTA DO 3º', F: 'FINAL' };
+      MK_KO_IDS.forEach(id => {
+        const mm = br && br[id]; if (!mm || !mm.home || !mm.away) return;
+        if (!((mm.home === a && mm.away === b) || (mm.home === b && mm.away === a))) return;
+        const o = mm.o; if (!o || !o.done) return; // só confronto decidido
+        out.push({ game: 'mk', label: 'MK · ' + (koLbl[id] || 'MATA-MATA'), home: mm.home, away: mm.away, homeLabel: mm.home, awayLabel: mm.away, sh: o.h, sa: o.a, winner: mm.winner || 'D' });
+      });
+    }
     return out;
   };
 
