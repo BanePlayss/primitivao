@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260713-mktit1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260713-close2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -144,7 +144,7 @@ const CHAMPIONSHIPS = [
   { id: 'rl',   name: 'Primitivão — Rocket League 2026',         season: 'Season 1', tag: 'RL',   status: 'soon'   },
   { id: 'lol',  name: 'Primitivão — League of Legends 2026',     season: 'Season 1', tag: 'LoL',  status: 'soon'   },
   { id: 'cs',   name: 'Primitivão — Counter-Strike 2026',        season: 'Season 1', tag: 'CS',   status: 'soon'   },
-  { id: 'gwyf', name: 'Primitivão — Golf With Your Friends 2026', season: 'Season 1', tag: 'GWYF', status: 'soon'   },
+  { id: 'gwyf', name: 'Primitivão — Golf With Your Friends 2026', season: 'Season 1', tag: 'GWYF', status: 'active' },
   { id: 'valorant', name: 'Primitivão — Valorant 2026',          season: 'Season 1', tag: 'VALORANT', status: 'soon' },
   { id: 'tft',  name: 'Primitivão — Teamfight Tactics 2026',     season: 'Season 1', tag: 'TFT',  status: 'soon'   },
   { id: 'pokemon', name: 'Primitivão — Pokémon 2026',            season: 'Season 1', tag: 'POKÉMON', status: 'soon' },
@@ -5416,6 +5416,11 @@ function App() {
     mk: { draw: mkDraw, scores: mkScores, ko: mkKo },
   }), [bets, users, teamPlayers, cs, worldcup, interests, comments, mkDraw, mkScores, mkKo]);
 
+  // Fecha o MK (vai pro grupo ENCERRADOS + trava aposta) quando o mata-mata
+  // acaba — lido pelo `champStatusFor` (var de módulo, sem threadear mkKo). É
+  // setado no corpo do render pra estar fresco antes dos filhos renderizarem.
+  _mkKoClosed = !!mkKoPodiumOrder(mkKo);
+
   const adjustPc = async (nick, delta) => {
     try {
       await commitBetDocUpdate(remote => {
@@ -5766,6 +5771,16 @@ function App() {
                     onKoGame={setMkKoGame} onKoField={setMkKoField}
                   />
                 </>
+              ) : (apostasChampId === 'gwyf') ? (
+                // GOLF: temporada ABERTA mas as apostas ainda não (motor de tacadas +
+                // mercados vêm na próxima etapa). Mostra a própria view (classificação +
+                // rodadas + banner "apostas chegando") em vez do slip genérico "SEM JOGOS".
+                <GolfView
+                  interests={interests || {}}
+                  teamPlayers={teamPlayers || {}}
+                  session={session}
+                  onToggleInterest={() => toggleInterest('gwyf')}
+                />
               ) : (
                 <ApostarView
                   games={games} gamesById={gamesById} bets={bets} me={me} session={session} users={users}
@@ -6146,10 +6161,18 @@ function ChampHeader({ value, onChange, interests, title, tag, stats, bare, acti
   );
 }
 
+// Setado pelo App (render): true quando o mata-mata do MK fechou (final + 3º
+// decididos). Fecha o MK no `champStatusFor` sem precisar threadear o `mkKo`
+// pelos ~4 callers + ChampSidebar. O MK não passa pelo computeChampStandings
+// (que só entende FIFA), então precisa deste atalho.
+let _mkKoClosed = false;
+
 // Grupo do campeonato pro sidebar: 'active' (rolando), 'closed' (temporada
 // terminada, tem campeão) ou 'soon' (em breve). FIFA vira 'closed' quando todas
-// as rodadas terminam (computeChampStandings); os demais ativos ficam 'active'.
+// as rodadas terminam (computeChampStandings); o MK vira 'closed' quando o
+// mata-mata fecha (_mkKoClosed); os demais ativos ficam 'active'.
 function champStatusFor(c, cs) {
+  if (c.id === 'mk' && _mkKoClosed) return 'closed';
   if (c.status === 'active') {
     return computeChampStandings(c.id, cs).status === 'closed' ? 'closed' : 'active';
   }
@@ -6243,9 +6266,9 @@ function GolfBanner({ accent, interested, count, onToggleInterest }) {
   return (
     <div className="golf-banner" style={{ '--golf': accent }}>
       <div className="golf-banner-main">
-        <span className="golf-banner-tag"><Icon name="flag" size={12} /> PRÉ-LANÇAMENTO</span>
+        <span className="golf-banner-tag"><Icon name="flag" size={12} /> TEMPORADA ABERTA</span>
         <div className="golf-banner-tt">GOLF WITH YOUR FRIENDS</div>
-        <p className="golf-banner-sub">Inscrições <b>abertas</b> — abaixo já dá pra ver a classificação e as rodadas. A temporada oficial começa quando o <b>Mortal Kombat</b> acabar.</p>
+        <p className="golf-banner-sub">O <b>Mortal Kombat</b> acabou — o golfe <b>começou</b>. Inscrições abertas; abaixo a classificação e as rodadas. <b>Apostas chegando.</b></p>
       </div>
       <div className="golf-banner-side">
         {interested ? (
