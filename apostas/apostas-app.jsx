@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260713-titfix2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260713-mktro1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5416,10 +5416,10 @@ function App() {
     mk: { draw: mkDraw, scores: mkScores, ko: mkKo },
   }), [bets, users, teamPlayers, cs, worldcup, interests, comments, mkDraw, mkScores, mkKo]);
 
-  // Fecha o MK (vai pro grupo ENCERRADOS + trava aposta) quando o mata-mata
-  // acaba — lido pelo `champStatusFor` (var de módulo, sem threadear mkKo). É
-  // setado no corpo do render pra estar fresco antes dos filhos renderizarem.
-  _mkKoClosed = !!mkKoPodiumOrder(mkKo);
+  // Publica os dados do MK num ref de módulo (fresco no corpo do render, antes
+  // dos filhos): fecha o MK (champStatusFor) + dá os troféus do mata-mata
+  // (trophiesForNick / betKingChamps) sem threadear o mkKo pela árvore toda.
+  _mkChampData = { draw: mkDraw, scores: mkScores, ko: mkKo, players: mkInscritos(interests || {}) };
 
   const adjustPc = async (nick, delta) => {
     try {
@@ -6161,18 +6161,18 @@ function ChampHeader({ value, onChange, interests, title, tag, stats, bare, acti
   );
 }
 
-// Setado pelo App (render): true quando o mata-mata do MK fechou (final + 3º
-// decididos). Fecha o MK no `champStatusFor` sem precisar threadear o `mkKo`
-// pelos ~4 callers + ChampSidebar. O MK não passa pelo computeChampStandings
-// (que só entende FIFA), então precisa deste atalho.
-let _mkKoClosed = false;
+// Setado pelo App (render): dados do MK (draw/scores/ko/players) pro
+// champStatusFor / trophiesForNick / betKingChamps enxergarem o MK sem threadear
+// o mkKo pela árvore. O MK NÃO passa pelo computeChampStandings (que só entende
+// FIFA), então esses pontos leem daqui. null até o App montar.
+let _mkChampData = null;
 
 // Grupo do campeonato pro sidebar: 'active' (rolando), 'closed' (temporada
 // terminada, tem campeão) ou 'soon' (em breve). FIFA vira 'closed' quando todas
 // as rodadas terminam (computeChampStandings); o MK vira 'closed' quando o
-// mata-mata fecha (_mkKoClosed); os demais ativos ficam 'active'.
+// mata-mata fecha (mkKoPodiumOrder); os demais ativos ficam 'active'.
 function champStatusFor(c, cs) {
-  if (c.id === 'mk' && _mkKoClosed) return 'closed';
+  if (c.id === 'mk') return mkKoPodiumOrder((_mkChampData || {}).ko) ? 'closed' : 'active';
   if (c.status === 'active') {
     return computeChampStandings(c.id, cs).status === 'closed' ? 'closed' : 'active';
   }
@@ -9586,6 +9586,13 @@ function trophiesForNick(nick, cs, teamPlayers) {
   const mine = (s) => !!s && fifaUserOf(s.id, teamPlayers) === nick;
   const trophies = [];
   for (const c of CHAMPIONSHIPS) {
+    // MK: troféu vem do mata-mata (computeChampStandings só entende FIFA). Lê o
+    // ref de módulo _mkChampData (setado pelo App). Mesmas kinds da FIFA.
+    if (c.id === 'mk') {
+      const k = mkTrophyForNick(nick, _mkChampData);
+      if (k) trophies.push({ champId: 'mk', kind: k });
+      continue;
+    }
     const { status, standings } = computeChampStandings(c.id, cs);
     if (status !== 'closed' || !standings || standings.length < 2) continue;
     if (!standings.some(mine)) continue; // não jogou esta edição
@@ -9608,7 +9615,9 @@ function trophiesForNick(nick, cs, teamPlayers) {
 function betKingChamps(nick, cs, bets) {
   const out = [];
   for (const c of CHAMPIONSHIPS) {
-    if (computeChampStandings(c.id, cs).status !== 'closed') continue;
+    // MK fecha pelo mata-mata (não pelo computeChampStandings, que só entende FIFA).
+    const closed = c.id === 'mk' ? !!mkKoPodiumOrder((_mkChampData || {}).ko) : computeChampStandings(c.id, cs).status === 'closed';
+    if (!closed) continue;
     const profit = {};
     (bets || []).forEach(b => {
       if ((b.champId || 'fifa') !== c.id) return;
@@ -9756,6 +9765,47 @@ function mkKoPodiumOrder(ko) {
   return [br.F.winner, br.F.loser, br.T3.winner, br.T3.loser].filter(Boolean);
 }
 
+// Ordem FINAL do MK (todos que jogaram, em ordem) quando o mata-mata fechou:
+// pódio do KO (campeão/vice/3º/4º) + resto pela classificação da liga. [] se o
+// KO ainda não fechou (aí quem ranqueia cai na liga direto).
+function mkFinalOrder(players, concluded, ko) {
+  const koOrder = mkKoPodiumOrder(ko);
+  if (!koOrder || koOrder.length < 4) return [];
+  const league = computeMkStandings(players, concluded).filter(s => s.j > 0);
+  if (league.length < 2) return [];
+  const leagueNicks = league.map(s => s.nick);
+  const rest = leagueNicks.filter(n => koOrder.indexOf(n) < 0);
+  return koOrder.filter(n => leagueNicks.indexOf(n) >= 0).concat(rest);
+}
+
+// Troféu (medalha) do MK pro nick: 'champion'/'vice'/'terceiro'/'lanterna'/
+// 'penultimo'/'participou' pela ordem final (§mkFinalOrder), ou null se o
+// mata-mata não fechou / nick não jogou. Espelha a regra da FIFA (trophiesForNick).
+// `data` = _mkChampData ({ draw, scores, ko, players }).
+function mkTrophyForNick(nick, data) {
+  if (!data || !nick) return null;
+  const players = data.players || [];
+  if (players.indexOf(nick) < 0) return null;
+  const draw = data.draw || [], scores = data.scores || {};
+  const gk = (r, gi) => r.phase + '-' + r.n + '-' + gi;
+  const concluded = [];
+  (draw || []).forEach(r => (r.games || []).forEach((g, gi) => {
+    if (mkGameVoid(g)) return;
+    const sc = scores[gk(r, gi)];
+    if (mkMatchOutcome(sc)) concluded.push({ home: g.home, away: g.away, sc });
+  }));
+  const order = mkFinalOrder(players, concluded, data.ko);
+  const idx = order.indexOf(nick);
+  if (idx < 0) return null;
+  const n = order.length;
+  if (idx === 0) return 'champion';
+  if (idx === 1) return 'vice';
+  if (n > 3 && idx === 2) return 'terceiro'; // 3º só conta se o pódio não encosta na lanterna
+  if (idx === n - 1) return 'lanterna';
+  if (idx === n - 2) return 'penultimo';
+  return 'participou';
+}
+
 function mkStatsFor(nick, ctx) {
   const mk = (ctx && ctx.mk) || {};
   const draw = Array.isArray(mk.draw) ? mk.draw : [];
@@ -9786,13 +9836,9 @@ function mkStatsFor(nick, ctx) {
   // decididas), o PÓDIO vem do KO — campeão/vice/3º/4º — e o resto pela liga.
   // Senão, cai só na liga (quando todas as partidas da liga acabaram). O "último"
   // (vexame / SACO DE PANCADA) é a lanterna entre quem de fato jogou.
-  const koOrder = mkKoPodiumOrder(mk.ko);
+  const order = mkFinalOrder(players, concluded, mk.ko);
   let champion = false, pos = 0, total = 0, isLast = false;
-  const league = computeMkStandings(players, concluded).filter(s => s.j > 0);
-  if (koOrder && koOrder.length >= 4 && league.length >= 2) {
-    const leagueNicks = league.map(s => s.nick);
-    const rest = leagueNicks.filter(n => koOrder.indexOf(n) < 0);
-    const order = koOrder.filter(n => leagueNicks.indexOf(n) >= 0).concat(rest);
+  if (order.length >= 2) {
     const idx = order.indexOf(nick);
     if (idx >= 0) { pos = idx + 1; total = order.length; champion = pos === 1; isLast = pos === total; }
   } else {
@@ -13186,6 +13232,8 @@ function DetailedStatsCard({ nick, teamPlayers, cs, mkDraw, mkScores, mkLineups,
             {players && players.length > 0 && (
               <CharacterLeaderboard bare players={players} mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} teamPlayers={teamPlayers} onOpenProfile={onOpenProfile} />
             )}
+            <div className="dstats-sub">HISTÓRICO DE CONFRONTOS</div>
+            <MkMatchHistory nick={nick} draw={mkDraw} scores={mkScores} lineups={mkLineups} />
           </div>
         </div>
       )}
@@ -14092,7 +14140,22 @@ function MkMatchHistory({ nick, draw, scores, lineups }) {
       c2my: ch('p2', meHome ? 'home' : 'away'), c2op: ch('p2', meHome ? 'away' : 'home'),
     });
   }));
-  if (!rows.length) return <div className="mkh-empty">Nenhum confronto concluído ainda.</div>;
+  // MATA-MATA (KO): confrontos do nick, lidos do ref de módulo (_mkChampData.ko)
+  // — sem precisar threadear o mkKo por todo componente que mostra histórico.
+  const koMk = (_mkChampData || {}).ko;
+  const koRows = [];
+  if (koMk && koMk.published && Array.isArray(koMk.seeds)) {
+    const br = mkKoBracket(koMk.seeds, koMk.scores || {});
+    const roundLabel = { R1: 'REPESCAGEM', R2: 'REPESCAGEM', R3: 'REPESCAGEM', R4: 'REPESCAGEM', SF1: 'SEMIFINAL', SF2: 'SEMIFINAL', T3: 'DISPUTA DO 3º', F: 'FINAL' };
+    MK_KO_IDS.forEach(id => {
+      const mm = br[id]; if (!mm || !mm.home || !mm.away) return;
+      if (mm.home !== nick && mm.away !== nick) return;
+      const o = mm.o; if (!o || !o.done) return; // só confrontos decididos
+      const meHome = mm.home === nick;
+      koRows.push({ key: 'ko-' + id, label: roundLabel[id] || 'MATA-MATA', oppNick: meHome ? mm.away : mm.home, res: mm.winner === nick ? 'V' : 'D', myG: meHome ? o.h : o.a, opG: meHome ? o.a : o.h });
+    });
+  }
+  if (!rows.length && !koRows.length) return <div className="mkh-empty">Nenhum confronto concluído ainda.</div>;
   const resLabel = (r) => r === 'V' ? 'Vitória' : r === 'D' ? 'Derrota' : 'Empate';
   // agrupa por FASE (IDA/VOLTA) na ordem em que aparecem no chaveamento; cada
   // fase é uma caixinha expansiva. A última fase com jogos abre por padrão.
@@ -14122,8 +14185,26 @@ function MkMatchHistory({ nick, draw, scores, lineups }) {
   );
   return (
     <div className="mkh-groups">
+      {koRows.length > 0 && (
+        <CollapseBox title="MATA-MATA" count={koRows.length} defaultOpen>
+          <div className="mkh-list">
+            {koRows.map(m => (
+              <div key={m.key} className={'mkh-row ' + (m.res === 'V' ? 'win' : 'loss')}>
+                <div className="mkh-head">
+                  <span className="mkh-res" title={resLabel(m.res)}>{m.res}</span>
+                  <span className="mkh-opp">vs {m.oppNick}</span>
+                  <span className="mkh-phase">{m.label}</span>
+                </div>
+                <div className="mkh-partidas">
+                  <div className="mkh-part"><span className="mkh-pl">MD5</span><span className="mkh-sc">{m.myG}<i>×</i>{m.opG}</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CollapseBox>
+      )}
       {groups.map((g, gi) => (
-        <CollapseBox key={g.ph || gi} title={g.ph || 'JOGOS'} count={g.items.length} defaultOpen={gi === groups.length - 1}>
+        <CollapseBox key={g.ph || gi} title={g.ph || 'JOGOS'} count={g.items.length} defaultOpen={koRows.length === 0 && gi === groups.length - 1}>
           <div className="mkh-list">{g.items.map(renderRow)}</div>
         </CollapseBox>
       ))}
