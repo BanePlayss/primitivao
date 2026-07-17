@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260714-mkpos2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260714-golfwo1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3683,7 +3683,24 @@ function App() {
     if (!isMod && !isAdmin) return;
     const apply = (scores) => {
       const map = { ...((scores || {})[mapN] || {}) };
-      if (isDnf) map[nick] = 'DNF'; else if (map[nick] === 'DNF') delete map[nick];
+      if (isDnf) map[nick] = GOLF_DNF; else if (map[nick] === GOLF_DNF) delete map[nick];
+      return { ...(scores || {}), [mapN]: map };
+    };
+    setGolfScores(prev => apply(prev));
+    return commitBetDocUpdate(remote => {
+      const gwyf = (remote.gwyf && typeof remote.gwyf === 'object') ? remote.gwyf : {};
+      return { ...remote, gwyf: { ...gwyf, scores: apply(gwyf.scores) } };
+    });
+  };
+  // GOLF (mod): marca W.O. — jogador ANULADO na rodada → scores[mapN][nick]='WO'.
+  // Não pontua, não soma tacada, some do histórico de forma/props e TODA aposta
+  // nele é devolvida (a perna dela na casada também). Grava no mesmo slot do DNF,
+  // então marcar W.O. substitui DESISTIU e vice-versa.
+  const setGolfWo = (mapN, nick, isWo) => {
+    if (!isMod && !isAdmin) return;
+    const apply = (scores) => {
+      const map = { ...((scores || {})[mapN] || {}) };
+      if (isWo) map[nick] = GOLF_WO; else if (map[nick] === GOLF_WO) delete map[nick];
       return { ...(scores || {}), [mapN]: map };
     };
     setGolfScores(prev => apply(prev));
@@ -6078,7 +6095,7 @@ function App() {
                       session={session}
                       onToggleInterest={() => toggleInterest('gwyf')}
                       golfScores={golfScores} golfProps={golfProps} golfFinals={golfFinals} onSetStrokes={setGolfStrokes}
-                      onSetDnf={setGolfDnf} onSetProp={setGolfProp} onSetFinal={setGolfFinal} isMod={isMod} users={users}
+                      onSetDnf={setGolfDnf} onSetWo={setGolfWo} onSetProp={setGolfProp} onSetFinal={setGolfFinal} isMod={isMod} users={users}
                     />
                   ) : showPlaceholder ? (
                 <ChampionshipPlaceholder
@@ -6536,6 +6553,12 @@ function computeGolfMapStandings(scores, mapN, players) {
 // ─── APOSTAS DO GOLF ─────────────────────────────────────────────────────────
 // Mercados por mapa. Odds PARELHAS no começo (sem histórico) → ajustam POR FORMA
 // (média de tacadas) conforme os mapas saem. scores[mapN][nick] = tacadas | 'DNF'.
+// Marcações especiais em gwyf.scores[mapN][nick] (senão é número = tacadas):
+//  'DNF' = DESISTIU (jogou e largou — não completou; ainda conta como participou)
+//  'WO'  = W.O. (ANULADO na rodada — não pontua, não soma tacada e TODA aposta
+//          nele é devolvida; nem entra no histórico de forma/props)
+const GOLF_DNF = 'DNF';
+const GOLF_WO = 'WO';
 const golfClampP = (p) => Math.max(0.02, Math.min(0.95, p));
 // Campo do golf = inscritos em interests.gwyf. NÃO filtra por mkIsWithdrawn (aquilo
 // é do MK — contaminava o golf e sumia jogador do campo/liquidação de forma
@@ -6613,7 +6636,8 @@ function golfRate(schedule, get, nick) {
   (schedule || []).forEach(r => { const i = get(r.n, nick); if (i.played) { played++; if (i.hit) hit++; } });
   return played ? hit / played : null;
 }
-const golfPropGet = (scores, props, key) => (mapN, nick) => { const v = ((scores || {})[mapN] || {})[nick]; return { played: v !== undefined, hit: !!(((props || {})[mapN] || {})[nick] || {})[key] }; };
+// W.O. NÃO conta como "jogou" (foi anulado) — não entra na taxa do histórico.
+const golfPropGet = (scores, props, key) => (mapN, nick) => { const v = ((scores || {})[mapN] || {})[nick]; return { played: v !== undefined && v !== GOLF_WO, hit: !!(((props || {})[mapN] || {})[nick] || {})[key] }; };
 // PAR: taxa de um resultado (under/even/over) sobre os mapas que o nick COMPLETOU.
 const golfParGet = (scores, props, target) => (mapN, nick) => { const v = ((scores || {})[mapN] || {})[nick]; return { played: typeof v === 'number', hit: (((props || {})[mapN] || {})[nick] || {}).par === target }; };
 function golfRateProb(schedule, get, nick, def) { const r = golfRate(schedule, get, nick); return golfClampP(r == null ? def : (def * 0.35 + r * 0.65)); }
@@ -6662,6 +6686,10 @@ const golfMapLosers = (scores, mapN, players) => golfMapExtreme(scores, mapN, pl
 function golfLegResult(market, pick, side, mapN, scores, props, players, finalized) {
   if (!finalized) return 'pending';
   const v = ((scores || {})[mapN] || {})[pick];
+  // W.O.: jogador ANULADO na rodada (não pontua, não soma tacada). TODA aposta nele
+  // é devolvida, em qualquer mercado — inclusive a perna dele dentro de uma casada
+  // (void não derruba a casada: vira odd 1.0 e o resto das pernas segue).
+  if (v === GOLF_WO) return 'void';
   if (market === 'WIN' || market === 'LOSE') {
     // Mercados de TACADAS: se o pick não postou tacada (desistiu/DNF ou ausente),
     // DEVOLVE — não dá pra comparar tacadas de quem não completou.
@@ -6724,7 +6752,7 @@ function GolfBanner({ accent, interested, count, onToggleInterest, started }) {
 // classificação lista os inscritos zerados e as 9 rodadas ficam "AGUARDANDO".
 // Mantém o campeonato como 'soon' (não vira apostável) — o motor de pontuação
 // (lançar tacadas por mapa) entra quando o golf virar 'active', depois do MK.
-function GolfView({ interests, teamPlayers, session, onToggleInterest, golfScores, golfProps, golfFinals, onSetStrokes, onSetDnf, onSetProp, onSetFinal, isMod, users }) {
+function GolfView({ interests, teamPlayers, session, onToggleInterest, golfScores, golfProps, golfFinals, onSetStrokes, onSetDnf, onSetWo, onSetProp, onSetFinal, isMod, users }) {
   const accent = tabloidTheme('gwyf').color;
   const [selMap, setSelMap] = useState(0); // rodada/mapa selecionado (índice no GWYF_SCHEDULE)
   const reg = (interests && interests.gwyf) || {};
@@ -6863,19 +6891,21 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest, golfScore
                     <div className="golf-launcher-list">
                       {inscritos.map(nk => {
                         const raw = (scores[selRound.n] || {})[nk];
-                        const dnf = raw === 'DNF';
+                        const dnf = raw === GOLF_DNF;
+                        const wo = raw === GOLF_WO;
                         const pr = ((golfProps || {})[selRound.n] || {})[nk] || {};
                         return (
-                          <div key={nk} className="golf-launcher-row">
+                          <div key={nk} className={'golf-launcher-row' + (wo ? ' wo' : '')}>
                             <Avatar nick={nk} teamPlayers={teamPlayers} size={22} />
                             <span className="golf-launcher-nk">{nk}</span>
-                            <input type="number" min="0" value={dnf ? '' : (raw ?? '')} disabled={dnf} onChange={e => onSetStrokes(selRound.n, nk, e.target.value)} placeholder={dnf ? 'DNF' : '—'} className="golf-launcher-in" />
+                            <input type="number" min="0" value={(dnf || wo) ? '' : (raw ?? '')} disabled={dnf || wo} onChange={e => onSetStrokes(selRound.n, nk, e.target.value)} placeholder={wo ? 'W.O.' : dnf ? 'DNF' : '—'} className="golf-launcher-in" />
                             <div className="golf-launcher-tog">
-                              <button type="button" className={'golf-tog dnf' + (dnf ? ' on' : '')} onClick={() => onSetDnf(selRound.n, nk, !dnf)} title="Desistiu — não completou o mapa">DESISTIU</button>
-                              <button type="button" className={'golf-tog' + (pr.hio ? ' on' : '')} onClick={() => onSetProp(selRound.n, nk, 'hio', !pr.hio)} title="Fez um hole in one nesse mapa">HOLE-IN-ONE</button>
+                              <button type="button" className={'golf-tog wo' + (wo ? ' on' : '')} onClick={() => onSetWo(selRound.n, nk, !wo)} title="W.O. — anula o jogador na rodada: não pontua, não soma tacada e toda aposta nele é devolvida">W.O.</button>
+                              <button type="button" disabled={wo} className={'golf-tog dnf' + (dnf ? ' on' : '')} onClick={() => onSetDnf(selRound.n, nk, !dnf)} title="Desistiu — não completou o mapa">DESISTIU</button>
+                              <button type="button" disabled={wo} className={'golf-tog' + (pr.hio ? ' on' : '')} onClick={() => onSetProp(selRound.n, nk, 'hio', !pr.hio)} title="Fez um hole in one nesse mapa">HOLE-IN-ONE</button>
                               <span className="golf-tog-par">PAR:
                                 {GOLF_PAR_SIDES.map(s => (
-                                  <button key={s.par} type="button" disabled={dnf} className={'golf-tog par' + (pr.par === s.par ? ' on' : '')} onClick={() => onSetProp(selRound.n, nk, 'par', pr.par === s.par ? null : s.par)} title={'Terminou ' + s.k + ' do par'}>{s.k}</button>
+                                  <button key={s.par} type="button" disabled={dnf || wo} className={'golf-tog par' + (pr.par === s.par ? ' on' : '')} onClick={() => onSetProp(selRound.n, nk, 'par', pr.par === s.par ? null : s.par)} title={'Terminou ' + s.k + ' do par'}>{s.k}</button>
                                 ))}
                               </span>
                             </div>
@@ -6883,7 +6913,7 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest, golfScore
                         );
                       })}
                     </div>
-                    <div className="golf-launcher-legend">DESISTIU = não completou (vira DNF, sem tacada). HOLE-IN-ONE e o PAR (ABAIXO / NO PAR / ACIMA) liquidam os mercados — marca só pra quem completou o mapa.</div>
+                    <div className="golf-launcher-legend"><strong>W.O.</strong> = anula o jogador na rodada: não pontua, não soma tacada e <strong>toda aposta nele é devolvida</strong> (a perna dele numa casada também). <strong>DESISTIU</strong> = jogou e não completou (vira DNF, sem tacada). HOLE-IN-ONE e o PAR (ABAIXO / NO PAR / ACIMA) liquidam os mercados — marca só pra quem completou o mapa.</div>
                     {(() => {
                       const allIn = golfMapFinal(scores, selRound.n, inscritos); // todo inscrito lançado?
                       const done = !!((golfFinals || {})[selRound.n]);

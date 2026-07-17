@@ -5843,6 +5843,11 @@
     .golf-tog:hover { border-color: var(--golf, #6f9b1f); color: var(--pv-charcoal); }
     .golf-tog.on { border-color: var(--golf, #6f9b1f); border-width: 2px; background: color-mix(in srgb, var(--golf, #6f9b1f) 14%, var(--pv-bone, #f4ead7)); color: var(--pv-charcoal); }
     .golf-tog.dnf.on { border-color: var(--pv-red, #b3231a); background: color-mix(in srgb, var(--pv-red, #b3231a) 12%, var(--pv-bone, #f4ead7)); }
+    /* W.O. = jogador ANULADO na rodada (aposta devolvida) — destaque charcoal */
+    .golf-tog.wo.on { border-color: var(--pv-charcoal); background: var(--pv-charcoal); color: var(--pv-bone); }
+    .golf-tog:disabled { opacity: 0.4; cursor: not-allowed; }
+    .golf-launcher-row.wo { opacity: 0.75; }
+    .golf-launcher-row.wo .golf-launcher-nk { text-decoration: line-through; color: rgba(28,22,18,0.5); }
     .golf-tog-par { display: inline-flex; align-items: center; gap: 3px; font-size: 8.5px; font-weight: 800; letter-spacing: 0.04em; color: rgba(28,22,18,0.45); }
     .golf-tog.par { padding: 4px 6px; font-size: 8.5px; }
     .golf-launcher-legend { margin-top: 8px; font-size: 10px; line-height: 1.4; color: rgba(28,22,18,0.55); font-weight: 600; }
