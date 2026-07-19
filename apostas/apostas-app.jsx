@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260714-copatit2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260714-pcfix1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2148,7 +2148,16 @@ function mergeUsersDeep(remote, local) {
   for (const nick of all) {
     const r = remote[nick] || null;
     const l = local[nick]  || null;
-    if (r && l)       out[nick] = { ...r, ...l }; // local prevalece em conflito, mas r-only fields preservados
+    if (r && l) {
+      const m = { ...r, ...l }; // local prevalece em conflito, mas r-only fields preservados
+      // SALDOS (pc/cc) são AUTORITATIVOS DO SERVIDOR — só mudam por transação
+      // (commitBetDocUpdate: placeBet/adjustPc/grant/zero...). O write-back de uma
+      // aba NUNCA deve reasserir o saldo LOCAL por cima: uma aba velha com saldo
+      // em cache "ressuscitaria" um saldo já zerado no servidor. Remote manda.
+      if (r.pc !== undefined) m.pc = r.pc;
+      if (r.cc !== undefined) m.cc = r.cc;
+      out[nick] = m;
+    }
     else if (l)       out[nick] = l;
     else if (r)       out[nick] = r;
   }
