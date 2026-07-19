@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260714-golfwo1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260714-copatit2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -519,7 +519,9 @@ function scoreWcPick(real, pick, isKnockout) {
   }
   return pts + scoreWcPens(real, pick, isKnockout); // + bônus pênaltis
 }
-const CHAMP_BY_ID = Object.fromEntries(CHAMPIONSHIPS.map(c => [c.id, c]));
+// Lookup por id (NÃO é lista de iteração — só CHAMP_BY_ID[id]). Inclui a COPA
+// (que não vive em CHAMPIONSHIPS) pra troféus/labels do bolão resolverem tag/season.
+const CHAMP_BY_ID = Object.fromEntries(TABLOID_CHAMP_OPTS.map(c => [c.id, c]));
 
 // Personagens jogáveis do Mortal Kombat 1 (2023). Cada jogador escolhe 3 por
 // turno (regra do MK Edição 01). Lista pra "MEU JOGO". Inclui os DLC:
@@ -5675,6 +5677,9 @@ function App() {
   // dos filhos): fecha o MK (champStatusFor) + dá os troféus do mata-mata
   // (trophiesForNick / betKingChamps) sem threadear o mkKo pela árvore toda.
   _mkChampData = { draw: mkDraw, scores: mkScores, ko: mkKo, players: mkInscritos(interests || {}) };
+  // Idem pro BOLÃO DA COPA: publica worldcup + fixtures pro trophiesForNick / as
+  // conquistas de colocação lerem a ordem final (computeCopaStandings) sem threadear.
+  _copaChampData = { worldcup, wcFixtures: (wcData && wcData.matches) || [] };
 
   const adjustPc = async (nick, delta) => {
     try {
@@ -6426,6 +6431,10 @@ function ChampHeader({ value, onChange, interests, title, tag, stats, bare, acti
 // o mkKo pela árvore. O MK NÃO passa pelo computeChampStandings (que só entende
 // FIFA), então esses pontos leem daqui. null até o App montar.
 let _mkChampData = null;
+// Idem pro BOLÃO DA COPA: { worldcup, wcFixtures } setado no render do App, pra
+// trophiesForNick + as conquistas de colocação lerem a ordem final do bolão sem
+// threadear worldcup/wcFixtures pela árvore. null até o App montar.
+let _copaChampData = null;
 
 // Grupo do campeonato pro sidebar: 'active' (rolando), 'closed' (temporada
 // terminada, tem campeão) ou 'soon' (em breve). FIFA vira 'closed' quando todas
@@ -10369,6 +10378,10 @@ function trophiesForNick(nick, cs, teamPlayers) {
     else if (mine(standings[last - 1])) trophies.push({ champId: c.id, kind: 'penultimo' });
     else trophies.push({ champId: c.id, kind: 'participou' }); // jogou e ficou no meio
   }
+  // COPA (bolão) — NÃO vive em CHAMPIONSHIPS (view/achievement à parte), então fica
+  // FORA do loop. Troféu pela ordem final do bolão (computeCopaStandings, admin fora).
+  const copaK = copaTrophyForNick(nick, _copaChampData);
+  if (copaK) trophies.push({ champId: 'copa', kind: copaK });
   return trophies;
 }
 
@@ -10570,6 +10583,29 @@ function mkTrophyForNick(nick, data) {
   return 'participou';
 }
 
+// Ordem FINAL do bolão da Copa (só quem PALPITOU, admin fora) quando encerrado
+// (todos os jogos com placar). [] se ainda não fechou. Data-driven: usa o mesmo
+// ranking do RANKING DO BOLÃO (computeCopaStandings, por pontos de palpite).
+function copaFinalOrder(worldcup, wcFixtures) {
+  const st = computeCopaStandings(worldcup, wcFixtures);
+  if (st.status !== 'closed') return [];
+  return (st.ranking || []).filter(r => r.nick !== ADMIN_NICK).map(r => r.nick);
+}
+// Troféu (medalha) do bolão pro nick — mesmas kinds da FIFA/MK. `data` = _copaChampData.
+function copaTrophyForNick(nick, data) {
+  if (!data || !nick) return null;
+  const order = copaFinalOrder(data.worldcup, data.wcFixtures);
+  const idx = order.indexOf(nick);
+  if (idx < 0) return null;
+  const n = order.length;
+  if (idx === 0) return 'champion';
+  if (idx === 1) return 'vice';
+  if (n > 3 && idx === 2) return 'terceiro';
+  if (idx === n - 1) return 'lanterna';
+  if (idx === n - 2) return 'penultimo';
+  return 'participou';
+}
+
 function mkStatsFor(nick, ctx) {
   const mk = (ctx && ctx.mk) || {};
   const draw = Array.isArray(mk.draw) ? mk.draw : [];
@@ -10681,6 +10717,11 @@ const ACH = {
   copaPlayer:  ({ nick, worldcup }) => Object.keys((worldcup && worldcup.picks && worldcup.picks[nick]) || {}).length >= 1,
   copaSeer:    ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 1,
   copaOracle:  ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 5,
+  // COLOCAÇÃO do bolão da Copa (igual ao MK: lê o ref de módulo _copaChampData).
+  copaChamp:   ({ nick }) => copaTrophyForNick(nick, _copaChampData) === 'champion',
+  copaVice:    ({ nick }) => copaTrophyForNick(nick, _copaChampData) === 'vice',
+  copaBronze:  ({ nick }) => copaTrophyForNick(nick, _copaChampData) === 'terceiro',
+  copaLast:    ({ nick }) => copaTrophyForNick(nick, _copaChampData) === 'lanterna',
   underdog:    ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Array.isArray(b.legs) && b.legs.length === 1 && Number(b.combinedOdds) >= 5),
   luckyStart:  ({ nick, bets }) => firstSettledStatus(bets, nick) === 'won',
   whale:       ({ nick, bets }) => totalWagered(bets, nick) >= 1000000,
@@ -10845,6 +10886,15 @@ const ACHIEVEMENTS = [
     desc: 'Acertou 3 placares EXATOS no bolão da Copa. Tá lendo o jogo.', check: ACH.copaTrio },
   { id: 'oraculo_copa', name: 'ORÁCULO DA COPA', icon: 'eye', color: '#1c7a6e', cat: 'copa', rarity: 'lendaria',
     desc: 'Acertou 5 placares EXATOS no bolão da Copa. Não é palpite, é dom.', check: ACH.copaOracle, rewards: { badge: 'badge-oraculo' } },
+  // ── COPA: colocação final do bolão (igual ao MK — campeão/vice/bronze/último) ──
+  { id: 'copa_campeao', name: 'CAMPEÃO DO BOLÃO', icon: 'trophy', color: '#d4af37', cat: 'copa', rarity: 'lendaria',
+    desc: 'Terminou uma Copa do Mundo em PRIMEIRO no bolão. O maior vidente da temporada.', check: ACH.copaChamp, rewards: { frame: 'frame-gold' } },
+  { id: 'copa_vice', name: 'VICE DO BOLÃO', icon: 'medal', color: '#9a9a9a', cat: 'copa', rarity: 'epica',
+    desc: 'Terminou uma Copa do Mundo em SEGUNDO no bolão. Faltou um palpite pra coroa.', check: ACH.copaVice },
+  { id: 'copa_bronze', name: 'BRONZE DO BOLÃO', icon: 'medal', color: '#b06a2c', cat: 'copa', rarity: 'rara',
+    desc: 'Terminou uma Copa do Mundo em TERCEIRO no bolão. Pódio dos videntes.', check: ACH.copaBronze },
+  { id: 'copa_lanterna', name: 'PIOR PALPITEIRO', icon: 'toilet', color: '#7a2222', cat: 'copa', rarity: 'rara',
+    desc: 'Terminou uma Copa do Mundo em ÚLTIMO no bolão. Chutou tudo errado.', check: ACH.copaLast },
   // ── RIVAIS (zoeira interna do grupo) ──
   { id: 'vs_mohamed_mk', name: 'DETONOU O MOHAMED', icon: 'sword', color: '#8a1f1f', cat: 'rivais', rarity: 'rara',
     desc: 'Venceu o Mohamed num confronto de Mortal Kombat. Pode subir a treta.', check: ACH.beatMohamedMk },
