@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260714-golffix1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260714-copatab1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -8410,7 +8410,7 @@ function resolveWcFixtures(fixtures, results, thirds) {
 }
 
 function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePick, onSetResult, onSetThird }) {
-  const [subTab, setSubTab] = useState('jogos'); // 'jogos' | 'ranking'
+  const [subTab, setSubTab] = useState('ranking'); // 'ranking' | 'bracket' | 'historico'
   const thirds = worldcup?.thirds || {};
   const results = worldcup?.results || {};
   const picks   = worldcup?.picks   || {};
@@ -8423,22 +8423,38 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePi
         <div className="copa-hero-tag">BOLÃO</div>
         <div className="copa-hero-title">COPA DO MUNDO 2026</div>
         <div className="copa-hero-sub">
-          Palpite o placar de cada jogo. 3 pts por placar exato · 1 pt por
-          acertar só o vencedor/empate · 0 por errar. <strong>Sem PC envolvido</strong> — só por glória e zoeira.
+          <strong>A Copa acabou!</strong> Veja o <strong>ranking do bolão</strong> (quem
+          palpitou e pontuou), o <strong>mata-mata</strong> e o <strong>histórico</strong>
+          dos jogos e palpites. 3 pts por placar exato · 1 pt por acertar o vencedor/empate.
           {fixtures && fixtures.length > 0 && (
-            <> · <strong>{fixtures.length}</strong> jogos cadastrados.</>
+            <> · <strong>{fixtures.length}</strong> jogos.</>
           )}
         </div>
       </div>
 
       <div className="copa-subtabs">
-        <button className={'copa-subtab ' + (subTab === 'jogos' ? 'active' : '')} onClick={() => setSubTab('jogos')}>JOGOS</button>
-        <button className={'copa-subtab ' + (subTab === 'grupos' ? 'active' : '')} onClick={() => setSubTab('grupos')}><Icon name="chart" size={14} /> GRUPOS</button>
-        <button className={'copa-subtab ' + (subTab === 'bracket' ? 'active' : '')} onClick={() => setSubTab('bracket')}><Icon name="trophy" size={14} /> MATA-MATA</button>
         <button className={'copa-subtab ' + (subTab === 'ranking' ? 'active' : '')} onClick={() => setSubTab('ranking')}><Icon name="trophy" size={14} /> RANKING DO BOLÃO</button>
+        <button className={'copa-subtab ' + (subTab === 'bracket' ? 'active' : '')} onClick={() => setSubTab('bracket')}><Icon name="trophy" size={14} /> MATA-MATA</button>
+        <button className={'copa-subtab ' + (subTab === 'historico' ? 'active' : '')} onClick={() => setSubTab('historico')}><Icon name="book" size={14} /> HISTÓRICO</button>
       </div>
 
-      {subTab === 'jogos' && (
+      {subTab === 'ranking' && (
+        <CopaRanking
+          users={users}
+          fixtures={fixtures || []}
+          results={results}
+          picks={picks}
+          myNick={myNick}
+        />
+      )}
+
+      {subTab === 'bracket' && (
+        <CopaBracket fixtures={fixtures || []} results={results} isAdmin={isAdmin} thirds={thirds} onSetResult={onSetResult} onSetThird={onSetThird} />
+      )}
+
+      {/* HISTÓRICO = os jogos + palpites de todo mundo (a antiga aba JOGOS). A Copa
+          acabou, então é só leitura — mantém o histórico dos placares e dos palpites. */}
+      {subTab === 'historico' && (
         <CopaJogos
           fixtures={fixtures || []}
           results={results}
@@ -8449,24 +8465,6 @@ function CopaDoMundoView({ session, isAdmin, users, worldcup, fixtures, onSavePi
           thirds={thirds}
           onSavePick={onSavePick}
           onSetResult={onSetResult}
-        />
-      )}
-
-      {subTab === 'grupos' && (
-        <CopaGrupos fixtures={fixtures || []} results={results} />
-      )}
-
-      {subTab === 'bracket' && (
-        <CopaBracket fixtures={fixtures || []} results={results} isAdmin={isAdmin} thirds={thirds} onSetResult={onSetResult} onSetThird={onSetThird} />
-      )}
-
-      {subTab === 'ranking' && (
-        <CopaRanking
-          users={users}
-          fixtures={fixtures || []}
-          results={results}
-          picks={picks}
-          myNick={myNick}
         />
       )}
     </div>
