@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260714-pcfix1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260714-copyself1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5079,10 +5079,10 @@ function App() {
         const src = (remote.bets || []).find(b => b.id === sourceId);
         if (!src || !src.open || src.status !== 'pending') return { __abort: true, result: { err: 'Esse ticket não está mais aberto.' } };
         if (src.user === session.nick) return { __abort: true, result: { err: 'Não dá pra copiar o próprio ticket.' } };
-        // Você é um dos palpites (jogador) do cupom? Copiar seria apostar em si
-        // mesmo (regra do golf/MK). `pick` só é um nick em mercados de jogador —
-        // no FIFA é resultado (1/X/2), então isso nunca bloqueia palpite de liga.
-        if ((src.legs || []).some(l => l.pick === session.nick)) return { __abort: true, result: { err: 'Você é um dos palpites desse cupom — não dá pra copiar (seria apostar em si mesmo).' } };
+        // OBS: COPIAR um cupom onde você é um dos palpites É PERMITIDO (a pedido do
+        // dono — ex.: bane monta um ticket com o tio will e o will copia). A trava
+        // "não apostar em si mesmo" vale só pra ORIGINAR a aposta (placeBet/placeGolfBet),
+        // não pra copiar da Mesa dos Cartolas.
         if (legBusy(src.legs, remote, ti)) return { __abort: true, result: { err: 'Esse ticket já começou — não dá mais pra copiar.' } };
         if ((remote.bets || []).some(b => b.copyOf === sourceId && b.user === session.nick)) return { __abort: true, result: { err: 'Você já copiou esse ticket.' } };
         const u = (remote.users || {})[session.nick];
