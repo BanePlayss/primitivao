@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260714-copyself1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260714-golffix1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3553,6 +3553,7 @@ function App() {
   const [golfScores, setGolfScores] = useState({}); // GOLF: { [mapN]: { [nick]: tacadas|'DNF' } } (campo gwyf.scores do json)
   const [golfProps, setGolfProps] = useState({}); // GOLF props: { [mapN]: { [nick]: { hio, half } } } (gwyf.props) — hole-in-one / metade abaixo do par
   const [golfFinals, setGolfFinals] = useState({}); // GOLF: { [mapN]: true } — mapa FINALIZADO pelo mod (libera liquidação dos cupons)
+  const [golfLocks, setGolfLocks] = useState({}); // GOLF: { [mapN]: true } — apostas TRAVADAS pelo mod (fecha o card antes do 1º placar)
   // MEU JOGO: escalação por confronto montada pelo MANDANTE (os dois lados das 2
   // partidas). Keyed por gKey: mkLineups[gKey] = { p1:{home,away}, p2:{home,away} }.
   const [mkLineups, setMkLineups] = useState({});
@@ -3720,14 +3721,15 @@ function App() {
       return { ...remote, gwyf: { ...gwyf, scores: apply(gwyf.scores) } };
     });
   };
-  // GOLF (mod): marca um PROP do jogador num mapa — key 'hio' (hole in one) ou 'half'
-  // (metade abaixo do par). props[mapN][nick][key] = true; desmarca remove.
+  // GOLF (mod): marca um PROP do jogador num mapa — 'hio' (bool) ou 'par'
+  // ('under'/'even'/'over'). props[mapN][nick][key] = val; val falsy remove.
+  // GRAVA O VALOR (val), não `true` — senão o PAR virava `true` e não liquidava.
   const setGolfProp = (mapN, nick, key, val) => {
     if (!isMod && !isAdmin) return;
     const apply = (props) => {
       const map = { ...((props || {})[mapN] || {}) };
       const cur = { ...(map[nick] || {}) };
-      if (val) cur[key] = true; else delete cur[key];
+      if (val) cur[key] = val; else delete cur[key];
       if (Object.keys(cur).length) map[nick] = cur; else delete map[nick];
       return { ...(props || {}), [mapN]: map };
     };
@@ -3752,6 +3754,22 @@ function App() {
     return commitBetDocUpdate(remote => {
       const gwyf = (remote.gwyf && typeof remote.gwyf === 'object') ? remote.gwyf : {};
       return { ...remote, gwyf: { ...gwyf, finals: apply(gwyf.finals) } };
+    });
+  };
+  // GOLF (mod): TRAVA (ou destrava) as apostas de um mapa → locks[mapN]=true fecha o
+  // card de aposta ANTES do 1º placar (pra quando a rodada começa a ser jogada). O
+  // lançamento de tacada também fecha (golfMapPlayed); o lock é o fechamento manual.
+  const setGolfLock = (mapN, val) => {
+    if (!isMod && !isAdmin) return;
+    const apply = (locks) => {
+      const l = { ...(locks || {}) };
+      if (val) l[mapN] = true; else delete l[mapN];
+      return l;
+    };
+    setGolfLocks(prev => apply(prev));
+    return commitBetDocUpdate(remote => {
+      const gwyf = (remote.gwyf && typeof remote.gwyf === 'object') ? remote.gwyf : {};
+      return { ...remote, gwyf: { ...gwyf, locks: apply(gwyf.locks) } };
     });
   };
 
@@ -4089,6 +4107,7 @@ function App() {
         setGolfScores(gwyf.scores && typeof gwyf.scores === 'object' ? gwyf.scores : {});
         setGolfProps(gwyf.props && typeof gwyf.props === 'object' ? gwyf.props : {});
         setGolfFinals(gwyf.finals && typeof gwyf.finals === 'object' ? gwyf.finals : {});
+        setGolfLocks(gwyf.locks && typeof gwyf.locks === 'object' ? gwyf.locks : {});
         setOfficialDayState(remote.officialDay && typeof remote.officialDay === 'object' ? remote.officialDay : null);
         hasLoadedRef.current = true; setSynced(true);
         // Migração one-shot: promove interests do json pra campo top-level.
@@ -4809,21 +4828,22 @@ function App() {
         if (!players.length) return { __abort: true, result: { err: 'Campo do golf indisponível. Tenta de novo.' } };
         const gscores = (remote.gwyf && remote.gwyf.scores) || {};
         const gprops = (remote.gwyf && remote.gwyf.props) || {};
-        // CASADA do golf = ESCALAÇÃO: UMA perna por (mapa, jogador). Dá pra casar
-        // mercados diferentes de jogadores diferentes; NÃO dá pra empilhar 2 palpites
-        // no MESMO jogador (evita casada correlacionada +EV: "ganha" + "abaixo do par"
-        // no mesmo cara). Um jogador = um papel no cupom.
-        const seenPP = {};
+        const glocks = (remote.gwyf && remote.gwyf.locks) || {};
+        // CASADA LIVRE: dá pra empilhar mercados diferentes no mesmo jogador e
+        // misturar como quiser. Única guarda: um palpite por (mapa, mercado, jogador)
+        // — o mesmo mercado no mesmo cara não entra 2x (o toggle troca o lado). O EV
+        // é segurado pelo desconto de correlação (golfCasadaOdd).
+        const seenPMP = {};
         let combined = 1;
         const legs = [];
         for (const l of payload.legs) {
           if (GOLF_MARKETS.indexOf(l.market) < 0) return { __abort: true, result: { err: 'Mercado inválido.' } };
           if (l.mapN == null || players.indexOf(l.pick) < 0) return { __abort: true, result: { err: 'Palpite inválido.' } };
           if (l.pick === nick) return { __abort: true, result: { err: 'Não dá pra apostar em você mesmo.' } };
-          if (golfMapPlayed(gscores, l.mapN, players)) return { __abort: true, result: { err: 'Uma rodada do cupom já começou — aposta fechada.' } };
-          const ppKey = l.mapN + ':' + l.pick;
-          if (seenPP[ppKey]) return { __abort: true, result: { err: 'Só um palpite por jogador em cada rodada (monta a escalação).' } };
-          seenPP[ppKey] = 1;
+          if (golfBetLocked(gscores, glocks, l.mapN, players)) return { __abort: true, result: { err: 'As apostas dessa rodada estão fechadas.' } };
+          const pmpKey = l.mapN + ':' + l.market + ':' + l.pick;
+          if (seenPMP[pmpKey]) return { __abort: true, result: { err: 'Palpite repetido (mesmo mercado no mesmo jogador).' } };
+          seenPMP[pmpKey] = 1;
           const isField = GOLF_FIELD_MARKETS.indexOf(l.market) >= 0;
           let side, odd;
           if (l.market === 'WIN') { side = null; odd = golfOdd(golfWinProbs(GWYF_SCHEDULE, gscores, players)[l.pick]); }
@@ -5026,7 +5046,7 @@ function App() {
     }
     if (typeof l.fixtureId === 'string' && l.fixtureId.indexOf('gwyf:') === 0) {
       const gp = golfField(ti || interests);
-      return golfMapPlayed((remote.gwyf && remote.gwyf.scores) || {}, l.mapN, gp);
+      return golfBetLocked((remote.gwyf && remote.gwyf.scores) || {}, (remote.gwyf && remote.gwyf.locks) || {}, l.mapN, gp);
     }
     const p = parseGameId(l.fixtureId); if (!p) return false;
     const g = cs && cs.rounds && cs.rounds[p.ri] && cs.rounds[p.ri][p.gi];
@@ -6048,6 +6068,7 @@ function App() {
                   golfScores={golfScores}
                   golfProps={golfProps}
                   golfFinals={golfFinals}
+                  golfLocks={golfLocks}
                   teamPlayers={teamPlayers || {}}
                   session={session}
                   onPlaceBet={placeGolfBet}
@@ -6108,8 +6129,8 @@ function App() {
                       teamPlayers={teamPlayers || {}}
                       session={session}
                       onToggleInterest={() => toggleInterest('gwyf')}
-                      golfScores={golfScores} golfProps={golfProps} golfFinals={golfFinals} onSetStrokes={setGolfStrokes}
-                      onSetDnf={setGolfDnf} onSetWo={setGolfWo} onSetProp={setGolfProp} onSetFinal={setGolfFinal} isMod={isMod} users={users}
+                      golfScores={golfScores} golfProps={golfProps} golfFinals={golfFinals} golfLocks={golfLocks} onSetStrokes={setGolfStrokes}
+                      onSetDnf={setGolfDnf} onSetWo={setGolfWo} onSetProp={setGolfProp} onSetFinal={setGolfFinal} onSetLock={setGolfLock} isMod={isMod} users={users}
                     />
                   ) : showPlaceholder ? (
                 <ChampionshipPlaceholder
@@ -6620,13 +6641,10 @@ const golfCasadaOdd = (oddsProduct, nLegs) => nLegs >= 2 ? +(1 + (oddsProduct - 
 // Recusa bundle comonotônico (WIN+LOSE juntos, ou 2+ PAR do mesmo lado). Devolve
 // string de erro ou null se OK. Serve cliente e servidor (mesma regra).
 function golfCasadaReject(legs) {
-  const nWin = (legs || []).filter(l => l.market === 'WIN').length;
-  const nLose = (legs || []).filter(l => l.market === 'LOSE').length;
-  if (nWin > 1) return 'Só dá pra escolher UM vencedor da rodada (é seleção única).';
-  if (nLose > 1) return 'Só dá pra escolher UM pior da rodada (é seleção única).';
-  if (nWin && nLose) return 'Não dá pra casar QUEM GANHA e QUEM É O PIOR na mesma rodada — é quase a mesma aposta.';
-  const seen = {};
-  for (const l of legs || []) if (l.market === 'PAR') { if (seen[l.side]) return 'No PAR, só um palpite de cada lado por cupom (ex: um ABAIXO e um ACIMA).'; seen[l.side] = 1; }
+  // CASADA LIVRE (a pedido do dono): sem bloqueios de combinação — pode casar
+  // GANHA+PIOR, vários do mesmo lado do PAR, etc. A margem da casa vem do desconto
+  // de correlação (golfCasadaOdd, 0.7^(n-1)) + a margem por perna. Única guarda: a
+  // perna precisa ser válida (feita no toggle/servidor). null = OK.
   return null;
 }
 // PAR = 3 vias. side ∈ ABAIXO/PAR/ACIMA ↔ prop.par 'under'/'even'/'over'.
@@ -6676,6 +6694,9 @@ const golfParOdd = (schedule, scores, props, nick, side) => golfOdd(golfParProb(
 // Já COMEÇOU esse mapa? (tem QUALQUER lançamento) → fecha as APOSTAS. Um lançamento
 // basta pra travar (não dá pra apostar no que já rolou).
 function golfMapPlayed(scores, mapN, players) { return (players || []).some(nk => ((scores || {})[mapN] || {})[nk] !== undefined); }
+// APOSTA FECHADA no mapa? = já começou (1º placar) OU o mod TRAVOU manualmente
+// (locks[mapN]). É o portão de fechamento das apostas do golf (card + placeGolfBet + cópia).
+function golfBetLocked(scores, locks, mapN, players) { return golfMapPlayed(scores, mapN, players) || !!((locks || {})[mapN]); }
 // Mapa FINALIZADO? (TODO inscrito tem lançamento — tacada ou DNF) → libera a
 // LIQUIDAÇÃO. Separado de golfMapPlayed de propósito: apostas fecham no 1º
 // lançamento, mas os cupons SÓ liquidam quando o mapa inteiro entrou (senão o mod
@@ -6770,7 +6791,7 @@ function GolfBanner({ accent, interested, count, onToggleInterest, started }) {
 // classificação lista os inscritos zerados e as 9 rodadas ficam "AGUARDANDO".
 // Mantém o campeonato como 'soon' (não vira apostável) — o motor de pontuação
 // (lançar tacadas por mapa) entra quando o golf virar 'active', depois do MK.
-function GolfView({ interests, teamPlayers, session, onToggleInterest, golfScores, golfProps, golfFinals, onSetStrokes, onSetDnf, onSetWo, onSetProp, onSetFinal, isMod, users }) {
+function GolfView({ interests, teamPlayers, session, onToggleInterest, golfScores, golfProps, golfFinals, golfLocks, onSetStrokes, onSetDnf, onSetWo, onSetProp, onSetFinal, onSetLock, isMod, users }) {
   const accent = tabloidTheme('gwyf').color;
   const [selMap, setSelMap] = useState(0); // rodada/mapa selecionado (índice no GWYF_SCHEDULE)
   const reg = (interests && interests.gwyf) || {};
@@ -6933,6 +6954,22 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest, golfScore
                     </div>
                     <div className="golf-launcher-legend"><strong>W.O.</strong> = anula o jogador na rodada: não pontua, não soma tacada e <strong>toda aposta nele é devolvida</strong> (a perna dele numa casada também). <strong>DESISTIU</strong> = jogou e não completou (vira DNF, sem tacada). HOLE-IN-ONE e o PAR (ABAIXO / NO PAR / ACIMA) liquidam os mercados — marca só pra quem completou o mapa.</div>
                     {(() => {
+                      // TRAVAR APOSTAS (mod): fecha o card de aposta dessa rodada ANTES
+                      // do 1º placar — pra quando a rodada começa a ser jogada.
+                      const started = golfMapPlayed(scores, selRound.n, inscritos);
+                      const locked = !!((golfLocks || {})[selRound.n]);
+                      return (
+                        <div className="golf-lockbar">
+                          <span className="golf-lock-st">{started ? <><Icon name="lock" size={12} /> RODADA COMEÇOU — apostas fechadas</> : locked ? <><Icon name="lock" size={12} /> APOSTAS TRAVADAS</> : <><Icon name="unlock" size={12} /> APOSTAS ABERTAS</>}</span>
+                          {!started && (
+                            <button type="button" className={'golf-lock-btn' + (locked ? ' on' : '')} onClick={() => onSetLock(selRound.n, !locked)}>
+                              <Icon name={locked ? 'unlock' : 'lock'} size={12} /> {locked ? 'DESTRAVAR APOSTAS' : 'TRAVAR APOSTAS'}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    {(() => {
                       const allIn = golfMapFinal(scores, selRound.n, inscritos); // todo inscrito lançado?
                       const done = !!((golfFinals || {})[selRound.n]);
                       const missing = inscritos.filter(nk => ((scores[selRound.n] || {})[nk]) === undefined).length;
@@ -6971,17 +7008,18 @@ function GolfView({ interests, teamPlayers, session, onToggleInterest, golfScore
 // APOSTAS do golf (aba APOSTAS) — mercado VENCEDOR DO MAPA. Card por mapa ainda
 // não jogado: campo de jogadores com chance% + odd; toca num pra montar o palpite
 // (aposta simples), define o valor e APOSTAR. Estilo dos cards do MK.
-function GolfBettingView({ interests, golfScores, golfProps, golfFinals, teamPlayers, session, onPlaceBet, balance }) {
+function GolfBettingView({ interests, golfScores, golfProps, golfFinals, golfLocks, teamPlayers, session, onPlaceBet, balance }) {
   const accent = tabloidTheme('gwyf').color;
   const players = golfField(interests);
   const me = session.nick;
-  const scores = golfScores || {}, props = golfProps || {}, finals = golfFinals || {};
+  const scores = golfScores || {}, props = golfProps || {}, finals = golfFinals || {}, locks = golfLocks || {};
   const winProbs = golfWinProbs(GWYF_SCHEDULE, scores, players);
   const loseProbs = golfLoseProbs(GWYF_SCHEDULE, scores, players);
   // SÓ a rodada ATUAL fica visível: a 1ª que o mod ainda não FINALIZOU. As próximas
-  // só aparecem quando ela acabar (pedido do dono). Aposta abre se a rodada nem começou.
+  // só aparecem quando ela acabar (pedido do dono). Aposta abre se não começou E não
+  // foi TRAVADA pelo mod.
   const activeRound = GWYF_SCHEDULE.find(r => !finals[r.n]) || null;
-  const bettingOpen = !!activeRound && !golfMapPlayed(scores, activeRound.n, players);
+  const bettingOpen = !!activeRound && !golfBetLocked(scores, locks, activeRound.n, players);
   const roundIdx = activeRound ? GWYF_SCHEDULE.indexOf(activeRound) : -1;
   const [cupom, setCupom] = useState([]);
   const [stake, setStake] = useState(50);
@@ -7008,12 +7046,11 @@ function GolfBettingView({ interests, golfScores, golfProps, golfFinals, teamPla
     const key = legKey(mapN, market, pick, side);
     setCupom(prev => {
       if (prev.some(l => l.key === key)) return prev.filter(l => l.key !== key);
-      // ESCALAÇÃO: uma perna por (mapa, jogador). Clicar outro mercado/via no MESMO
-      // jogador TROCA o papel dele (não empilha) — evita casada correlacionada.
-      let others = prev.filter(l => !(l.mapN === mapN && l.pick === pick));
-      // GANHA A RODADA / QUEM É O PIOR = seleção ÚNICA (só há 1 vencedor / 1 pior por
-      // rodada): escolher outro jogador TROCA o palpite (não dá pra marcar vários).
-      if (GOLF_FIELD_MARKETS.indexOf(market) >= 0) others = others.filter(l => !(l.mapN === mapN && l.market === market));
+      // LIVRE: dá pra empilhar mercados diferentes no mesmo jogador (GANHA + PAR +
+      // HIO), misturar jogadores, etc. Única regra: um palpite por (mercado,jogador)
+      // — trocar o LADO do mesmo mercado (ex: PAR ABAIXO → ACIMA) substitui, não
+      // empilha contraditório. O desconto de correlação (golfCasadaOdd) segura o EV.
+      const others = prev.filter(l => !(l.mapN === mapN && l.market === market && l.pick === pick));
       return [...others, { key, mapN, market, pick, side: side || null, odd }];
     });
     // NÃO abre a gaveta a cada clique. A barra `.mk-betbar` embaixo abre o cupom.
