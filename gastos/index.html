@@ -112,6 +112,7 @@ h1 em{font-style:italic;color:var(--accent)}
 .agenda .amt{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:15.5px;
   font-weight:600;white-space:nowrap;text-align:right}
 .agenda .amt.out{color:var(--neg)}
+.agenda .amt.poupa{color:var(--accent)}
 .agenda .amt.ben{color:var(--ink-3);font-weight:400;font-size:13.5px}
 .agenda .run{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px;
   color:var(--ink-3);text-align:right;white-space:nowrap}
@@ -365,6 +366,7 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
     <div class="mini"><span class="lbl">Impostos e taxas</span><b class="num minus" id="taxMini">—</b></div>
     <div class="mini"><span class="lbl">Despesas fixas</span><b class="num minus" id="fixMini">—</b></div>
     <div class="mini"><span class="lbl">Gastos avulsos</span><b class="num minus" id="varMini">—</b></div>
+    <div class="mini"><span class="lbl">Poupança</span><b class="num" id="poupMini">—</b></div>
     <div class="mini"><span class="lbl">VR no cartão</span><b class="num" id="vrMini">—</b></div>
   </div>
 </section>
@@ -625,15 +627,11 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
     <div class="field">
       <label class="lbl" for="sInvesteSobra">O que vai pro investimento</label>
       <select id="sInvesteSobra">
-        <option value="1">Toda a sobra do mês</option>
-        <option value="0">Só o aporte fixo abaixo</option>
+        <option value="1">A poupança fixa mais toda a sobra</option>
+        <option value="0">Só a poupança fixa</option>
       </select>
-    </div>
-    <div class="field">
-      <label class="lbl" for="sAporte">Aporte fixo mensal</label>
-      <input type="number" id="sAporte" step="0.01">
-      <span class="hint">Piso do aporte. Se a sobra for maior e a opção acima estiver
-      em "toda a sobra", vale a sobra.</span>
+      <span class="hint">A poupança fixa são as linhas marcadas como tal na lista de
+      despesas. A sobra é o que ainda resta depois de tudo.</span>
     </div>
     <div class="field">
       <label class="lbl" for="sCdi">CDI ao ano</label>
@@ -723,13 +721,16 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
 
    • categorias   → chave em `budgets` com o teto mensal
    • despesa fixa → item em `fixos` (repete todo mês no dia informado)
+   • poupança     → item em `fixos` com `poupa:1` — sai da conta como
+                    qualquer débito, mas vira patrimônio em vez de sumir
    • gasto avulso → item em `entries`, com `m: "ANO-MÊS"` (mês 0 = janeiro)
+   • meta         → item em `metas`; `quando:"ANO-MÊS"` fixa o prazo
 
-   Ids que começam com "u" são criados pelo navegador e nunca são tocados
-   por um reseed. Não usar prefixo "u" aqui.
+   Ids com prefixo "u" nasceram no navegador. Quando um deles é promovido
+   pra cá, mantenha o id original — é o que evita duplicar no reseed.
    ═══════════════════════════════════════════════════════════════════════ */
 var SEED = {
-  versao: 2,
+  versao: 3,
 
   params: {
     saldoInicial: 0,
@@ -738,29 +739,41 @@ var SEED = {
     aliq: 6, contador: 250, prolabore: 3600, inssPro: 0,
     carnaval: 1, antecipa: 1,
     // investimento — CDI de 14,15% a.a. (Selic 14,25% desde o Copom de 18/06/2026)
-    saldoInvestido: 0, aporte: 6000, investeSobra: 1,
+    saldoInvestido: 0, investeSobra: 1,
     cdi: 14.15, pctCdi: 100, isento: 0
   },
 
   // metas de poupança — a projeção diz em que mês cada uma fica coberta
   metas: [
-    { id:"g1", nome:"Portugal — dinheiro pra gastar", val:25000 },
-    { id:"g2", nome:"Portugal — passagens",           val:0, nota:"a definir" }
+    { id:"g1", nome:"Portugal — dinheiro pra gastar", val:25000, quando:"2026-11" },
+    { id:"g2", nome:"Portugal — passagens",           val:0, quando:"2026-11",
+      nota:"sem valor ainda" }
   ],
 
+  // tetos calibrados pelas fixas reais — o que passar disso é gasto novo
   budgets: {
-    "Moradia": 2500, "Cartões": 2800, "Contas": 450, "Mercado": 1400,
-    "Transporte": 700, "Saúde": 500, "Assinaturas": 200, "Lazer": 800,
-    "Investimento": 6000, "Outros": 400
+    "Moradia": 5000, "Cartões": 2800, "Contas": 1000, "Mercado": 1800,
+    "Transporte": 500, "Saúde": 500, "Assinaturas": 200, "Lazer": 6000,
+    "Investimento": 3000, "Outros": 400
   },
 
   fixos: [
-    { id:"f1", nome:"Internet",               cat:"Contas",      dia:1,  val:115,  on:1 },
-    { id:"f2", nome:"Cartão Kaylla — Nubank", cat:"Cartões",     dia:3,  val:780,  on:1 },
-    { id:"f3", nome:"Cartão Kaylla — C6",     cat:"Cartões",     dia:3,  val:2000, on:1 },
-    { id:"f4", nome:"Claude",                 cat:"Assinaturas", dia:28, val:110,  on:1 },
-    { id:"f5", nome:"Luz",                    cat:"Contas",      dia:29, val:280,  on:1 }
-    // { id:"f6", nome:"Aluguel", cat:"Moradia", dia:5, val:0, on:1 },
+    { id:"uf1", nome:"Kaylla — pessoal",      cat:"Lazer",       dia:1,  val:3000, on:1 },
+    { id:"f1",  nome:"Internet",              cat:"Contas",      dia:1,  val:115,  on:1 },
+    { id:"f2",  nome:"Cartão Kaylla — Nubank",cat:"Cartões",     dia:3,  val:780,  on:1 },
+    { id:"f3",  nome:"Cartão Kaylla — C6",    cat:"Cartões",     dia:3,  val:2000, on:1 },
+    { id:"uf4", nome:"Mercado",               cat:"Mercado",     dia:5,  val:1800, on:1 },
+    { id:"uf5", nome:"Lucas — limpar nome",   cat:"Contas",      dia:10, val:500,  on:1 },
+    { id:"uf2", nome:"Lucas — pessoal",       cat:"Lazer",       dia:15, val:3000, on:1 },
+    { id:"uf3", nome:"Aluguel",               cat:"Moradia",     dia:16, val:5000, on:1 },
+    { id:"f4",  nome:"Claude",                cat:"Assinaturas", dia:28, val:110,  on:1 },
+    { id:"f5",  nome:"Luz",                   cat:"Contas",      dia:29, val:280,  on:1 },
+
+    // poupança: sai da conta, mas vira patrimônio — não entra como despesa
+    { id:"uf6", nome:"Guardar — Portugal e investimento", cat:"Investimento",
+      dia:10, val:1500, on:1, poupa:1 },
+    { id:"uf7", nome:"Guardar — viagem a Portugal",       cat:"Investimento",
+      dia:15, val:1500, on:1, poupa:1 }
   ],
 
   entries: [
@@ -783,10 +796,24 @@ var PRE = -1;                          // julho/2026: só recebe gastos, sem ren
 
 function clone(x){ return JSON.parse(JSON.stringify(x)); }
 
+/**
+ * Impressão digital do SEED. O gatilho do reseed é ela, não o número de
+ * versão: qualquer edição nas definições reseed sozinha, mesmo que eu
+ * esqueça de bumpar — e uma carga no meio de um deploy não trava o estado.
+ */
+function digital(){
+  var s = JSON.stringify(SEED), h = 2166136261;
+  for(var i = 0; i < s.length; i++){
+    h ^= s.charCodeAt(i);
+    h = (h + (h<<1) + (h<<4) + (h<<7) + (h<<8) + (h<<24)) >>> 0;
+  }
+  return SEED.versao + ":" + h.toString(36);
+}
+
 /** Estado zerado, direto do SEED. */
 function base(){
   var s = clone(SEED.params);
-  s.versao  = SEED.versao;
+  s.versao  = digital();
   s.budgets = clone(SEED.budgets);
   s.fixos   = clone(SEED.fixos);
   s.entries = clone(SEED.entries);
@@ -834,7 +861,7 @@ function load(){
     var raw = localStorage.getItem(KEY);
     if(!raw) return base();
     var o = JSON.parse(raw);
-    if(o.versao !== SEED.versao) return reseed(o);
+    if(o.versao !== digital()) return reseed(o);
     var b = base();
     for(var k in b) if(!(k in o)) o[k] = b[k];
     return o;
@@ -984,12 +1011,14 @@ function ciclo(n){
       s:"cartão de alimentação, fora do caixa", v: +st.vr });
   }
 
-  var fixoTotal = 0;
+  /* Poupança sai da conta igual a qualquer débito, mas não é despesa:
+     vira patrimônio. Contar como gasto some com o dinheiro duas vezes. */
+  var fixoTotal = 0, poupTotal = 0;
   st.fixos.forEach(function(f){
     if(!f.on) return;
-    fixoTotal += +f.val;
-    ev.push({ t: diaDoMes(y,m,f.dia), k:"out", o: f.nome,
-      s:"fixa · " + f.cat, v: -(+f.val), cat: f.cat });
+    if(f.poupa) poupTotal += +f.val; else fixoTotal += +f.val;
+    ev.push({ t: diaDoMes(y,m,f.dia), k: f.poupa ? "poupa" : "out", o: f.nome,
+      s: (f.poupa ? "poupança · " : "fixa · ") + f.cat, v: -(+f.val), cat: f.cat });
   });
 
   var varTotal = 0;
@@ -999,9 +1028,10 @@ function ciclo(n){
       s:"avulso · " + e.cat, v: -(+e.val), cat: e.cat });
   });
 
+  var ordem = { in:0, out:1, poupa:2, ben:3 };
   ev.sort(function(a,b){
     if(a.t !== b.t) return a.t - b.t;
-    return (a.k === "in" ? 0 : a.k === "out" ? 1 : 2) - (b.k === "in" ? 0 : b.k === "out" ? 1 : 2);
+    return ordem[a.k] - ordem[b.k];
   });
 
   var entra = pre ? 0 : clt.liquido + fat;
@@ -1011,9 +1041,10 @@ function ciclo(n){
     refAno: ry, refMes: rm, horas: u.horas, dias: u.dias,
     fat: fat, das: das, cont: cont, inssPro: inssPro, clt: clt,
     eventos: ev,
-    entra: entra, taxas: taxas, fixoTotal: fixoTotal, varTotal: varTotal,
+    entra: entra, taxas: taxas, fixoTotal: fixoTotal, poupTotal: poupTotal,
+    varTotal: varTotal,
     caixa: entra - taxas,
-    folga: entra - taxas - fixoTotal - varTotal,
+    folga: entra - taxas - fixoTotal - poupTotal - varTotal,
     bruto: pre ? 0 : clt.bruto + fat,
     impostos: pre ? 0 : clt.inss + clt.ir + das + inssPro
   };
@@ -1044,9 +1075,8 @@ function projecao(){
   for(var n = 0; n < HORIZONTE; n++){
     var c = ciclo(n);
     saldo *= (1 + i);
-    var a = +st.aporte || 0;
-    if(+st.investeSobra === 1) a = Math.max(a, c.folga);   // sobra vai junto
-    a = Math.max(0, a);
+    // a poupança fixa sempre entra; a sobra livre é opcional
+    var a = c.poupTotal + (+st.investeSobra === 1 ? Math.max(0, c.folga) : 0);
     saldo += a;
     var t = ultimoUtil(c.ano, c.mes);
     lotes.push({ v: a, t: t, m: n });
@@ -1110,6 +1140,8 @@ function renderAll(){
   document.getElementById("taxMini").textContent = c.pre ? "—" : "−" + money(c.impostos);
   document.getElementById("fixMini").textContent = "−" + money(c.fixoTotal);
   document.getElementById("varMini").textContent = "−" + money(c.varTotal);
+  document.getElementById("poupMini").innerHTML =
+    money(c.poupTotal) + ' <small>vira patrimônio</small>';
   document.getElementById("vrMini").innerHTML = (!c.pre && +st.vr)
     ? money(+st.vr) + ' <small>fora do caixa</small>' : "—";
 
@@ -1122,7 +1154,7 @@ function renderAll(){
   /* saldo corrido + alerta de aperto */
   var saldo = +st.saldoInicial || 0, minSaldo = saldo, minEv = null;
   var linhas = c.eventos.map(function(e){
-    if(e.k !== "ben") saldo += e.v;
+    if(e.k !== "ben") saldo += e.v;   // poupança também sai da conta
     if(saldo < minSaldo){ minSaldo = saldo; minEv = e; }
     return { e: e, saldo: saldo };
   });
@@ -1149,8 +1181,8 @@ function renderAll(){
   /* agenda */
   document.getElementById("agenda").innerHTML = linhas.map(function(l){
     var e = l.e, dt = new Date(e.t);
-    var cls = e.k === "out" ? "out" : e.k === "ben" ? "ben" : "";
-    var sinal = e.k === "out" ? "−" : e.k === "ben" ? "" : "+";
+    var cls = e.k === "out" ? "out" : e.k === "ben" ? "ben" : e.k === "poupa" ? "poupa" : "";
+    var sinal = (e.k === "out" || e.k === "poupa") ? "−" : e.k === "ben" ? "" : "+";
     return '<li class="' + (e.t < hoje ? "past " : "") + (l.saldo < 0 ? "neg" : "") + '">' +
       '<span class="day">' + dt.getUTCDate() + '<u>' + DOW[dt.getUTCDay()] + '</u></span>' +
       '<span class="what">' + esc(e.o) + '<em>' + esc(e.s) + '</em></span>' +
@@ -1207,7 +1239,7 @@ function renderProjecao(){
   document.getElementById("projLedger").innerHTML =
     (p.inicial ? row("Saldo já investido", money(p.inicial), "faint") : "") +
     row("Aportes no período", money(f.aportado - p.inicial), "",
-        (+st.investeSobra === 1 ? "toda a sobra" : money(+st.aporte) + "/mês")) +
+        (+st.investeSobra === 1 ? "poupança fixa + sobra" : "só a poupança fixa")) +
     row("Rendimento bruto", "+" + brl(rend), "",
         (taxaMes()*100).toFixed(2).replace(".",",") + "% ao mês") +
     row("IR na retirada", "−" + brl(f.ir), "minus",
@@ -1227,7 +1259,7 @@ function renderProjecao(){
     return '<span class="xlab">' + MES3[s.c.mes] + '</span>';
   }).join("");
 
-  /* metas: quando a projeção líquida cobre cada uma */
+  /* metas: quando a projeção líquida cobre cada uma, e se dá no prazo */
   var acumulado = 0;
   var linhas = st.metas.map(function(g){
     acumulado += +g.val || 0;
@@ -1235,24 +1267,49 @@ function renderProjecao(){
     for(var n = 0; n < p.serie.length; n++){
       if(p.serie[n].liquido >= alvo){ quando = p.serie[n].c; break; }
     }
-    var pct = alvo ? Math.min(100, ult.liquido / alvo * 100) : 100;
+    // prazo: acha o ponto da série no mês pedido
+    var prazo = null, noPrazo = null;
+    if(g.quando){
+      for(var k = 0; k < p.serie.length; k++){
+        var s = p.serie[k];
+        if(s.c.ano + "-" + s.c.mes === g.quando){ prazo = s; break; }
+      }
+      if(prazo) noPrazo = prazo.liquido >= alvo;
+    }
+    var refer = prazo ? prazo.liquido : ult.liquido;
+    var pct = alvo ? Math.min(100, refer / alvo * 100) : 100;
+    var falta = alvo - refer;
+
+    var direita;
+    if(!(+g.val)){
+      direita = '<span>—</span>';
+    } else if(prazo){
+      direita = noPrazo
+        ? '<b>sobra ' + brl(-falta) + ' no prazo</b>'
+        : '<b class="nao">falta ' + brl(falta) + ' no prazo</b>';
+    } else {
+      direita = quando
+        ? '<b>coberta em ' + MESES[quando.mes] + '/' + String(quando.ano).slice(2) + '</b>'
+        : '<b class="nao">falta ' + brl(falta) + '</b>';
+    }
+
+    var esquerda = g.nota ? esc(g.nota)
+      : prazo ? "prazo: " + MESES[prazo.c.mes] + "/" + String(prazo.c.ano).slice(2) +
+                " · acumulado " + brl(alvo)
+      : "acumulado até aqui: " + brl(alvo);
+
     return '<li><div class="meta-topo">' +
       '<span class="meta-nome">' + esc(g.nome) + '</span>' +
-      '<span class="meta-val">' + (+g.val ? brl(+g.val) : "a definir") +
+      '<span class="meta-val">' + (+g.val ? brl(+g.val) : "sem valor") +
       ' <button class="del-meta" type="button" data-meta="' + g.id +
         '" aria-label="Remover ' + esc(g.nome) + '">' +
         '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
         'stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>' +
       '</button></span></div>' +
-      '<div class="meta-quando"><span>' +
-        (g.nota ? esc(g.nota) : "acumulado até aqui: " + brl(alvo)) + '</span>' +
-        (!(+g.val) ? '<span>—</span>'
-          : quando ? '<b>coberta em ' + MESES[quando.mes] + '/' + String(quando.ano).slice(2) + '</b>'
-                   : '<b class="nao">falta ' + brl(alvo - ult.liquido) + '</b>') +
-      '</div>' +
+      '<div class="meta-quando"><span>' + esquerda + '</span>' + direita + '</div>' +
       (+g.val ? '<div class="track" style="margin-top:7px"><div class="fill" style="width:' +
-        pct.toFixed(1) + '%;background:' + (quando ? "var(--pos)" : "var(--warn)") +
-        '"></div></div>' : "") +
+        pct.toFixed(1) + '%;background:' +
+        (pct >= 100 ? "var(--pos)" : "var(--warn)") + '"></div></div>' : "") +
       '</li>';
   }).join("");
 
@@ -1318,15 +1375,22 @@ function renderChart(){
 }
 
 function renderFixos(){
-  var total = st.fixos.reduce(function(s,f){ return s + (f.on ? +f.val : 0); }, 0);
+  var desp = 0, poup = 0;
+  st.fixos.forEach(function(f){
+    if(!f.on) return;
+    if(f.poupa) poup += +f.val; else desp += +f.val;
+  });
+  var total = desp + poup;
   var ordenados = st.fixos.slice().sort(function(a,b){ return a.dia - b.dia; });
   document.getElementById("fixos").innerHTML = ordenados.map(function(f){
-    var pct = total ? (+f.val / total * 100) : 0;
-    return '<li class="' + (f.on ? "" : "off") + '">' +
+    var pct = desp ? (+f.val / desp * 100) : 0;
+    return '<li class="' + (f.on ? "" : "off") + (f.poupa ? " poupa" : "") + '">' +
       '<span class="dia">' + f.dia + '<u>dia</u></span>' +
-      '<span class="nome">' + esc(f.nome) + '<em>' + esc(f.cat) + '</em></span>' +
+      '<span class="nome">' + esc(f.nome) + '<em>' + esc(f.cat) +
+        (f.poupa ? " · poupança" : "") + '</em></span>' +
       '<span class="val">' + brl(+f.val) + '</span>' +
-      '<span class="share">' + (f.on ? pct.toFixed(0) + "% das fixas" : "desligada") + '</span>' +
+      '<span class="share">' + (!f.on ? "desligada"
+        : f.poupa ? "vira patrimônio" : pct.toFixed(0) + "% das despesas") + '</span>' +
       '<button class="toggle" type="button" data-fix="' + f.id + '" aria-label="' +
         (f.on ? "Desligar " : "Ligar ") + esc(f.nome) + '">' +
         (f.on
@@ -1334,9 +1398,11 @@ function renderFixos(){
           : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 3l18 18M10.6 6.2A9.8 9.8 0 0112 6c6.4 0 10 6 10 6a17 17 0 01-3.3 3.9M6.3 8.1C3.8 9.7 2 12 2 12s3.6 6 10 6c1.5 0 2.8-.3 4-.8"/></svg>') +
       '</button></li>';
   }).join("") +
-  '<li class="tot"><span></span><span class="nome">Total comprometido</span>' +
-  '<span class="val">' + money(total) + '</span><span class="share"></span><span></span></li>';
-  document.getElementById("fixTotal").textContent = money(total);
+  '<li class="tot"><span></span><span class="nome">Despesa de verdade' +
+  '<em>fora a poupança de ' + brl(poup) + '</em></span>' +
+  '<span class="val">' + money(desp) + '</span>' +
+  '<span class="share">' + money(total) + ' saem da conta</span><span></span></li>';
+  document.getElementById("fixTotal").textContent = money(desp);
 }
 
 function renderBudget(c){
@@ -1410,7 +1476,7 @@ var CAMPOS = { sSaldo:"saldoInicial", sSalario:"salario", sAdto:"adto", sVr:"vr"
   sVrDesc:"vrDesc", sDeps:"deps", sHora:"hora", sHsem:"hSem", sHsex:"hSex",
   sPjRef:"pjRef", sAliq:"aliq", sContador:"contador", sProlabore:"prolabore",
   sInssPro:"inssPro", sCarnaval:"carnaval", sAntecipa:"antecipa",
-  sSaldoInv:"saldoInvestido", sAporte:"aporte", sInvesteSobra:"investeSobra",
+  sSaldoInv:"saldoInvestido", sInvesteSobra:"investeSobra",
   sCdi:"cdi", sPctCdi:"pctCdi", sIsento:"isento" };
 
 function fillSettings(){
