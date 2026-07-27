@@ -167,6 +167,37 @@ h1 em{font-style:italic;color:var(--accent)}
 .media span{position:absolute;right:0;top:-14px;font:600 9.5px/1 var(--sans);
   letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
   background:var(--card);padding:0 4px}
+.plot.compacto{height:84px;margin-top:18px}
+.plot.compacto .bar{cursor:default}
+.plot.compacto .seg-folga{background:color-mix(in srgb,var(--accent) 78%,var(--card))}
+.plot.compacto .bar[aria-pressed="true"] .stack{outline:none}
+.plot.compacto .meta-linha{position:absolute;left:0;right:0;border-top:1.5px solid var(--gold);
+  pointer-events:none}
+.plot.compacto .meta-linha span{position:absolute;left:0;top:-14px;font:600 9.5px/1 var(--sans);
+  letter-spacing:.1em;text-transform:uppercase;color:var(--gold);background:var(--card);
+  padding:0 4px}
+
+/* metas */
+.metas{list-style:none;margin:18px 0 0;padding:0}
+.metas li{padding:11px 0;border-bottom:1px solid var(--line-soft)}
+.meta-topo{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.meta-nome{font-weight:600;font-size:14px}
+.meta-val{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600;
+  font-size:14.5px;white-space:nowrap}
+.meta-quando{font-size:11.5px;color:var(--ink-3);margin-top:3px;display:flex;
+  align-items:center;justify-content:space-between;gap:10px}
+.meta-quando b{color:var(--pos);font-weight:600}
+.meta-quando b.nao{color:var(--warn)}
+.metas li.tot{border-bottom:0;border-top:1px solid var(--line);margin-top:4px;padding-top:12px}
+.metas li.tot .meta-nome{font-family:var(--serif);font-size:17px}
+.metas li.tot .meta-val{font-size:18px}
+.meta-form{display:grid;grid-template-columns:1.5fr 100px auto;gap:10px;align-items:end;
+  margin-top:18px}
+.del-meta{background:none;border:0;color:var(--ink-3);cursor:pointer;padding:2px 4px;
+  line-height:0;border-radius:2px}
+.del-meta:hover{color:var(--neg)}
+.del-meta:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
 /* eixo dos meses, clicável junto com a barra */
 .chart-x{display:grid;grid-template-columns:repeat(12,1fr);gap:5px;margin-top:7px}
 .xlab{font:400 9.5px/1 var(--mono);letter-spacing:.02em;color:var(--ink-3);
@@ -378,6 +409,46 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
 
 <div class="section-head">
   <div>
+    <h2>Investimento e metas</h2>
+    <p>A sobra de cada mês entra no fim do mês e rende ao CDI. O imposto é
+    regressivo, então cada aporte paga a alíquota da idade dele.</p>
+  </div>
+  <div style="text-align:right">
+    <div class="lbl">Líquido em <span id="metaFim">jul/2027</span></div>
+    <div class="num" id="projTotal" style="font-size:24px;font-weight:600">—</div>
+  </div>
+</div>
+
+<div class="grid" style="margin-top:20px">
+  <article class="card">
+    <h2>Projeção <span class="tag" id="cdiTag">CDI</span></h2>
+    <ul class="ledger" id="projLedger"></ul>
+    <div class="plot compacto">
+      <div class="chart" id="projChart"></div>
+      <div class="meta-linha" id="metaLinha"><span>metas</span></div>
+    </div>
+    <div class="chart-x" id="projX"></div>
+  </article>
+
+  <article class="card">
+    <h2>Metas <span class="tag b" id="metaTag">—</span></h2>
+    <ul class="metas" id="metas"></ul>
+    <form class="meta-form" id="metaForm">
+      <div class="field">
+        <label class="lbl" for="gNome">Nova meta</label>
+        <input type="text" id="gNome" placeholder="Reserva de emergência" required>
+      </div>
+      <div class="field">
+        <label class="lbl" for="gVal">Valor</label>
+        <input type="number" id="gVal" step="0.01" min="0" placeholder="0,00" required>
+      </div>
+      <button class="btn" type="submit">Incluir</button>
+    </form>
+  </article>
+</div>
+
+<div class="section-head">
+  <div>
     <h2>Despesas fixas</h2>
     <p>Repetem todo mês na mesma data. Desligue uma linha para simular o mês sem ela.</p>
   </div>
@@ -544,6 +615,49 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
     </div>
   </div>
 
+  <div class="lbl" style="margin-bottom:10px">Investimento</div>
+  <div class="set-grid">
+    <div class="field">
+      <label class="lbl" for="sSaldoInv">Saldo já investido</label>
+      <input type="number" id="sSaldoInv" step="0.01">
+      <span class="hint">O que você já tem aplicado hoje. Entra rendendo desde o começo.</span>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sInvesteSobra">O que vai pro investimento</label>
+      <select id="sInvesteSobra">
+        <option value="1">Toda a sobra do mês</option>
+        <option value="0">Só o aporte fixo abaixo</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sAporte">Aporte fixo mensal</label>
+      <input type="number" id="sAporte" step="0.01">
+      <span class="hint">Piso do aporte. Se a sobra for maior e a opção acima estiver
+      em "toda a sobra", vale a sobra.</span>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sCdi">CDI ao ano</label>
+      <input type="number" id="sCdi" step="0.01">
+      <span class="hint">14,15% em julho de 2026 — a Selic está em 14,25% e o CDI roda
+      uns 0,10 abaixo. Atualize quando o Copom mexer.</span>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sPctCdi">Rende quanto do CDI</label>
+      <input type="number" id="sPctCdi" step="1">
+      <span class="hint">100 para Tesouro Selic ou CDB de banco grande; 110 a 120 em CDB
+      de banco médio.</span>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sIsento">Imposto de renda</label>
+      <select id="sIsento">
+        <option value="0">Regressivo — CDB, Tesouro, fundo DI</option>
+        <option value="1">Isento — LCI, LCA, poupança</option>
+      </select>
+      <span class="hint">Regressivo: 22,5% até 180 dias, 20% até 360, 17,5% até 720,
+      15% depois.</span>
+    </div>
+  </div>
+
   <div class="lbl" style="margin-bottom:10px">Teto por categoria</div>
   <div class="set-grid" id="budgetGrid"></div>
 
@@ -611,15 +725,24 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
    por um reseed. Não usar prefixo "u" aqui.
    ═══════════════════════════════════════════════════════════════════════ */
 var SEED = {
-  versao: 1,
+  versao: 2,
 
   params: {
     saldoInicial: 0,
     salario: 13000, adto: 40, vr: 750, vrCat: "Mercado", vrDesc: 0, deps: 0,
     hora: 77, hSem: 8.75, hSex: 4.75, pjRef: 1,
     aliq: 6, contador: 250, prolabore: 3600, inssPro: 0,
-    carnaval: 1, antecipa: 1
+    carnaval: 1, antecipa: 1,
+    // investimento — CDI de 14,15% a.a. (Selic 14,25% desde o Copom de 18/06/2026)
+    saldoInvestido: 0, aporte: 6000, investeSobra: 1,
+    cdi: 14.15, pctCdi: 100, isento: 0
   },
+
+  // metas de poupança — a projeção diz em que mês cada uma fica coberta
+  metas: [
+    { id:"g1", nome:"Portugal — dinheiro pra gastar", val:25000 },
+    { id:"g2", nome:"Portugal — passagens",           val:0, nota:"a definir" }
+  ],
 
   budgets: {
     "Moradia": 2500, "Cartões": 2800, "Contas": 450, "Mercado": 1400,
@@ -663,6 +786,7 @@ function base(){
   s.budgets = clone(SEED.budgets);
   s.fixos   = clone(SEED.fixos);
   s.entries = clone(SEED.entries);
+  s.metas   = clone(SEED.metas);
   s.seq     = 0;
   return s;
 }
@@ -677,19 +801,25 @@ function reseed(velho){
   s.seq = velho.seq || 0;
   s.saldoInicial = +velho.saldoInicial || 0;   // saldo é do dia a dia, não do arquivo
 
-  var vf = velho.fixos || [], ve = velho.entries || [];
-  var idsF = {}, idsE = {};
+  var vf = velho.fixos || [], ve = velho.entries || [], vm = velho.metas || [];
+  var idsF = {}, idsE = {}, idsM = {};
 
   // preserva o liga/desliga das fixas que vieram do arquivo
   s.fixos.forEach(function(f){
     idsF[f.id] = 1;
     for(var i=0;i<vf.length;i++) if(vf[i].id === f.id) f.on = vf[i].on;
   });
+  // e o valor das metas do arquivo que ainda estavam "a definir"
+  s.metas.forEach(function(g){
+    idsM[g.id] = 1;
+    for(var i=0;i<vm.length;i++) if(vm[i].id === g.id && !g.val) g.val = vm[i].val;
+  });
   s.entries.forEach(function(e){ idsE[e.id] = 1; });
 
   // e mantém tudo que foi criado no navegador
   vf.forEach(function(f){ if(!idsF[f.id]) s.fixos.push(f); });
   ve.forEach(function(e){ if(!idsE[e.id]) s.entries.push(e); });
+  vm.forEach(function(g){ if(!idsM[g.id]) s.metas.push(g); });
   for(var k in (velho.budgets || {})) if(!(k in s.budgets)) s.budgets[k] = velho.budgets[k];
 
   return s;
@@ -885,6 +1015,65 @@ function ciclo(n){
   };
 }
 
+/* ── investimento ─────────────────────────────────────────────────────
+   Cada aporte é um lote com data própria, porque o IR de renda fixa é
+   regressivo: a alíquota cai conforme o dinheiro envelhece, e cada
+   aporte envelhece sozinho.
+   ─────────────────────────────────────────────────────────────────── */
+function taxaMes(){
+  var aa = (+st.cdi || 0) * (+st.pctCdi || 0) / 10000;   // fração ao ano
+  return Math.pow(1 + aa, 1/12) - 1;
+}
+function aliqIR(dias){
+  if(+st.isento === 1) return 0;
+  return dias <= 180 ? .225 : dias <= 360 ? .20 : dias <= 720 ? .175 : .15;
+}
+
+function projecao(){
+  var i = taxaMes();
+  var abertura = ultimoUtil(INICIO.ano, INICIO.mes - 1);   // véspera do 1º ciclo
+  var lotes = [], serie = [], saldo = 0;
+
+  var inicial = +st.saldoInvestido || 0;
+  if(inicial > 0){ saldo = inicial; lotes.push({ v: inicial, t: abertura, m: -1 }); }
+
+  for(var n = 0; n < HORIZONTE; n++){
+    var c = ciclo(n);
+    saldo *= (1 + i);
+    var a = +st.aporte || 0;
+    if(+st.investeSobra === 1) a = Math.max(a, c.folga);   // sobra vai junto
+    a = Math.max(0, a);
+    saldo += a;
+    var t = ultimoUtil(c.ano, c.mes);
+    lotes.push({ v: a, t: t, m: n });
+    serie.push({ c: c, aporte: a, t: t, bruto: saldo });
+  }
+
+  /* Valor líquido numa data qualquer: cada lote rende pelos meses que já
+     passaram e paga IR pela alíquota da idade dele naquele dia. */
+  function em(t, mesesDecorridos){
+    var bruto = 0, ir = 0, aportado = 0;
+    lotes.forEach(function(l){
+      if(l.t > t) return;
+      var k = mesesDecorridos - l.m;                       // meses de rendimento
+      if(k < 0) return;
+      var v = l.v * Math.pow(1 + i, k);
+      bruto += v; aportado += l.v;
+      ir += (v - l.v) * aliqIR(Math.round((t - l.t) / D));
+    });
+    return { bruto: bruto, ir: ir, liquido: bruto - ir, aportado: aportado };
+  }
+
+  serie.forEach(function(p, n){
+    var r = em(p.t, n);
+    p.liquido = r.liquido; p.ir = r.ir; p.aportado = r.aportado;
+  });
+
+  var fim = serie.length ? em(serie[serie.length-1].t, HORIZONTE - 1)
+                         : { bruto:0, ir:0, liquido:0, aportado:0 };
+  return { i: i, serie: serie, fim: fim, inicial: inicial };
+}
+
 /* ── render ───────────────────────────────────── */
 function row(k, v, cls, sub){
   return '<li class="' + (cls||"") + '"><span class="k">' + k +
@@ -994,8 +1183,95 @@ function renderAll(){
       row("Sobra na PJ", money(c.fat - c.das - c.cont - c.inssPro), "sum");
 
   renderChart();
+  renderProjecao();
   renderFixos();
   renderBudget(c);
+}
+
+function renderProjecao(){
+  var p = projecao(), f = p.fim;
+  var ult = p.serie[p.serie.length - 1];
+  var rend = f.bruto - f.aportado;
+
+  document.getElementById("metaFim").textContent =
+    MES3[ult.c.mes].toLowerCase() + "/" + ult.c.ano;
+  document.getElementById("projTotal").textContent = money(f.liquido);
+  document.getElementById("cdiTag").textContent =
+    brl(+st.pctCdi).replace(",00","") + "% do CDI · " +
+    brl(+st.cdi).replace(",00","") + "% a.a.";
+
+  document.getElementById("projLedger").innerHTML =
+    (p.inicial ? row("Saldo já investido", money(p.inicial), "faint") : "") +
+    row("Aportes no período", money(f.aportado - p.inicial), "",
+        (+st.investeSobra === 1 ? "toda a sobra" : money(+st.aporte) + "/mês")) +
+    row("Rendimento bruto", "+" + brl(rend), "",
+        (taxaMes()*100).toFixed(2).replace(".",",") + "% ao mês") +
+    row("IR na retirada", "−" + brl(f.ir), "minus",
+        +st.isento === 1 ? "isento" : "regressivo, por lote") +
+    row("Líquido", money(f.liquido), "sum");
+
+  var max = 0;
+  p.serie.forEach(function(s){ if(s.bruto > max) max = s.bruto; });
+  document.getElementById("projChart").innerHTML = p.serie.map(function(s, n){
+    var h = max ? s.liquido / max * 100 : 0;
+    return '<button class="bar" type="button" tabindex="-1" aria-pressed="false" title="' +
+      MESES[s.c.mes] + "/" + s.c.ano + ": " + money(s.liquido) + ' líquidos">' +
+      '<div class="stack" style="height:' + h.toFixed(2) + '%">' +
+      '<div class="seg-folga" style="flex:1"></div></div></button>';
+  }).join("");
+  document.getElementById("projX").innerHTML = p.serie.map(function(s){
+    return '<span class="xlab">' + MES3[s.c.mes] + '</span>';
+  }).join("");
+
+  /* metas: quando a projeção líquida cobre cada uma */
+  var acumulado = 0;
+  var linhas = st.metas.map(function(g){
+    acumulado += +g.val || 0;
+    var alvo = acumulado, quando = null;
+    for(var n = 0; n < p.serie.length; n++){
+      if(p.serie[n].liquido >= alvo){ quando = p.serie[n].c; break; }
+    }
+    var pct = alvo ? Math.min(100, ult.liquido / alvo * 100) : 100;
+    return '<li><div class="meta-topo">' +
+      '<span class="meta-nome">' + esc(g.nome) + '</span>' +
+      '<span class="meta-val">' + (+g.val ? brl(+g.val) : "a definir") +
+      ' <button class="del-meta" type="button" data-meta="' + g.id +
+        '" aria-label="Remover ' + esc(g.nome) + '">' +
+        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+        'stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>' +
+      '</button></span></div>' +
+      '<div class="meta-quando"><span>' +
+        (g.nota ? esc(g.nota) : "acumulado até aqui: " + brl(alvo)) + '</span>' +
+        (!(+g.val) ? '<span>—</span>'
+          : quando ? '<b>coberta em ' + MESES[quando.mes] + '/' + String(quando.ano).slice(2) + '</b>'
+                   : '<b class="nao">falta ' + brl(alvo - ult.liquido) + '</b>') +
+      '</div>' +
+      (+g.val ? '<div class="track" style="margin-top:7px"><div class="fill" style="width:' +
+        pct.toFixed(1) + '%;background:' + (quando ? "var(--pos)" : "var(--warn)") +
+        '"></div></div>' : "") +
+      '</li>';
+  }).join("");
+
+  var totalMetas = st.metas.reduce(function(s,g){ return s + (+g.val || 0); }, 0);
+  var pendentes = st.metas.filter(function(g){ return !(+g.val); }).length;
+  document.getElementById("metas").innerHTML = linhas +
+    '<li class="tot"><div class="meta-topo"><span class="meta-nome">Total das metas</span>' +
+    '<span class="meta-val">' + money(totalMetas) + '</span></div>' +
+    '<div class="meta-quando"><span>sobra depois de tudo</span><b' +
+      (ult.liquido - totalMetas < 0 ? ' class="nao"' : '') + '>' +
+      money(ult.liquido - totalMetas) + '</b></div></li>';
+  document.getElementById("metaTag").textContent =
+    pendentes ? pendentes + " sem valor" : "todas com valor";
+
+  // linha da meta total sobre o gráfico da projeção
+  var ml = document.getElementById("metaLinha");
+  if(totalMetas > 0 && max > 0 && totalMetas <= max * 1.4){
+    ml.style.display = "";
+    ml.style.bottom = Math.min(100, totalMetas / max * 100).toFixed(2) + "%";
+    ml.firstChild.textContent = "metas " + money(totalMetas);
+  } else {
+    ml.style.display = "none";
+  }
 }
 
 function renderChart(){
@@ -1129,7 +1405,9 @@ function renderBudget(c){
 var CAMPOS = { sSaldo:"saldoInicial", sSalario:"salario", sAdto:"adto", sVr:"vr",
   sVrDesc:"vrDesc", sDeps:"deps", sHora:"hora", sHsem:"hSem", sHsex:"hSex",
   sPjRef:"pjRef", sAliq:"aliq", sContador:"contador", sProlabore:"prolabore",
-  sInssPro:"inssPro", sCarnaval:"carnaval", sAntecipa:"antecipa" };
+  sInssPro:"inssPro", sCarnaval:"carnaval", sAntecipa:"antecipa",
+  sSaldoInv:"saldoInvestido", sAporte:"aporte", sInvesteSobra:"investeSobra",
+  sCdi:"cdi", sPctCdi:"pctCdi", sIsento:"isento" };
 
 function fillSettings(){
   for(var id in CAMPOS) document.getElementById(id).value = st[CAMPOS[id]];
@@ -1188,6 +1466,22 @@ document.getElementById("entryForm").addEventListener("submit", function(e){
   e.target.reset();
   document.getElementById("eDia").value = 15;
   document.getElementById("eDesc").focus();
+});
+document.getElementById("metaForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  var nome = document.getElementById("gNome").value.trim();
+  var val = +document.getElementById("gVal").value;
+  if(!nome || !(val > 0)) return;
+  st.seq = (st.seq||0) + 1;
+  st.metas.push({ id:"ug" + st.seq, nome: nome, val: val });
+  save(); renderAll();
+  e.target.reset();
+  document.getElementById("gNome").focus();
+});
+document.getElementById("metas").addEventListener("click", function(e){
+  var b = e.target.closest(".del-meta"); if(!b) return;
+  st.metas = st.metas.filter(function(g){ return g.id !== b.dataset.meta; });
+  save(); renderAll();
 });
 document.getElementById("entries").addEventListener("click", function(e){
   var b = e.target.closest(".del"); if(!b) return;
