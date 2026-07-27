@@ -1,0 +1,1241 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Folha dupla — CLT + PJ</title>
+<meta name="description" content="Fluxo de caixa CLT + PJ por data de pagamento, com impostos, despesas fixas e controle de gastos.">
+<meta name="theme-color" content="#EAEDE8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0C1411" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='4' fill='%230F6B55'/%3E%3Cpath d='M7 6h10M7 10h10M7 14h6M7 18h4' stroke='%23EAEDE8' stroke-width='1.8' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
+<script>
+  // Aplica o tema antes de pintar, pra não piscar branco no dark.
+  try{
+    var t = localStorage.getItem("folha-tema");
+    if(t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+  }catch(e){}
+</script>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0}
+img,svg{max-width:100%}
+:root{
+  --paper:#EAEDE8; --card:#F6F8F4; --ink:#101A17; --ink-2:#41514C; --ink-3:#77857F;
+  --line:#C9D0C7; --line-soft:#DDE2DA;
+  --accent:#0F6B55; --accent-soft:#0F6B5518;
+  --clay:#A8452A; --gold:#8A6A18;
+  --pos:#0F6B55; --neg:#A8452A; --warn:#8A6A18;
+  --shadow:0 1px 0 #ffffff inset, 0 1px 2px rgba(16,26,23,.07), 0 8px 24px -18px rgba(16,26,23,.5);
+  --serif:"Palatino Linotype","Book Antiqua","Iowan Old Style",Palatino,Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --mono:ui-monospace,"Cascadia Mono","JetBrains Mono","SFMono-Regular",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --paper:#0C1411; --card:#141F1B; --ink:#DFE6DF; --ink-2:#A3B1AA; --ink-3:#71827A;
+  --line:#243430; --line-soft:#1C2925;
+  --accent:#45C0A0; --accent-soft:#45C0A016;
+  --clay:#E08160; --gold:#C9A63E;
+  --pos:#45C0A0; --neg:#E08160; --warn:#C9A63E;
+  --shadow:0 1px 0 #ffffff08 inset, 0 10px 30px -22px #000;
+}}
+:root[data-theme="dark"]{
+  --paper:#0C1411; --card:#141F1B; --ink:#DFE6DF; --ink-2:#A3B1AA; --ink-3:#71827A;
+  --line:#243430; --line-soft:#1C2925;
+  --accent:#45C0A0; --accent-soft:#45C0A016;
+  --clay:#E08160; --gold:#C9A63E;
+  --pos:#45C0A0; --neg:#E08160; --warn:#C9A63E;
+  --shadow:0 1px 0 #ffffff08 inset, 0 10px 30px -22px #000;
+}
+:root[data-theme="light"]{
+  --paper:#EAEDE8; --card:#F6F8F4; --ink:#101A17; --ink-2:#41514C; --ink-3:#77857F;
+  --line:#C9D0C7; --line-soft:#DDE2DA;
+  --accent:#0F6B55; --accent-soft:#0F6B5518;
+  --clay:#A8452A; --gold:#8A6A18;
+  --pos:#0F6B55; --neg:#A8452A; --warn:#8A6A18;
+  --shadow:0 1px 0 #ffffff inset, 0 1px 2px rgba(16,26,23,.07), 0 8px 24px -18px rgba(16,26,23,.5);
+}
+
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.55;margin:0;padding:0 20px 90px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto}
+h1,h2,h3{font-family:var(--serif);font-weight:600;text-wrap:balance;margin:0}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.lbl{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+
+header{padding:44px 0 24px;border-bottom:1.5px solid var(--ink)}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:20px;flex-wrap:wrap}
+h1{font-size:clamp(30px,5.2vw,46px);letter-spacing:-.015em;line-height:1.02}
+h1 em{font-style:italic;color:var(--accent)}
+.sub{color:var(--ink-2);font-size:14px;max-width:56ch;margin-top:10px}
+
+.months{display:flex;gap:4px;overflow-x:auto;padding:16px 0 14px;border-bottom:1px solid var(--line);
+  scrollbar-width:thin}
+.mo{flex:0 0 auto;background:none;border:1px solid var(--line);border-radius:2px;
+  padding:7px 11px 6px;cursor:pointer;color:var(--ink-2);font:inherit;font-size:12px;
+  letter-spacing:.08em;text-transform:uppercase;transition:.14s;white-space:nowrap}
+.mo:hover{border-color:var(--accent);color:var(--ink)}
+.mo[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.mo.pre{border-style:dashed;font-style:italic}
+.mo:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.hero{display:grid;grid-template-columns:1.15fr 1fr;border-bottom:1px solid var(--line)}
+.hero-main{padding:34px 30px 32px 0}
+.hero-side{padding:34px 0 32px 30px;border-left:1px solid var(--line);
+  display:flex;flex-direction:column;gap:15px;justify-content:center}
+.big{font-family:var(--mono);font-variant-numeric:tabular-nums;
+  font-size:clamp(38px,7.4vw,64px);line-height:1;letter-spacing:-.035em;font-weight:600}
+.big small{font-size:.42em;letter-spacing:0;color:var(--ink-3);font-weight:400;margin-right:.28em}
+.hero-note{color:var(--ink-2);font-size:13.5px;margin-top:14px;max-width:46ch}
+.mini{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.mini b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:19px;font-weight:600}
+.mini b small{font-size:11px;color:var(--ink-3);font-weight:400;letter-spacing:.04em}
+
+.alert{margin-top:18px;padding:14px 16px;background:var(--card);border:1px solid var(--line-soft);
+  border-left:3px solid var(--warn);border-radius:2px;font-size:13.5px;color:var(--ink-2)}
+.alert b{color:var(--ink);display:block;margin-bottom:3px;font-size:14.5px}
+.alert.calm{border-left-color:var(--accent)}
+
+/* ── agenda ────────────────────────────────────── */
+.agenda{list-style:none;margin:16px 0 0;padding:0}
+.agenda li{display:grid;grid-template-columns:54px 1fr 128px 118px;gap:14px;align-items:center;
+  padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.agenda li.past{opacity:.45}
+.agenda li.neg{background:color-mix(in srgb,var(--neg) 6%,transparent)}
+.agenda .day{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:20px;
+  font-weight:600;line-height:1;letter-spacing:-.03em;text-align:center}
+.agenda .day u{display:block;text-decoration:none;font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-3);font-weight:400;margin-top:3px}
+.agenda .what{font-size:14px;font-weight:600}
+.agenda .what em{display:block;font-style:normal;font-size:11.5px;color:var(--ink-3);
+  font-weight:400}
+.agenda .amt{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:15.5px;
+  font-weight:600;white-space:nowrap;text-align:right}
+.agenda .amt.out{color:var(--neg)}
+.agenda .amt.ben{color:var(--ink-3);font-weight:400;font-size:13.5px}
+.agenda .run{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px;
+  color:var(--ink-3);text-align:right;white-space:nowrap}
+.agenda .run.below{color:var(--neg);font-weight:600}
+.agenda li.tot{border-bottom:0;border-top:1px solid var(--line);margin-top:6px;padding-top:12px;
+  background:none}
+.agenda li.tot .what{font-family:var(--serif);font-size:17px;font-weight:600}
+.agenda li.tot .amt{font-size:19px}
+.agenda-head{display:grid;grid-template-columns:54px 1fr 128px 118px;gap:14px;
+  padding-bottom:6px;border-bottom:1px solid var(--line)}
+.agenda-head span:nth-child(n+3){text-align:right}
+
+/* ── cards ─────────────────────────────────────── */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:26px}
+.card{background:var(--card);border:1px solid var(--line-soft);border-radius:3px;
+  padding:22px 22px 18px;box-shadow:var(--shadow)}
+.card > h2{font-size:19px;letter-spacing:-.01em;display:flex;align-items:baseline;
+  justify-content:space-between;gap:10px}
+.tag{font:600 10px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+  padding:5px 8px;border-radius:2px;background:var(--accent-soft);color:var(--accent);
+  border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);white-space:nowrap}
+.tag.b{background:transparent;color:var(--ink-3);border-color:var(--line)}
+
+.ledger{list-style:none;margin:18px 0 0;padding:0;display:flex;flex-direction:column;gap:1px}
+.ledger li{display:flex;align-items:baseline;gap:6px;padding:5px 0;font-size:13.5px}
+.ledger .k{color:var(--ink-2);white-space:nowrap}
+.ledger .k small{color:var(--ink-3);font-size:11.5px}
+.ledger .dots{flex:1;border-bottom:1px dotted var(--line);transform:translateY(-3px);min-width:14px}
+.ledger .v{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ledger li.sum{border-top:1px solid var(--line);margin-top:7px;padding-top:9px;font-size:15px}
+.ledger li.sum .k{color:var(--ink);font-weight:600}
+.ledger li.sum .v{font-weight:600;font-size:17px}
+.ledger li.faint .k,.ledger li.faint .v{color:var(--ink-3);font-size:12.5px}
+.ledger li.rule{border-top:1px dashed var(--line);margin-top:6px;padding-top:8px}
+.minus{color:var(--neg)}
+
+/* ── barras ────────────────────────────────────── */
+/* área de plotagem: só as barras, pra a escala não brigar com o rótulo */
+.plot{position:relative;height:112px;margin-top:22px}
+.chart{display:grid;grid-template-columns:repeat(12,1fr);gap:5px;align-items:end;height:100%}
+.bar{height:100%;display:flex;flex-direction:column;justify-content:flex-end;
+  cursor:pointer;background:none;border:0;padding:0;font:inherit}
+.bar .stack{display:flex;flex-direction:column-reverse;border-radius:1px;overflow:hidden;
+  transition:.18s}
+.bar .seg-folga{background:var(--accent)}
+.bar .seg-fixo{background:color-mix(in srgb,var(--neg) 55%,var(--card))}
+.bar:hover .stack{opacity:.75}
+.bar[aria-pressed="true"] .stack{outline:1.5px solid var(--ink);outline-offset:2px}
+.bar:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+/* referência da média — sem ela as 12 barras parecem idênticas */
+.media{position:absolute;left:0;right:0;border-top:1px dashed var(--ink-3);
+  pointer-events:none;opacity:.8}
+.media span{position:absolute;right:0;top:-14px;font:600 9.5px/1 var(--sans);
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
+  background:var(--card);padding:0 4px}
+/* eixo dos meses, clicável junto com a barra */
+.chart-x{display:grid;grid-template-columns:repeat(12,1fr);gap:5px;margin-top:7px}
+.xlab{font:400 9.5px/1 var(--mono);letter-spacing:.02em;color:var(--ink-3);
+  text-align:center;background:none;border:0;padding:3px 0;cursor:pointer;border-radius:2px}
+.xlab:hover{color:var(--ink)}
+.xlab[aria-pressed="true"]{color:var(--ink);font-weight:700}
+.xlab:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.legend{display:flex;gap:16px;margin-top:12px;flex-wrap:wrap;align-items:center}
+.legend i{width:10px;height:10px;display:inline-block;border-radius:1px;margin-right:6px;
+  vertical-align:-1px}
+
+/* ── seções ────────────────────────────────────── */
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
+  flex-wrap:wrap;margin:46px 0 0;padding-bottom:12px;border-bottom:1.5px solid var(--ink)}
+.section-head h2{font-size:26px;letter-spacing:-.015em}
+.section-head p{margin:6px 0 0;color:var(--ink-2);font-size:13.5px;max-width:54ch}
+
+/* despesas fixas */
+.fixos{list-style:none;margin:14px 0 0;padding:0}
+.fixos li{display:grid;grid-template-columns:46px 1fr 120px 110px 30px;gap:14px;align-items:center;
+  padding:11px 0;border-bottom:1px solid var(--line-soft)}
+.fixos li.off{opacity:.4}
+.fixos .dia{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:17px;
+  font-weight:600;text-align:center}
+.fixos .dia u{display:block;text-decoration:none;font-size:9px;letter-spacing:.1em;
+  color:var(--ink-3);font-weight:400;text-transform:uppercase}
+.fixos .nome{font-weight:600;font-size:14px}
+.fixos .nome em{display:block;font-style:normal;font-size:11.5px;color:var(--ink-3);font-weight:400}
+.fixos .val{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;
+  font-size:14.5px;font-weight:600}
+.fixos .share{font-family:var(--mono);font-size:12px;color:var(--ink-3);text-align:right}
+.fixos li.tot{border-bottom:0;border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
+.fixos li.tot .nome{font-family:var(--serif);font-size:17px}
+.fixos li.tot .val{font-size:18px}
+.toggle{background:none;border:0;padding:0;cursor:pointer;color:var(--ink-3);line-height:0;
+  border-radius:2px}
+.toggle:hover{color:var(--accent)}
+.toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.cats{display:flex;flex-direction:column;margin-top:6px}
+.cat{display:grid;grid-template-columns:minmax(120px,1.4fr) 92px 1fr 116px 96px;
+  gap:14px;align-items:center;padding:13px 0;border-bottom:1px solid var(--line-soft)}
+.cat-name{font-weight:600;font-size:14px}
+.cat-name em{display:block;font-style:normal;font-size:11px;color:var(--ink-3);
+  font-family:var(--mono);letter-spacing:.02em}
+.track{height:7px;background:var(--line-soft);border-radius:99px;overflow:hidden}
+.fill{height:100%;border-radius:99px;transition:width .3s ease}
+.pill{font:600 10px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;
+  padding:5px 7px;border-radius:2px;text-align:center;white-space:nowrap}
+.pill.ok{color:var(--pos);background:color-mix(in srgb,var(--pos) 12%,transparent)}
+.pill.near{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+.pill.over{color:var(--neg);background:color-mix(in srgb,var(--neg) 13%,transparent)}
+.cat .num{text-align:right;font-size:13.5px}
+
+.entry-form{display:grid;grid-template-columns:1.5fr 1fr 68px 104px auto;gap:10px;
+  margin:22px 0 0;align-items:end}
+input,select,button{font:inherit;color:inherit}
+input[type=text],input[type=number],select{width:100%;background:var(--card);
+  border:1px solid var(--line);border-radius:2px;padding:9px 10px;font-size:14px;transition:.14s}
+input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+input[type=number]{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.field{display:flex;flex-direction:column;gap:5px}
+.btn{background:var(--ink);color:var(--paper);border:1px solid var(--ink);border-radius:2px;
+  padding:10px 18px;cursor:pointer;font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+  font-weight:600;transition:.14s}
+.btn:hover{background:var(--accent);border-color:var(--accent)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.ghost{background:none;color:var(--ink-2);border-color:var(--line)}
+.btn.ghost:hover{background:none;color:var(--accent);border-color:var(--accent)}
+
+.entries{list-style:none;margin:20px 0 0;padding:0;display:flex;flex-direction:column}
+.entries li{display:grid;grid-template-columns:46px 1fr 130px 104px 30px;gap:14px;align-items:center;
+  padding:10px 0;border-bottom:1px solid var(--line-soft);font-size:14px}
+.entries .d{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:center;
+  color:var(--ink-3);font-size:13px}
+.entries .c{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
+  font-weight:600}
+.del{background:none;border:0;color:var(--ink-3);cursor:pointer;padding:4px;line-height:0;
+  border-radius:2px}
+.del:hover{color:var(--neg)}
+.del:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.empty{color:var(--ink-3);font-size:13.5px;padding:18px 0;font-style:italic}
+
+details.settings{margin-top:44px;border-top:1.5px solid var(--ink)}
+details.settings > summary{cursor:pointer;padding:16px 0;font-family:var(--serif);font-size:20px;
+  list-style:none;display:flex;align-items:center;justify-content:space-between}
+details.settings > summary::-webkit-details-marker{display:none}
+details.settings > summary::after{content:"abrir";font:600 10px/1 var(--sans);
+  letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+details.settings[open] > summary::after{content:"fechar"}
+summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.set-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;
+  padding:8px 0 28px}
+.hint{color:var(--ink-3);font-size:11.5px;line-height:1.45;margin-top:2px}
+.note{background:var(--card);border:1px solid var(--line-soft);border-left:3px solid var(--gold);
+  border-radius:2px;padding:14px 16px;font-size:13px;color:var(--ink-2);margin-top:20px}
+.note b{color:var(--ink)}
+.note + .note{margin-top:10px}
+footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
+  color:var(--ink-3);font-size:12px}
+
+@media (max-width:820px){
+  .hero{grid-template-columns:1fr}
+  .hero-main{padding:28px 0 22px}
+  .hero-side{padding:22px 0 26px;border-left:0;border-top:1px solid var(--line)}
+  .grid{grid-template-columns:1fr}
+  .agenda li,.agenda-head{grid-template-columns:44px 1fr 108px;gap:10px}
+  .agenda .run,.agenda-head span:last-child{display:none}
+  .cat{grid-template-columns:1fr 100px;gap:8px 12px}
+  .cat .track-wrap{grid-column:1/-1;order:3}
+  .cat .pill{grid-column:1/2;order:4;justify-self:start}
+  .cat .num.budget{display:none}
+  .entry-form{grid-template-columns:1fr 1fr}
+  .entry-form .btn{grid-column:1/-1}
+  .entries li{grid-template-columns:40px 1fr 92px 30px}
+  .entries .c{display:none}
+  .fixos li{grid-template-columns:40px 1fr 100px 30px}
+  .fixos .share{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* alternador de tema */
+.tema{background:var(--card);border:1px solid var(--line);border-radius:2px;
+  padding:7px;cursor:pointer;color:var(--ink-2);line-height:0;transition:.14s}
+.tema:hover{color:var(--accent);border-color:var(--accent)}
+.tema:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.selo{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.selo code{font-family:var(--mono);font-size:11px;background:var(--card);
+  border:1px solid var(--line-soft);border-radius:2px;padding:2px 6px;color:var(--ink-3)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header>
+  <div class="brand">
+    <div>
+      <h1>Folha <em>dupla</em></h1>
+      <p class="sub">Adiantamento e nota fiscal no dia 15, DAS no dia 20, saldo do
+      salário e VR no último dia útil. As contas entram na mesma linha do tempo,
+      no dia em que vencem.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="lbl" id="stampRange">a partir de agosto/2026</span>
+      <button class="tema" type="button" id="btnTema" aria-label="Alternar tema claro e escuro">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.6" stroke-linecap="round"><path d="M21 13.2A9 9 0 1110.8 3a7 7 0 0010.2 10.2z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<nav class="months" id="months" aria-label="Selecionar mês"></nav>
+
+<section class="hero">
+  <div class="hero-main">
+    <div class="lbl">Sobra em <span id="moLabel">agosto</span>, depois das contas</div>
+    <div class="big" id="netBig"><small>R$</small>0,00</div>
+    <p class="hero-note" id="heroNote"></p>
+    <div class="alert" id="alertBox"></div>
+  </div>
+  <div class="hero-side">
+    <div class="mini"><span class="lbl">Entra na conta</span><b class="num" id="inMini">—</b></div>
+    <div class="mini"><span class="lbl">Impostos e taxas</span><b class="num minus" id="taxMini">—</b></div>
+    <div class="mini"><span class="lbl">Despesas fixas</span><b class="num minus" id="fixMini">—</b></div>
+    <div class="mini"><span class="lbl">Gastos avulsos</span><b class="num minus" id="varMini">—</b></div>
+    <div class="mini"><span class="lbl">VR no cartão</span><b class="num" id="vrMini">—</b></div>
+  </div>
+</section>
+
+<div class="section-head" style="margin-top:34px">
+  <div>
+    <h2>Agenda de <span id="moLabel3">agosto</span></h2>
+    <p>Entradas e vencimentos na ordem em que acontecem. A coluna da direita é o
+    saldo corrido — se ela fica vermelha, o dinheiro acabou antes da próxima entrada.</p>
+  </div>
+</div>
+<div class="agenda-head lbl">
+  <span>Dia</span><span>Lançamento</span><span>Valor</span><span>Saldo corrido</span>
+</div>
+<ul class="agenda" id="agenda"></ul>
+
+<div class="grid">
+  <article class="card">
+    <h2>Emprego CLT <span class="tag b">40% + saldo</span></h2>
+    <ul class="ledger" id="cltLedger"></ul>
+  </article>
+
+  <article class="card">
+    <h2>Contrato PJ <span class="tag" id="pjTag">Simples</span></h2>
+    <ul class="ledger" id="pjLedger"></ul>
+  </article>
+</div>
+
+<article class="card" style="margin-top:18px">
+  <h2>Doze meses à frente <span class="tag b" id="yearTotal">—</span></h2>
+  <div class="plot">
+    <div class="chart" id="chart"></div>
+    <div class="media" id="media"><span>média</span></div>
+  </div>
+  <div class="chart-x" id="chartX"></div>
+  <div class="legend lbl">
+    <span><i style="background:color-mix(in srgb,var(--neg) 55%,var(--card))"></i>despesas fixas</span>
+    <span><i style="background:var(--accent)"></i>folga</span>
+    <span id="chartHint" style="margin-left:auto;letter-spacing:.06em;text-transform:none"></span>
+  </div>
+</article>
+
+<div class="section-head">
+  <div>
+    <h2>Despesas fixas</h2>
+    <p>Repetem todo mês na mesma data. Desligue uma linha para simular o mês sem ela.</p>
+  </div>
+  <div style="text-align:right">
+    <div class="lbl">Comprometido por mês</div>
+    <div class="num" id="fixTotal" style="font-size:24px;font-weight:600">—</div>
+  </div>
+</div>
+<ul class="fixos" id="fixos"></ul>
+
+<form class="entry-form" id="fixForm">
+  <div class="field">
+    <label class="lbl" for="fNome">Nova despesa fixa</label>
+    <input type="text" id="fNome" placeholder="Academia" required>
+  </div>
+  <div class="field">
+    <label class="lbl" for="fCat">Categoria</label>
+    <select id="fCat"></select>
+  </div>
+  <div class="field">
+    <label class="lbl" for="fDia">Dia</label>
+    <input type="number" id="fDia" min="1" max="31" value="10" required>
+  </div>
+  <div class="field">
+    <label class="lbl" for="fVal">Valor</label>
+    <input type="number" id="fVal" step="0.01" min="0" placeholder="0,00" required>
+  </div>
+  <button class="btn" type="submit">Incluir</button>
+</form>
+
+<div class="section-head">
+  <div>
+    <h2>Gastos de <span id="moLabel2">agosto</span></h2>
+    <p>Avulsos deste mês, somados às fixas em cada categoria. O VR abate o teto da
+    categoria escolhida nos ajustes.</p>
+  </div>
+  <div style="text-align:right">
+    <div class="lbl">Total gasto no mês</div>
+    <div class="num" id="gastoTotal" style="font-size:24px;font-weight:600">—</div>
+  </div>
+</div>
+
+<div class="cats" id="cats"></div>
+
+<form class="entry-form" id="entryForm">
+  <div class="field">
+    <label class="lbl" for="eDesc">Descrição</label>
+    <input type="text" id="eDesc" placeholder="Dentista — avaliação" required>
+  </div>
+  <div class="field">
+    <label class="lbl" for="eCat">Categoria</label>
+    <select id="eCat"></select>
+  </div>
+  <div class="field">
+    <label class="lbl" for="eDia">Dia</label>
+    <input type="number" id="eDia" min="1" max="31" value="15" required>
+  </div>
+  <div class="field">
+    <label class="lbl" for="eVal">Valor</label>
+    <input type="number" id="eVal" step="0.01" min="0" placeholder="0,00" required>
+  </div>
+  <button class="btn" type="submit">Lançar</button>
+</form>
+
+<ul class="entries" id="entries"></ul>
+
+<details class="settings">
+  <summary>Ajustes e premissas</summary>
+
+  <div class="set-grid">
+    <div class="field">
+      <label class="lbl" for="sSaldo">Saldo inicial da conta</label>
+      <input type="number" id="sSaldo" step="0.01">
+      <span class="hint">Com quanto você começa o mês. Alimenta o saldo corrido da agenda.</span>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sSalario">Salário CLT bruto</label>
+      <input type="number" id="sSalario" step="0.01">
+    </div>
+    <div class="field">
+      <label class="lbl" for="sAdto">Adiantamento no dia 15</label>
+      <input type="number" id="sAdto" step="1" min="0" max="100">
+      <span class="hint">Percentual do bruto, sem descontos. INSS e IRRF saem todos no saldo.</span>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sVr">VR por mês</label>
+      <input type="number" id="sVr" step="0.01">
+      <span class="hint">Cai no último dia útil, junto com o saldo do salário.</span>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sVrCat">VR abate a categoria</label>
+      <select id="sVrCat"></select>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sVrDesc">Coparticipação do VR</label>
+      <input type="number" id="sVrDesc" step="0.1" min="0" max="20">
+      <span class="hint">Percentual do salário descontado em folha (o PAT permite até 20%).</span>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sDeps">Dependentes no IR</label>
+      <input type="number" id="sDeps" step="1" min="0">
+      <span class="hint">R$ 189,59 cada — só compensa se superar o desconto simplificado.</span>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sHora">Valor da hora PJ</label>
+      <input type="number" id="sHora" step="0.01">
+    </div>
+    <div class="field">
+      <label class="lbl" for="sHsem">Horas seg a qui</label>
+      <input type="number" id="sHsem" step="0.25">
+      <span class="hint">07h15 às 17h00 menos 1h de almoço = 8,75.</span>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sHsex">Horas na sexta</label>
+      <input type="number" id="sHsex" step="0.25">
+      <span class="hint">07h15 às 13h00 menos 1h de almoço = 4,75.</span>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sPjRef">A nota do dia 15 refere-se a</label>
+      <select id="sPjRef">
+        <option value="1">Mês anterior — fecho e recebo depois</option>
+        <option value="0">Mês corrente</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sAliq">Alíquota PJ</label>
+      <select id="sAliq">
+        <option value="6">6,0% — Simples, Anexo III (com Fator R)</option>
+        <option value="11.2">11,2% — Anexo III, 2ª faixa</option>
+        <option value="15.5">15,5% — Simples, Anexo V (sem Fator R)</option>
+        <option value="16.33">16,33% — Lucro Presumido (serviços)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sContador">Contabilidade por mês</label>
+      <input type="number" id="sContador" step="0.01">
+    </div>
+    <div class="field">
+      <label class="lbl" for="sProlabore">Pró-labore mensal</label>
+      <input type="number" id="sProlabore" step="0.01">
+      <span class="hint">Precisa somar 28% do faturamento no ano para manter o Anexo III.</span>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sInssPro">INSS sobre o pró-labore</label>
+      <select id="sInssPro">
+        <option value="0">Dispensado — já bato o teto no CLT</option>
+        <option value="11">11% — recolher normalmente</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sCarnaval">Carnaval e Corpus Christi</label>
+      <select id="sCarnaval">
+        <option value="1">Não trabalho — descontar as horas</option>
+        <option value="0">Trabalho normalmente</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="lbl" for="sAntecipa">Pagamento em fim de semana</label>
+      <select id="sAntecipa">
+        <option value="1">Antecipa para o dia útil anterior</option>
+        <option value="0">Cai na data exata</option>
+      </select>
+      <span class="hint">Vale para as entradas. As contas ficam no dia exato do vencimento.</span>
+    </div>
+  </div>
+
+  <div class="lbl" style="margin-bottom:10px">Teto por categoria</div>
+  <div class="set-grid" id="budgetGrid"></div>
+
+  <div class="note">
+    <b>De onde vêm os números.</b> INSS pela tabela progressiva de 2025 (teto de
+    contribuição R$ 951,63 sobre salário de R$ 8.157,41). IRRF pela tabela vigente
+    desde maio de 2025, e a ferramenta escolhe automaticamente entre o desconto
+    simplificado de R$ 607,20 e a dedução por dependentes — o que pagar menos.
+  </div>
+  <div class="note">
+    <b>O adiantamento não é dinheiro extra.</b> Os 40% do dia 15 saem inteiros do
+    mesmo salário: no último dia útil chega o resto já com INSS e IRRF descontados
+    de uma vez. Por isso a segunda parcela é bem menor que a primeira.
+  </div>
+  <div class="note">
+    <b>O VR cai junto com o saldo, no último dia útil.</b> Como o crédito chega no
+    fim do mês, na prática ele banca as compras do mês seguinte. Aqui ele abate o
+    teto do mês em que caiu.
+  </div>
+  <div class="note">
+    <b>O 13º e as férias não estão aqui.</b> O CLT ainda rende um 13º (com INSS e
+    IRRF calculados à parte) e o terço de férias. Some por fora ao planejar o ano.
+  </div>
+  <div class="note">
+    <b>Confirme a alíquota PJ com seu contador.</b> Cair no Anexo III (6%) em vez do
+    V (15,5%) depende do Fator R — a folha, pró-labore incluído, precisa somar ao
+    menos 28% da receita dos últimos 12 meses.
+  </div>
+
+  <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
+    <button class="btn ghost" type="button" id="btnExport">Exportar dados</button>
+    <button class="btn ghost" type="button" id="btnRecarregar">Recarregar do arquivo</button>
+    <button class="btn ghost" type="button" id="btnReset">Apagar tudo</button>
+  </div>
+  <p class="hint" style="margin-top:10px;max-width:60ch">
+    <b>Recarregar do arquivo</b> traz as definições publicadas no repositório —
+    fixas, categorias e tetos — mantendo o que você lançou aqui no navegador.
+    <b>Apagar tudo</b> zera inclusive esses lançamentos.
+  </p>
+</details>
+
+<footer>
+  <span class="selo">
+    Os lançamentos ficam salvos só neste navegador — nada sai daqui.
+    <code id="selo">definições v1</code>
+  </span>
+</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SEED — a fonte de verdade das definições.
+
+   Editar aqui e SUBIR A VERSÃO faz todo navegador puxar as definições
+   novas na próxima visita, sem apagar o que foi lançado na mão.
+
+   • categorias   → chave em `budgets` com o teto mensal
+   • despesa fixa → item em `fixos` (repete todo mês no dia informado)
+   • gasto avulso → item em `entries`, com `m: "ANO-MÊS"` (mês 0 = janeiro)
+
+   Ids que começam com "u" são criados pelo navegador e nunca são tocados
+   por um reseed. Não usar prefixo "u" aqui.
+   ═══════════════════════════════════════════════════════════════════════ */
+var SEED = {
+  versao: 1,
+
+  params: {
+    saldoInicial: 0,
+    salario: 13000, adto: 40, vr: 750, vrCat: "Mercado", vrDesc: 0, deps: 0,
+    hora: 77, hSem: 8.75, hSex: 4.75, pjRef: 1,
+    aliq: 6, contador: 250, prolabore: 3600, inssPro: 0,
+    carnaval: 1, antecipa: 1
+  },
+
+  budgets: {
+    "Moradia": 2500, "Cartões": 2800, "Contas": 450, "Mercado": 1400,
+    "Transporte": 700, "Saúde": 500, "Assinaturas": 200, "Lazer": 800,
+    "Investimento": 6000, "Outros": 400
+  },
+
+  fixos: [
+    { id:"f1", nome:"Internet",               cat:"Contas",      dia:1,  val:115,  on:1 },
+    { id:"f2", nome:"Cartão Kaylla — Nubank", cat:"Cartões",     dia:3,  val:780,  on:1 },
+    { id:"f3", nome:"Cartão Kaylla — C6",     cat:"Cartões",     dia:3,  val:2000, on:1 },
+    { id:"f4", nome:"Claude",                 cat:"Assinaturas", dia:28, val:110,  on:1 },
+    { id:"f5", nome:"Luz",                    cat:"Contas",      dia:29, val:280,  on:1 }
+    // { id:"f6", nome:"Aluguel", cat:"Moradia", dia:5, val:0, on:1 },
+  ],
+
+  entries: [
+    { id:"e1", m:"2026-6", dia:28, cat:"Saúde",
+      desc:"Dentista Kaylla — consulta de avaliação", val:300 }
+  ]
+};
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+var KEY = "folha-dupla";
+var D = 86400000;
+var MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho",
+             "agosto","setembro","outubro","novembro","dezembro"];
+var MES3 = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+var DOW  = ["dom","seg","ter","qua","qui","sex","sáb"];
+
+var INICIO = { ano: 2026, mes: 7 };   // agosto/2026 é o primeiro ciclo com renda
+var HORIZONTE = 12;
+var PRE = -1;                          // julho/2026: só recebe gastos, sem renda
+
+function clone(x){ return JSON.parse(JSON.stringify(x)); }
+
+/** Estado zerado, direto do SEED. */
+function base(){
+  var s = clone(SEED.params);
+  s.versao  = SEED.versao;
+  s.budgets = clone(SEED.budgets);
+  s.fixos   = clone(SEED.fixos);
+  s.entries = clone(SEED.entries);
+  s.seq     = 0;
+  return s;
+}
+
+/**
+ * O arquivo manda nas definições; o navegador guarda o que você criou nele.
+ * Roda quando a versão do SEED muda — ou no botão "recarregar do arquivo".
+ */
+function reseed(velho){
+  var s = base();
+  if(!velho) return s;
+  s.seq = velho.seq || 0;
+  s.saldoInicial = +velho.saldoInicial || 0;   // saldo é do dia a dia, não do arquivo
+
+  var vf = velho.fixos || [], ve = velho.entries || [];
+  var idsF = {}, idsE = {};
+
+  // preserva o liga/desliga das fixas que vieram do arquivo
+  s.fixos.forEach(function(f){
+    idsF[f.id] = 1;
+    for(var i=0;i<vf.length;i++) if(vf[i].id === f.id) f.on = vf[i].on;
+  });
+  s.entries.forEach(function(e){ idsE[e.id] = 1; });
+
+  // e mantém tudo que foi criado no navegador
+  vf.forEach(function(f){ if(!idsF[f.id]) s.fixos.push(f); });
+  ve.forEach(function(e){ if(!idsE[e.id]) s.entries.push(e); });
+  for(var k in (velho.budgets || {})) if(!(k in s.budgets)) s.budgets[k] = velho.budgets[k];
+
+  return s;
+}
+
+function load(){
+  try{
+    var raw = localStorage.getItem(KEY);
+    if(!raw) return base();
+    var o = JSON.parse(raw);
+    if(o.versao !== SEED.versao) return reseed(o);
+    var b = base();
+    for(var k in b) if(!(k in o)) o[k] = b[k];
+    return o;
+  }catch(e){ return base(); }
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(st)); }catch(e){} }
+
+var st = load();
+var idx = 0;
+save();
+
+function brl(v){ return v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function money(v){ return "R$ " + brl(v); }
+function esc(s){
+  return String(s).replace(/[&<>"]/g, function(c){
+    return { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]; });
+}
+
+/* ── calendário ───────────────────────────────── */
+function easter(y){
+  var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,
+      f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,
+      i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+      mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;
+  return Date.UTC(y,mo-1,da);
+}
+var _fcache = {};
+function feriados(y){
+  var ck = y + ":" + st.carnaval;
+  if(_fcache[ck]) return _fcache[ck];
+  var E = easter(y), s = {};
+  [[0,1],[3,21],[4,1],[8,7],[9,12],[10,2],[10,15],[10,20],[11,25]]
+    .forEach(function(p){ s[Date.UTC(y,p[0],p[1])] = 1; });
+  s[E-2] = 1;
+  if(+st.carnaval === 1){ s[E-48]=1; s[E-47]=1; s[E+60]=1; }
+  return (_fcache[ck] = s);
+}
+function ehUtil(t){
+  var w = new Date(t).getUTCDay();
+  return w !== 0 && w !== 6 && !feriados(new Date(t).getUTCFullYear())[t];
+}
+function dataPgto(y, m, dia){
+  var ult = new Date(Date.UTC(y, m+1, 0)).getUTCDate();
+  var t = Date.UTC(y, m, Math.min(dia, ult));
+  if(+st.antecipa !== 1) return t;
+  var g = 0;
+  while(!ehUtil(t) && g++ < 20) t -= D;
+  return t;
+}
+function ultimoUtil(y, m){
+  var t = Date.UTC(y, m+1, 0), g = 0;
+  while(!ehUtil(t) && g++ < 20) t -= D;
+  return t;
+}
+function diaDoMes(y, m, dia){
+  var ult = new Date(Date.UTC(y, m+1, 0)).getUTCDate();
+  return Date.UTC(y, m, Math.min(dia, ult));
+}
+function mesUtil(y, m){
+  var F = feriados(y), ult = new Date(Date.UTC(y, m+1, 0)).getUTCDate();
+  var dias = 0, horas = 0;
+  for(var d = 1; d <= ult; d++){
+    var t = Date.UTC(y, m, d), w = new Date(t).getUTCDay();
+    if(w === 0 || w === 6 || F[t]) continue;
+    dias++;
+    horas += (w === 5 ? +st.hSex : +st.hSem);
+  }
+  return { dias: dias, horas: horas };
+}
+
+/* ── impostos ─────────────────────────────────── */
+var INSS_FAIXAS = [[1518.00,.075],[2793.88,.09],[4190.83,.12],[8157.41,.14]];
+var IRRF_FAIXAS = [[2428.80,0,0],[2826.65,.075,182.16],[3751.05,.15,394.16],
+                   [4664.68,.225,675.49],[Infinity,.275,908.73]];
+var IRRF_SIMPLIFICADO = 607.20, DEP = 189.59;
+
+function inss(bruto){
+  var t = 0, ant = 0;
+  for(var i=0;i<INSS_FAIXAS.length;i++){
+    var lim = INSS_FAIXAS[i][0], aliq = INSS_FAIXAS[i][1];
+    if(bruto > ant) t += (Math.min(bruto, lim) - ant) * aliq;
+    ant = lim;
+    if(bruto <= lim) break;
+  }
+  return Math.round(t * 100) / 100;
+}
+function irrf(base, deps){
+  var melhor = null;
+  [base - IRRF_SIMPLIFICADO, base - deps * DEP].forEach(function(b, via){
+    b = Math.max(0, b);
+    var imp = 0;
+    for(var j=0;j<IRRF_FAIXAS.length;j++){
+      if(b <= IRRF_FAIXAS[j][0]){ imp = b * IRRF_FAIXAS[j][1] - IRRF_FAIXAS[j][2]; break; }
+    }
+    imp = Math.max(0, Math.round(imp * 100) / 100);
+    if(melhor === null || imp < melhor.imp) melhor = { imp: imp, base: b, via: via };
+  });
+  return melhor;
+}
+function calcCLT(){
+  var bruto = +st.salario || 0;
+  var i = inss(bruto);
+  var ir = irrf(bruto - i, +st.deps || 0);
+  var vrDesc = bruto * (+st.vrDesc || 0) / 100;
+  var adto = Math.round(bruto * (+st.adto || 0)) / 100;
+  var liq = bruto - i - ir.imp - vrDesc;
+  return { bruto: bruto, inss: i, ir: ir.imp, irBase: ir.base, via: ir.via,
+           vrDesc: vrDesc, adto: adto, saldo: liq - adto, liquido: liq };
+}
+
+/* ── ciclo do mês ─────────────────────────────── */
+function ymDe(n){
+  var m = INICIO.mes + n, y = INICIO.ano + Math.floor(m / 12);
+  return { y: y, m: ((m % 12) + 12) % 12 };
+}
+
+function ciclo(n){
+  var r = ymDe(n), y = r.y, m = r.m;
+  var chave = y + "-" + m;
+  var pre = n < 0;
+  var clt = calcCLT();
+  var ev = [], fat = 0, das = 0, cont = 0, inssPro = 0, u = { dias:0, horas:0 },
+      rm = m, ry = y;
+
+  if(!pre){
+    rm = m - (+st.pjRef === 1 ? 1 : 0); ry = y;
+    if(rm < 0){ rm += 12; ry -= 1; }
+    u = mesUtil(ry, rm);
+    fat = u.horas * (+st.hora || 0);
+    das = fat * (+st.aliq || 0) / 100;
+    inssPro = (+st.prolabore || 0) * (+st.inssPro || 0) / 100;
+    cont = +st.contador || 0;
+
+    ev.push({ t: dataPgto(y,m,15), k:"in",  o:"Adiantamento CLT",
+      s: st.adto + "% do bruto, sem descontos", v: clt.adto });
+    ev.push({ t: dataPgto(y,m,15), k:"in",  o:"Nota fiscal PJ",
+      s: brl(u.horas).replace(",00","") + "h de " + MESES[rm] + " a " + money(+st.hora), v: fat });
+    ev.push({ t: dataPgto(y,m,20), k:"out", o:"DAS do Simples",
+      s: brl(+st.aliq).replace(",00","") + "% sobre a nota", v: -das });
+    ev.push({ t: dataPgto(y,m,20), k:"out", o:"Contabilidade",
+      s:"mensalidade do escritório", v: -cont });
+    if(inssPro) ev.push({ t: dataPgto(y,m,20), k:"out", o:"INSS do pró-labore",
+      s:"11% sobre " + money(+st.prolabore), v: -inssPro });
+    ev.push({ t: ultimoUtil(y,m), k:"in", o:"Saldo CLT",
+      s:"o resto do salário, já com INSS e IRRF fora", v: clt.saldo });
+    if(+st.vr) ev.push({ t: ultimoUtil(y,m), k:"ben", o:"Crédito do VR",
+      s:"cartão de alimentação, fora do caixa", v: +st.vr });
+  }
+
+  var fixoTotal = 0;
+  st.fixos.forEach(function(f){
+    if(!f.on) return;
+    fixoTotal += +f.val;
+    ev.push({ t: diaDoMes(y,m,f.dia), k:"out", o: f.nome,
+      s:"fixa · " + f.cat, v: -(+f.val), cat: f.cat });
+  });
+
+  var varTotal = 0;
+  st.entries.filter(function(e){ return e.m === chave; }).forEach(function(e){
+    varTotal += +e.val;
+    ev.push({ t: diaDoMes(y,m,e.dia || 15), k:"out", o: e.desc,
+      s:"avulso · " + e.cat, v: -(+e.val), cat: e.cat });
+  });
+
+  ev.sort(function(a,b){
+    if(a.t !== b.t) return a.t - b.t;
+    return (a.k === "in" ? 0 : a.k === "out" ? 1 : 2) - (b.k === "in" ? 0 : b.k === "out" ? 1 : 2);
+  });
+
+  var entra = pre ? 0 : clt.liquido + fat;
+  var taxas = das + cont + inssPro;
+  return {
+    n: n, ano: y, mes: m, chave: chave, pre: pre,
+    refAno: ry, refMes: rm, horas: u.horas, dias: u.dias,
+    fat: fat, das: das, cont: cont, inssPro: inssPro, clt: clt,
+    eventos: ev,
+    entra: entra, taxas: taxas, fixoTotal: fixoTotal, varTotal: varTotal,
+    caixa: entra - taxas,
+    folga: entra - taxas - fixoTotal - varTotal,
+    bruto: pre ? 0 : clt.bruto + fat,
+    impostos: pre ? 0 : clt.inss + clt.ir + das + inssPro
+  };
+}
+
+/* ── render ───────────────────────────────────── */
+function row(k, v, cls, sub){
+  return '<li class="' + (cls||"") + '"><span class="k">' + k +
+    (sub ? ' <small>' + sub + '</small>' : '') +
+    '</span><span class="dots"></span><span class="v">' + v + '</span></li>';
+}
+
+function renderMonths(){
+  var out = "";
+  for(var n = PRE; n < HORIZONTE; n++){
+    var r = ymDe(n);
+    out += '<button class="mo' + (n < 0 ? " pre" : "") + '" type="button" data-n="' + n +
+      '" aria-pressed="' + (n === idx) + '">' + MES3[r.m] + " " + String(r.y).slice(2) +
+      '</button>';
+  }
+  document.getElementById("months").innerHTML = out;
+}
+
+function renderAll(){
+  var c = ciclo(idx);
+  var agora = new Date();
+  var hoje = Date.UTC(agora.getFullYear(), agora.getMonth(), agora.getDate());
+
+  document.getElementById("moLabel").textContent  = MESES[c.mes];
+  document.getElementById("moLabel2").textContent = MESES[c.mes];
+  document.getElementById("moLabel3").textContent = MESES[c.mes] + " de " + c.ano;
+
+  document.getElementById("netBig").innerHTML = "<small>R$</small>" + brl(c.folga);
+  document.getElementById("inMini").textContent  = c.pre ? "—" : money(c.caixa);
+  document.getElementById("taxMini").textContent = c.pre ? "—" : "−" + money(c.impostos);
+  document.getElementById("fixMini").textContent = "−" + money(c.fixoTotal);
+  document.getElementById("varMini").textContent = "−" + money(c.varTotal);
+  document.getElementById("vrMini").innerHTML = (!c.pre && +st.vr)
+    ? money(+st.vr) + ' <small>fora do caixa</small>' : "—";
+
+  document.getElementById("heroNote").textContent = c.pre
+    ? "Julho fica fora do cálculo de renda — está aqui só para abrigar os gastos que venceram antes do primeiro ciclo."
+    : "A nota do dia 15 cobre " + brl(c.horas).replace(",00","") + " horas de " +
+      MESES[c.refMes] + " (" + c.dias + " dias úteis). Entram " + money(c.caixa) +
+      " e saem " + money(c.fixoTotal + c.varTotal) + " de contas.";
+
+  /* saldo corrido + alerta de aperto */
+  var saldo = +st.saldoInicial || 0, minSaldo = saldo, minEv = null;
+  var linhas = c.eventos.map(function(e){
+    if(e.k !== "ben") saldo += e.v;
+    if(saldo < minSaldo){ minSaldo = saldo; minEv = e; }
+    return { e: e, saldo: saldo };
+  });
+
+  var box = document.getElementById("alertBox");
+  if(c.pre){
+    box.className = "alert";
+    box.innerHTML = "<b>Ciclo anterior</b>Os lançamentos de julho não têm renda associada — " +
+      "saem do que já estava na conta.";
+  } else if(minSaldo < 0 && minEv){
+    var dt = new Date(minEv.t);
+    box.className = "alert";
+    box.innerHTML = "<b>Aperto no dia " + dt.getUTCDate() + "</b>O saldo chega a " +
+      money(minSaldo) + " em " + dt.getUTCDate() + "/" +
+      String(dt.getUTCMonth()+1).padStart(2,"0") + ", depois de " + esc(minEv.o) +
+      ". Precisa de pelo menos " + money(Math.abs(minSaldo)) +
+      " na conta no começo do mês.";
+  } else {
+    box.className = "alert calm";
+    box.innerHTML = "<b>Mês folgado</b>O saldo nunca fica negativo — o ponto mais baixo é " +
+      money(minSaldo) + ".";
+  }
+
+  /* agenda */
+  document.getElementById("agenda").innerHTML = linhas.map(function(l){
+    var e = l.e, dt = new Date(e.t);
+    var cls = e.k === "out" ? "out" : e.k === "ben" ? "ben" : "";
+    var sinal = e.k === "out" ? "−" : e.k === "ben" ? "" : "+";
+    return '<li class="' + (e.t < hoje ? "past " : "") + (l.saldo < 0 ? "neg" : "") + '">' +
+      '<span class="day">' + dt.getUTCDate() + '<u>' + DOW[dt.getUTCDay()] + '</u></span>' +
+      '<span class="what">' + esc(e.o) + '<em>' + esc(e.s) + '</em></span>' +
+      '<span class="amt ' + cls + '">' + sinal + money(Math.abs(e.v)) + '</span>' +
+      '<span class="run' + (l.saldo < 0 ? " below" : "") + '">' +
+        (e.k === "ben" ? "—" : brl(l.saldo)) + '</span></li>';
+  }).join("") +
+    '<li class="tot"><span></span><span class="what">Sobra do mês</span>' +
+    '<span class="amt">' + money(c.folga) + '</span><span class="run"></span></li>';
+
+  /* razões */
+  var clt = c.clt;
+  document.getElementById("cltLedger").innerHTML =
+    row("Salário bruto", money(clt.bruto)) +
+    row("INSS", "−" + brl(clt.inss), "minus", clt.inss >= 951.62 ? "teto" : "progressivo") +
+    row("Base do IR", brl(clt.irBase), "faint",
+        clt.via === 0 ? "desc. simplificado" : (st.deps + " dependente(s)")) +
+    row("IRRF", "−" + brl(clt.ir), "minus", "27,5% com dedução") +
+    (clt.vrDesc ? row("Coparticipação VR", "−" + brl(clt.vrDesc), "minus") : "") +
+    row("Líquido", money(clt.liquido), "sum") +
+    row("Dia 15 — adiantamento", brl(clt.adto), "rule", st.adto + "% do bruto") +
+    row("Último dia útil — saldo", brl(clt.saldo), "", "carrega todos os descontos");
+
+  document.getElementById("pjTag").textContent = brl(+st.aliq).replace(",00","") + "% de imposto";
+  document.getElementById("pjLedger").innerHTML = c.pre
+    ? '<li class="faint"><span class="k">Ciclo fora do horizonte de renda.</span></li>'
+    : row("Horas de " + MESES[c.refMes], brl(c.horas).replace(",00","") + " h",
+          "", c.dias + " dias úteis") +
+      row("Nota fiscal", money(c.fat), "", "recebida no dia 15") +
+      row("DAS do Simples", "−" + brl(c.das), "minus", "vence no dia 20") +
+      (c.inssPro ? row("INSS pró-labore", "−" + brl(c.inssPro), "minus", "11%")
+                 : row("INSS pró-labore", "dispensado", "faint", "teto batido no CLT")) +
+      row("Contabilidade", "−" + brl(c.cont), "minus") +
+      row("Sobra na PJ", money(c.fat - c.das - c.cont - c.inssPro), "sum");
+
+  renderChart();
+  renderFixos();
+  renderBudget(c);
+}
+
+function renderChart(){
+  var dados = [], max = 0, somaFolga = 0;
+  for(var n = 0; n < HORIZONTE; n++){
+    var c = ciclo(n);
+    dados.push(c); somaFolga += c.folga;
+    if(c.caixa > max) max = c.caixa;
+  }
+  document.getElementById("chart").innerHTML = dados.map(function(c, i){
+    var gasto = c.fixoTotal + c.varTotal;
+    var hf = max ? gasto / max * 100 : 0, hg = max ? Math.max(0, c.folga) / max * 100 : 0;
+    return '<button class="bar" type="button" data-n="' + i + '" aria-pressed="' +
+      (i === idx) + '" title="' + MESES[c.mes] + "/" + c.ano + " — folga de " +
+      money(c.folga) + '">' +
+      '<div class="stack" style="height:' + (hf+hg).toFixed(2) + '%">' +
+        '<div class="seg-fixo" style="flex:' + hf.toFixed(3) + '"></div>' +
+        '<div class="seg-folga" style="flex:' + hg.toFixed(3) + '"></div>' +
+      '</div></button>';
+  }).join("");
+
+  document.getElementById("chartX").innerHTML = dados.map(function(c, i){
+    return '<button class="xlab" type="button" data-n="' + i + '" aria-pressed="' +
+      (i === idx) + '">' + MES3[c.mes] + '</button>';
+  }).join("");
+
+  // linha da média — mesma escala das barras, tudo em porcentagem da área de plot
+  var media = dados.reduce(function(s,c){
+    return s + c.fixoTotal + c.varTotal + Math.max(0, c.folga); }, 0) / dados.length;
+  var elMedia = document.getElementById("media");
+  elMedia.style.bottom = (max ? media / max * 100 : 0).toFixed(2) + "%";
+  elMedia.firstChild.textContent = "média " + money(media);
+
+  document.getElementById("yearTotal").textContent = money(somaFolga) + " de folga somada";
+  var hi = dados.reduce(function(a,b){ return a.folga > b.folga ? a : b; });
+  var lo = dados.reduce(function(a,b){ return a.folga < b.folga ? a : b; });
+  document.getElementById("chartHint").textContent =
+    "mais folgado: " + MESES[hi.mes] + " (" + money(hi.folga) + ") · mais apertado: " +
+    MESES[lo.mes] + " (" + money(lo.folga) + ")";
+}
+
+function renderFixos(){
+  var total = st.fixos.reduce(function(s,f){ return s + (f.on ? +f.val : 0); }, 0);
+  var ordenados = st.fixos.slice().sort(function(a,b){ return a.dia - b.dia; });
+  document.getElementById("fixos").innerHTML = ordenados.map(function(f){
+    var pct = total ? (+f.val / total * 100) : 0;
+    return '<li class="' + (f.on ? "" : "off") + '">' +
+      '<span class="dia">' + f.dia + '<u>dia</u></span>' +
+      '<span class="nome">' + esc(f.nome) + '<em>' + esc(f.cat) + '</em></span>' +
+      '<span class="val">' + brl(+f.val) + '</span>' +
+      '<span class="share">' + (f.on ? pct.toFixed(0) + "% das fixas" : "desligada") + '</span>' +
+      '<button class="toggle" type="button" data-fix="' + f.id + '" aria-label="' +
+        (f.on ? "Desligar " : "Ligar ") + esc(f.nome) + '">' +
+        (f.on
+          ? '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg>'
+          : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 3l18 18M10.6 6.2A9.8 9.8 0 0112 6c6.4 0 10 6 10 6a17 17 0 01-3.3 3.9M6.3 8.1C3.8 9.7 2 12 2 12s3.6 6 10 6c1.5 0 2.8-.3 4-.8"/></svg>') +
+      '</button></li>';
+  }).join("") +
+  '<li class="tot"><span></span><span class="nome">Total comprometido</span>' +
+  '<span class="val">' + money(total) + '</span><span class="share"></span><span></span></li>';
+  document.getElementById("fixTotal").textContent = money(total);
+}
+
+function renderBudget(c){
+  var list = st.entries.filter(function(e){ return e.m === c.chave; })
+                       .sort(function(a,b){ return (a.dia||15) - (b.dia||15); });
+  var porCat = {};
+  st.fixos.forEach(function(f){ if(f.on) porCat[f.cat] = (porCat[f.cat]||0) + (+f.val); });
+  list.forEach(function(e){ porCat[e.cat] = (porCat[e.cat]||0) + (+e.val); });
+
+  var cats = Object.keys(st.budgets), totalGasto = 0;
+
+  document.getElementById("cats").innerHTML = cats.map(function(cat){
+    var teto = +st.budgets[cat] || 0;
+    var vrAbate = (cat === st.vrCat && !c.pre) ? Math.min(+st.vr || 0, teto) : 0;
+    var tetoEf = teto - vrAbate;
+    var gasto = porCat[cat] || 0;
+    totalGasto += gasto;
+    var pct = tetoEf ? gasto / tetoEf * 100 : (gasto ? 100 : 0);
+    var cls = pct > 100 ? "over" : pct >= 85 ? "near" : "ok";
+    var cor = pct > 100 ? "var(--neg)" : pct >= 85 ? "var(--warn)" : "var(--accent)";
+    var txt = pct > 100 ? "estourou" : tetoEf ? Math.round(pct) + "% do teto" : "sem teto";
+    var nf = st.fixos.filter(function(f){ return f.on && f.cat === cat; }).length;
+    var nv = list.filter(function(e){ return e.cat === cat; }).length;
+    var det = vrAbate ? "teto " + brl(teto) + " menos " + brl(vrAbate) + " de VR"
+            : (nf ? nf + " fixa" + (nf === 1 ? "" : "s") : "") +
+              (nf && nv ? " · " : "") +
+              (nv ? nv + " avulso" + (nv === 1 ? "" : "s") : "") || "sem lançamento";
+    return '<div class="cat">' +
+      '<div class="cat-name">' + esc(cat) + '<em>' + det + '</em></div>' +
+      '<div class="num">' + brl(gasto) + '</div>' +
+      '<div class="track-wrap"><div class="track"><div class="fill" style="width:' +
+        Math.min(100, pct).toFixed(1) + '%;background:' + cor + '"></div></div></div>' +
+      '<div class="num budget" style="color:var(--ink-3)">de ' + brl(tetoEf) + '</div>' +
+      '<div class="pill ' + cls + '">' + txt + '</div></div>';
+  }).join("");
+
+  document.getElementById("gastoTotal").textContent = money(totalGasto);
+
+  var opts = cats.map(function(x){ return '<option>' + esc(x) + '</option>'; }).join("");
+  ["eCat","fCat"].forEach(function(id){
+    var s = document.getElementById(id);
+    if(s.options.length !== cats.length) s.innerHTML = opts;
+  });
+  var vsel = document.getElementById("sVrCat");
+  if(vsel.options.length !== cats.length) vsel.innerHTML = opts;
+  vsel.value = st.vrCat;
+
+  document.getElementById("entries").innerHTML = list.length
+    ? list.map(function(e){
+        return '<li><span class="d">' + (e.dia||15) + '</span><span>' + esc(e.desc) +
+          '</span><span class="c">' + esc(e.cat) +
+          '</span><span class="num" style="text-align:right">' + brl(+e.val) +
+          '</span><button class="del" type="button" data-id="' + e.id +
+          '" aria-label="Remover ' + esc(e.desc) + '">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+          'stroke-width="1.6" stroke-linecap="round"><path d="M5 7h14M10 7V5h4v2M8 7l1 12h6l1-12"/>' +
+          '</svg></button></li>';
+      }).join("")
+    : '<li class="empty" style="display:block">Nenhum gasto avulso em ' +
+      MESES[c.mes] + ' — só as fixas.</li>';
+
+  document.getElementById("budgetGrid").innerHTML = cats.map(function(cat){
+    return '<div class="field"><label class="lbl">' + esc(cat) + '</label>' +
+      '<input type="number" step="0.01" data-budget="' + esc(cat) + '" value="' +
+      st.budgets[cat] + '"></div>';
+  }).join("");
+}
+
+/* ── ajustes ──────────────────────────────────── */
+var CAMPOS = { sSaldo:"saldoInicial", sSalario:"salario", sAdto:"adto", sVr:"vr",
+  sVrDesc:"vrDesc", sDeps:"deps", sHora:"hora", sHsem:"hSem", sHsex:"hSex",
+  sPjRef:"pjRef", sAliq:"aliq", sContador:"contador", sProlabore:"prolabore",
+  sInssPro:"inssPro", sCarnaval:"carnaval", sAntecipa:"antecipa" };
+
+function fillSettings(){
+  for(var id in CAMPOS) document.getElementById(id).value = st[CAMPOS[id]];
+}
+
+/* ── eventos ──────────────────────────────────── */
+document.getElementById("months").addEventListener("click", function(e){
+  var b = e.target.closest(".mo"); if(!b) return;
+  idx = +b.dataset.n; renderMonths(); renderAll();
+});
+["chart","chartX"].forEach(function(id){
+  document.getElementById(id).addEventListener("click", function(e){
+    var b = e.target.closest("[data-n]"); if(!b) return;
+    idx = +b.dataset.n; renderMonths(); renderAll();
+  });
+});
+document.getElementById("fixos").addEventListener("click", function(e){
+  var b = e.target.closest(".toggle"); if(!b) return;
+  st.fixos.forEach(function(f){ if(f.id === b.dataset.fix) f.on = f.on ? 0 : 1; });
+  save(); renderAll();
+});
+document.querySelector("details.settings").addEventListener("input", function(e){
+  var t = e.target;
+  if(t.dataset.budget){ st.budgets[t.dataset.budget] = +t.value || 0; save(); renderAll(); return; }
+  if(t.id === "sVrCat"){ st.vrCat = t.value; save(); renderAll(); return; }
+  if(CAMPOS[t.id]){
+    st[CAMPOS[t.id]] = +t.value || 0;
+    if(t.id === "sCarnaval") _fcache = {};
+    save(); renderAll();
+  }
+});
+document.getElementById("fixForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  var nome = document.getElementById("fNome").value.trim();
+  var val = +document.getElementById("fVal").value;
+  var dia = Math.max(1, Math.min(31, +document.getElementById("fDia").value || 1));
+  if(!nome || !(val > 0)) return;
+  st.seq = (st.seq||0) + 1;
+  st.fixos.push({ id:"uf" + st.seq, nome: nome, cat: document.getElementById("fCat").value,
+    dia: dia, val: val, on: 1 });
+  save(); renderAll();
+  e.target.reset();
+  document.getElementById("fDia").value = 10;
+  document.getElementById("fNome").focus();
+});
+document.getElementById("entryForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  var desc = document.getElementById("eDesc").value.trim();
+  var val = +document.getElementById("eVal").value;
+  var dia = Math.max(1, Math.min(31, +document.getElementById("eDia").value || 15));
+  if(!desc || !(val > 0)) return;
+  st.seq = (st.seq||0) + 1;
+  st.entries.push({ id:"ue" + st.seq, m: ciclo(idx).chave, dia: dia,
+    cat: document.getElementById("eCat").value, desc: desc, val: val });
+  save(); renderAll();
+  e.target.reset();
+  document.getElementById("eDia").value = 15;
+  document.getElementById("eDesc").focus();
+});
+document.getElementById("entries").addEventListener("click", function(e){
+  var b = e.target.closest(".del"); if(!b) return;
+  st.entries = st.entries.filter(function(x){ return x.id !== b.dataset.id; });
+  save(); renderAll();
+});
+document.getElementById("btnExport").addEventListener("click", function(){
+  var blob = new Blob([JSON.stringify(st, null, 2)], { type:"application/json" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "folha-dupla.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+document.getElementById("btnRecarregar").addEventListener("click", function(){
+  st = reseed(st); _fcache = {};
+  save(); fillSettings(); renderMonths(); renderAll();
+});
+document.getElementById("btnReset").addEventListener("click", function(){
+  if(!confirm("Apagar todos os lançamentos e voltar ao arquivo publicado?")) return;
+  st = base(); _fcache = {};
+  save(); fillSettings(); renderMonths(); renderAll();
+});
+
+/* tema: segue o sistema até o primeiro clique, depois obedece a escolha */
+document.getElementById("btnTema").addEventListener("click", function(){
+  var atual = document.documentElement.dataset.theme;
+  if(!atual){
+    atual = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  var novo = atual === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = novo;
+  try{ localStorage.setItem("folha-tema", novo); }catch(e){}
+});
+
+(function(){
+  var h = new Date();
+  var n = (h.getFullYear() - INICIO.ano) * 12 + h.getMonth() - INICIO.mes;
+  if(n >= PRE && n < HORIZONTE) idx = n;
+})();
+
+var fim = ymDe(HORIZONTE - 1);
+document.getElementById("stampRange").textContent =
+  "agosto/2026 a " + MES3[fim.m].toLowerCase() + "/" + fim.y;
+document.getElementById("selo").textContent = "definições v" + SEED.versao;
+
+renderMonths(); fillSettings(); renderAll();
+})();
+</script>
+</body>
+</html>
