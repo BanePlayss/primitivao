@@ -451,11 +451,12 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
 
 <div class="section-head">
   <div>
-    <h2>Despesas fixas</h2>
-    <p>Repetem todo mês na mesma data. Desligue uma linha para simular o mês sem ela.</p>
+    <h2>Despesas fixas em <span id="moLabel4">agosto</span></h2>
+    <p>Repetem todo mês na mesma data. As que têm prazo aparecem apagadas nos meses
+    em que não valem. Desligue uma linha para simular o mês sem ela.</p>
   </div>
   <div style="text-align:right">
-    <div class="lbl">Comprometido por mês</div>
+    <div class="lbl">Comprometido neste mês</div>
     <div class="num" id="fixTotal" style="font-size:24px;font-weight:600">—</div>
   </div>
 </div>
@@ -721,6 +722,10 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
 
    • categorias   → chave em `budgets` com o teto mensal
    • despesa fixa → item em `fixos` (repete todo mês no dia informado)
+   • vigência     → `de` e/ou `ate` na fixa, no formato "ANO-MÊS", pra
+                    dívida que acaba ou gasto que só começa lá na frente.
+                    Degrau de valor = duas linhas, uma com `ate` e a
+                    seguinte com `de`.
    • poupança     → item em `fixos` com `poupa:1` — sai da conta como
                     qualquer débito, mas vira patrimônio em vez de sumir
    • gasto avulso → item em `entries`, com `m: "ANO-MÊS"` (mês 0 = janeiro)
@@ -758,12 +763,21 @@ var SEED = {
   },
 
   fixos: [
-    { id:"uf1", nome:"Kaylla — pessoal",      cat:"Lazer",       dia:1,  val:3000, on:1 },
+    // O C6 sai depois de alguns meses; quando sair, o repasse pra Kaylla
+    // cai de 3.000 pra 2.000. FIM DO C6 = PALPITE, confirmar.
+    { id:"f3",  nome:"Cartão Kaylla — C6",    cat:"Cartões",     dia:3,  val:2000, on:1,
+      ate:"2026-11" },
+    { id:"uf1", nome:"Kaylla — pessoal",      cat:"Lazer",       dia:1,  val:3000, on:1,
+      ate:"2026-11" },
+    { id:"k2",  nome:"Kaylla — pessoal",      cat:"Lazer",       dia:1,  val:2000, on:1,
+      de:"2027-0" },
+
     { id:"f1",  nome:"Internet",              cat:"Contas",      dia:1,  val:115,  on:1 },
     { id:"f2",  nome:"Cartão Kaylla — Nubank",cat:"Cartões",     dia:3,  val:780,  on:1 },
-    { id:"f3",  nome:"Cartão Kaylla — C6",    cat:"Cartões",     dia:3,  val:2000, on:1 },
     { id:"uf4", nome:"Mercado",               cat:"Mercado",     dia:5,  val:1800, on:1 },
-    { id:"uf5", nome:"Lucas — limpar nome",   cat:"Contas",      dia:10, val:500,  on:1 },
+    // 10 primeiras parcelas: ago/26 a mai/27
+    { id:"uf5", nome:"Lucas — limpar nome",   cat:"Contas",      dia:10, val:500,  on:1,
+      ate:"2027-4" },
     { id:"uf2", nome:"Lucas — pessoal",       cat:"Lazer",       dia:15, val:3000, on:1 },
     { id:"uf3", nome:"Aluguel",               cat:"Moradia",     dia:16, val:5000, on:1 },
     { id:"f4",  nome:"Claude",                cat:"Assinaturas", dia:28, val:110,  on:1 },
@@ -916,6 +930,33 @@ function ultimoUtil(y, m){
   while(!ehUtil(t) && g++ < 20) t -= D;
   return t;
 }
+/* ── vigência ─────────────────────────────────────────────────────────
+   Dívida que acaba e gasto que só começa depois. Sem isso o app projeta
+   pra sempre uma parcela que tem prazo pra terminar.
+   ─────────────────────────────────────────────────────────────────── */
+function ordMes(chave){
+  if(!chave) return null;
+  var p = String(chave).split("-");
+  return (+p[0]) * 12 + (+p[1]);
+}
+function vigente(f, y, m){
+  var o = y * 12 + m, de = ordMes(f.de), ate = ordMes(f.ate);
+  if(de !== null && o < de) return false;
+  if(ate !== null && o > ate) return false;
+  return true;
+}
+/** Texto curto do prazo, pra lista de fixas. */
+function prazoTexto(f){
+  if(!f.de && !f.ate) return "";
+  var fmt = function(k){
+    var p = String(k).split("-");
+    return MES3[+p[1]].toLowerCase() + "/" + String(p[0]).slice(2);
+  };
+  if(f.de && f.ate) return "de " + fmt(f.de) + " a " + fmt(f.ate);
+  if(f.ate) return "até " + fmt(f.ate);
+  return "a partir de " + fmt(f.de);
+}
+
 function diaDoMes(y, m, dia){
   var ult = new Date(Date.UTC(y, m+1, 0)).getUTCDate();
   return Date.UTC(y, m, Math.min(dia, ult));
@@ -1015,7 +1056,7 @@ function ciclo(n){
      vira patrimônio. Contar como gasto some com o dinheiro duas vezes. */
   var fixoTotal = 0, poupTotal = 0;
   st.fixos.forEach(function(f){
-    if(!f.on) return;
+    if(!f.on || !vigente(f, y, m)) return;
     if(f.poupa) poupTotal += +f.val; else fixoTotal += +f.val;
     ev.push({ t: diaDoMes(y,m,f.dia), k: f.poupa ? "poupa" : "out", o: f.nome,
       s: (f.poupa ? "poupança · " : "fixa · ") + f.cat, v: -(+f.val), cat: f.cat });
@@ -1134,6 +1175,7 @@ function renderAll(){
   document.getElementById("moLabel").textContent  = MESES[c.mes];
   document.getElementById("moLabel2").textContent = MESES[c.mes];
   document.getElementById("moLabel3").textContent = MESES[c.mes] + " de " + c.ano;
+  document.getElementById("moLabel4").textContent = MESES[c.mes];
 
   document.getElementById("netBig").innerHTML = "<small>R$</small>" + brl(c.folga);
   document.getElementById("inMini").textContent  = c.pre ? "—" : money(c.caixa);
@@ -1220,7 +1262,7 @@ function renderAll(){
 
   renderChart();
   renderProjecao();
-  renderFixos();
+  renderFixos(c);
   renderBudget(c);
 }
 
@@ -1374,22 +1416,25 @@ function renderChart(){
     MESES[lo.mes] + " (" + money(lo.folga) + ")";
 }
 
-function renderFixos(){
+function renderFixos(c){
   var desp = 0, poup = 0;
   st.fixos.forEach(function(f){
-    if(!f.on) return;
+    if(!f.on || !vigente(f, c.ano, c.mes)) return;
     if(f.poupa) poup += +f.val; else desp += +f.val;
   });
   var total = desp + poup;
   var ordenados = st.fixos.slice().sort(function(a,b){ return a.dia - b.dia; });
   document.getElementById("fixos").innerHTML = ordenados.map(function(f){
+    var vig = vigente(f, c.ano, c.mes);
     var pct = desp ? (+f.val / desp * 100) : 0;
-    return '<li class="' + (f.on ? "" : "off") + (f.poupa ? " poupa" : "") + '">' +
+    var prazo = prazoTexto(f);
+    return '<li class="' + (f.on && vig ? "" : "off") + (f.poupa ? " poupa" : "") + '">' +
       '<span class="dia">' + f.dia + '<u>dia</u></span>' +
       '<span class="nome">' + esc(f.nome) + '<em>' + esc(f.cat) +
-        (f.poupa ? " · poupança" : "") + '</em></span>' +
+        (f.poupa ? " · poupança" : "") + (prazo ? " · " + prazo : "") + '</em></span>' +
       '<span class="val">' + brl(+f.val) + '</span>' +
       '<span class="share">' + (!f.on ? "desligada"
+        : !vig ? "fora do mês"
         : f.poupa ? "vira patrimônio" : pct.toFixed(0) + "% das despesas") + '</span>' +
       '<button class="toggle" type="button" data-fix="' + f.id + '" aria-label="' +
         (f.on ? "Desligar " : "Ligar ") + esc(f.nome) + '">' +
@@ -1409,7 +1454,9 @@ function renderBudget(c){
   var list = st.entries.filter(function(e){ return e.m === c.chave; })
                        .sort(function(a,b){ return (a.dia||15) - (b.dia||15); });
   var porCat = {};
-  st.fixos.forEach(function(f){ if(f.on) porCat[f.cat] = (porCat[f.cat]||0) + (+f.val); });
+  st.fixos.forEach(function(f){
+    if(f.on && vigente(f, c.ano, c.mes)) porCat[f.cat] = (porCat[f.cat]||0) + (+f.val);
+  });
   list.forEach(function(e){ porCat[e.cat] = (porCat[e.cat]||0) + (+e.val); });
 
   var cats = Object.keys(st.budgets), totalGasto = 0;
@@ -1424,7 +1471,8 @@ function renderBudget(c){
     var cls = pct > 100 ? "over" : pct >= 85 ? "near" : "ok";
     var cor = pct > 100 ? "var(--neg)" : pct >= 85 ? "var(--warn)" : "var(--accent)";
     var txt = pct > 100 ? "estourou" : tetoEf ? Math.round(pct) + "% do teto" : "sem teto";
-    var nf = st.fixos.filter(function(f){ return f.on && f.cat === cat; }).length;
+    var nf = st.fixos.filter(function(f){
+      return f.on && f.cat === cat && vigente(f, c.ano, c.mes); }).length;
     var nv = list.filter(function(e){ return e.cat === cat; }).length;
     var det = vrAbate ? "teto " + brl(teto) + " menos " + brl(vrAbate) + " de VR"
             : (nf ? nf + " fixa" + (nf === 1 ? "" : "s") : "") +
