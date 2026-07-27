@@ -688,14 +688,18 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
   </div>
 
   <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
-    <button class="btn ghost" type="button" id="btnExport">Exportar dados</button>
+    <button class="btn" type="button" id="btnCopiar">Copiar pro agente</button>
+    <button class="btn ghost" type="button" id="btnExport">Baixar arquivo</button>
     <button class="btn ghost" type="button" id="btnRecarregar">Recarregar do arquivo</button>
     <button class="btn ghost" type="button" id="btnReset">Apagar tudo</button>
   </div>
-  <p class="hint" style="margin-top:10px;max-width:60ch">
-    <b>Recarregar do arquivo</b> traz as definições publicadas no repositório —
-    fixas, categorias e tetos — mantendo o que você lançou aqui no navegador.
-    <b>Apagar tudo</b> zera inclusive esses lançamentos.
+  <textarea id="dump" readonly hidden aria-label="Dados para copiar"></textarea>
+  <p class="hint" style="margin-top:10px;max-width:62ch">
+    <b>Copiar pro agente</b> põe tudo o que está neste navegador na área de
+    transferência — é só colar na conversa pra eu gravar no arquivo.
+    <b>Recarregar do arquivo</b> traz as definições publicadas no repositório,
+    mantendo o que você lançou aqui. <b>Apagar tudo</b> zera inclusive esses
+    lançamentos.
   </p>
 </details>
 
@@ -1487,6 +1491,31 @@ document.getElementById("entries").addEventListener("click", function(e){
   var b = e.target.closest(".del"); if(!b) return;
   st.entries = st.entries.filter(function(x){ return x.id !== b.dataset.id; });
   save(); renderAll();
+});
+/* Copiar pro agente: o JSON inteiro numa tacada. Sem clipboard (contexto
+   inseguro, permissão negada), cai pro textarea já selecionado. */
+document.getElementById("btnCopiar").addEventListener("click", function(){
+  var b = this, txt = JSON.stringify(st);
+  function ok(){
+    var antes = b.textContent;
+    b.textContent = "Copiado";
+    setTimeout(function(){ b.textContent = antes; }, 1800);
+  }
+  function manual(){
+    var ta = document.getElementById("dump");
+    ta.hidden = false;
+    ta.style.cssText = "width:100%;min-height:120px;margin-top:12px;font-family:var(--mono);" +
+      "font-size:11px;background:var(--card);color:var(--ink-2);border:1px solid var(--line);" +
+      "border-radius:2px;padding:10px";
+    ta.value = txt;
+    ta.focus(); ta.select();
+    b.textContent = "Copie o texto abaixo";
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(ok, manual);
+  } else {
+    manual();
+  }
 });
 document.getElementById("btnExport").addEventListener("click", function(){
   var blob = new Blob([JSON.stringify(st, null, 2)], { type:"application/json" });
