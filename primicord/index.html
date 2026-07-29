@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>PRIMICORD — VOZ DOS PRIMITIVOS</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <link rel="icon" type="image/png" href="../apostas/primitivao-icon.png" />
+  <meta name="theme-color" content="#1c1612" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Bungee+Inline&family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" />
+  <link rel="stylesheet" href="primicord.css?v=20260729-1" />
+</head>
+<body>
+  <div id="app">
+    <div class="pc-boot display">CONECTANDO<span class="pc-dots"></span></div>
+  </div>
+
+  <!-- Firebase compat SDK (mesmo do app de apostas — global `firebase`) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+  <script>
+    // Config duplicado do apostas/index.html (mesmo projeto Firebase).
+    firebase.initializeApp({
+      apiKey: "AIzaSyB4Tu-OIAfBUfzdtY-wF9tSoBwP_36hdRg",
+      authDomain: "primitivao.firebaseapp.com",
+      projectId: "primitivao",
+      storageBucket: "primitivao.firebasestorage.app",
+      messagingSenderId: "279022752580",
+      appId: "1:279022752580:web:e5f467d6e2e83bc6cc7d11",
+    });
+    window.db = firebase.firestore();
+  </script>
+
+  <!-- App: vanilla JS, sem build step — servido cru pelo GH Pages.
+       WebRTC mesh (P2P) com signaling via Firestore (coleção rtc_rooms). -->
+  <script src="primicord.js?v=20260729-1"></script>
+</body>
+</html>
