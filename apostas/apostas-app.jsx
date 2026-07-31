@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260714-copatab1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260731-slimbets ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2102,6 +2102,14 @@ async function commitBetDocUpdate(reducer) {
     // Defensivo: limpa lixo `next` que possa ter vazado pro json em writes
     // antigos (antes desta correção). Idempotente.
     if ('next' in safe) delete safe.next;
+    // COMPACTAÇÃO (teto de 1MB): grava sempre no formato enxuto, não importa o
+    // que o reducer devolveu. Este é o ÚNICO ponto por onde o json é escrito
+    // (CLAUDE.md §2.2), então enxugar aqui cobre todos os caminhos de uma vez —
+    // inclusive o write-back, que reinjeta o estado GORDO da memória via
+    // mergeBetDocFields e senão reinflaria o doc na primeira escrita.
+    // Efeito colateral bom: a migração dos cupons antigos acontece sozinha na
+    // primeira escrita depois do deploy, sem script de migração. É idempotente.
+    safe.bets = safe.bets.map(b => slimBet(b, safe.mk && safe.mk.draw));
     const writeData = {
       json: JSON.stringify(safe),
       updatedAt: Date.now(),
@@ -2277,21 +2285,33 @@ async function restoreFromBackup(payload) {
     if (apostas != null) {
       // Separa campos top-level (que ficam siblings do `json` stringificado).
       const { interests, comments, worldcup, news, discord_webhook, ...rest } = apostas;
-      // SALVAGUARDA: dados AO VIVO que o backup pode não ter — restaurar um backup
-      // ANTIGO não deve apagar o campeonato MK em andamento (sorteio/placar/apostas).
-      // Se o backup não traz `mk` mas o doc atual tem, preserva o atual.
-      if (rest.mk == null) {
-        try {
-          const curSnap = await BET_DOC().get();
-          if (curSnap.exists && typeof curSnap.data().json === 'string') {
-            const cur = JSON.parse(curSnap.data().json);
-            if (cur && cur.mk && Array.isArray(cur.mk.draw)) rest.mk = cur.mk;
-          }
-        } catch (e) { console.warn('restore: preservar mk ao vivo falhou', e); }
+      // SALVAGUARDA: dados AO VIVO que o backup pode não ter. Este `set` é SEM
+      // merge de propósito (restore tem que poder REMOVER o que o backup não tem
+      // — com merge:true os maps seriam fundidos chave a chave e uma inscrição
+      // apagada voltaria). O preço é que todo campo omitido aqui some do doc,
+      // então tudo que o backup não traz precisa cair de volta pro valor AO VIVO.
+      let curDoc = null;
+      try {
+        const curSnap = await BET_DOC().get();
+        if (curSnap.exists) curDoc = curSnap.data() || null;
+      } catch (e) { console.warn('restore: leitura do doc ao vivo falhou', e); }
+      const curJson = (() => {
+        if (!curDoc || typeof curDoc.json !== 'string') return null;
+        try { return JSON.parse(curDoc.json); } catch (_) { return null; }
+      })();
+      // Restaurar um backup ANTIGO não deve apagar o campeonato MK em andamento.
+      if (rest.mk == null && curJson && curJson.mk && Array.isArray(curJson.mk.draw)) {
+        rest.mk = curJson.mk;
       }
       const wcSafe = (worldcup && typeof worldcup === 'object')
         ? { results: worldcup.results || {}, picks: worldcup.picks || {}, thirds: worldcup.thirds || {} }
         : { results: {}, picks: {} };
+      // Backup GORDO (anterior à compactação) reinflaria o doc pra ~884 KB e
+      // reencostaria no teto de 1MB. Enxuga na entrada — slimBet é idempotente,
+      // então backup já enxuto passa igual.
+      if (Array.isArray(rest.bets)) {
+        rest.bets = rest.bets.map(b => slimBet(b, rest.mk && rest.mk.draw));
+      }
       const setPayload = {
         json: JSON.stringify(rest),
         interests: (interests && typeof interests === 'object') ? interests : {},
@@ -2299,8 +2319,15 @@ async function restoreFromBackup(payload) {
         worldcup:  wcSafe,
         updatedAt: Date.now(),
       };
-      if (Array.isArray(news)) setPayload.news = news;
-      if (typeof discord_webhook === 'string') setPayload.discord_webhook = discord_webhook;
+      // news / discord_webhook: o backup manda; se ele não tem (formato v1, ou
+      // gerado antes desses campos existirem), cai pro valor AO VIVO. Sem esse
+      // fallback o `set` sem merge apagaria os dois do doc.
+      const newsOut = Array.isArray(news) ? news
+        : (curDoc && Array.isArray(curDoc.news) ? curDoc.news : null);
+      if (newsOut) setPayload.news = newsOut;
+      const hookOut = typeof discord_webhook === 'string' ? discord_webhook
+        : (curDoc && typeof curDoc.discord_webhook === 'string' ? curDoc.discord_webhook : null);
+      if (hookOut) setPayload.discord_webhook = hookOut;
       writes.push(BET_DOC().set(setPayload));
     }
     if (classificacao != null) {
@@ -2387,18 +2414,107 @@ async function wipeAllData() {
 function normFixture(f) {
   return { ...f, oddsBY: f.oddsBY != null ? f.oddsBY : DEF_BY, oddsBN: f.oddsBN != null ? f.oddsBN : DEF_BN };
 }
-function normBet(b) {
-  if (Array.isArray(b.legs)) return b;
-  // formato antigo (aposta simples) → vira cupom de 1 perna
-  return {
-    id: b.id, user: b.user, amount: b.amount, status: b.status || 'pending',
-    createdAt: b.createdAt || Date.now(), combinedOdds: b.odds,
-    payout: b.payout,
-    legs: [{
-      fixtureId: b.fixtureId, market: '1X2', pick: b.pick, odds: b.odds,
-      result: b.status === 'won' ? 'win' : b.status === 'lost' ? 'lose' : undefined,
-    }],
-  };
+function normBet(b, mkDraw) {
+  if (!b || typeof b !== 'object') return b;
+  if (!Array.isArray(b.legs)) {
+    // formato antigo (aposta simples) → vira cupom de 1 perna
+    return {
+      id: b.id, user: b.user, amount: b.amount, status: b.status || 'pending',
+      createdAt: b.createdAt || Date.now(), combinedOdds: b.odds,
+      payout: b.payout,
+      legs: [{
+        fixtureId: b.fixtureId, market: '1X2', pick: b.pick, odds: b.odds,
+        result: b.status === 'won' ? 'win' : b.status === 'lost' ? 'lose' : undefined,
+      }],
+    };
+  }
+  return rehydrateBet(b, mkDraw);
+}
+
+// ─── COMPACTAÇÃO DOS CUPONS (teto de 1MB do doc) ────────────────────────────
+// O doc `primitivao/apostas` bateu 95% do teto RÍGIDO de 1MB do Firestore, com
+// `bets` sendo 93% do json. Quando estourar, TODA escrita falha de uma vez —
+// aposta, login, placar. Não existe degradação suave.
+//
+// Solução: o que é DERIVÁVEL não é gravado. `slimBet` tira na escrita,
+// `rehydrateBet` devolve na leitura — então NENHUM componente de UI, conquista
+// ou ranking precisou mudar: todos continuam vendo o cupom "gordo".
+//
+// O que sai (medido contra os 1110 cupons reais em 2026-07-31):
+//   - `nick`/`stake`/`combined`  → duplicatas exatas de user/amount/combinedOdds
+//                                  (idênticas em 600/600 cupons que tinham as duas)
+//   - `leg.odd`                  → duplicata exata de `leg.odds` (3080/3080)
+//   - `leg.phase/roundN/gi`      → são os 3 componentes do fixtureId `mk:VOLTA-13-3`
+//   - `leg.home/away`            → estão no `mk.draw` (confere em 2782/2782)
+//   - flags booleanas `false`    → ausência já significa false (ninguém compara `=== false`)
+// Ganho medido: json 884 KB → 627 KB (-29%); doc 95.4% → 70.4% do teto.
+//
+// CUIDADO — legs `mkko:` (mata-mata) NÃO têm home/away removidos: o `mk.ko`
+// guarda só seeds+scores, não os confrontos. Ali a leg é o ÚNICO registro de
+// quem jogou contra quem. `mkGameOf` só casa `mk:FASE-N-GI`, então elas passam
+// intactas — não "consertar" isso sem antes persistir o chaveamento.
+const MK_FIXTURE_RE = /^mk:([A-Z]+)-(\d+)-(\d+)$/;
+
+// Confronto do MK a partir do fixtureId + sorteio. null se não der pra derivar
+// (sorteio ausente, rodada/jogo que não existe) — quem chama trata como "mantém".
+function mkGameOf(fixtureId, mkDraw) {
+  const m = MK_FIXTURE_RE.exec(fixtureId || '');
+  if (!m || !Array.isArray(mkDraw)) return null;
+  const phase = m[1], roundN = Number(m[2]), gi = Number(m[3]);
+  const r = mkDraw.find(x => x && x.phase === phase && x.n === roundN);
+  const g = r && Array.isArray(r.games) ? r.games[gi] : null;
+  return g ? { home: g.home, away: g.away, phase, roundN, gi } : null;
+}
+
+// Tira o que é derivável. FAIL-SAFE: só remove home/away/phase/roundN/gi quando
+// o sorteio devolve EXATAMENTE os mesmos valores. Se o sorteio sumir ou divergir,
+// mantém tudo — prefere um doc maior a um cupom que não dá pra reconstruir.
+function slimBet(b, mkDraw) {
+  if (!b || typeof b !== 'object' || !Array.isArray(b.legs)) return b;
+  const o = { ...b };
+  if (o.nick     === o.user)         delete o.nick;
+  if (o.stake    === o.amount)       delete o.stake;
+  if (o.combined === o.combinedOdds) delete o.combined;
+  if (o.officialBonus === false) delete o.officialBonus;
+  if (o.casada        === false) delete o.casada;
+  if (o.open          === false) delete o.open;
+  o.legs = b.legs.map(l => {
+    if (!l || typeof l !== 'object') return l;
+    const x = { ...l };
+    if (x.odd === x.odds) delete x.odd;
+    const g = mkGameOf(x.fixtureId, mkDraw);
+    if (g && g.home === x.home && g.away === x.away
+        && g.phase === x.phase && g.roundN === x.roundN && g.gi === x.gi) {
+      delete x.home; delete x.away; delete x.phase; delete x.roundN; delete x.gi;
+    }
+    return x;
+  });
+  return o;
+}
+
+// Devolve o cupom "gordo" pra UI. Inverso de slimBet — testado contra os 1110
+// cupons reais: 0 campos perdidos, e slim(rehydrate(slim(x))) === slim(x).
+function rehydrateBet(b, mkDraw) {
+  if (!b || typeof b !== 'object' || !Array.isArray(b.legs)) return b;
+  const o = { ...b };
+  if (o.nick     === undefined && o.user         !== undefined) o.nick     = o.user;
+  if (o.stake    === undefined && o.amount       !== undefined) o.stake    = o.amount;
+  if (o.combined === undefined && o.combinedOdds !== undefined) o.combined = o.combinedOdds;
+  if (o.officialBonus === undefined) o.officialBonus = false;
+  if (o.casada        === undefined) o.casada        = false;
+  if (o.open          === undefined) o.open          = false;
+  o.legs = b.legs.map(l => {
+    if (!l || typeof l !== 'object') return l;
+    const x = { ...l };
+    // liquidação do golf lê `l.odd` (não `l.odds`) — este alias mantém isso vivo
+    if (x.odd === undefined && x.odds !== undefined) x.odd = x.odds;
+    if (x.home === undefined) {
+      const g = mkGameOf(x.fixtureId, mkDraw);
+      if (g) { x.home = g.home; x.away = g.away; x.phase = g.phase; x.roundN = g.roundN; x.gi = g.gi; }
+    }
+    return x;
+  });
+  return o;
 }
 
 // ─── LÓGICA DE TICKETS ──────────────────────────────────────────────────────
@@ -4078,10 +4194,14 @@ function App() {
         setDiscordWebhook(typeof docData.discord_webhook === 'string' ? docData.discord_webhook : '');
         setRemoteNews(Array.isArray(docData.news) ? docData.news : null);
         isApplyingRemoteRef.current = true;
+        // Sorteio do MK — precisa vir ANTES do setShared: é a fonte que
+        // rehidrata home/away/phase/roundN/gi das legs enxutas (ver slimBet).
+        // NB: `.map(normBet)` passaria o ÍNDICE como 2º arg — tem que ser arrow.
+        const mkDrawForBets = (remote.mk && Array.isArray(remote.mk.draw)) ? remote.mk.draw : null;
         setShared({
           users:        remote.users && typeof remote.users === 'object' ? remote.users : {},
           fixtures:     Array.isArray(remote.fixtures) ? remote.fixtures.map(normFixture) : DEFAULT_FIXTURES,
-          bets:         Array.isArray(remote.bets) ? remote.bets.map(normBet) : [],
+          bets:         Array.isArray(remote.bets) ? remote.bets.map(b => normBet(b, mkDrawForBets)) : [],
           interests,
           comments,
           worldcup,

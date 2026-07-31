@@ -150,11 +150,25 @@ function isValidApostasDoc(data) {
     && payloadFits(data);
 }
 
-// Limita payload total a ~1MB. O real fica em ~50KB, isso é só safety net
-// contra atacante tentando estourar quota do Firestore.
+// Teto de tamanho do `json`.
+//
+// ATENÇÃO: o limite de 1MB do Firestore é POR DOCUMENTO, não por campo. Os
+// siblings do `json` (worldcup, news, interests, comments, discord_webhook)
+// contam junto. Medido em 2026-07-31: json 884 KB + siblings 93 KB = 977 KB,
+// ou seja 95.4% do teto — e a versão anterior desta função (`< 1048576`)
+// deixava passar um json de 1 MB que o Firestore rejeitaria de qualquer jeito.
+// Resultado: o app quebrava com falha de escrita crua em vez de erro previsível.
+//
+// 953000 é o orçamento REAL do json com os siblings de hoje
+// (1048576 - 95379 de siblings/overhead = 953197).
+//
+// Não abaixar isso sem antes confirmar que os clientes já migraram: uma aba com
+// JS em cache antigo ainda escreve o formato gordo (905 KB) e passaria a falhar
+// toda escrita. Depois que a compactação (slimBet) estiver no ar e o doc estiver
+// em ~627 KB, dá pra apertar pra ~700000.
 function payloadFits(data) {
   return data.json is string
-    && data.json.size() < 1048576;
+    && data.json.size() < 953000;
 }
 
 // Mensagem de chat válida: autor, texto e horário, com tamanhos sãos.
