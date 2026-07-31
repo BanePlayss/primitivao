@@ -80,6 +80,29 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // PRIMICORD (app nativo de voz) — coleção pc_rooms.
+    // Aqui NÃO passa mídia: a voz vai P2P direto entre os PCs. O Firestore só serve
+    // de "ponto de encontro" — que salas existem, quem está em cada uma, e o IP:porta
+    // público de cada um pra fazer o hole punching. Tudo efêmero: se alguém apagar,
+    // o pior caso é a sala cair e ser recriada. Por isso a postura é mais frouxa que
+    // a dos docs de apostas (que são a fonte de verdade e nunca podem ser apagados).
+    match /pc_rooms/{roomId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.name is string
+        && request.resource.data.name.size() <= 40
+        && request.resource.data.size() <= 8;
+      allow delete: if true;   // sala vazia pode ser fechada pelo app
+
+      // Presença + endereços pro hole punching. Cada peer só escreve o próprio doc
+      // (o id é gerado por sessão), e o doc é pequeno e descartável.
+      match /peers/{peerId} {
+        allow read, delete: if true;
+        allow create, update: if request.resource.data.size() <= 12
+          && (!('nick' in request.resource.data)
+              || (request.resource.data.nick is string && request.resource.data.nick.size() <= 30));
+      }
+    }
+
     // Tudo mais é negado por padrão (defensivo contra futuras coleções).
     match /{document=**} {
       allow read, write: if false;
