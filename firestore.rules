@@ -80,37 +80,6 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // PRIMICORD (salas de voz WebRTC) — coleção rtc_rooms.
-    // Dados EFÊMEROS de sinalização/presença/chat: nada aqui é fonte de verdade
-    // (as chamadas são P2P; se apagarem tudo, o pior caso é cair a sala).
-    // Por isso a postura é diferente dos docs de apostas: escrita e delete
-    // liberados DENTRO do namespace, com limite de tamanho como safety net.
-    match /rtc_rooms/{roomId} {
-      // doc da sala: { name, createdBy, createdAt }
-      allow read: if true;
-      allow create, update: if request.resource.data.name is string
-        && request.resource.data.name.size() <= 40
-        && request.resource.data.size() <= 8;
-      allow delete: if true; // sala vazia pode ser fechada pelo app
-
-      // peers/ (presença), mail/ (sinalização SDP/ICE), chat/ (mensagens).
-      // O Firestore já limita cada doc a 1MB; aqui só travamos campo gigante
-      // no chat pra evitar spam bobo.
-      match /peers/{peerId} {
-        allow read, write: if true;
-      }
-      match /mail/{pairId} {
-        allow read, write: if true;
-      }
-      match /chat/{msgId} {
-        allow read, delete: if true;
-        allow create, update: if request.resource.data.text is string
-          && request.resource.data.text.size() <= 500
-          && request.resource.data.nick is string
-          && request.resource.data.nick.size() <= 30;
-      }
-    }
-
     // Tudo mais é negado por padrão (defensivo contra futuras coleções).
     match /{document=**} {
       allow read, write: if false;

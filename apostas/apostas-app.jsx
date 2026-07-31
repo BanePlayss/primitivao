@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260729-primicord1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260714-copatab1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6307,9 +6307,6 @@ function App() {
 // ─── TOP BAR / TABS ─────────────────────────────────────────────────────────
 function TopBar({ nick, pc, cc, isAdmin, isMod, onLogout, view, onView, teamPlayers, myCosmetics }) {
   const goDiscord = () => window.open('https://discord.gg/CgjuJSYW5u', '_blank', 'noopener,noreferrer');
-  // PRIMICORD: nosso "Discord caseiro" (salas de voz + tela + clipes) — página
-  // irmã em /primicord/, abre em aba própria pra chamada sobreviver à navegação.
-  const goPrimicord = () => window.open('../primicord/', '_blank', 'noopener,noreferrer');
   return (
     <div className="topbar">
       <div
@@ -6337,9 +6334,6 @@ function TopBar({ nick, pc, cc, isAdmin, isMod, onLogout, view, onView, teamPlay
         {!HIDDEN_VIEWS.has('loja') && <button className={'pnav ' + (view === 'loja' ? 'active' : '')} onClick={() => onView && onView('loja')}>MERCADINHO</button>}
         <button className="pnav pnav-ext" onClick={goDiscord} title="Abre em nova aba">
           DISCORD <span className="pnav-ext-icon"><Icon name="arrow-up-right" size={12} /></span>
-        </button>
-        <button className="pnav pnav-ext" onClick={goPrimicord} title="Salas de voz do grupo — abre em nova aba">
-          PRIMICORD <span className="pnav-ext-icon"><Icon name="arrow-up-right" size={12} /></span>
         </button>
         <button className={'pnav ' + (view === 'perfil' ? 'active' : '')} onClick={() => onView && onView('perfil')}>MEU PERFIL</button>
         {isMod && <button className={'pnav ' + (view === 'mod' ? 'active' : '')} onClick={() => onView && onView('mod')}>MOD</button>}
@@ -7383,10 +7377,6 @@ function MobileNav({ view, setView, isAdmin, mkInscrito, isMod }) {
     window.open('https://discord.gg/CgjuJSYW5u', '_blank', 'noopener,noreferrer');
     setOpen(false);
   };
-  const goPrimicord = () => {
-    window.open('../primicord/', '_blank', 'noopener,noreferrer');
-    setOpen(false);
-  };
 
   return (
     <div className="tabs-mobile">
@@ -7423,10 +7413,6 @@ function MobileNav({ view, setView, isAdmin, mkInscrito, isMod }) {
           <button role="menuitem" className="tabs-drawer-item" onClick={goDiscord}>
             <span className="tabs-drawer-ico"><Icon name="chat" size={17} /></span>
             DISCORD
-          </button>
-          <button role="menuitem" className="tabs-drawer-item" onClick={goPrimicord}>
-            <span className="tabs-drawer-ico"><Icon name="phone" size={17} /></span>
-            PRIMICORD
           </button>
         </div>
       )}
