@@ -103,6 +103,35 @@ service cloud.firestore {
       }
     }
 
+    // PRIMICORD — presença global (quem está com o app aberto e em que sala).
+    // Um doc por nick, sobrescrito por heartbeat a cada ~20s. Puramente efêmero.
+    match /pc_presence/{nick} {
+      allow read, delete: if true;
+      allow create, update: if request.resource.data.size() <= 6
+        && request.resource.data.lastSeen is int;
+    }
+
+    // PRIMICORD — chat do canal geral.
+    // ATENÇÃO: mensagens NÃO podem ser editadas nem apagadas por aqui (update/delete
+    // negados) — sem Firebase Auth a rules não sabe quem está pedindo, então liberar
+    // update deixaria qualquer um reescrever a fala dos outros.
+    match /pc_chat/{channel}/msgs/{msgId} {
+      allow read: if true;
+      allow create: if isValidChatMsg(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    // PRIMICORD — mensagens diretas entre dois membros.
+    // PRIVACIDADE: a leitura é PÚBLICA. Sem Firebase Auth não há como a rules provar
+    // quem é o solicitante, então qualquer um com a apiKey consegue ler as conversas.
+    // Serve pra combinar jogo, não pra segredo — o app avisa isso no topo da DM.
+    // Fechar isso de verdade exige Firebase Auth (ver PRÓXIMO PASSO no topo).
+    match /pc_dm/{pair}/msgs/{msgId} {
+      allow read: if true;
+      allow create: if isValidChatMsg(request.resource.data);
+      allow update, delete: if false;
+    }
+
     // Tudo mais é negado por padrão (defensivo contra futuras coleções).
     match /{document=**} {
       allow read, write: if false;
@@ -126,6 +155,16 @@ function isValidApostasDoc(data) {
 function payloadFits(data) {
   return data.json is string
     && data.json.size() < 1048576;
+}
+
+// Mensagem de chat válida: autor, texto e horário, com tamanhos sãos.
+// (usada pelo canal geral e pelas DMs do Primicord)
+function isValidChatMsg(data) {
+  return data.keys().hasAll(['nick', 'text', 'at'])
+    && data.size() <= 5
+    && data.nick is string && data.nick.size() > 0 && data.nick.size() <= 30
+    && data.text is string && data.text.size() > 0 && data.text.size() <= 500
+    && data.at is int;
 }
 
 // Não permite zerar dados quando antes tinha conteúdo. Os maps/arrays
