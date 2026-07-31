@@ -5,6 +5,45 @@
 
 ---
 
+## STATUS — o que já foi feito (2026-07-31)
+
+| fase | estado |
+|---|---|
+| Fase 0 — backup | **FEITO** — `backups/2026-07-31-pre-compaction.json` |
+| Fase 0 — `payloadFits` | **FEITO no repo** — falta Lucas PUBLICAR a rules no Console |
+| Fase 2 — compactar (`slimBet`) | **FEITO e no ar** — doc 95.4% → 70.4% |
+| Fase 1 — mover `worldcup`/`news` | pendente (+86.3 KB quando precisar) |
+| Fase 3 — arquivamento + agregado | pendente (fazer no fim da temporada) |
+
+A compactação entrou como `slimBet`/`rehydrateBet` em `apostas-app.jsx`: o que é
+derivável não é gravado, e é devolvido na leitura pelo `normBet` — por isso
+nenhum componente de UI, conquista ou ranking precisou mudar.
+
+Verificação feita contra os 1110 cupons REAIS (offline e dentro do navegador):
+
+- roundtrip `slim → rehydrate`: **0 campos perdidos**
+- `slimBet` idempotente; ciclo de write-back estável
+- 2782 legs `mk:` enxugadas, **0** legs `mkko:` tocadas (proposital)
+- `betProfileStats`, `seasonBettingRanking`, `maxBetStreak`, `betKingChamps`:
+  **0 divergências** nos 18 jogadores
+- 58 predicados de `ACH` × 18 jogadores = 576 avaliações, 268 verdadeiras hoje:
+  **0 divergências**
+- rótulos de perna idênticos nos 4 tipos (mk, mkko, gwyf, fifa)
+- fail-safe segura sem sorteio e com sorteio divergente; entradas degeneradas
+  não lançam
+
+**A migração roda sozinha na primeira escrita depois do deploy** (a compactação
+vive no `commitBetDocUpdate`, o único ponto de escrita do json). Não há script de
+migração pra rodar. Enquanto ninguém escrever, o doc segue gordo — e seguro,
+porque o guard e o teto continuam valendo.
+
+> **PENDENTE PRA LUCAS:** publicar `firestore.rules` no Console
+> (Firestore Database → Rules → Publish). Sem isso o `payloadFits` corrigido não
+> vale — mas nada quebra por causa disso; é só a rede de proteção que continua
+> frouxa até lá.
+
+---
+
 ## 0. Correção da premissa (importante)
 
 O limite de 1 MB do Firestore é **por documento**, não por campo. A conta oficial
