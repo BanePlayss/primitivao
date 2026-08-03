@@ -5982,3 +5982,6 @@
     .lol-fld { display: flex; align-items: center; gap: 4px; margin-bottom: 3px; }
     .lol-fld-l { flex: 1; font-size: 8.5px; font-weight: 800; letter-spacing: 0.06em; color: rgba(28,22,18,0.55); }
     .lol-fld .lol-w { padding: 2px 6px; font-size: 9px; min-width: 34px; }
+
+    .lol-aviso { display: flex; align-items: flex-start; gap: 9px; background: rgba(215,100,20,0.12); border-left: 3px solid var(--pv-orange); padding: 11px 13px; margin-bottom: 16px; font-size: 12px; line-height: 1.45; color: var(--pv-charcoal); }
+    .lol-aviso svg { flex-shrink: 0; margin-top: 1px; color: var(--pv-orange); }

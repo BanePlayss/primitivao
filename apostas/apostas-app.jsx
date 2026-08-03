@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260803-lolmd2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260803-lolapostas ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6224,7 +6224,7 @@ function App() {
               <>
               {/* LANÇAR RESULTADOS (só mod). No MK o lançamento fica DENTRO de cada
                   card travado (ver MkBettingView); aqui só pra FIFA/ligas legadas. */}
-              {isMod && apostasChampId !== 'mk' && (
+              {isMod && apostasChampId !== 'mk' && apostasChampId !== 'lol' && (
                 <ResultLauncherPanel champId={apostasChampId}
                   mkDraw={mkDraw} mkScores={mkScores} mkLineups={mkLineups} onMkScore={setMkScoreField}
                   cs={cs} onFifaScore={setFifaScore} teamPlayers={teamPlayers || {}} />
@@ -6290,6 +6290,20 @@ function App() {
                     onKoGame={setMkKoGame} onKoField={setMkKoField}
                   />
                 </>
+              ) : (apostasChampId === 'lol') ? (
+                // LoL na aba APOSTAS: os confrontos do grupo com o LANÇAMENTO do
+                // mod ali mesmo (pedido do dono) — sem precisar ir em CAMPEONATOS.
+                // Sem esta branch o LoL caía no ApostarView, que é da FIFA e
+                // mostrava os jogos errados.
+                <LolView
+                  interests={interests || {}}
+                  teamPlayers={teamPlayers || {}}
+                  session={session}
+                  onToggleInterest={() => toggleInterest('lol')}
+                  scores={lolScores} ko={lolKo}
+                  onResult={setLolResult} onPublishKo={publishLolKo} onKoResult={setLolKoResult}
+                  isMod={isMod} users={users} mode="apostas"
+                />
               ) : (apostasChampId === 'gwyf') ? (
                 // GOLF na aba APOSTAS = SÓ aposta (classificação/rodadas ficam em
                 // CAMPEONATOS). Card de aposta por mapa (mercado VENCEDOR DO MAPA).
@@ -7301,7 +7315,8 @@ function golfLegResult(market, pick, side, mapN, scores, props, players, finaliz
 // CLASSIFICAÇÃO do grupo + RODADAS (todos-x-todos) + MATA-MATA.
 // A tabela sai do lolRoundRobin(inscritos) — determinística, não persistida.
 function LolView({ interests, teamPlayers, session, onToggleInterest, scores, ko,
-                   onResult, onPublishKo, onKoResult, isMod, users }) {
+                   onResult, onPublishKo, onKoResult, isMod, users, mode }) {
+  const emApostas = mode === 'apostas';
   const players = lolField(interests || {});
   const rounds = lolRoundRobin(players);
   const stand = computeLolStandings(players, rounds, scores);
@@ -7360,6 +7375,16 @@ function LolView({ interests, teamPlayers, session, onToggleInterest, scores, ko
           </button>
         )}
       </div>
+
+      {emApostas && !finalOrder && (
+        <div className="lol-aviso">
+          <Icon name="warning" size={14} />
+          <span>
+            Os <strong>mercados de aposta</strong> do LoL ainda estão sendo construídos.
+            {isMod ? ' Enquanto isso, lance os resultados dos confrontos aqui mesmo.' : ' Os confrontos do grupo já estão definidos abaixo.'}
+          </span>
+        </div>
+      )}
 
       {finalOrder && (
         <div className="lol-champ-banner">
