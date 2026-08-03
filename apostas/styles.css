@@ -5866,3 +5866,46 @@
     .golf-lock-st svg { flex-shrink: 0; }
     .golf-lock-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--pv-charcoal); color: var(--pv-bone); border: none; padding: 9px 16px; font-weight: 800; font-size: 11px; letter-spacing: 0.06em; cursor: pointer; }
     .golf-lock-btn.on { background: transparent; color: var(--pv-charcoal); border: 1.5px solid rgba(28,22,18,0.3); }
+
+    /* ─── HISTÓRICO DE TEMPORADA ENCERRADA (aba APOSTAS) ─────────────────────
+       Painel só-leitura que substitui o card de aposta quando o usuário clica
+       num campeonato ENCERRADO no trilho. Card claro como os demais — texto
+       sempre charcoal (regra do tema escuro). */
+    .hist-panel { background: var(--pv-bone); border: 2px solid var(--pv-charcoal); box-shadow: 6px 6px 0 rgba(28,22,18,0.18); padding: 18px; color: var(--pv-charcoal); }
+    .hist-head { display: flex; align-items: center; gap: 12px; border-bottom: 2px solid rgba(28,22,18,0.15); padding-bottom: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+    .hist-ic { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; background: var(--champ-color, var(--pv-orange)); color: var(--pv-bone); flex-shrink: 0; }
+    .hist-title { flex: 1; min-width: 150px; }
+    .hist-name { font-family: 'Bungee Inline', system-ui, sans-serif; font-size: 19px; line-height: 1.1; color: var(--pv-charcoal); }
+    .hist-sub { font-size: 10px; font-weight: 800; letter-spacing: 0.18em; color: rgba(28,22,18,0.55); margin-top: 4px; }
+    .hist-back { display: inline-flex; align-items: center; gap: 6px; background: var(--pv-charcoal); color: var(--pv-bone); border: none; padding: 9px 14px; font-weight: 800; font-size: 10.5px; letter-spacing: 0.08em; cursor: pointer; }
+    .hist-back:hover { background: var(--pv-orange); }
+
+    .hist-kings { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .hist-king { border: 2px solid var(--pv-charcoal); padding: 12px 14px; background: rgba(28,22,18,0.03); }
+    .hist-king-lbl { display: inline-flex; align-items: center; gap: 6px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.16em; color: rgba(28,22,18,0.6); }
+    .hist-king-nick { display: flex; align-items: center; gap: 8px; background: none; border: none; padding: 8px 0 4px; font-family: 'Bungee Inline', system-ui, sans-serif; font-size: 15px; color: var(--pv-charcoal); cursor: pointer; }
+    .hist-king-nick:hover { color: var(--pv-orange); }
+    .hist-king-val { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px; }
+    .hist-king-val.good { color: var(--pv-green); }
+    .hist-king-val.bad  { color: var(--pv-red); }
+
+    .hist-sec-h { display: flex; align-items: center; gap: 10px; font-size: 10px; font-weight: 800; letter-spacing: 0.2em; color: rgba(28,22,18,0.6); border-bottom: 1.5px solid rgba(28,22,18,0.15); padding-bottom: 7px; margin: 20px 0 10px; }
+    .hist-count { background: var(--pv-charcoal); color: var(--pv-bone); padding: 2px 7px; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0; }
+    .hist-mypos { margin-left: auto; letter-spacing: 0.06em; color: var(--pv-orange); text-transform: none; }
+    .hist-empty { font-size: 12px; color: rgba(28,22,18,0.55); padding: 14px 0; }
+
+    .hist-rank { display: flex; flex-direction: column; }
+    .hist-row { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: none; border-bottom: 1px solid rgba(28,22,18,0.1); padding: 8px 4px; cursor: pointer; text-align: left; color: var(--pv-charcoal); }
+    .hist-row:hover { background: rgba(215,100,20,0.08); }
+    .hist-row.me { background: rgba(215,100,20,0.12); }
+    .hist-pos { width: 22px; font-size: 12px; font-weight: 700; color: rgba(28,22,18,0.5); flex-shrink: 0; }
+    .hist-nick { flex: 1; font-weight: 700; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hist-wl { font-size: 11px; color: rgba(28,22,18,0.55); flex-shrink: 0; }
+    .hist-lucro { font-size: 12.5px; font-weight: 700; min-width: 78px; text-align: right; flex-shrink: 0; }
+    .hist-lucro.good { color: var(--pv-green); }
+    .hist-lucro.bad  { color: var(--pv-red); }
+
+    @media (max-width: 560px) {
+      .hist-panel { padding: 13px; }
+      .hist-wl { display: none; }
+    }

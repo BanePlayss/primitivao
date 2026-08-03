@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260803-golfclose ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260803-hist ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3666,6 +3666,12 @@ function App() {
   const [slip, setSlip]     = useState([]); // [{fixtureId='rXgY', market, pick, odds}]
   const [synced, setSynced] = useState(false);
   const [championship, setChampionship] = useState('fifa');
+  // APOSTAS: campeonato ENCERRADO que o usuário está folheando (histórico, só
+  // leitura). null = modo aposta normal. É uma seleção SEPARADA do
+  // `apostasChampId` DE PROPÓSITO: aquele carimba o `champId` do cupom, e não
+  // existe guarda de servidor contra apostar em campeonato fechado — se ele
+  // pudesse apontar pra um encerrado, dava pra apostar em resultado já conhecido.
+  const [histChampId, setHistChampId] = useState(null);
   // MEU JOGO (escalar): abre como JANELA (modal) por cima de JOGOS ao clicar VER MEUS JOGOS.
   const [meuJogoOpen, setMeuJogoOpen] = useState(false);
   // Perfil de outro jogador num modal (clicou no nome/foto nas apostas).
@@ -6164,7 +6170,8 @@ function App() {
               <div className="champ-layout champ-layout--apostas">
                 {/* ESQUERDA: onde apostar + MEUS TICKETS resuminho. */}
                 <div className="apostas-leftcol">
-                  <ChampSidebar value={apostasChampId} onChange={setChampionship} cs={cs} interests={interests || {}} mode="apostas" />
+                  <ChampSidebar value={apostasChampId} onChange={setChampionship} cs={cs} interests={interests || {}} mode="apostas"
+                    histValue={histChampId} onSelectClosed={setHistChampId} />
                   {/* MEUS TICKETS sobem; MEU JOGO desce (ordem pedida). */}
                   {!isAdmin && (
                     <TicketsMini bets={(bets || []).filter(b => b.user === session.nick && ((b.champId || 'fifa') === apostasChampId || (apostasChampId === 'mk' && b.champId === 'mkko')))} limit={6} onOpen={() => setView('tickets')} />
@@ -6178,9 +6185,20 @@ function App() {
                     />
                   )}
                 </div>
-                {/* CENTRO: a box de apostar grande (grid com todos os confrontos). */}
+                {/* CENTRO: a box de apostar grande (grid com todos os confrontos).
+                    Se o usuário clicou num ENCERRADO no trilho, o centro vira o
+                    histórico daquela temporada — só leitura, sem nenhum controle
+                    de aposta (o resultado já é conhecido). */}
                 <div className="champ-main">
-                  {(apostasChampId === 'mk') ? (
+                  {histChampId ? (
+                    <ChampHistoryPanel
+                      champId={histChampId}
+                      bets={bets} users={users} teamPlayers={teamPlayers || {}}
+                      myNick={session.nick}
+                      onClose={() => setHistChampId(null)}
+                      onOpenBetProfile={setBetProfileNick}
+                    />
+                  ) : (apostasChampId === 'mk') ? (
                     // APOSTAS do MK (valendo PC). MK é ativo — todo mundo aposta aqui.
                     <>
                       <ChampHeader value={apostasChampId} onChange={setChampionship} interests={interests || {}} bare activeOnly />
@@ -6236,7 +6254,7 @@ function App() {
                     A CLASSIFICAÇÃO do campeonato em si mora em CAMPEONATOS. */}
                 <aside className="apostas-rankcol">
                   <RankingView users={users} bets={bets} me={session.nick}
-                    teamPlayers={teamPlayers || {}} cs={cs} lockChamp={apostasChampId} compact onOpenBetProfile={setBetProfileNick} />
+                    teamPlayers={teamPlayers || {}} cs={cs} lockChamp={histChampId || apostasChampId} compact onOpenBetProfile={setBetProfileNick} />
                 </aside>
               </div>
               </>
@@ -6634,7 +6652,7 @@ function champStatusFor(c, cs) {
 // dourada). Cada item usa a cor/ícone do tabloide. `mode='apostas'` esconde os
 // "em breve" (não dá pra apostar) e deixa os encerrados só pra referência (sem
 // clique). No mobile o sidebar some (CSS) e o ChampHeader vira o switcher.
-function ChampSidebar({ value, onChange, cs, interests, mode }) {
+function ChampSidebar({ value, onChange, cs, interests, mode, histValue, onSelectClosed }) {
   const withStatus = CHAMPIONSHIPS.map(c => ({ c, g: champStatusFor(c, cs) }));
   const apostas = mode === 'apostas';
   const groups = [
@@ -6650,17 +6668,29 @@ function ChampSidebar({ value, onChange, cs, interests, mode }) {
           <div className="champ-grp-h">{grp.label}</div>
           {withStatus.filter(x => x.g === grp.key).map(({ c, g }) => {
             const th = tabloidTheme(c.id);
-            const sel = c.id === value;
+            // Em APOSTAS, um encerrado fica "selecionado" pelo histórico
+            // (histValue), não pelo `value` — que só aponta pro apostável.
+            const sel = apostas && g === 'closed' ? c.id === histValue
+                      : c.id === value && !(apostas && histValue);
             const count = Object.keys((interests && interests[c.id]) || {}).length;
-            const disabled = apostas && g !== 'active';
-            const sub = g === 'closed' ? 'encerrado' : g === 'soon' ? (count > 0 ? count + ' inscritos' : 'em breve') : 'em andamento';
+            // Encerrado agora é CLICÁVEL em APOSTAS: abre o histórico (só leitura).
+            // Continua bloqueado o "em breve" — nele não há nada pra ver.
+            const disabled = apostas && g === 'soon';
+            const sub = g === 'closed' ? (apostas ? 'ver histórico' : 'encerrado')
+                      : g === 'soon' ? (count > 0 ? count + ' inscritos' : 'em breve')
+                      : 'em andamento';
             return (
               <button
                 key={c.id}
                 type="button"
                 className={'champ-item champ-item-' + g + (sel ? ' sel' : '') + (disabled ? ' dis' : '')}
                 style={{ '--champ-color': th.color }}
-                onClick={() => { if (!disabled) onChange(c.id); }}
+                onClick={() => {
+                  if (disabled) return;
+                  // APOSTAS: encerrado abre o histórico; ativo volta pro modo aposta.
+                  if (apostas && onSelectClosed) { onSelectClosed(g === 'closed' ? c.id : null); }
+                  if (g !== 'closed') onChange(c.id);
+                }}
                 disabled={disabled}
                 aria-current={sel ? 'true' : undefined}
               >
@@ -10684,6 +10714,95 @@ function seasonBettingRanking(champId, bets) {
   return Object.values(stat)
     .map(s => ({ ...s, lucro: s.retorno - s.stakeResolvido }))
     .sort((a, b) => b.lucro - a.lucro || b.vit - a.vit || a.apostas - b.apostas);
+}
+
+// HISTÓRICO de um campeonato ENCERRADO dentro da aba APOSTAS (só leitura).
+// Não renderiza NENHUM controle de aposta de propósito: o campeonato já tem
+// resultado conhecido, e não existe guarda de servidor contra apostar em
+// campeonato fechado (ver histChampId no App). Aqui só se olha o que passou.
+function ChampHistoryPanel({ champId, bets, users, teamPlayers, myNick, onClose, onOpenBetProfile }) {
+  const champ = CHAMPIONSHIPS.find(c => c.id === champId);
+  if (!champ) return null;
+  const th = tabloidTheme(champId);
+  // MK guarda as apostas do mata-mata num champId próprio (mkko) — junta as duas.
+  const ids = champId === 'mk' ? ['mk', 'mkko'] : [champId];
+  const mine = (bets || []).filter(b => b.user === myNick && ids.indexOf(b.champId || 'fifa') >= 0);
+  const rank = seasonBettingRanking(champId, bets);
+  const rei = rank.length ? rank[0] : null;
+  const mico = rank.length > 1 ? rank[rank.length - 1] : null;
+  const meuPos = rank.findIndex(r => r.nick === myNick);
+  // compactPC devolve só o módulo (1.53M, 391K...) — o sinal é por conta daqui,
+  // igual ao RankingView. O número exato fica no title.
+  const fmt = (n) => (n > 0 ? '+' : n < 0 ? '-' : '') + compactPC(n) + ' PC';
+  const exact = (n) => (n > 0 ? '+' : '') + Number(n).toLocaleString('pt-BR') + ' PC';
+  return (
+    <div className="hist-panel" style={{ '--champ-color': th.color }}>
+      <div className="hist-head">
+        <span className="hist-ic"><ChampIcon champId={champId} size={26} /></span>
+        <div className="hist-title">
+          <div className="hist-name">{champShort(champ)}</div>
+          <div className="hist-sub">TEMPORADA ENCERRADA · {champ.season}</div>
+        </div>
+        <button type="button" className="hist-back" onClick={onClose}>
+          <Icon name="arrow-right" size={14} /> VOLTAR PRA APOSTAR
+        </button>
+      </div>
+
+      {rei && (
+        <div className="hist-kings">
+          <div className="hist-king">
+            <div className="hist-king-lbl"><Icon name="crown" size={13} /> REI DAS APOSTAS</div>
+            <button type="button" className="hist-king-nick" onClick={() => onOpenBetProfile && onOpenBetProfile(rei.nick)}>
+              <Avatar nick={rei.nick} teamPlayers={teamPlayers} size={26} /> {rei.nick}
+            </button>
+            <div className="hist-king-val good" title={exact(rei.lucro)}>{fmt(rei.lucro)}</div>
+          </div>
+          {mico && (
+            <div className="hist-king hist-king-bad">
+              <div className="hist-king-lbl"><Icon name="toilet" size={13} /> MICO DA TEMPORADA</div>
+              <button type="button" className="hist-king-nick" onClick={() => onOpenBetProfile && onOpenBetProfile(mico.nick)}>
+                <Avatar nick={mico.nick} teamPlayers={teamPlayers} size={26} /> {mico.nick}
+              </button>
+              <div className="hist-king-val bad" title={exact(mico.lucro)}>{fmt(mico.lucro)}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="hist-sec-h">CLASSIFICAÇÃO FINAL DAS APOSTAS</div>
+      {rank.length === 0 ? (
+        <div className="hist-empty">Ninguém apostou nesta temporada.</div>
+      ) : (
+        <div className="hist-rank">
+          {rank.map((r, i) => (
+            <button
+              key={r.nick}
+              type="button"
+              className={'hist-row' + (r.nick === myNick ? ' me' : '')}
+              onClick={() => onOpenBetProfile && onOpenBetProfile(r.nick)}
+            >
+              <span className="hist-pos mono">{i + 1}</span>
+              <Avatar nick={r.nick} teamPlayers={teamPlayers} size={22} />
+              <span className="hist-nick">{r.nick}</span>
+              <span className="hist-wl mono">{r.vit}V · {r.der}D</span>
+              <span className={'hist-lucro mono ' + (r.lucro >= 0 ? 'good' : 'bad')} title={exact(r.lucro)}>{fmt(r.lucro)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="hist-sec-h">
+        MEUS CUPONS NESTA TEMPORADA
+        <span className="hist-count">{mine.length}</span>
+        {meuPos >= 0 && <span className="hist-mypos">você ficou em {meuPos + 1}º</span>}
+      </div>
+      {mine.length === 0 ? (
+        <div className="hist-empty">Você não apostou nesta temporada.</div>
+      ) : (
+        <TicketsMini bets={mine} limit={mine.length} />
+      )}
+    </div>
+  );
 }
 
 // Resumo de apostas de um nick (TODAS as seasons) — pro perfil de apostas.
