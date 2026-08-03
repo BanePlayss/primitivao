@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260731-slimbets ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260803-golffix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2053,6 +2053,21 @@ async function commitBetDocUpdate(reducer) {
       if (data.interests && typeof data.interests === 'object') {
         topInterests = data.interests;
       }
+    }
+    // REIDRATA ANTES DE CHAMAR O REDUCER — NÃO REMOVER.
+    // O doc guarda os cupons no formato ENXUTO (ver slimBet). Os reducers leem o
+    // estado CRU do doc, não o estado da memória, então sem isto eles enxergam
+    // campos derivados como `undefined`.
+    // Isto já custou dinheiro: a liquidação do golf faz `eff *= (l.odd || 1)` e,
+    // com `odd` compactado, todo cupom vencedor do golf pagou odd 1.0 — só a
+    // aposta de volta, prêmio nenhum. Pior: a reversão do prêmio antigo bate num
+    // `Math.max(0, ...)`, então os saldos foram TRUNCADOS EM ZERO e o valor
+    // anterior se perdeu (não dá pra recuperar re-liquidando).
+    // Reidratar aqui devolve a premissa que todo reducer sempre teve (dado gordo)
+    // e mata a classe inteira do bug, não só o caso do golf. A escrita continua
+    // enxuta porque slimBet roda no fim, sobre `safe.bets`.
+    if (Array.isArray(cur.bets)) {
+      cur.bets = cur.bets.map(b => rehydrateBet(b, cur.mk && cur.mk.draw));
     }
     // 2º arg = interests AUTORITATIVO (top-level do Firestore, lido nesta transação).
     // Reducers que precisam do campo real (ex: roster/odds do golf) usam ESSE, nunca
