@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260803-golffix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260803-oddkeep ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -2496,7 +2496,14 @@ function slimBet(b, mkDraw) {
   o.legs = b.legs.map(l => {
     if (!l || typeof l !== 'object') return l;
     const x = { ...l };
-    if (x.odd === x.odds) delete x.odd;
+    // `odd` FICA GRAVADO de propósito, mesmo sendo cópia exata de `odds`.
+    // Compactar ele quebrou a liquidação do golf (`eff *= (l.odd || 1)`) e,
+    // pior, criou um CABO DE GUERRA: aba com JS antigo lia undefined,
+    // recalculava o prêmio errado e reescrevia o doc a cada poucos segundos,
+    // brigando com as abas novas e fazendo o saldo derivar a cada ciclo.
+    // Reidratar na entrada do reducer conserta o cliente NOVO, mas não o
+    // que está com bundle em cache. Manter o campo faz os dois concordarem.
+    // Custa ~29 KB de ~300 KB de folga — barato demais pra pagar de novo.
     const g = mkGameOf(x.fixtureId, mkDraw);
     if (g && g.home === x.home && g.away === x.away
         && g.phase === x.phase && g.roundN === x.roundN && g.gi === x.gi) {
