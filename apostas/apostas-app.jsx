@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260803-oddkeep ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260803-golfclose ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -5848,6 +5848,9 @@ function App() {
   // dos filhos): fecha o MK (champStatusFor) + dá os troféus do mata-mata
   // (trophiesForNick / betKingChamps) sem threadear o mkKo pela árvore toda.
   _mkChampData = { draw: mkDraw, scores: mkScores, ko: mkKo, players: mkInscritos(interests || {}) };
+  // Idem pro GOLF: fecha o campeonato (champStatusFor) + dá os troféus da
+  // temporada (trophiesForNick / betKingChamps) sem threadear o placar.
+  _gwyfChampData = { scores: golfScores || {}, players: golfField(interests || {}) };
   // Idem pro BOLÃO DA COPA: publica worldcup + fixtures pro trophiesForNick / as
   // conquistas de colocação lerem a ordem final (computeCopaStandings) sem threadear.
   _copaChampData = { worldcup, wcFixtures: (wcData && wcData.matches) || [] };
@@ -6607,13 +6610,19 @@ let _mkChampData = null;
 // trophiesForNick + as conquistas de colocação lerem a ordem final do bolão sem
 // threadear worldcup/wcFixtures pela árvore. null até o App montar.
 let _copaChampData = null;
+// Idem pro GOLF (GWYF): { scores, players } setado no render do App. O golf
+// também não passa pelo computeChampStandings — a classificação dele é a da
+// temporada (computeGolfStandings). null até o App montar.
+let _gwyfChampData = null;
 
 // Grupo do campeonato pro sidebar: 'active' (rolando), 'closed' (temporada
 // terminada, tem campeão) ou 'soon' (em breve). FIFA vira 'closed' quando todas
 // as rodadas terminam (computeChampStandings); o MK vira 'closed' quando o
-// mata-mata fecha (mkKoPodiumOrder); os demais ativos ficam 'active'.
+// mata-mata fecha (mkKoPodiumOrder); o GOLF quando todas as rodadas do
+// calendário têm placar; os demais ativos ficam 'active'.
 function champStatusFor(c, cs) {
   if (c.id === 'mk') return mkKoPodiumOrder((_mkChampData || {}).ko) ? 'closed' : 'active';
+  if (c.id === 'gwyf') return gwyfIsClosed(_gwyfChampData) ? 'closed' : 'active';
   if (c.status === 'active') {
     return computeChampStandings(c.id, cs).status === 'closed' ? 'closed' : 'active';
   }
@@ -6719,6 +6728,60 @@ function computeGolfStandings(schedule, scores, players) {
     entries.forEach(nk => { rec[nk].tac += +ms[nk]; rec[nk].played++; }); // TAC = tacadas reais (sem teto)
   });
   return Object.values(rec).sort((a, b) => b.pts - a.pts || a.tac - b.tac || b.wins - a.wins || a.nick.localeCompare(b.nick));
+}
+
+// ─── ENCERRAMENTO DO GOLF ───────────────────────────────────────────────────
+// O golf fecha quando TODAS as rodadas do calendário têm placar. Não depende de
+// flag no doc: o próprio placar diz que acabou (assim não dá pra ficar "aberto"
+// por esquecimento de apertar um botão). `data` = _gwyfChampData ({scores,players}).
+function gwyfIsClosed(data) {
+  const scores = (data && data.scores) || {};
+  if (!Array.isArray(GWYF_SCHEDULE) || !GWYF_SCHEDULE.length) return false;
+  return GWYF_SCHEDULE.every(r => {
+    const ms = scores[r.n];
+    return !!ms && Object.keys(ms).length > 0;
+  });
+}
+
+// Ordem FINAL do golf (só quem JOGOU) quando a temporada fecha; null se não fechou.
+// Mesma classificação que a tela mostra (computeGolfStandings): pts, desempate por
+// tacadas, depois vitórias.
+function gwyfFinalOrder(data) {
+  if (!gwyfIsClosed(data)) return null;
+  const players = (data && data.players) || [];
+  if (!players.length) return null;
+  return computeGolfStandings(GWYF_SCHEDULE, (data && data.scores) || {}, players)
+    .filter(r => r.played > 0)
+    .map(r => r.nick);
+}
+
+// Troféu do golf pro nick — mesmas kinds da FIFA/MK (ver mkTrophyForNick).
+function gwyfTrophyForNick(nick, data) {
+  const order = gwyfFinalOrder(data);
+  if (!order || !nick) return null;
+  const idx = order.indexOf(nick);
+  if (idx < 0) return null;
+  const n = order.length;
+  if (idx === 0) return 'champion';
+  if (idx === 1) return 'vice';
+  if (n > 3 && idx === 2) return 'terceiro'; // 3º só conta se o pódio não encosta na lanterna
+  if (idx === n - 1) return 'lanterna';
+  if (idx === n - 2) return 'penultimo';
+  return 'participou';
+}
+
+// Colocação do nick no golf pras conquistas (títulos). Espelha mkStatsFor, MAS
+// cai no ref de módulo `_gwyfChampData` quando o ctx não traz `gwyf`.
+// De propósito: o ctx das conquistas é montado em 4 lugares diferentes (latch de
+// título, ccCtx, equipar cosmético, EstatisticasView) e no MK já aconteceu de um
+// deles esquecer um campo — o título simplesmente não latchava e ninguém via.
+// Lendo do ref, um site novo funciona sem precisar lembrar de nada.
+function gwyfStatsFor(nick, ctx) {
+  const g = (ctx && ctx.gwyf) || _gwyfChampData || {};
+  const order = gwyfFinalOrder({ scores: g.scores || {}, players: g.players || [] });
+  if (!order) return { pos: 0, total: 0, isLast: false };
+  const idx = order.indexOf(nick);
+  return { pos: idx < 0 ? 0 : idx + 1, total: order.length, isLast: idx >= 0 && idx === order.length - 1 };
 }
 
 // Classificação de UM mapa do golf (menor tacada primeiro). Devolve [{nick,tac,pos}].
@@ -10552,6 +10615,13 @@ function trophiesForNick(nick, cs, teamPlayers) {
       if (k) trophies.push({ champId: 'mk', kind: k });
       continue;
     }
+    // GOLF: idem — a classificação é a da temporada (computeGolfStandings),
+    // que o computeChampStandings (FIFA-only) não enxerga.
+    if (c.id === 'gwyf') {
+      const k = gwyfTrophyForNick(nick, _gwyfChampData);
+      if (k) trophies.push({ champId: 'gwyf', kind: k });
+      continue;
+    }
     const { status, standings } = computeChampStandings(c.id, cs);
     if (status !== 'closed' || !standings || standings.length < 2) continue;
     if (!standings.some(mine)) continue; // não jogou esta edição
@@ -10579,7 +10649,9 @@ function betKingChamps(nick, cs, bets) {
   const out = [];
   for (const c of CHAMPIONSHIPS) {
     // MK fecha pelo mata-mata (não pelo computeChampStandings, que só entende FIFA).
-    const closed = c.id === 'mk' ? !!mkKoPodiumOrder((_mkChampData || {}).ko) : computeChampStandings(c.id, cs).status === 'closed';
+    const closed = c.id === 'mk'   ? !!mkKoPodiumOrder((_mkChampData || {}).ko)
+                 : c.id === 'gwyf' ? gwyfIsClosed(_gwyfChampData)
+                 : computeChampStandings(c.id, cs).status === 'closed';
     if (!closed) continue;
     const profit = {};
     (bets || []).forEach(b => {
@@ -10637,7 +10709,12 @@ function bettingSeasonRanks(nick, cs, bets, mkClosed) {
     // O MK não passa pelo computeChampStandings (que só entende FIFA); ele fecha
     // quando o mata-mata acaba. `mkClosed` vem dos predicados de conquista (que
     // enxergam ctx.mk.ko) pra liberar o REI DAS APOSTAS do MK.
-    const isClosed = c.id === 'mk' ? !!mkClosed : computeChampStandings(c.id, cs).status === 'closed';
+    // O golf fecha pelo próprio placar (todas as rodadas com resultado), então
+    // dá pra ler direto do ref de módulo — não precisa de um `gwyfClosed` vindo
+    // do predicado, como o MK precisa do mkClosed.
+    const isClosed = c.id === 'mk'   ? !!mkClosed
+                   : c.id === 'gwyf' ? gwyfIsClosed(_gwyfChampData)
+                   : computeChampStandings(c.id, cs).status === 'closed';
     if (!isClosed) continue;
     const rank = seasonBettingRanking(c.id, bets);
     const idx = rank.findIndex(r => r.nick === nick);
@@ -10935,6 +11012,10 @@ const ACH = {
   mkVice:      (ctx) => { const s = mkStatsFor(ctx.nick, ctx); return s.pos === 2 && s.total >= 3; },
   mkBronze:    (ctx) => { const s = mkStatsFor(ctx.nick, ctx); return s.pos === 3 && s.total >= 4; },
   mkLast:      (ctx) => { const s = mkStatsFor(ctx.nick, ctx); return s.isLast && s.total >= 3; },
+  golfChamp:   (ctx) => gwyfStatsFor(ctx.nick, ctx).pos === 1,
+  golfVice:    (ctx) => { const s = gwyfStatsFor(ctx.nick, ctx); return s.pos === 2 && s.total >= 3; },
+  golfBronze:  (ctx) => { const s = gwyfStatsFor(ctx.nick, ctx); return s.pos === 3 && s.total >= 4; },
+  golfLast:    (ctx) => { const s = gwyfStatsFor(ctx.nick, ctx); return s.isLast && s.total >= 3; },
   fifaUnbeaten:(ctx) => fifaUnbeaten(ctx.nick, ctx),
   // ── Apostas de VALOR ALTO ──
   megaRoller:  ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 500000),
@@ -10992,6 +11073,16 @@ const ACHIEVEMENTS = [
     desc: 'Terminou uma temporada de Mortal Kombat em TERCEIRO. No pódio das porradas.', check: ACH.mkBronze },
   { id: 'mk_lanterna', name: 'SACO DE PANCADA', icon: 'fist', color: '#7a2222', cat: 'mk', rarity: 'rara',
     desc: 'Terminou a temporada de MK em ÚLTIMO. Apanhou a season inteira.', check: ACH.mkLast },
+  // ── GOLF (GWYF) ──
+  { id: 'golf_campeao', name: 'CAMPEÃO DO GOLF', icon: 'flag', color: '#1f7a3a', cat: 'golf', rarity: 'lendaria',
+    desc: 'Terminou uma temporada de Golf With Your Friends em PRIMEIRO. Tacada de mestre.', check: ACH.golfChamp,
+    rewards: { badge: 'badge-campeao' } },
+  { id: 'golf_vice', name: 'VICE DO GOLF', icon: 'medal', color: '#9a9a9a', cat: 'golf', rarity: 'epica',
+    desc: 'Terminou uma temporada de Golf em SEGUNDO. Faltou uma tacada.', check: ACH.golfVice },
+  { id: 'golf_bronze', name: 'BRONZE DO GOLF', icon: 'medal', color: '#b06a2c', cat: 'golf', rarity: 'rara',
+    desc: 'Terminou uma temporada de Golf em TERCEIRO. Pódio no campo.', check: ACH.golfBronze },
+  { id: 'golf_lanterna', name: 'CAIU NA ÁGUA', icon: 'toilet', color: '#7a2222', cat: 'golf', rarity: 'rara',
+    desc: 'Terminou a temporada de Golf em ÚLTIMO. Passou mais tempo no lago que no green.', check: ACH.golfLast },
   // ── APOSTAS: valor ──
   { id: 'high_roller', name: 'HIGH ROLLER', icon: 'coin', color: '#c9a227', cat: 'apostas', rarity: 'rara',
     desc: 'Apostou 100.000 PC ou mais num único cupom. Coragem (ou loucura).', check: ACH.highRoller, rewards: { badge: 'badge-high-roller' } },
@@ -11093,6 +11184,7 @@ const ACHIEVEMENTS = [
 const ACH_CATS = [
   { id: 'campeonato',   label: 'CAMPEONATO' },
   { id: 'mk',           label: 'MORTAL KOMBAT' },
+  { id: 'golf',         label: 'GOLF' },
   { id: 'rivais',       label: 'RIVAIS' },
   { id: 'apostas',      label: 'APOSTAS' },
   { id: 'copa',         label: 'COPA DO MUNDO' },
@@ -11112,6 +11204,8 @@ const ACH_PATHS = [
   ['terceiro', 'vice', 'campeao'], ['podio'], ['fifa_invicto'], ['penultimo', 'lanterna'],
   // mk
   ['mk_bronze', 'mk_vice', 'mk_campeao'], ['mk_flawless'], ['mk_lanterna'],
+  // golf
+  ['golf_bronze', 'golf_vice', 'golf_campeao'], ['golf_lanterna'],
   // apostas: volume / valor / skill
   ['estreante', 'apostador_plantao', 'viciado', 'centuriao'], ['sorte_novato'], ['madrugador'],
   ['high_roller', 'mega_roller', 'ultra_roller'], ['high_roller_win', 'high_roller_loss'],
