@@ -136,13 +136,15 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260803-hist ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260803-lol ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
   { id: 'mk',   name: 'Primitivão — Mortal Kombat 2026',         season: 'Season 1', tag: 'MK',   status: 'active' },
   { id: 'rl',   name: 'Primitivão — Rocket League 2026',         season: 'Season 1', tag: 'RL',   status: 'soon'   },
-  { id: 'lol',  name: 'Primitivão — League of Legends 2026',     season: 'Season 1', tag: 'LoL',  status: 'soon'   },
+  // LoL ABERTO (2026-08-03): fase de grupo todos-x-todos + mata-mata com bye
+  // pro 1º e 2º. Vira 'closed' sozinho quando a FINAL sair (champStatusFor).
+  { id: 'lol',  name: 'Primitivão — League of Legends 2026',     season: 'Season 1', tag: 'LoL',  status: 'active' },
   { id: 'cs',   name: 'Primitivão — Counter-Strike 2026',        season: 'Season 1', tag: 'CS',   status: 'soon'   },
   { id: 'gwyf', name: 'Primitivão — Golf With Your Friends 2026', season: 'Season 1', tag: 'GWYF', status: 'active' },
   { id: 'valorant', name: 'Primitivão — Valorant 2026',          season: 'Season 1', tag: 'VALORANT', status: 'soon' },
@@ -3698,6 +3700,12 @@ function App() {
   const [golfProps, setGolfProps] = useState({}); // GOLF props: { [mapN]: { [nick]: { hio, half } } } (gwyf.props) — hole-in-one / metade abaixo do par
   const [golfFinals, setGolfFinals] = useState({}); // GOLF: { [mapN]: true } — mapa FINALIZADO pelo mod (libera liquidação dos cupons)
   const [golfLocks, setGolfLocks] = useState({}); // GOLF: { [mapN]: true } — apostas TRAVADAS pelo mod (fecha o card antes do 1º placar)
+  // LoL — campo `lol` do mesmo doc: { scores: { 'R{n}-{gi}': {w:'H'|'A'} }, ko }.
+  // A TABELA do grupo NÃO é persistida: sai do lolRoundRobin(inscritos), que é
+  // determinístico. Assim entrar/sair da inscrição regenera a tabela sozinho
+  // enquanto o campeonato não começou.
+  const [lolScores, setLolScores] = useState({});
+  const [lolKo, setLolKo] = useState(null);
   // MEU JOGO: escalação por confronto montada pelo MANDANTE (os dois lados das 2
   // partidas). Keyed por gKey: mkLineups[gKey] = { p1:{home,away}, p2:{home,away} }.
   const [mkLineups, setMkLineups] = useState({});
@@ -3881,6 +3889,53 @@ function App() {
     return commitBetDocUpdate(remote => {
       const gwyf = (remote.gwyf && typeof remote.gwyf === 'object') ? remote.gwyf : {};
       return { ...remote, gwyf: { ...gwyf, props: apply(gwyf.props) } };
+    });
+  };
+  // LoL (mod): lança o VENCEDOR de um jogo da FASE DE GRUPO. `w` = 'H' | 'A',
+  // null limpa. Optimistic local + commit transacional, igual aos do golf.
+  const setLolResult = (n, gi, w) => {
+    if (!isMod && !isAdmin) return;
+    const apply = (scores) => {
+      const s = { ...(scores || {}) };
+      const k = lolGameKey(n, gi);
+      if (w === 'H' || w === 'A') s[k] = { w }; else delete s[k];
+      return s;
+    };
+    setLolScores(prev => apply(prev));
+    return commitBetDocUpdate(remote => {
+      const lol = (remote.lol && typeof remote.lol === 'object') ? remote.lol : {};
+      return { ...remote, lol: { ...lol, scores: apply(lol.scores) } };
+    });
+  };
+  // LoL (mod): PUBLICA o mata-mata — congela os 8 classificados como seeds.
+  // Só depois do grupo COMPLETO. Congelar é de propósito: se ficasse derivando da
+  // classificação a cada leitura, corrigir um placar do grupo depois do KO
+  // publicado re-sortearia o chaveamento e invalidaria apostas já feitas.
+  const publishLolKo = () => {
+    if (!isMod && !isAdmin) return Promise.resolve({ err: 'sem permissão' });
+    return commitBetDocUpdate(remote => {
+      const lol = (remote.lol && typeof remote.lol === 'object') ? remote.lol : {};
+      if (lol.ko && lol.ko.published) return { __abort: true, result: { err: 'Mata-mata já publicado.' } };
+      const players = lolField(remote.interests || {});
+      const rounds = lolRoundRobin(players);
+      const seeds = lolSeedsFrom(players, rounds, lol.scores || {});
+      if (!seeds.length) {
+        return { __abort: true, result: { err: 'A fase de grupo ainda não acabou (ou faltam 8 jogadores).' } };
+      }
+      const ko = { published: true, publishedAt: Date.now(), seeds, scores: {} };
+      return { ...remote, lol: { ...lol, ko } };
+    });
+  };
+  // LoL (mod): lança o vencedor de um confronto do MATA-MATA (QF1/QF2/SF1/SF2/T3/F).
+  const setLolKoResult = (matchId, w) => {
+    if (!isMod && !isAdmin) return;
+    return commitBetDocUpdate(remote => {
+      const lol = (remote.lol && typeof remote.lol === 'object') ? remote.lol : {};
+      const ko = lol.ko;
+      if (!ko || !ko.published) return { __abort: true, result: { err: 'Mata-mata não publicado.' } };
+      const sc = { ...(ko.scores || {}) };
+      if (w === 'H' || w === 'A') sc[matchId] = { w }; else delete sc[matchId];
+      return { ...remote, lol: { ...lol, ko: { ...ko, scores: sc } } };
     });
   };
   // GOLF (mod): FINALIZA (ou reabre) um mapa → finals[mapN]=true libera a LIQUIDAÇÃO
@@ -4256,6 +4311,10 @@ function App() {
         setGolfProps(gwyf.props && typeof gwyf.props === 'object' ? gwyf.props : {});
         setGolfFinals(gwyf.finals && typeof gwyf.finals === 'object' ? gwyf.finals : {});
         setGolfLocks(gwyf.locks && typeof gwyf.locks === 'object' ? gwyf.locks : {});
+        // Estado do LoL (campo `lol`): fase de grupo + mata-mata.
+        const lol = (remote.lol && typeof remote.lol === 'object') ? remote.lol : {};
+        setLolScores(lol.scores && typeof lol.scores === 'object' ? lol.scores : {});
+        setLolKo(lol.ko && typeof lol.ko === 'object' ? lol.ko : null);
         setOfficialDayState(remote.officialDay && typeof remote.officialDay === 'object' ? remote.officialDay : null);
         hasLoadedRef.current = true; setSynced(true);
         // Migração one-shot: promove interests do json pra campo top-level.
@@ -5857,6 +5916,10 @@ function App() {
   // Idem pro GOLF: fecha o campeonato (champStatusFor) + dá os troféus da
   // temporada (trophiesForNick / betKingChamps) sem threadear o placar.
   _gwyfChampData = { scores: golfScores || {}, players: golfField(interests || {}) };
+  // Idem pro LoL. A tabela do grupo é derivada dos inscritos (determinística).
+  const lolPlayers = lolField(interests || {});
+  const lolRounds = lolRoundRobin(lolPlayers);
+  _lolChampData = { players: lolPlayers, rounds: lolRounds, scores: lolScores || {}, ko: lolKo };
   // Idem pro BOLÃO DA COPA: publica worldcup + fixtures pro trophiesForNick / as
   // conquistas de colocação lerem a ordem final (computeCopaStandings) sem threadear.
   _copaChampData = { worldcup, wcFixtures: (wcData && wcData.matches) || [] };
@@ -6295,6 +6358,17 @@ function App() {
                       golfScores={golfScores} golfProps={golfProps} golfFinals={golfFinals} golfLocks={golfLocks} onSetStrokes={setGolfStrokes}
                       onSetDnf={setGolfDnf} onSetWo={setGolfWo} onSetProp={setGolfProp} onSetFinal={setGolfFinal} onSetLock={setGolfLock} isMod={isMod} users={users}
                     />
+                  ) : active.id === 'lol' && active.status === 'active' ? (
+                    // LoL: fase de grupo todos-x-todos + mata-mata com bye pro 1º e 2º.
+                    <LolView
+                      interests={interests || {}}
+                      teamPlayers={teamPlayers || {}}
+                      session={session}
+                      onToggleInterest={() => toggleInterest('lol')}
+                      scores={lolScores} ko={lolKo}
+                      onResult={setLolResult} onPublishKo={publishLolKo} onKoResult={setLolKoResult}
+                      isMod={isMod} users={users}
+                    />
                   ) : showPlaceholder ? (
                 <ChampionshipPlaceholder
                   champ={active}
@@ -6632,6 +6706,8 @@ let _copaChampData = null;
 // também não passa pelo computeChampStandings — a classificação dele é a da
 // temporada (computeGolfStandings). null até o App montar.
 let _gwyfChampData = null;
+// Idem pro LoL: { players, rounds, scores, ko } setado no render do App.
+let _lolChampData = null;
 
 // Grupo do campeonato pro sidebar: 'active' (rolando), 'closed' (temporada
 // terminada, tem campeão) ou 'soon' (em breve). FIFA vira 'closed' quando todas
@@ -6641,6 +6717,10 @@ let _gwyfChampData = null;
 function champStatusFor(c, cs) {
   if (c.id === 'mk') return mkKoPodiumOrder((_mkChampData || {}).ko) ? 'closed' : 'active';
   if (c.id === 'gwyf') return gwyfIsClosed(_gwyfChampData) ? 'closed' : 'active';
+  if (c.id === 'lol') {
+    if (c.status !== 'active') return 'soon';
+    return lolIsClosed(_lolChampData) ? 'closed' : 'active';
+  }
   if (c.status === 'active') {
     return computeChampStandings(c.id, cs).status === 'closed' ? 'closed' : 'active';
   }
@@ -6758,6 +6838,200 @@ function computeGolfStandings(schedule, scores, players) {
     entries.forEach(nk => { rec[nk].tac += +ms[nk]; rec[nk].played++; }); // TAC = tacadas reais (sem teto)
   });
   return Object.values(rec).sort((a, b) => b.pts - a.pts || a.tac - b.tac || b.wins - a.wins || a.nick.localeCompare(b.nick));
+}
+
+// ─── LEAGUE OF LEGENDS (lol) ────────────────────────────────────────────────
+// Formato (definido pelo dono): FASE DE GRUPO todos-x-todos, 8 se classificam,
+// e um MATA-MATA onde o 1º e o 2º entram DIRETO NA SEMIFINAL (bye) — ou seja,
+// não podem terminar abaixo de 4º:
+//
+//   QUARTAS   QF1: 3º v 6º        QF2: 4º v 5º
+//   SEMI      SF1: 1º v venc(QF2) SF2: 2º v venc(QF1)
+//   3º LUGAR  T3:  perd(SF1) v perd(SF2)
+//   FINAL     F:   venc(SF1) v venc(SF2)
+//
+// 7º e 8º classificam mas não jogam o mata-mata (ficam 7º/8º no geral).
+//
+// Data model (campo `lol` do json):
+//   lol.scores[`R${n}-${gi}`] = { w: 'H' | 'A' }     — vencedor do jogo do grupo
+//   lol.ko = { published, publishedAt, seeds: [8 nicks], scores: { QF1..F } }
+// LoL não tem empate: todo jogo do grupo tem um vencedor.
+//
+// ATENÇÃO: nada aqui pode virar campo derivado que um reducer leia do doc cru —
+// ver o incidente do `leg.odd` do golf em slimBet.
+
+// Campo do LoL = inscritos em interests.lol (mesma regra do golfField).
+const lolField = (interests) => Object.keys(((interests || {}).lol) || {}).sort();
+
+// Chave canônica de um jogo do grupo. O par (rodada, índice) é o que o placar usa.
+const lolGameKey = (n, gi) => 'R' + n + '-' + gi;
+
+// Tabela todos-x-todos pelo método do círculo: cada jogador joga no máximo uma
+// vez por rodada. Com número ÍMPAR de jogadores entra um BYE (folga) — o jogo
+// com bye simplesmente não existe na rodada.
+// Devolve [{ n, games: [{ home, away }] }]. Determinístico (players já vem sorted).
+function lolRoundRobin(players) {
+  const ps = (players || []).slice();
+  if (ps.length < 2) return [];
+  const bye = ps.length % 2 === 1;
+  if (bye) ps.push(null); // folga
+  const n = ps.length;
+  const rounds = [];
+  // fixa o primeiro, rotaciona o resto
+  let arr = ps.slice();
+  for (let r = 0; r < n - 1; r++) {
+    const games = [];
+    for (let i = 0; i < n / 2; i++) {
+      const a = arr[i], b = arr[n - 1 - i];
+      if (a == null || b == null) continue; // folga
+      // alterna mando pra não ser sempre o mesmo lado
+      games.push(r % 2 === 0 ? { home: a, away: b } : { home: b, away: a });
+    }
+    rounds.push({ n: r + 1, games });
+    const fixed = arr[0];
+    const rest = arr.slice(1);
+    rest.unshift(rest.pop());
+    arr = [fixed].concat(rest);
+  }
+  return rounds;
+}
+
+// Classificação do grupo. 3 pts por vitória (não há empate no LoL).
+// Desempate: pts -> confronto direto -> vitórias -> nick (determinístico).
+function computeLolStandings(players, rounds, scores) {
+  const rec = {};
+  (players || []).forEach(p => { rec[p] = { id: p, nick: p, j: 0, v: 0, d: 0, p: 0 }; });
+  const h2h = {}; // h2h['a|b'] = quem venceu
+  (rounds || []).forEach(r => (r.games || []).forEach((g, gi) => {
+    const sc = (scores || {})[lolGameKey(r.n, gi)];
+    if (!sc || (sc.w !== 'H' && sc.w !== 'A')) return;
+    const H = rec[g.home], A = rec[g.away];
+    if (!H || !A) return;
+    H.j++; A.j++;
+    const winner = sc.w === 'H' ? g.home : g.away;
+    if (sc.w === 'H') { H.v++; A.d++; H.p += 3; } else { A.v++; H.d++; A.p += 3; }
+    h2h[[g.home, g.away].sort().join('|')] = winner;
+  }));
+  return Object.values(rec).sort((a, b) => {
+    if (b.p !== a.p) return b.p - a.p;
+    const w = h2h[[a.nick, b.nick].sort().join('|')];
+    if (w === a.nick) return -1;
+    if (w === b.nick) return 1;
+    if (b.v !== a.v) return b.v - a.v;
+    return a.nick.localeCompare(b.nick);
+  });
+}
+
+// Grupo acabou? Todo jogo de toda rodada tem vencedor.
+function lolGroupDone(rounds, scores) {
+  if (!Array.isArray(rounds) || !rounds.length) return false;
+  return rounds.every(r => (r.games || []).every((g, gi) => {
+    const sc = (scores || {})[lolGameKey(r.n, gi)];
+    return !!sc && (sc.w === 'H' || sc.w === 'A');
+  }));
+}
+
+// Os 8 classificados, na ordem da classificação. [] se o grupo não acabou ou se
+// não há gente suficiente.
+function lolSeedsFrom(players, rounds, scores) {
+  if (!lolGroupDone(rounds, scores)) return [];
+  const st = computeLolStandings(players, rounds, scores);
+  if (st.length < 8) return [];
+  return st.slice(0, 8).map(r => r.nick);
+}
+
+// Confrontos do mata-mata a partir dos seeds + placares já lançados.
+// Devolve os 6 confrontos com home/away resolvidos (null enquanto depende de um
+// jogo que ainda não saiu) — a UI e as apostas leem daqui.
+function lolKoBracket(seeds, koScores) {
+  const s = Array.isArray(seeds) ? seeds : [];
+  if (s.length < 8) return null;
+  const sc = koScores || {};
+  const win = (id, home, away) => {
+    const r = sc[id];
+    if (!r || (r.w !== 'H' && r.w !== 'A') || !home || !away) return null;
+    return r.w === 'H' ? home : away;
+  };
+  const lose = (id, home, away) => {
+    const w = win(id, home, away);
+    if (!w) return null;
+    return w === home ? away : home;
+  };
+  // QUARTAS: 1º e 2º têm bye (não jogam aqui)
+  const qf1 = { id: 'QF1', home: s[2], away: s[5] }; // 3º v 6º
+  const qf2 = { id: 'QF2', home: s[3], away: s[4] }; // 4º v 5º
+  // SEMI: 1º pega o vencedor de QF2; 2º pega o vencedor de QF1
+  const sf1 = { id: 'SF1', home: s[0], away: win('QF2', qf2.home, qf2.away) };
+  const sf2 = { id: 'SF2', home: s[1], away: win('QF1', qf1.home, qf1.away) };
+  const t3  = { id: 'T3',  home: lose('SF1', sf1.home, sf1.away), away: lose('SF2', sf2.home, sf2.away) };
+  const f   = { id: 'F',   home: win('SF1', sf1.home, sf1.away),  away: win('SF2', sf2.home, sf2.away) };
+  return { qf1, qf2, sf1, sf2, t3, f, seeds: s };
+}
+
+// Ordem FINAL do campeonato (pódio do mata-mata + resto pela classificação do
+// grupo). null enquanto a FINAL não sair.
+//   1º/2º = final; 3º/4º = disputa de 3º; 5º/6º = perdedores das quartas
+//   (na ordem do grupo); 7º/8º = os seeds que não jogaram KO; 9º+ = resto.
+function lolFinalOrder(players, rounds, scores, ko) {
+  const seeds = (ko && Array.isArray(ko.seeds) && ko.seeds.length === 8)
+    ? ko.seeds : lolSeedsFrom(players, rounds, scores);
+  const br = lolKoBracket(seeds, ko && ko.scores);
+  if (!br) return null;
+  const sc = (ko && ko.scores) || {};
+  const pick = (m, side) => {
+    const r = sc[m.id];
+    if (!r || (r.w !== 'H' && r.w !== 'A') || !m.home || !m.away) return null;
+    const w = r.w === 'H' ? m.home : m.away;
+    return side === 'w' ? w : (w === m.home ? m.away : m.home);
+  };
+  const champ = pick(br.f, 'w');
+  if (!champ) return null; // final ainda não saiu
+  const order = [champ, pick(br.f, 'l')];
+  const third = pick(br.t3, 'w');
+  if (third) order.push(third, pick(br.t3, 'l'));
+  // 5º/6º: quem perdeu as quartas, na ordem do grupo
+  const qfLosers = [pick(br.qf1, 'l'), pick(br.qf2, 'l')].filter(Boolean)
+    .sort((a, b) => seeds.indexOf(a) - seeds.indexOf(b));
+  qfLosers.forEach(n => { if (order.indexOf(n) < 0) order.push(n); });
+  // 7º/8º: classificaram mas não jogaram o mata-mata
+  [seeds[6], seeds[7]].forEach(n => { if (n && order.indexOf(n) < 0) order.push(n); });
+  // 9º+: o resto do grupo, na ordem da classificação
+  computeLolStandings(players, rounds, scores).forEach(r => {
+    if (r.j > 0 && order.indexOf(r.nick) < 0) order.push(r.nick);
+  });
+  return order.filter(Boolean);
+}
+
+// `data` = _lolChampData ({ players, rounds, scores, ko }).
+function lolIsClosed(data) {
+  if (!data) return false;
+  return !!lolFinalOrder(data.players, data.rounds, data.scores, data.ko);
+}
+
+// Troféu do LoL pro nick — mesmas kinds da FIFA/MK/Golf.
+function lolTrophyForNick(nick, data) {
+  if (!data || !nick) return null;
+  const order = lolFinalOrder(data.players, data.rounds, data.scores, data.ko);
+  if (!order) return null;
+  const idx = order.indexOf(nick);
+  if (idx < 0) return null;
+  const n = order.length;
+  if (idx === 0) return 'champion';
+  if (idx === 1) return 'vice';
+  if (n > 3 && idx === 2) return 'terceiro';
+  if (idx === n - 1) return 'lanterna';
+  if (idx === n - 2) return 'penultimo';
+  return 'participou';
+}
+
+// Colocação do nick pras conquistas. Igual ao gwyfStatsFor: cai no ref de
+// módulo quando o ctx não traz `lol` (o ctx é montado em 4 lugares).
+function lolStatsFor(nick, ctx) {
+  const d = (ctx && ctx.lol) || _lolChampData || {};
+  const order = lolFinalOrder(d.players, d.rounds, d.scores, d.ko);
+  if (!order) return { pos: 0, total: 0, isLast: false };
+  const idx = order.indexOf(nick);
+  return { pos: idx < 0 ? 0 : idx + 1, total: order.length, isLast: idx >= 0 && idx === order.length - 1 };
 }
 
 // ─── ENCERRAMENTO DO GOLF ───────────────────────────────────────────────────
@@ -6982,6 +7256,173 @@ function golfLegResult(market, pick, side, mapN, scores, props, players, finaliz
     return pr.par === golfParOf(side) ? 'win' : 'lose';
   }
   return 'pending';
+}
+
+// ─── VIEW DO CAMPEONATO DE LOL ──────────────────────────────────────────────
+// CLASSIFICAÇÃO do grupo + RODADAS (todos-x-todos) + MATA-MATA.
+// A tabela sai do lolRoundRobin(inscritos) — determinística, não persistida.
+function LolView({ interests, teamPlayers, session, onToggleInterest, scores, ko,
+                   onResult, onPublishKo, onKoResult, isMod, users }) {
+  const players = lolField(interests || {});
+  const rounds = lolRoundRobin(players);
+  const stand = computeLolStandings(players, rounds, scores);
+  const done = lolGroupDone(rounds, scores);
+  const inscrito = !!(interests && interests.lol && session && interests.lol[session.nick]);
+  const br = ko && ko.published ? lolKoBracket(ko.seeds, ko.scores) : null;
+  const finalOrder = lolFinalOrder(players, rounds, scores, ko);
+  const jogados = rounds.reduce((s, r) => s + r.games.filter((g, gi) => !!(scores || {})[lolGameKey(r.n, gi)]).length, 0);
+  const totalJogos = rounds.reduce((s, r) => s + r.games.length, 0);
+
+  const Nome = ({ nick, vencedor }) => (
+    <span className={'lol-p' + (vencedor === true ? ' win' : vencedor === false ? ' lose' : '')}>
+      <Avatar nick={nick} teamPlayers={teamPlayers} size={20} noBadge /> {nick || '—'}
+    </span>
+  );
+
+  const KoCard = ({ m, titulo }) => {
+    if (!m) return null;
+    const sc = ((ko && ko.scores) || {})[m.id];
+    const w = sc && (sc.w === 'H' ? m.home : sc.w === 'A' ? m.away : null);
+    const pronto = !!m.home && !!m.away;
+    return (
+      <div className={'lol-ko-card' + (w ? ' done' : '')}>
+        <div className="lol-ko-t">{titulo}</div>
+        <div className="lol-ko-row">
+          <Nome nick={m.home} vencedor={w ? w === m.home : undefined} />
+          {isMod && pronto && (
+            <button type="button" className={'lol-w' + (sc && sc.w === 'H' ? ' on' : '')}
+              onClick={() => onKoResult(m.id, sc && sc.w === 'H' ? null : 'H')}>VENCEU</button>
+          )}
+        </div>
+        <div className="lol-ko-row">
+          <Nome nick={m.away} vencedor={w ? w === m.away : undefined} />
+          {isMod && pronto && (
+            <button type="button" className={'lol-w' + (sc && sc.w === 'A' ? ' on' : '')}
+              onClick={() => onKoResult(m.id, sc && sc.w === 'A' ? null : 'A')}>VENCEU</button>
+          )}
+        </div>
+        {!pronto && <div className="lol-ko-wait">aguardando</div>}
+      </div>
+    );
+  };
+
+  return (
+    <div className="lol-view">
+      <div className="lol-head">
+        <div>
+          <div className="lol-title">LEAGUE OF LEGENDS</div>
+          <div className="lol-sub">
+            FASE DE GRUPO · TODOS CONTRA TODOS · {players.length} JOGADORES · {jogados}/{totalJogos} JOGOS
+          </div>
+        </div>
+        {session && !done && (
+          <button type="button" className={'lol-insc' + (inscrito ? ' on' : '')} onClick={onToggleInterest}>
+            <Icon name={inscrito ? 'check' : 'flag'} size={14} /> {inscrito ? 'INSCRITO' : 'QUERO JOGAR'}
+          </button>
+        )}
+      </div>
+
+      {finalOrder && (
+        <div className="lol-champ-banner">
+          <Icon name="trophy" size={20} />
+          <span>CAMPEÃO: <strong>{finalOrder[0]}</strong></span>
+          <span className="lol-champ-sub">vice {finalOrder[1]}{finalOrder[2] ? ' · 3º ' + finalOrder[2] : ''}</span>
+        </div>
+      )}
+
+      {players.length < 2 ? (
+        <div className="lol-empty">Ainda não há inscritos suficientes pra montar a tabela.</div>
+      ) : (
+        <div className="lol-grid">
+          <div className="lol-col">
+            <div className="lol-sec">CLASSIFICAÇÃO DO GRUPO</div>
+            <div className="lol-table">
+              <div className="lol-tr lol-th">
+                <span className="lol-pos">#</span><span className="lol-nick">JOGADOR</span>
+                <span className="lol-num">J</span><span className="lol-num">V</span>
+                <span className="lol-num">D</span><span className="lol-num lol-pts">PTS</span>
+              </div>
+              {stand.map((r, i) => (
+                <div key={r.nick} className={'lol-tr' + (i < 8 ? ' q' : '') + (r.nick === (session && session.nick) ? ' me' : '')}>
+                  <span className="lol-pos mono">{i + 1}</span>
+                  <span className="lol-nick"><Avatar nick={r.nick} teamPlayers={teamPlayers} size={20} noBadge /> {r.nick}</span>
+                  <span className="lol-num mono">{r.j}</span>
+                  <span className="lol-num mono">{r.v}</span>
+                  <span className="lol-num mono">{r.d}</span>
+                  <span className="lol-num lol-pts mono">{r.p}</span>
+                </div>
+              ))}
+            </div>
+            <div className="lol-legend">
+              <span className="lol-dot q" /> os 8 primeiros vão pro mata-mata · 1º e 2º entram direto na semifinal
+            </div>
+          </div>
+
+          <div className="lol-col">
+            <div className="lol-sec">RODADAS</div>
+            <div className="lol-rounds">
+              {rounds.map(r => (
+                <div key={r.n} className="lol-round">
+                  <div className="lol-round-h">RODADA {r.n}</div>
+                  {r.games.map((g, gi) => {
+                    const sc = (scores || {})[lolGameKey(r.n, gi)];
+                    const w = sc && (sc.w === 'H' ? g.home : sc.w === 'A' ? g.away : null);
+                    return (
+                      <div key={gi} className={'lol-game' + (w ? ' done' : '')}>
+                        <Nome nick={g.home} vencedor={w ? w === g.home : undefined} />
+                        <span className="lol-vs">x</span>
+                        <Nome nick={g.away} vencedor={w ? w === g.away : undefined} />
+                        {isMod && (
+                          <span className="lol-mod">
+                            <button type="button" className={'lol-w' + (sc && sc.w === 'H' ? ' on' : '')}
+                              onClick={() => onResult(r.n, gi, sc && sc.w === 'H' ? null : 'H')}>1</button>
+                            <button type="button" className={'lol-w' + (sc && sc.w === 'A' ? ' on' : '')}
+                              onClick={() => onResult(r.n, gi, sc && sc.w === 'A' ? null : 'A')}>2</button>
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="lol-sec lol-sec-ko">MATA-MATA</div>
+      {!br ? (
+        <div className="lol-empty">
+          {done
+            ? 'Fase de grupo encerrada. O mod precisa PUBLICAR o mata-mata pra congelar os 8 classificados.'
+            : 'O mata-mata abre quando a fase de grupo terminar (todos os jogos com vencedor).'}
+          {isMod && done && (
+            <button type="button" className="lol-pub" onClick={onPublishKo}>
+              <Icon name="lock" size={13} /> PUBLICAR MATA-MATA
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="lol-bracket">
+          <div className="lol-brk-col">
+            <div className="lol-brk-h">QUARTAS</div>
+            <KoCard m={br.qf1} titulo="3º v 6º" />
+            <KoCard m={br.qf2} titulo="4º v 5º" />
+          </div>
+          <div className="lol-brk-col">
+            <div className="lol-brk-h">SEMIFINAL</div>
+            <KoCard m={br.sf1} titulo="1º entra aqui" />
+            <KoCard m={br.sf2} titulo="2º entra aqui" />
+          </div>
+          <div className="lol-brk-col">
+            <div className="lol-brk-h">DECISÃO</div>
+            <KoCard m={br.f} titulo="FINAL" />
+            <KoCard m={br.t3} titulo="3º LUGAR" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Banner de pré-lançamento + inscrição (topo da GolfView). A inscrição é o mesmo
@@ -10652,6 +11093,11 @@ function trophiesForNick(nick, cs, teamPlayers) {
       if (k) trophies.push({ champId: 'gwyf', kind: k });
       continue;
     }
+    if (c.id === 'lol') {
+      const k = lolTrophyForNick(nick, _lolChampData);
+      if (k) trophies.push({ champId: 'lol', kind: k });
+      continue;
+    }
     const { status, standings } = computeChampStandings(c.id, cs);
     if (status !== 'closed' || !standings || standings.length < 2) continue;
     if (!standings.some(mine)) continue; // não jogou esta edição
@@ -10681,6 +11127,7 @@ function betKingChamps(nick, cs, bets) {
     // MK fecha pelo mata-mata (não pelo computeChampStandings, que só entende FIFA).
     const closed = c.id === 'mk'   ? !!mkKoPodiumOrder((_mkChampData || {}).ko)
                  : c.id === 'gwyf' ? gwyfIsClosed(_gwyfChampData)
+                 : c.id === 'lol'  ? lolIsClosed(_lolChampData)
                  : computeChampStandings(c.id, cs).status === 'closed';
     if (!closed) continue;
     const profit = {};
@@ -10833,6 +11280,7 @@ function bettingSeasonRanks(nick, cs, bets, mkClosed) {
     // do predicado, como o MK precisa do mkClosed.
     const isClosed = c.id === 'mk'   ? !!mkClosed
                    : c.id === 'gwyf' ? gwyfIsClosed(_gwyfChampData)
+                   : c.id === 'lol'  ? lolIsClosed(_lolChampData)
                    : computeChampStandings(c.id, cs).status === 'closed';
     if (!isClosed) continue;
     const rank = seasonBettingRanking(c.id, bets);
@@ -11135,6 +11583,10 @@ const ACH = {
   golfVice:    (ctx) => { const s = gwyfStatsFor(ctx.nick, ctx); return s.pos === 2 && s.total >= 3; },
   golfBronze:  (ctx) => { const s = gwyfStatsFor(ctx.nick, ctx); return s.pos === 3 && s.total >= 4; },
   golfLast:    (ctx) => { const s = gwyfStatsFor(ctx.nick, ctx); return s.isLast && s.total >= 3; },
+  lolChamp:    (ctx) => lolStatsFor(ctx.nick, ctx).pos === 1,
+  lolVice:     (ctx) => { const s = lolStatsFor(ctx.nick, ctx); return s.pos === 2 && s.total >= 3; },
+  lolBronze:   (ctx) => { const s = lolStatsFor(ctx.nick, ctx); return s.pos === 3 && s.total >= 4; },
+  lolLast:     (ctx) => { const s = lolStatsFor(ctx.nick, ctx); return s.isLast && s.total >= 3; },
   fifaUnbeaten:(ctx) => fifaUnbeaten(ctx.nick, ctx),
   // ── Apostas de VALOR ALTO ──
   megaRoller:  ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 500000),
@@ -11202,6 +11654,16 @@ const ACHIEVEMENTS = [
     desc: 'Terminou uma temporada de Golf em TERCEIRO. Pódio no campo.', check: ACH.golfBronze },
   { id: 'golf_lanterna', name: 'CAIU NA ÁGUA', icon: 'toilet', color: '#7a2222', cat: 'golf', rarity: 'rara',
     desc: 'Terminou a temporada de Golf em ÚLTIMO. Passou mais tempo no lago que no green.', check: ACH.golfLast },
+  // ── LEAGUE OF LEGENDS ──
+  { id: 'lol_campeao', name: 'CAMPEÃO DO LOL', icon: 'sword', color: '#1f5f8a', cat: 'lol', rarity: 'lendaria',
+    desc: 'Terminou uma temporada de League of Legends em PRIMEIRO. Carregou a Rift.', check: ACH.lolChamp,
+    rewards: { badge: 'badge-campeao' } },
+  { id: 'lol_vice', name: 'VICE DO LOL', icon: 'medal', color: '#9a9a9a', cat: 'lol', rarity: 'epica',
+    desc: 'Terminou uma temporada de LoL em SEGUNDO. Perdeu na última teamfight.', check: ACH.lolVice },
+  { id: 'lol_bronze', name: 'BRONZE DO LOL', icon: 'medal', color: '#b06a2c', cat: 'lol', rarity: 'rara',
+    desc: 'Terminou uma temporada de LoL em TERCEIRO. Pódio na Rift.', check: ACH.lolBronze },
+  { id: 'lol_lanterna', name: 'FEEDER OFICIAL', icon: 'skull', color: '#7a2222', cat: 'lol', rarity: 'rara',
+    desc: 'Terminou a temporada de LoL em ÚLTIMO. Alimentou a Rift inteira.', check: ACH.lolLast },
   // ── APOSTAS: valor ──
   { id: 'high_roller', name: 'HIGH ROLLER', icon: 'coin', color: '#c9a227', cat: 'apostas', rarity: 'rara',
     desc: 'Apostou 100.000 PC ou mais num único cupom. Coragem (ou loucura).', check: ACH.highRoller, rewards: { badge: 'badge-high-roller' } },
@@ -11304,6 +11766,7 @@ const ACH_CATS = [
   { id: 'campeonato',   label: 'CAMPEONATO' },
   { id: 'mk',           label: 'MORTAL KOMBAT' },
   { id: 'golf',         label: 'GOLF' },
+  { id: 'lol',          label: 'LEAGUE OF LEGENDS' },
   { id: 'rivais',       label: 'RIVAIS' },
   { id: 'apostas',      label: 'APOSTAS' },
   { id: 'copa',         label: 'COPA DO MUNDO' },
@@ -11325,6 +11788,8 @@ const ACH_PATHS = [
   ['mk_bronze', 'mk_vice', 'mk_campeao'], ['mk_flawless'], ['mk_lanterna'],
   // golf
   ['golf_bronze', 'golf_vice', 'golf_campeao'], ['golf_lanterna'],
+  // lol
+  ['lol_bronze', 'lol_vice', 'lol_campeao'], ['lol_lanterna'],
   // apostas: volume / valor / skill
   ['estreante', 'apostador_plantao', 'viciado', 'centuriao'], ['sorte_novato'], ['madrugador'],
   ['high_roller', 'mega_roller', 'ultra_roller'], ['high_roller_win', 'high_roller_loss'],
