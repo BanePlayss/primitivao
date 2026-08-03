@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260803-lol ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260803-lolmd2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3891,14 +3891,18 @@ function App() {
       return { ...remote, gwyf: { ...gwyf, props: apply(gwyf.props) } };
     });
   };
-  // LoL (mod): lança o VENCEDOR de um jogo da FASE DE GRUPO. `w` = 'H' | 'A',
-  // null limpa. Optimistic local + commit transacional, igual aos do golf.
-  const setLolResult = (n, gi, w) => {
+  // LoL (mod): lança UM campo de um confronto MD2 da fase de grupo.
+  // `field` = g1|g2|fb1|cs1|ft1|fb2|cs2|ft2, `w` = 'H' | 'A' (null limpa).
+  // Optimistic local + commit transacional, igual aos do golf.
+  const setLolResult = (n, gi, field, w) => {
     if (!isMod && !isAdmin) return;
+    if (LOL_MATCH_FIELDS.indexOf(field) < 0) return;
     const apply = (scores) => {
       const s = { ...(scores || {}) };
       const k = lolGameKey(n, gi);
-      if (w === 'H' || w === 'A') s[k] = { w }; else delete s[k];
+      const cur = { ...(s[k] || {}) };
+      if (w === 'H' || w === 'A') cur[field] = w; else delete cur[field];
+      if (Object.keys(cur).length) s[k] = cur; else delete s[k];
       return s;
     };
     setLolScores(prev => apply(prev));
@@ -6863,8 +6867,36 @@ function computeGolfStandings(schedule, scores, players) {
 // Campo do LoL = inscritos em interests.lol (mesma regra do golfField).
 const lolField = (interests) => Object.keys(((interests || {}).lol) || {}).sort();
 
-// Chave canônica de um jogo do grupo. O par (rodada, índice) é o que o placar usa.
+// Chave canônica de um CONFRONTO do grupo. O par (rodada, índice) é o que o
+// placar usa. Cada confronto é MD2 (duas partidas, blind pick).
 const lolGameKey = (n, gi) => 'R' + n + '-' + gi;
+
+// Campos de um confronto MD2. Cada um é 'H' | 'A' (lado que ganhou/fez) ou ausente.
+//   g1/g2   = quem venceu a partida 1 / 2
+//   fb1/fb2 = FIRST BLOOD de cada partida
+//   cs1/cs2 = 100 MINIONS (quem chega primeiro) de cada partida
+//   ft1/ft2 = FIRST BRICK (primeira torre) de cada partida
+// Os objetivos são POR PARTIDA (decisão do dono) — são o que os mercados de
+// aposta liquidam, e por isso NUNCA podem ser derivados/compactados
+// (ver o incidente do leg.odd em [[teto-1mb-doc-apostas]]).
+const LOL_MATCH_FIELDS = ['g1', 'g2', 'fb1', 'cs1', 'ft1', 'fb2', 'cs2', 'ft2'];
+const LOL_OBJETIVOS = [
+  { k: 'fb', label: 'FIRST BLOOD',  icon: 'sword'    },
+  { k: 'cs', label: '100 MINIONS',  icon: 'coin'     },
+  { k: 'ft', label: 'FIRST BRICK',  icon: 'crosshair' },
+];
+
+// Resultado de um confronto MD2. null se as duas partidas ainda não saíram.
+//   winner: 'H' | 'A' | 'D' (empate 1-1)   pvH/pvA: partidas vencidas por lado
+function lolMatchOutcome(sc) {
+  if (!sc) return null;
+  const g1 = sc.g1, g2 = sc.g2;
+  const ok = (v) => v === 'H' || v === 'A';
+  if (!ok(g1) || !ok(g2)) return null;
+  const pvH = (g1 === 'H' ? 1 : 0) + (g2 === 'H' ? 1 : 0);
+  const pvA = 2 - pvH;
+  return { winner: pvH === pvA ? 'D' : (pvH > pvA ? 'H' : 'A'), pvH, pvA };
+}
 
 // Tabela todos-x-todos pelo método do círculo: cada jogador joga no máximo uma
 // vez por rodada. Com número ÍMPAR de jogadores entra um BYE (folga) — o jogo
@@ -6896,39 +6928,46 @@ function lolRoundRobin(players) {
   return rounds;
 }
 
-// Classificação do grupo. 3 pts por vitória (não há empate no LoL).
-// Desempate: pts -> confronto direto -> vitórias -> nick (determinístico).
+// Classificação do grupo. Cada confronto é MD2: 2-0 vale 3 pts pro vencedor,
+// 1-1 vale 1 pt pra cada, 0-2 vale 0 pro perdedor.
+// Desempate: pts -> saldo de partidas -> partidas vencidas -> confronto direto
+// -> nick (determinístico, pra seed do mata-mata nunca sair ambígua).
 function computeLolStandings(players, rounds, scores) {
   const rec = {};
-  (players || []).forEach(p => { rec[p] = { id: p, nick: p, j: 0, v: 0, d: 0, p: 0 }; });
-  const h2h = {}; // h2h['a|b'] = quem venceu
+  (players || []).forEach(p => { rec[p] = { id: p, nick: p, j: 0, v: 0, e: 0, d: 0, pv: 0, pp: 0, p: 0 }; });
+  const h2h = {}; // h2h['a|b'] = quem venceu o confronto direto ('D' se empatou)
   (rounds || []).forEach(r => (r.games || []).forEach((g, gi) => {
-    const sc = (scores || {})[lolGameKey(r.n, gi)];
-    if (!sc || (sc.w !== 'H' && sc.w !== 'A')) return;
+    const o = lolMatchOutcome((scores || {})[lolGameKey(r.n, gi)]);
+    if (!o) return;
     const H = rec[g.home], A = rec[g.away];
     if (!H || !A) return;
     H.j++; A.j++;
-    const winner = sc.w === 'H' ? g.home : g.away;
-    if (sc.w === 'H') { H.v++; A.d++; H.p += 3; } else { A.v++; H.d++; A.p += 3; }
-    h2h[[g.home, g.away].sort().join('|')] = winner;
+    H.pv += o.pvH; H.pp += o.pvA;
+    A.pv += o.pvA; A.pp += o.pvH;
+    if (o.winner === 'H')      { H.v++; A.d++; H.p += 3; }
+    else if (o.winner === 'A') { A.v++; H.d++; A.p += 3; }
+    else                       { H.e++; A.e++; H.p += 1; A.p += 1; }
+    h2h[[g.home, g.away].sort().join('|')] =
+      o.winner === 'D' ? 'D' : (o.winner === 'H' ? g.home : g.away);
   }));
   return Object.values(rec).sort((a, b) => {
     if (b.p !== a.p) return b.p - a.p;
+    const sa = a.pv - a.pp, sb = b.pv - b.pp;
+    if (sb !== sa) return sb - sa;
+    if (b.pv !== a.pv) return b.pv - a.pv;
     const w = h2h[[a.nick, b.nick].sort().join('|')];
     if (w === a.nick) return -1;
     if (w === b.nick) return 1;
-    if (b.v !== a.v) return b.v - a.v;
     return a.nick.localeCompare(b.nick);
   });
 }
 
-// Grupo acabou? Todo jogo de toda rodada tem vencedor.
+// Grupo acabou? Todo confronto tem as DUAS partidas com vencedor.
 function lolGroupDone(rounds, scores) {
   if (!Array.isArray(rounds) || !rounds.length) return false;
-  return rounds.every(r => (r.games || []).every((g, gi) => {
-    const sc = (scores || {})[lolGameKey(r.n, gi)];
-    return !!sc && (sc.w === 'H' || sc.w === 'A');
-  }));
+  return rounds.every(r => (r.games || []).every((g, gi) =>
+    !!lolMatchOutcome((scores || {})[lolGameKey(r.n, gi)])
+  ));
 }
 
 // Os 8 classificados, na ordem da classificação. [] se o grupo não acabou ou se
@@ -7340,7 +7379,9 @@ function LolView({ interests, teamPlayers, session, onToggleInterest, scores, ko
               <div className="lol-tr lol-th">
                 <span className="lol-pos">#</span><span className="lol-nick">JOGADOR</span>
                 <span className="lol-num">J</span><span className="lol-num">V</span>
-                <span className="lol-num">D</span><span className="lol-num lol-pts">PTS</span>
+                <span className="lol-num">E</span><span className="lol-num">D</span>
+                <span className="lol-num" title="saldo de partidas">SP</span>
+                <span className="lol-num lol-pts">PTS</span>
               </div>
               {stand.map((r, i) => (
                 <div key={r.nick} className={'lol-tr' + (i < 8 ? ' q' : '') + (r.nick === (session && session.nick) ? ' me' : '')}>
@@ -7348,7 +7389,9 @@ function LolView({ interests, teamPlayers, session, onToggleInterest, scores, ko
                   <span className="lol-nick"><Avatar nick={r.nick} teamPlayers={teamPlayers} size={20} noBadge /> {r.nick}</span>
                   <span className="lol-num mono">{r.j}</span>
                   <span className="lol-num mono">{r.v}</span>
+                  <span className="lol-num mono">{r.e}</span>
                   <span className="lol-num mono">{r.d}</span>
+                  <span className="lol-num mono">{r.pv - r.pp > 0 ? '+' : ''}{r.pv - r.pp}</span>
                   <span className="lol-num lol-pts mono">{r.p}</span>
                 </div>
               ))}
@@ -7365,20 +7408,42 @@ function LolView({ interests, teamPlayers, session, onToggleInterest, scores, ko
                 <div key={r.n} className="lol-round">
                   <div className="lol-round-h">RODADA {r.n}</div>
                   {r.games.map((g, gi) => {
-                    const sc = (scores || {})[lolGameKey(r.n, gi)];
-                    const w = sc && (sc.w === 'H' ? g.home : sc.w === 'A' ? g.away : null);
+                    const sc = (scores || {})[lolGameKey(r.n, gi)] || {};
+                    const o = lolMatchOutcome(sc);
+                    const vH = o ? (o.winner === 'H') : undefined;
+                    const vA = o ? (o.winner === 'A') : undefined;
+                    // par de botões H/A pra um campo do confronto
+                    const Par = ({ field, curto }) => (
+                      <span className="lol-fld">
+                        <span className="lol-fld-l">{curto}</span>
+                        <button type="button" className={'lol-w' + (sc[field] === 'H' ? ' on' : '')}
+                          onClick={() => onResult(r.n, gi, field, sc[field] === 'H' ? null : 'H')}
+                          title={g.home}>{g.home.slice(0, 3)}</button>
+                        <button type="button" className={'lol-w' + (sc[field] === 'A' ? ' on' : '')}
+                          onClick={() => onResult(r.n, gi, field, sc[field] === 'A' ? null : 'A')}
+                          title={g.away}>{g.away.slice(0, 3)}</button>
+                      </span>
+                    );
                     return (
-                      <div key={gi} className={'lol-game' + (w ? ' done' : '')}>
-                        <Nome nick={g.home} vencedor={w ? w === g.home : undefined} />
-                        <span className="lol-vs">x</span>
-                        <Nome nick={g.away} vencedor={w ? w === g.away : undefined} />
+                      <div key={gi} className={'lol-game' + (o ? ' done' : '')}>
+                        <div className="lol-game-top">
+                          <Nome nick={g.home} vencedor={o && o.winner !== 'D' ? vH : undefined} />
+                          <span className="lol-vs">{o ? o.pvH + ' x ' + o.pvA : 'x'}</span>
+                          <Nome nick={g.away} vencedor={o && o.winner !== 'D' ? vA : undefined} />
+                          {o && o.winner === 'D' && <span className="lol-emp">EMPATE</span>}
+                        </div>
                         {isMod && (
-                          <span className="lol-mod">
-                            <button type="button" className={'lol-w' + (sc && sc.w === 'H' ? ' on' : '')}
-                              onClick={() => onResult(r.n, gi, sc && sc.w === 'H' ? null : 'H')}>1</button>
-                            <button type="button" className={'lol-w' + (sc && sc.w === 'A' ? ' on' : '')}
-                              onClick={() => onResult(r.n, gi, sc && sc.w === 'A' ? null : 'A')}>2</button>
-                          </span>
+                          <div className="lol-mod">
+                            {[1, 2].map(p => (
+                              <div key={p} className="lol-mod-p">
+                                <span className="lol-mod-ph">PARTIDA {p}</span>
+                                <Par field={'g' + p} curto="VENCEU" />
+                                {LOL_OBJETIVOS.map(ob => (
+                                  <Par key={ob.k} field={ob.k + p} curto={ob.label} />
+                                ))}
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     );
