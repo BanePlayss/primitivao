@@ -80,6 +80,24 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ARQUIVO DE CUPONS de temporadas encerradas — doc SEPARADO, um por ano.
+    // O doc de apostas é a fonte VIVA; quando um campeonato fecha, os cupons
+    // dele saem de lá pra cá (o histórico continua existindo, só não pesa mais
+    // no teto de 1MB do doc quente).
+    // NUNCA apaga: perder isto é perder o histórico de apostas de uma temporada
+    // inteira — REI DAS APOSTAS, conquistas e a aba de histórico leem daqui.
+    match /primitivao/bets_archive_{ano} {
+      allow read: if true;
+      allow create: if request.resource.data.json is string && payloadFits(request.resource.data);
+      // update só pode CRESCER (arquivo é append-only por temporada). Sem isto,
+      // uma escrita ruim podia esvaziar o arquivo depois de já ter tirado os
+      // cupons do doc quente — e aí o histórico sumia dos dois lados.
+      allow update: if request.resource.data.json is string
+        && payloadFits(request.resource.data)
+        && request.resource.data.json.size() >= resource.data.json.size();
+      allow delete: if false;
+    }
+
     // PRIMICORD (app nativo de voz) — coleção pc_rooms.
     // Aqui NÃO passa mídia: a voz vai P2P direto entre os PCs. O Firestore só serve
     // de "ponto de encontro" — que salas existem, quem está em cada uma, e o IP:porta
@@ -189,5 +207,15 @@ function isValidChatMsg(data) {
 // Usado pelos DOIS docs (apostas e state).
 function notWipingJson(newData, oldData) {
   return !(oldData.json is string)
-    || newData.json.size() >= (oldData.json.size() * 4 / 10);
+    || newData.json.size() >= (oldData.json.size() * 4 / 10)
+    // ESCAPE PRO ARQUIVAMENTO. Encolher muito é vandalismo no caminho normal,
+    // MAS arquivar os cupons de uma temporada encerrada encolhe de propósito
+    // (medido em 2026-08-03: tirar os campeonatos fechados leva o json de
+    // 666 KB pra 62 KB = 9.4%, o que a regra de 40% barraria).
+    // `archiveEpoch` é um contador top-level que SÓ o fluxo de arquivamento
+    // incrementa — o commitBetDocUpdate normal nunca o toca, então o caminho
+    // do dia a dia continua protegido igual. Um vândalo que tentasse zerar o
+    // json teria que incrementar o epoch junto, o que deixa rastro no doc.
+    || (newData.archiveEpoch is number
+        && (!(oldData.archiveEpoch is number) || newData.archiveEpoch > oldData.archiveEpoch));
 }
