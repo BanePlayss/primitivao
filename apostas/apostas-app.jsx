@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260803-lolapostas ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260803-lolcupom ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3706,6 +3706,7 @@ function App() {
   // enquanto o campeonato não começou.
   const [lolScores, setLolScores] = useState({});
   const [lolKo, setLolKo] = useState(null);
+  const [lolLocks, setLolLocks] = useState({}); // { 'R{n}-{gi}': true } — apostas fechadas pelo mod
   // MEU JOGO: escalação por confronto montada pelo MANDANTE (os dois lados das 2
   // partidas). Keyed por gKey: mkLineups[gKey] = { p1:{home,away}, p2:{home,away} }.
   const [mkLineups, setMkLineups] = useState({});
@@ -3942,6 +3943,87 @@ function App() {
       return { ...remote, lol: { ...lol, ko: { ...ko, scores: sc } } };
     });
   };
+  // LoL (mod): ABRE/FECHA as apostas de um confronto.
+  const setLolLock = (n, gi, val) => {
+    if (!isMod && !isAdmin) return;
+    const apply = (locks) => {
+      const l = { ...(locks || {}) };
+      const k = lolGameKey(n, gi);
+      if (val) l[k] = true; else delete l[k];
+      return l;
+    };
+    setLolLocks(prev => apply(prev));
+    return commitBetDocUpdate(remote => {
+      const lol = (remote.lol && typeof remote.lol === 'object') ? remote.lol : {};
+      return { ...remote, lol: { ...lol, locks: apply(lol.locks) } };
+    });
+  };
+
+  // APOSTA DO LOL. Recomputa TUDO no servidor a partir do estado remoto —
+  // odd, combinada e se o mercado ainda está aberto. Nunca confia no cliente.
+  const placeLolBet = async (payload) => {
+    const nick = session && session.nick;
+    if (!nick || !payload || !Array.isArray(payload.legs) || !payload.legs.length) return { err: 'cupom inválido' };
+    const stake = Math.floor(Number(payload.stake) || 0);
+    if (!(stake > 0) || !isFinite(stake)) return { err: 'valor inválido' };
+    const ticketId = 'lol-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    const createdAt = Date.now();
+    try {
+      return await commitBetDocUpdate((remote, ti) => {
+        const u = (remote.users || {})[nick];
+        if (!u) return { __abort: true, result: { err: 'Conta não sincronizada. Faz login de novo.' } };
+        if ((u.pc || 0) < stake) return { __abort: true, result: { err: 'Saldo insuficiente (tem ' + (u.pc || 0) + ' PC).' } };
+        const lol = (remote.lol && typeof remote.lol === 'object') ? remote.lol : {};
+        const scores = lol.scores || {}, locks = lol.locks || {};
+        // roster AUTORITATIVO (top-level ou in-json) — nunca o closure do cliente
+        const players = lolField(ti || remote.interests || {});
+        const rounds = lolRoundRobin(players);
+        if (lolGroupDone(rounds, scores)) {
+          return { __abort: true, result: { err: 'A fase de grupo já acabou.' } };
+        }
+        const rej = lolCasadaReject(payload.legs);
+        if (rej) return { __abort: true, result: { err: rej } };
+        const legs = [];
+        for (const l of payload.legs) {
+          const m = /^lol:R(\d+)-(\d+)$/.exec(String(l.fixtureId || ''));
+          if (!m) return { __abort: true, result: { err: 'Confronto inválido no cupom.' } };
+          const rn = Number(m[1]), gi = Number(m[2]);
+          const rd = rounds.find(r => r.n === rn);
+          const g = rd && rd.games[gi];
+          if (!g) return { __abort: true, result: { err: 'Confronto não existe mais (mudou a inscrição).' } };
+          const key = lolGameKey(rn, gi);
+          if (lolBetClosed(key, scores, locks)) {
+            return { __abort: true, result: { err: 'As apostas de ' + g.home + ' x ' + g.away + ' já fecharam.' } };
+          }
+          // não aposta em confronto que você mesmo joga (entrega de jogo)
+          if (g.home === nick || g.away === nick) {
+            return { __abort: true, result: { err: 'Você não pode apostar num confronto que você joga.' } };
+          }
+          const mk = lolMarketsOf(true).find(x => x.k === l.market);
+          if (!mk || mk.picks.indexOf(l.pick) < 0) {
+            return { __abort: true, result: { err: 'Mercado inválido no cupom.' } };
+          }
+          const odd = lolOddFor(l.market, l.pick, g.home, g.away, rounds, scores);
+          if (!odd) return { __abort: true, result: { err: 'Esse mercado não está sendo oferecido.' } };
+          legs.push({ fixtureId: 'lol:' + key, champId: 'lol', market: l.market, pick: l.pick,
+                      odds: odd, odd, home: g.home, away: g.away });
+        }
+        const combined = +legs.reduce((p, l) => p * l.odds, 1).toFixed(2);
+        const ticket = {
+          id: ticketId, user: nick, amount: stake, status: 'pending', createdAt,
+          champId: 'lol', combinedOdds: combined, casada: legs.length > 1,
+          legs, payout: undefined, open: true,
+          openMeta: { publishedAt: createdAt, copies: 0, stakeCopied: 0 },
+        };
+        if ((remote.bets || []).some(b => b.id === ticket.id)) return null;
+        const users = { ...remote.users, [nick]: { ...u, pc: u.pc - stake } };
+        return { ...remote, users, bets: [ticket, ...(remote.bets || [])] };
+      });
+    } catch (e) {
+      return { err: String((e && e.message) || e) };
+    }
+  };
+
   // GOLF (mod): FINALIZA (ou reabre) um mapa → finals[mapN]=true libera a LIQUIDAÇÃO
   // dos cupons daquele mapa. Só clicar depois de lançar TUDO (tacadas + DNF + props),
   // senão os cupons liquidam em cima de dado incompleto. Reabrir (false) volta os
@@ -4319,6 +4401,7 @@ function App() {
         const lol = (remote.lol && typeof remote.lol === 'object') ? remote.lol : {};
         setLolScores(lol.scores && typeof lol.scores === 'object' ? lol.scores : {});
         setLolKo(lol.ko && typeof lol.ko === 'object' ? lol.ko : null);
+        setLolLocks(lol.locks && typeof lol.locks === 'object' ? lol.locks : {});
         setOfficialDayState(remote.officialDay && typeof remote.officialDay === 'object' ? remote.officialDay : null);
         hasLoadedRef.current = true; setSynced(true);
         // Migração one-shot: promove interests do json pra campo top-level.
@@ -4767,6 +4850,50 @@ function App() {
   // void devolve o stake. Idempotente E reversível — se o mod corrigir/reabrir, o
   // efeito reconcilia o delta (compara status E prêmio E bônus). Roster e placar vêm
   // do estado remoto/autoritativo, nunca do closure do cliente.
+  // LIQUIDAÇÃO DO LOL. Varre os cupons pendentes e resolve cada perna pelo
+  // PLACAR REAL do doc (lolLegResult) — nunca pelo odd/pick que o cliente
+  // mandou. Idempotente: só grava quando algo muda de fato.
+  useEffect(() => {
+    if (!hasLoadedRef.current) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
+      try {
+        await commitBetDocUpdate((remote) => {
+          const rbets = remote.bets || [];
+          if (!rbets.some(b => b && b.champId === 'lol' && b.status === 'pending')) return null;
+          const scores = ((remote.lol && remote.lol.scores) || {});
+          const newUsers = { ...(remote.users || {}) };
+          let dirty = false;
+          const newBets = rbets.map(b => {
+            if (!b || b.champId !== 'lol' || b.status !== 'pending' || !Array.isArray(b.legs) || !b.legs.length) return b;
+            const results = b.legs.map(l => {
+              const m = /^lol:(R\d+-\d+)$/.exec(String(l.fixtureId || ''));
+              return m ? lolLegResult(l.market, l.pick, scores[m[1]]) : 'pending';
+            });
+            if (results.some(r => r === 'pending')) return b;
+            const st = results.some(r => r === 'lose') ? 'lost' : 'won';
+            // prêmio pelo produto das odds GRAVADAS no cupom (já validadas pelo
+            // servidor no placeLolBet) — não recalcula com a forma de hoje,
+            // senão o prêmio mudaria depois da aposta feita.
+            const won = st === 'won'
+              ? Math.round((b.amount || 0) * b.legs.reduce((p, l) => p * (l.odds || l.odd || 1), 1))
+              : 0;
+            if (st === 'won' && won > 0 && newUsers[b.user]) {
+              newUsers[b.user] = { ...newUsers[b.user], pc: (newUsers[b.user].pc || 0) + won };
+            }
+            dirty = true;
+            const legs = b.legs.map((l, i) => ({ ...l, result: results[i] === 'win' ? 'win' : 'lose' }));
+            return { ...b, legs, status: st, payout: won, settledAt: Date.now() };
+          });
+          if (!dirty) return null;
+          return { ...remote, users: newUsers, bets: newBets };
+        });
+      } catch (e) { console.warn('Liquidacao do LoL falhou', e); }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [lolScores]);
+
   useEffect(() => {
     if (!hasLoadedRef.current) return;
     let cancelled = false;
@@ -6291,18 +6418,16 @@ function App() {
                   />
                 </>
               ) : (apostasChampId === 'lol') ? (
-                // LoL na aba APOSTAS: os confrontos do grupo com o LANÇAMENTO do
-                // mod ali mesmo (pedido do dono) — sem precisar ir em CAMPEONATOS.
-                // Sem esta branch o LoL caía no ApostarView, que é da FIFA e
-                // mostrava os jogos errados.
-                <LolView
+                // LoL na aba APOSTAS = CARD DE APOSTA (classificação/chaveamento
+                // ficam em CAMPEONATOS, igual ao golf). O mod abre/fecha a aposta
+                // e lança o resultado no próprio card.
+                <LolBettingView
                   interests={interests || {}}
                   teamPlayers={teamPlayers || {}}
                   session={session}
-                  onToggleInterest={() => toggleInterest('lol')}
-                  scores={lolScores} ko={lolKo}
-                  onResult={setLolResult} onPublishKo={publishLolKo} onKoResult={setLolKoResult}
-                  isMod={isMod} users={users} mode="apostas"
+                  scores={lolScores} locks={lolLocks} ko={lolKo}
+                  onPlaceBet={placeLolBet} onResult={setLolResult} onLock={setLolLock}
+                  balance={me?.pc ?? 0} isMod={isMod} users={users}
                 />
               ) : (apostasChampId === 'gwyf') ? (
                 // GOLF na aba APOSTAS = SÓ aposta (classificação/rodadas ficam em
@@ -6896,7 +7021,9 @@ const lolGameKey = (n, gi) => 'R' + n + '-' + gi;
 const LOL_MATCH_FIELDS = ['g1', 'g2', 'fb1', 'cs1', 'ft1', 'fb2', 'cs2', 'ft2'];
 const LOL_OBJETIVOS = [
   { k: 'fb', label: 'FIRST BLOOD',  icon: 'sword'    },
-  { k: 'cs', label: '100 MINIONS',  icon: 'coin'     },
+  // NÃO usar 'coin' aqui: aquele ícone tem "PC" desenhado dentro (é o da moeda
+  // do app) e aparecia escrito PC no meio do rótulo do mercado.
+  { k: 'cs', label: '100 MINIONS',  icon: 'chart'    },
   { k: 'ft', label: 'FIRST BRICK',  icon: 'crosshair' },
 ];
 
@@ -6940,6 +7067,141 @@ function lolRoundRobin(players) {
     arr = [fixed].concat(rest);
   }
   return rounds;
+}
+
+// ─── ODDS DO LOL ────────────────────────────────────────────────────────────
+// Mesma fórmula do golf (margem da casa K=0.85 → EV = 0.85 + 0.15·p < 1 pra todo
+// p<1). SEM piso: um piso fixo vira +EV pro apostador quando a odd justa cai
+// abaixo dele. Quase-certo (odd < 1.02) simplesmente não é oferecido (null).
+const LOL_K = 0.85;
+const lolClampP = (p) => Math.max(0.05, Math.min(0.92, p));
+function lolOdd(p) {
+  if (!(p > 0) || p >= 1) return null;
+  const o = 1 + (1 / p - 1) * LOL_K;
+  if (o < 1.02) return null;
+  return +o.toFixed(2);
+}
+
+// FORMA de um jogador = taxa de PARTIDAS vencidas na fase de grupo.
+// null quando ainda não jogou (aí a odd sai parelha — sem histórico, sem chute).
+function lolPlayerForm(rounds, scores, nick) {
+  let v = 0, n = 0;
+  (rounds || []).forEach(r => (r.games || []).forEach((g, gi) => {
+    if (g.home !== nick && g.away !== nick) return;
+    const o = lolMatchOutcome((scores || {})[lolGameKey(r.n, gi)]);
+    if (!o) return;
+    const meH = g.home === nick;
+    v += meH ? o.pvH : o.pvA;
+    n += 2;
+  }));
+  return n ? v / n : null;
+}
+
+// P(home vence UMA partida). Sem histórico dos dois → 0.5 (parelho).
+// Com histórico, a diferença de forma desloca a probabilidade, atenuada (0.6)
+// porque MD2 blind pick é volátil — não dá pra confiar demais na amostra.
+function lolWinProb(home, away, rounds, scores) {
+  const fh = lolPlayerForm(rounds, scores, home);
+  const fa = lolPlayerForm(rounds, scores, away);
+  if (fh == null && fa == null) return 0.5;
+  const a = fh == null ? 0.5 : fh;
+  const b = fa == null ? 0.5 : fa;
+  if (a + b <= 0) return 0.5;
+  return lolClampP(0.5 + (a - b) * 0.6);
+}
+
+// Probabilidades de CADA mercado de um confronto MD2.
+// RES é derivado do p por partida: 2-0 = p², 1-1 = 2p(1-p), 0-2 = (1-p)².
+// Objetivos (first blood / 100 minions / first brick) puxam MENOS pra forma
+// (0.30) — ganhar partida e tirar first blood são coisas diferentes.
+function lolMarketProbs(home, away, rounds, scores) {
+  const p = lolWinProb(home, away, rounds, scores);
+  const q = 1 - p;
+  const obj = lolClampP(0.5 + (p - 0.5) * 0.30);
+  return {
+    RES: { H: p * p, D: 2 * p * q, A: q * q },
+    G1:  { H: p, A: q },
+    G2:  { H: p, A: q },
+    OBJ: { H: obj, A: 1 - obj },
+  };
+}
+
+// Odd de uma opção de mercado. `market` = RES|G1|G2|FB1|CS1|FT1|FB2|CS2|FT2.
+// null = mercado não oferecido (quase-certo).
+function lolOddFor(market, pick, home, away, rounds, scores) {
+  const pr = lolMarketProbs(home, away, rounds, scores);
+  const grp = market === 'RES' ? pr.RES
+            : market === 'G1'  ? pr.G1
+            : market === 'G2'  ? pr.G2
+            : pr.OBJ;
+  const p = grp[pick];
+  return p == null ? null : lolOdd(p);
+}
+
+// Mercados de um confronto, na ordem de exibição. `av` = modo AVANÇADO
+// (SIMPLES mostra só o resultado do confronto e quem ganha cada partida).
+function lolMarketsOf(av) {
+  const base = [
+    { k: 'RES', label: 'RESULTADO DO CONFRONTO', picks: ['H', 'D', 'A'], icon: 'trophy' },
+    { k: 'G1',  label: 'QUEM GANHA A PARTIDA 1', picks: ['H', 'A'], icon: 'gamepad' },
+    { k: 'G2',  label: 'QUEM GANHA A PARTIDA 2', picks: ['H', 'A'], icon: 'gamepad' },
+  ];
+  if (!av) return base;
+  return base.concat([1, 2].flatMap(n => LOL_OBJETIVOS.map(ob => ({
+    k: ob.k + n, label: ob.label + ' — PARTIDA ' + n, picks: ['H', 'A'], icon: ob.icon,
+  }))));
+}
+
+// Resultado de uma perna do LoL contra o placar real. 'win'|'lose'|'pending'.
+// Lê SEMPRE o placar do doc — nunca o odd/pick que o cliente mandou.
+function lolLegResult(market, pick, sc) {
+  const s = sc || {};
+  if (market === 'RES') {
+    const o = lolMatchOutcome(s);
+    if (!o) return 'pending';
+    const got = o.winner === 'H' ? 'H' : o.winner === 'A' ? 'A' : 'D';
+    return got === pick ? 'win' : 'lose';
+  }
+  // O mercado G1/G2 é MAIÚSCULO, mas o campo do placar é g1/g2 minúsculo
+  // (os objetivos fb1/cs1/... já batem). Sem este mapa a perna nunca liquidava.
+  const campo = market === 'G1' ? 'g1' : market === 'G2' ? 'g2' : market;
+  const v = s[campo];         // g1/g2/fb1/cs1/ft1/fb2/cs2/ft2
+  if (v !== 'H' && v !== 'A') return 'pending';
+  return v === pick ? 'win' : 'lose';
+}
+
+// Aposta FECHADA num confronto? Fecha por trava do mod (locks) OU porque o
+// confronto já começou a ser lançado (qualquer campo com resultado). O segundo
+// é a guarda que importa: sem ela dava pra apostar depois de saber o first blood.
+function lolBetClosed(key, scores, locks) {
+  if ((locks || {})[key]) return true;
+  const sc = (scores || {})[key];
+  if (!sc) return false;
+  return LOL_MATCH_FIELDS.some(f => sc[f] === 'H' || sc[f] === 'A');
+}
+
+// ANTI-CORRELAÇÃO (obrigatória — ver golfCasadaReject).
+// No mesmo confronto, RES é função de G1+G2: acertar as duas partidas já
+// determina o resultado, então casar as três pagaria o produto de odds por UM
+// evento só (+EV pro apostador). Também bloqueia dois picks do MESMO mercado
+// (cobrir todas as vias) e o mesmo mercado repetido.
+// Devolve string de erro ou null.
+function lolCasadaReject(legs) {
+  const L = legs || [];
+  for (const a of L) {
+    const mesmos = L.filter(x => x.fixtureId === a.fixtureId && x.market === a.market);
+    if (mesmos.length > 1) return 'Não dá pra apostar em mais de uma opção do mesmo mercado.';
+  }
+  const porJogo = {};
+  L.forEach(l => { (porJogo[l.fixtureId] = porJogo[l.fixtureId] || []).push(l.market); });
+  for (const fid of Object.keys(porJogo)) {
+    const ms = porJogo[fid];
+    const temRes = ms.indexOf('RES') >= 0;
+    if (temRes && (ms.indexOf('G1') >= 0 || ms.indexOf('G2') >= 0)) {
+      return 'RESULTADO DO CONFRONTO já é decidido pelas partidas 1 e 2 — não dá pra casar os dois.';
+    }
+  }
+  return null;
 }
 
 // Classificação do grupo. Cada confronto é MD2: 2-0 vale 3 pts pro vencedor,
@@ -7309,6 +7571,235 @@ function golfLegResult(market, pick, side, mapN, scores, props, players, finaliz
     return pr.par === golfParOf(side) ? 'win' : 'lose';
   }
   return 'pending';
+}
+
+// ─── CARD DE APOSTAS DO LOL ─────────────────────────────────────────────────
+// Estilo MK: cards de confronto + CUPOM lateral com abas SIMPLES/AVANÇADO.
+// SIMPLES = resultado do confronto + quem ganha cada partida.
+// AVANÇADO = tudo isso + first blood / 100 minions / first brick por partida.
+// O mod abre/fecha a aposta de cada confronto e lança o resultado no próprio card.
+function LolBettingView({ interests, teamPlayers, session, scores, locks, ko,
+                          onPlaceBet, onResult, onLock, balance, isMod, users }) {
+  const [av, setAv] = React.useState(false);
+  const [cupom, setCupom] = React.useState([]);
+  const [stake, setStake] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [msg, setMsg] = React.useState(null);
+  const [aberto, setAberto] = React.useState(false);
+
+  const players = lolField(interests || {});
+  const rounds = lolRoundRobin(players);
+  const myNick = session && session.nick;
+  const mercados = lolMarketsOf(av);
+
+  // rodada mostrada = 1ª com confronto ainda aberto (senão a última)
+  const pend = rounds.findIndex(r => r.games.some((g, gi) => !lolBetClosed(lolGameKey(r.n, gi), scores, locks)));
+  const [selR, setSelR] = React.useState(null);
+  const vi = selR != null ? selR : (pend === -1 ? Math.max(0, rounds.length - 1) : pend);
+  const rodada = rounds[vi];
+
+  const legKey = (fid, m) => fid + '|' + m;
+  const toggle = (fid, market, pick, odd, home, away) => {
+    setMsg(null);
+    setCupom(prev => {
+      const k = legKey(fid, market);
+      const achou = prev.find(l => legKey(l.fixtureId, l.market) === k);
+      // clicar na MESMA opção tira; clicar em outra via troca o pick
+      if (achou && achou.pick === pick) return prev.filter(l => legKey(l.fixtureId, l.market) !== k);
+      const semEsse = prev.filter(l => legKey(l.fixtureId, l.market) !== k);
+      const nova = { fixtureId: fid, market, pick, odd, home, away };
+      const rej = lolCasadaReject([...semEsse, nova]);
+      if (rej) { setMsg({ t: 'err', m: rej }); return prev; }
+      return [...semEsse, nova];
+    });
+    setAberto(true);
+  };
+  const noCupom = (fid, market, pick) =>
+    cupom.some(l => l.fixtureId === fid && l.market === market && l.pick === pick);
+
+  const combinada = cupom.length ? +cupom.reduce((p, l) => p * l.odd, 1).toFixed(2) : 0;
+  const valor = Math.floor(Number(stake) || 0);
+  const retorno = valor > 0 && combinada ? Math.round(valor * combinada) : 0;
+
+  const confirmar = async () => {
+    if (busy || !cupom.length || valor <= 0) return;
+    setBusy(true); setMsg(null);
+    const r = await onPlaceBet({ legs: cupom.map(({ fixtureId, market, pick }) => ({ fixtureId, market, pick })), stake: valor });
+    setBusy(false);
+    if (r && r.err) { setMsg({ t: 'err', m: r.err }); return; }
+    setCupom([]); setStake(''); setAberto(false);
+    setMsg({ t: 'ok', m: 'Aposta confirmada!' });
+  };
+
+  const nomePick = (mk, pick, g) =>
+    mk === 'RES' ? (pick === 'H' ? g.home : pick === 'A' ? g.away : 'EMPATE')
+                 : (pick === 'H' ? g.home : g.away);
+
+  if (!rodada) {
+    return <div className="lol-view"><div className="lol-empty">Ainda não há confrontos — faltam inscritos.</div></div>;
+  }
+
+  return (
+    <div className="lol-bet">
+      <div className="lol-bet-head">
+        <div>
+          <div className="lol-title">APOSTAS · LEAGUE OF LEGENDS</div>
+          <div className="lol-sub">MD2 BLIND PICK · {players.length} JOGADORES</div>
+        </div>
+        <div className="lol-tabs">
+          <button type="button" className={'lol-tab' + (!av ? ' on' : '')} onClick={() => setAv(false)}>SIMPLES</button>
+          <button type="button" className={'lol-tab' + (av ? ' on' : '')} onClick={() => setAv(true)}>AVANÇADO</button>
+        </div>
+      </div>
+
+      <div className="lol-rnav">
+        <button type="button" onClick={() => setSelR(Math.max(0, vi - 1))} disabled={vi === 0}>
+          <Icon name="caret-up" size={14} />
+        </button>
+        <span>RODADA {rodada.n} <small>de {rounds.length}</small></span>
+        <button type="button" onClick={() => setSelR(Math.min(rounds.length - 1, vi + 1))} disabled={vi >= rounds.length - 1}>
+          <Icon name="caret-down" size={14} />
+        </button>
+      </div>
+
+      <div className="lol-cards">
+        {rodada.games.map((g, gi) => {
+          const key = lolGameKey(rodada.n, gi);
+          const fid = 'lol:' + key;
+          const fechado = lolBetClosed(key, scores, locks);
+          const sc = (scores || {})[key] || {};
+          const meu = myNick === g.home || myNick === g.away;
+          return (
+            <div key={gi} className={'lol-card' + (fechado ? ' fechado' : '') + (meu ? ' meu' : '')}>
+              <div className="lol-card-h">
+                <span className="lol-card-t">
+                  <Avatar nick={g.home} teamPlayers={teamPlayers} size={22} noBadge /> {g.home}
+                  <em>x</em>
+                  <Avatar nick={g.away} teamPlayers={teamPlayers} size={22} noBadge /> {g.away}
+                </span>
+                <span className={'lol-card-st' + (fechado ? ' off' : '')}>
+                  {fechado ? 'APOSTAS FECHADAS' : 'ABERTO'}
+                </span>
+                {isMod && (
+                  <button type="button" className="lol-lockbtn" onClick={() => onLock(rodada.n, gi, !(locks || {})[key])}>
+                    <Icon name={(locks || {})[key] ? 'unlock' : 'lock'} size={12} />
+                    {(locks || {})[key] ? 'REABRIR' : 'FECHAR'}
+                  </button>
+                )}
+              </div>
+
+              {meu && !fechado && <div className="lol-card-warn">Você joga este confronto — não dá pra apostar nele.</div>}
+
+              {mercados.map(mk => (
+                <div key={mk.k} className="lol-mkt">
+                  <div className="lol-mkt-h"><Icon name={mk.icon} size={12} /> {mk.label}</div>
+                  <div className="lol-opts">
+                    {mk.picks.map(pick => {
+                      const odd = lolOddFor(mk.k, pick, g.home, g.away, rounds, scores);
+                      const sel = noCupom(fid, mk.k, pick);
+                      const off = fechado || meu || !odd;
+                      return (
+                        <button
+                          key={pick}
+                          type="button"
+                          className={'lol-opt' + (sel ? ' sel' : '') + (off ? ' off' : '')}
+                          disabled={off}
+                          onClick={() => toggle(fid, mk.k, pick, odd, g.home, g.away)}
+                        >
+                          <span className="lol-opt-n">{nomePick(mk.k, pick, g)}</span>
+                          <span className="lol-opt-o mono">{odd ? odd.toFixed(2) : '—'}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              {isMod && (
+                <div className="lol-mod">
+                  {[1, 2].map(p => (
+                    <div key={p} className="lol-mod-p">
+                      <span className="lol-mod-ph">PARTIDA {p}</span>
+                      {[{ k: 'g', l: 'VENCEU' }].concat(LOL_OBJETIVOS.map(o => ({ k: o.k, l: o.label }))).map(f => {
+                        const campo = f.k + p;
+                        return (
+                          <span key={campo} className="lol-fld">
+                            <span className="lol-fld-l">{f.l}</span>
+                            <button type="button" className={'lol-w' + (sc[campo] === 'H' ? ' on' : '')}
+                              onClick={() => onResult(rodada.n, gi, f.k === 'g' ? 'g' + p : campo, sc[campo] === 'H' ? null : 'H')}
+                              title={g.home}>{g.home.slice(0, 3)}</button>
+                            <button type="button" className={'lol-w' + (sc[campo] === 'A' ? ' on' : '')}
+                              onClick={() => onResult(rodada.n, gi, f.k === 'g' ? 'g' + p : campo, sc[campo] === 'A' ? null : 'A')}
+                              title={g.away}>{g.away.slice(0, 3)}</button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* BARRA + GAVETA DO CUPOM (mesmo padrão do MK: sem a barra a gaveta some) */}
+      <button type="button" className="lol-betbar" onClick={() => setAberto(a => !a)}>
+        <Icon name="ticket" size={15} />
+        <span>VER CUPOM</span>
+        {cupom.length > 0 && <span className="lol-betbar-n">{cupom.length}</span>}
+        {combinada > 0 && <span className="lol-betbar-o mono">{combinada.toFixed(2)}x</span>}
+      </button>
+
+      <div className={'lol-cupom' + (aberto ? ' on' : '')}>
+        <div className="lol-cupom-h">
+          <span><Icon name="ticket" size={14} /> CUPOM</span>
+          <button type="button" onClick={() => setAberto(false)}><Icon name="x" size={14} /></button>
+        </div>
+        {cupom.length === 0 ? (
+          <div className="lol-cupom-vazio">Toca numa odd pra montar o cupom.</div>
+        ) : (
+          <>
+            <div className="lol-cupom-legs">
+              {cupom.map(l => {
+                const mk = mercados.find(m => m.k === l.market) || lolMarketsOf(true).find(m => m.k === l.market);
+                return (
+                  <div key={legKey(l.fixtureId, l.market)} className="lol-cupom-leg">
+                    <div className="lol-cupom-leg-t">{l.home} x {l.away}</div>
+                    <div className="lol-cupom-leg-m">{mk ? mk.label : l.market}</div>
+                    <div className="lol-cupom-leg-p">
+                      <strong>{nomePick(l.market, l.pick, { home: l.home, away: l.away })}</strong>
+                      <span className="mono">{l.odd.toFixed(2)}</span>
+                      <button type="button" onClick={() => setCupom(c => c.filter(x => legKey(x.fixtureId, x.market) !== legKey(l.fixtureId, l.market)))}>
+                        <Icon name="trash" size={12} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="lol-cupom-tot">
+              <span>{cupom.length > 1 ? 'CASADA' : 'SIMPLES'}</span>
+              <strong className="mono">{combinada.toFixed(2)}x</strong>
+            </div>
+            <div className="lol-cupom-stake">
+              <input type="number" inputMode="numeric" min="1" placeholder="valor em PC"
+                value={stake} onChange={e => setStake(e.target.value)} />
+              <div className="lol-cupom-saldo">saldo {Number(balance || 0).toLocaleString('pt-BR')} PC</div>
+            </div>
+            {retorno > 0 && (
+              <div className="lol-cupom-ret">retorno <strong className="mono">{retorno.toLocaleString('pt-BR')} PC</strong></div>
+            )}
+            <button type="button" className="lol-cupom-go" disabled={busy || valor <= 0 || valor > (balance || 0)}
+              onClick={confirmar}>
+              {busy ? 'CONFIRMANDO...' : valor > (balance || 0) ? 'SALDO INSUFICIENTE' : 'APOSTAR'}
+            </button>
+          </>
+        )}
+        {msg && <div className={'lol-cupom-msg ' + msg.t}>{msg.m}</div>}
+      </div>
+    </div>
+  );
 }
 
 // ─── VIEW DO CAMPEONATO DE LOL ──────────────────────────────────────────────

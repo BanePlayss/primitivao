@@ -5985,3 +5985,63 @@
 
     .lol-aviso { display: flex; align-items: flex-start; gap: 9px; background: rgba(215,100,20,0.12); border-left: 3px solid var(--pv-orange); padding: 11px 13px; margin-bottom: 16px; font-size: 12px; line-height: 1.45; color: var(--pv-charcoal); }
     .lol-aviso svg { flex-shrink: 0; margin-top: 1px; color: var(--pv-orange); }
+
+    /* ─── CARD DE APOSTAS DO LOL ───────────────────────────────────────────── */
+    .lol-bet { position: relative; }
+    .lol-bet-head { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; background: var(--pv-bone); border: 2px solid var(--pv-charcoal); box-shadow: 6px 6px 0 rgba(28,22,18,0.18); padding: 14px 16px; margin-bottom: 12px; color: var(--pv-charcoal); }
+    .lol-tabs { margin-left: auto; display: inline-flex; }
+    .lol-tab { background: none; border: 1.5px solid rgba(28,22,18,0.28); color: var(--pv-charcoal); font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; padding: 8px 15px; cursor: pointer; }
+    .lol-tab.on { background: var(--pv-charcoal); color: var(--pv-bone); border-color: var(--pv-charcoal); }
+    .lol-rnav { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 12px; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; color: var(--pv-charcoal); }
+    .lol-rnav small { font-weight: 600; opacity: 0.55; letter-spacing: 0.04em; }
+    .lol-rnav button { background: var(--pv-charcoal); color: var(--pv-bone); border: none; width: 30px; height: 26px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .lol-rnav button:disabled { opacity: 0.3; cursor: default; }
+    .lol-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; }
+    .lol-card { background: var(--pv-bone); border: 2px solid var(--pv-charcoal); box-shadow: 5px 5px 0 rgba(28,22,18,0.15); padding: 12px 14px; color: var(--pv-charcoal); }
+    .lol-card.fechado { opacity: 0.72; }
+    .lol-card.meu { border-color: var(--pv-orange); }
+    .lol-card-h { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; border-bottom: 1.5px solid rgba(28,22,18,0.15); padding-bottom: 9px; margin-bottom: 10px; }
+    .lol-card-t { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 12.5px; }
+    .lol-card-t em { font-style: normal; opacity: 0.45; margin: 0 2px; }
+    .lol-card-st { margin-left: auto; font-size: 8.5px; font-weight: 800; letter-spacing: 0.12em; color: var(--pv-green); }
+    .lol-card-st.off { color: var(--pv-red); }
+    .lol-lockbtn { display: inline-flex; align-items: center; gap: 5px; background: none; border: 1.5px solid rgba(28,22,18,0.28); color: var(--pv-charcoal); font-size: 9px; font-weight: 800; padding: 4px 8px; cursor: pointer; }
+    .lol-card-warn { font-size: 10.5px; color: var(--pv-orange); font-weight: 700; margin-bottom: 8px; }
+    .lol-mkt { margin-bottom: 10px; }
+    .lol-mkt-h { display: flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 800; letter-spacing: 0.13em; color: rgba(28,22,18,0.6); margin-bottom: 5px; }
+    .lol-opts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+    .lol-opt { display: flex; align-items: center; justify-content: space-between; gap: 6px; background: none; border: 1.5px solid rgba(28,22,18,0.25); color: var(--pv-charcoal); padding: 8px 9px; cursor: pointer; min-width: 0; }
+    .lol-opt:hover:not(.off) { border-color: var(--pv-orange); }
+    .lol-opt.sel { background: var(--pv-charcoal); color: var(--pv-bone); border-color: var(--pv-charcoal); }
+    .lol-opt.off { opacity: 0.4; cursor: default; }
+    .lol-opt-n { font-size: 11px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lol-opt-o { font-size: 12px; font-weight: 800; flex-shrink: 0; }
+    .lol-betbar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 10px; width: 100%; background: var(--pv-charcoal); color: var(--pv-bone); border: none; padding: 13px 18px; margin-top: 16px; font-weight: 800; font-size: 12px; letter-spacing: 0.1em; cursor: pointer; }
+    .lol-betbar-n { background: var(--pv-orange); padding: 2px 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0; }
+    .lol-betbar-o { margin-left: auto; color: var(--pv-orange); font-size: 13px; }
+    .lol-cupom { position: fixed; right: 0; bottom: 0; width: min(360px, 100vw); max-height: 82vh; overflow-y: auto; background: var(--pv-bone); border: 2px solid var(--pv-charcoal); box-shadow: -6px -6px 0 rgba(28,22,18,0.2); transform: translateY(105%); transition: transform 0.22s ease; z-index: 40; color: var(--pv-charcoal); }
+    .lol-cupom.on { transform: translateY(0); }
+    .lol-cupom-h { display: flex; align-items: center; justify-content: space-between; background: var(--pv-charcoal); color: var(--pv-bone); padding: 11px 14px; font-weight: 800; font-size: 11px; letter-spacing: 0.14em; }
+    .lol-cupom-h span { display: inline-flex; align-items: center; gap: 7px; }
+    .lol-cupom-h button { background: none; border: none; color: var(--pv-bone); cursor: pointer; display: inline-flex; }
+    .lol-cupom-vazio { padding: 22px 16px; font-size: 12px; color: rgba(28,22,18,0.55); }
+    .lol-cupom-legs { padding: 6px 14px; }
+    .lol-cupom-leg { border-bottom: 1px solid rgba(28,22,18,0.12); padding: 9px 0; }
+    .lol-cupom-leg-t { font-size: 11.5px; font-weight: 800; }
+    .lol-cupom-leg-m { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; color: rgba(28,22,18,0.55); margin: 2px 0 4px; }
+    .lol-cupom-leg-p { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .lol-cupom-leg-p strong { flex: 1; }
+    .lol-cupom-leg-p button { background: none; border: none; color: var(--pv-red); cursor: pointer; display: inline-flex; }
+    .lol-cupom-tot { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-top: 1.5px solid rgba(28,22,18,0.15); font-size: 10px; font-weight: 800; letter-spacing: 0.12em; }
+    .lol-cupom-tot strong { font-size: 16px; color: var(--pv-orange); }
+    .lol-cupom-stake { padding: 0 14px 8px; }
+    .lol-cupom-stake input { width: 100%; padding: 11px 12px; border: 1.5px solid rgba(28,22,18,0.3); background: #fff; color: var(--pv-charcoal); font-family: 'JetBrains Mono', monospace; font-size: 14px; }
+    .lol-cupom-saldo { font-size: 10px; color: rgba(28,22,18,0.55); margin-top: 5px; }
+    .lol-cupom-ret { padding: 0 14px 8px; font-size: 11px; color: rgba(28,22,18,0.7); }
+    .lol-cupom-ret strong { color: var(--pv-green); font-size: 13px; }
+    .lol-cupom-go { display: block; width: calc(100% - 28px); margin: 0 14px 14px; background: var(--pv-orange); color: #fff; border: none; padding: 13px; font-weight: 800; font-size: 12px; letter-spacing: 0.12em; cursor: pointer; }
+    .lol-cupom-go:disabled { background: rgba(28,22,18,0.25); cursor: default; }
+    .lol-cupom-msg { padding: 10px 14px; font-size: 11px; line-height: 1.4; }
+    .lol-cupom-msg.err { background: rgba(178,34,34,0.12); color: var(--pv-red); }
+    .lol-cupom-msg.ok { background: rgba(31,122,58,0.12); color: var(--pv-green); }
+    @media (max-width: 560px) { .lol-cupom { width: 100vw; } .lol-opts { grid-auto-flow: row; } }
