@@ -80,13 +80,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ARQUIVO DE CUPONS de temporadas encerradas — doc SEPARADO, um por ano.
-    // O doc de apostas é a fonte VIVA; quando um campeonato fecha, os cupons
-    // dele saem de lá pra cá (o histórico continua existindo, só não pesa mais
-    // no teto de 1MB do doc quente).
+    // ARQUIVO DE CUPONS de temporadas encerradas — coleção própria, um doc por
+    // ano (bets_archive/2026). O doc de apostas é a fonte VIVA; quando um
+    // campeonato fecha, os cupons dele saem de lá pra cá (o histórico continua
+    // existindo, só não pesa mais no teto de 1MB do doc quente).
     // NUNCA apaga: perder isto é perder o histórico de apostas de uma temporada
     // inteira — REI DAS APOSTAS, conquistas e a aba de histórico leem daqui.
-    match /primitivao/bets_archive_{ano} {
+    // NB: o curinga tem que ser um SEGMENTO INTEIRO do path. `bets_archive_{ano}`
+    // (curinga no meio do nome) é erro de sintaxe — por isso virou coleção.
+    match /bets_archive/{ano} {
       allow read: if true;
       allow create: if request.resource.data.json is string && payloadFits(request.resource.data);
       // update só pode CRESCER (arquivo é append-only por temporada). Sem isto,

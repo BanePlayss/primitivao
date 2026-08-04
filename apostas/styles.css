@@ -6009,13 +6009,26 @@
     .lol-card-warn { font-size: 10.5px; color: var(--pv-orange); font-weight: 700; margin-bottom: 8px; }
     .lol-mkt { margin-bottom: 10px; }
     .lol-mkt-h { display: flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 800; letter-spacing: 0.13em; color: rgba(28,22,18,0.6); margin-bottom: 5px; }
-    .lol-opts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
-    .lol-opt { display: flex; align-items: center; justify-content: space-between; gap: 6px; background: none; border: 1.5px solid rgba(28,22,18,0.25); color: var(--pv-charcoal); padding: 8px 9px; cursor: pointer; min-width: 0; }
+    /* Opcao de mercado no estilo do MK: avatar + barra de probabilidade de
+       fundo (--pk-fill) + chance% + odd. FAV/ZEBRA so aparecem quando as odds
+       diferem de verdade (no parelho nao marca nada). */
+    .lol-opts { display: flex; flex-direction: column; gap: 5px; }
+    .lol-opt { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: none; border: 1.5px solid rgba(28,22,18,0.25); color: var(--pv-charcoal); padding: 8px 10px; cursor: pointer; min-width: 0; text-align: left; }
+    .lol-opt::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--pk-fill, 0%); background: rgba(31,95,138,0.13); pointer-events: none; transition: width 0.25s ease; }
+    .lol-opt > * { position: relative; z-index: 1; }
     .lol-opt:hover:not(.off) { border-color: var(--pv-orange); }
     .lol-opt.sel { background: var(--pv-charcoal); color: var(--pv-bone); border-color: var(--pv-charcoal); }
+    .lol-opt.sel::before { background: rgba(215,100,20,0.35); }
     .lol-opt.off { opacity: 0.4; cursor: default; }
-    .lol-opt-n { font-size: 11px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .lol-opt-o { font-size: 12px; font-weight: 800; flex-shrink: 0; }
+    .lol-opt-l { display: inline-flex; align-items: center; gap: 7px; min-width: 0; flex: 1; }
+    .lol-opt-x { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: 1.5px solid currentColor; opacity: 0.5; flex-shrink: 0; }
+    .lol-opt-n { font-size: 11.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lol-opt-tag { font-size: 7.5px; font-weight: 800; letter-spacing: 0.1em; padding: 1px 5px; flex-shrink: 0; }
+    .lol-opt-tag.fav { background: var(--pv-green); color: #fff; }
+    .lol-opt-tag.zebra { background: var(--pv-orange); color: #fff; }
+    .lol-opt-r { display: inline-flex; align-items: center; gap: 9px; flex-shrink: 0; }
+    .lol-opt-p { font-size: 10px; font-weight: 700; opacity: 0.6; }
+    .lol-opt-o { font-size: 13px; font-weight: 800; }
     .lol-betbar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 10px; width: 100%; background: var(--pv-charcoal); color: var(--pv-bone); border: none; padding: 13px 18px; margin-top: 16px; font-weight: 800; font-size: 12px; letter-spacing: 0.1em; cursor: pointer; }
     .lol-betbar-n { background: var(--pv-orange); padding: 2px 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0; }
     .lol-betbar-o { margin-left: auto; color: var(--pv-orange); font-size: 13px; }
@@ -6044,4 +6057,4 @@
     .lol-cupom-msg { padding: 10px 14px; font-size: 11px; line-height: 1.4; }
     .lol-cupom-msg.err { background: rgba(178,34,34,0.12); color: var(--pv-red); }
     .lol-cupom-msg.ok { background: rgba(31,122,58,0.12); color: var(--pv-green); }
-    @media (max-width: 560px) { .lol-cupom { width: 100vw; } .lol-opts { grid-auto-flow: row; } }
+    @media (max-width: 560px) { .lol-cupom { width: 100vw; } }

@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260803-lolcupom ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260803-lolcup2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -7690,30 +7690,56 @@ function LolBettingView({ interests, teamPlayers, session, scores, locks, ko,
 
               {meu && !fechado && <div className="lol-card-warn">Você joga este confronto — não dá pra apostar nele.</div>}
 
-              {mercados.map(mk => (
-                <div key={mk.k} className="lol-mkt">
-                  <div className="lol-mkt-h"><Icon name={mk.icon} size={12} /> {mk.label}</div>
-                  <div className="lol-opts">
-                    {mk.picks.map(pick => {
-                      const odd = lolOddFor(mk.k, pick, g.home, g.away, rounds, scores);
-                      const sel = noCupom(fid, mk.k, pick);
-                      const off = fechado || meu || !odd;
-                      return (
-                        <button
-                          key={pick}
-                          type="button"
-                          className={'lol-opt' + (sel ? ' sel' : '') + (off ? ' off' : '')}
-                          disabled={off}
-                          onClick={() => toggle(fid, mk.k, pick, odd, g.home, g.away)}
-                        >
-                          <span className="lol-opt-n">{nomePick(mk.k, pick, g)}</span>
-                          <span className="lol-opt-o mono">{odd ? odd.toFixed(2) : '—'}</span>
-                        </button>
-                      );
-                    })}
+              {mercados.map(mk => {
+                const pr = lolMarketProbs(g.home, g.away, rounds, scores);
+                const grp = mk.k === 'RES' ? pr.RES : mk.k === 'G1' ? pr.G1 : mk.k === 'G2' ? pr.G2 : pr.OBJ;
+                const odds = mk.picks.map(p => lolOddFor(mk.k, p, g.home, g.away, rounds, scores));
+                const validas = odds.filter(Boolean);
+                const menor = validas.length ? Math.min(...validas) : null;
+                const maior = validas.length ? Math.max(...validas) : null;
+                return (
+                  <div key={mk.k} className="lol-mkt">
+                    <div className="lol-mkt-h"><Icon name={mk.icon} size={12} /> {mk.label}</div>
+                    <div className="lol-opts">
+                      {mk.picks.map((pick, pi) => {
+                        const odd = odds[pi];
+                        const prob = grp[pick] || 0;
+                        const sel = noCupom(fid, mk.k, pick);
+                        const off = fechado || meu || !odd;
+                        // FAV/ZEBRA só marcam quando há diferença real de odd
+                        const fav = odd && menor !== maior && odd === menor;
+                        const zebra = odd && menor !== maior && odd === maior;
+                        const nome = nomePick(mk.k, pick, g);
+                        const ehJogador = !(mk.k === 'RES' && pick === 'D');
+                        return (
+                          <button
+                            key={pick}
+                            type="button"
+                            className={'lol-opt' + (sel ? ' sel' : '') + (off ? ' off' : '')}
+                            disabled={off}
+                            style={{ ['--pk-fill']: Math.max(2, Math.round(prob * 100)) + '%' }}
+                            title={nome + ' — ' + Math.round(prob * 100) + '% de chance'}
+                            onClick={() => toggle(fid, mk.k, pick, odd, g.home, g.away)}
+                          >
+                            <span className="lol-opt-l">
+                              {ehJogador
+                                ? <Avatar nick={nome} teamPlayers={teamPlayers} size={20} noBadge />
+                                : <span className="lol-opt-x"><Icon name="x" size={13} /></span>}
+                              <span className="lol-opt-n">{nome}</span>
+                              {fav && <span className="lol-opt-tag fav">FAV</span>}
+                              {zebra && <span className="lol-opt-tag zebra">ZEBRA</span>}
+                            </span>
+                            <span className="lol-opt-r">
+                              <span className="lol-opt-p">{prob >= 0.005 ? Math.round(prob * 100) + '%' : '<1%'}</span>
+                              <span className="lol-opt-o mono">{odd ? odd.toFixed(2) : '—'}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {isMod && (
                 <div className="lol-mod">
