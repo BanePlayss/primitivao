@@ -6055,3 +6055,12 @@
     .mk-bet-round-c { margin-left: 5px; background: var(--pv-orange); color: #fff; padding: 0 4px; font-size: 9px; }
     .mk-bg-body { padding: 12px 14px 14px; border-top: 1.5px solid rgba(28,22,18,0.12); }
     .lol-lockbtn { cursor: pointer; }
+
+    /* O bloco de MODO tambem fica solto no fundo da pagina (nao dentro de um
+       .card), entao no tema escuro o cinza-charcoal da dica sumia — mesmo caso
+       do trilho de rodadas. Clareia a dica e os botoes inativos no escuro. */
+    html.pv-dark .mk-bet-mode-hint { color: rgba(244,234,215,0.62); }
+    html.pv-dark .mk-bet-mode-hint strong { color: var(--pv-bone); }
+    html.pv-dark .mk-bet-mode-btn { color: rgba(244,234,215,0.75); border-color: rgba(244,234,215,0.28); }
+    html.pv-dark .mk-bet-mode-btn.on { background: var(--pv-bone); color: var(--pv-charcoal); border-color: var(--pv-bone); }
+    html.pv-dark .mk-bet-mode-tabs { border-color: rgba(244,234,215,0.35); }

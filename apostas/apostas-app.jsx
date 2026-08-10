@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260810-tema ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260810-selfbet ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3998,9 +3998,18 @@ function App() {
           if (lolBetClosed(key, scores, locks)) {
             return { __abort: true, result: { err: 'As apostas de ' + g.home + ' x ' + g.away + ' já fecharam.' } };
           }
-          // não aposta em confronto que você mesmo joga (entrega de jogo)
+          // CONFRONTO QUE VOCÊ JOGA: pode apostar, mas SÓ na própria vitória.
+          // Apostar contra si mesmo (ou no empate) paga pra entregar o jogo —
+          // é o incentivo que essa guarda fecha. Apostar EM si mesmo alinha o
+          // incentivo com jogar bem, então é liberado (regra do dono).
+          // "COMO TERMINA" também fica fora: não é vitória, e o jogador
+          // controla demais por qual das 3 formas o jogo acaba.
           if (g.home === nick || g.away === nick) {
-            return { __abort: true, result: { err: 'Você não pode apostar num confronto que você joga.' } };
+            const meuLado = g.home === nick ? 'H' : 'A';
+            const mercadoDeVitoria = l.market === 'RES' || l.market === 'W1' || l.market === 'W2';
+            if (!mercadoDeVitoria || l.pick !== meuLado) {
+              return { __abort: true, result: { err: 'No seu próprio confronto você só pode apostar na SUA vitória.' } };
+            }
           }
           const mk = lolMarketsOf(true).find(x => x.k === l.market);
           if (!mk || mk.picks.indexOf(l.pick) < 0) {
@@ -7794,7 +7803,7 @@ function LolBettingView({ interests, teamPlayers, session, scores, locks, ko,
                 </div>
                 <div className="mk-bg-flags">
                   {fechado && <span className="mk-bg-flag lock"><Icon name="lock" size={10} /> APOSTAS FECHADAS</span>}
-                  {meu && !fechado && <span className="mk-bg-flag"><Icon name="user" size={10} /> VOCÊ JOGA ESTE</span>}
+                  {meu && !fechado && <span className="mk-bg-flag"><Icon name="user" size={10} /> SÓ NA SUA VITÓRIA</span>}
                   {isMod && (
                     <button type="button" className="mk-bg-flag lol-lockbtn"
                       onClick={(e) => { e.stopPropagation(); onLock(rodada.n, gi, !(locks || {})[key]); }}>
@@ -7839,7 +7848,13 @@ function LolBettingView({ interests, teamPlayers, session, scores, locks, ko,
                         const odd = odds[pi];
                         const prob = grp[pick] || 0;
                         const sel = noCupom(fid, mk.k, pick);
-                        const off = fechado || meu || !odd;
+                        // No próprio confronto só a SUA vitória fica clicável
+                        // (o servidor repete essa regra em placeLolBet).
+                        const meuLado = meu ? (myNick === g.home ? 'H' : 'A') : null;
+                        const bloqueadoPorSerMeu = meu && !(
+                          (mk.k === 'RES' || mk.k === 'W1' || mk.k === 'W2') && pick === meuLado
+                        );
+                        const off = fechado || bloqueadoPorSerMeu || !odd;
                         // FAV/ZEBRA só marcam quando o extremo é ÚNICO. Num 1X2
                         // parelho os dois jogadores empatam na maior odd — marcar
                         // "ZEBRA" nos dois não informa nada e polui o card.
