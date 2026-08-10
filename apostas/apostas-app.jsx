@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260803-lolcup2 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260803-lolcup4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -7573,6 +7573,13 @@ function golfLegResult(market, pick, side, mapN, scores, props, players, finaliz
   return 'pending';
 }
 
+// Rótulo curto do mercado pro selo colorido da perna no cupom (o MK usa o
+// número da rodada ali; aqui o mercado identifica melhor).
+const LOL_MKT_SHORT = {
+  RES: '1X2', G1: 'P1', G2: 'P2',
+  fb1: 'FB1', fb2: 'FB2', cs1: 'CS1', cs2: 'CS2', ft1: 'FT1', ft2: 'FT2',
+};
+
 // ─── CARD DE APOSTAS DO LOL ─────────────────────────────────────────────────
 // Estilo MK: cards de confronto + CUPOM lateral com abas SIMPLES/AVANÇADO.
 // SIMPLES = resultado do confronto + quem ganha cada partida.
@@ -7620,6 +7627,7 @@ function LolBettingView({ interests, teamPlayers, session, scores, locks, ko,
   const combinada = cupom.length ? +cupom.reduce((p, l) => p * l.odd, 1).toFixed(2) : 0;
   const valor = Math.floor(Number(stake) || 0);
   const retorno = valor > 0 && combinada ? Math.round(valor * combinada) : 0;
+  const casada = cupom.length > 1;
 
   const confirmar = async () => {
     if (busy || !cupom.length || valor <= 0) return;
@@ -7706,9 +7714,13 @@ function LolBettingView({ interests, teamPlayers, session, scores, locks, ko,
                         const prob = grp[pick] || 0;
                         const sel = noCupom(fid, mk.k, pick);
                         const off = fechado || meu || !odd;
-                        // FAV/ZEBRA só marcam quando há diferença real de odd
-                        const fav = odd && menor !== maior && odd === menor;
-                        const zebra = odd && menor !== maior && odd === maior;
+                        // FAV/ZEBRA só marcam quando o extremo é ÚNICO. Num 1X2
+                        // parelho os dois jogadores empatam na maior odd — marcar
+                        // "ZEBRA" nos dois não informa nada e polui o card.
+                        const nMenor = odds.filter(o => o === menor).length;
+                        const nMaior = odds.filter(o => o === maior).length;
+                        const fav = odd && menor !== maior && odd === menor && nMenor === 1;
+                        const zebra = odd && menor !== maior && odd === maior && nMaior === 1;
                         const nome = nomePick(mk.k, pick, g);
                         const ehJogador = !(mk.k === 'RES' && pick === 'D');
                         return (
@@ -7769,61 +7781,113 @@ function LolBettingView({ interests, teamPlayers, session, scores, locks, ko,
         })}
       </div>
 
-      {/* BARRA + GAVETA DO CUPOM (mesmo padrão do MK: sem a barra a gaveta some) */}
-      <button type="button" className="lol-betbar" onClick={() => setAberto(a => !a)}>
-        <Icon name="ticket" size={15} />
-        <span>VER CUPOM</span>
-        {cupom.length > 0 && <span className="lol-betbar-n">{cupom.length}</span>}
-        {combinada > 0 && <span className="lol-betbar-o mono">{combinada.toFixed(2)}x</span>}
-      </button>
-
-      <div className={'lol-cupom' + (aberto ? ' on' : '')}>
-        <div className="lol-cupom-h">
-          <span><Icon name="ticket" size={14} /> CUPOM</span>
-          <button type="button" onClick={() => setAberto(false)}><Icon name="x" size={14} /></button>
-        </div>
-        {cupom.length === 0 ? (
-          <div className="lol-cupom-vazio">Toca numa odd pra montar o cupom.</div>
-        ) : (
-          <>
-            <div className="lol-cupom-legs">
+      {/* GAVETA DO CUPOM — reusa o MESMO sistema do MK (.mk-cupom-wrap + .card
+          cupom + .modal-row + .stake-input + .quick + .payout-box). Não inventar
+          classe nova aqui: foi o que fez o cupom destoar do resto do app. */}
+      <aside className={'mk-cupom-wrap' + (aberto ? ' cupom-open' : '')}
+        style={aberto ? { transform: 'translateY(0)' } : undefined}>
+        <button type="button" className="cupom-sheet-handle" onClick={() => setAberto(false)}>
+          <span className="cupom-sheet-grip" aria-hidden="true" />
+          <span className="cupom-sheet-handle-label">FECHAR CUPOM</span>
+          <Icon name="caret-down" size={14} />
+        </button>
+        <div className="card cupom">
+          <div className="card-head">
+            <div className="title">CUPOM {casada ? '· CASADA' : ''}</div>
+            <div className="sub">{cupom.length} {cupom.length === 1 ? 'PALPITE' : 'PALPITES'}</div>
+          </div>
+          <div className="card-body">
+            {cupom.length === 0 ? (
+              <div className="empty">
+                <div className="e1">VAZIO</div>
+                <div className="e2">Toca nas odds pra montar o cupom. 2+ palpites = casada — as odds multiplicam.</div>
+              </div>
+            ) : (<>
               {cupom.map(l => {
-                const mk = mercados.find(m => m.k === l.market) || lolMarketsOf(true).find(m => m.k === l.market);
+                const mk = lolMarketsOf(true).find(m => m.k === l.market);
                 return (
-                  <div key={legKey(l.fixtureId, l.market)} className="lol-cupom-leg">
-                    <div className="lol-cupom-leg-t">{l.home} x {l.away}</div>
-                    <div className="lol-cupom-leg-m">{mk ? mk.label : l.market}</div>
-                    <div className="lol-cupom-leg-p">
-                      <strong>{nomePick(l.market, l.pick, { home: l.home, away: l.away })}</strong>
-                      <span className="mono">{l.odd.toFixed(2)}</span>
-                      <button type="button" onClick={() => setCupom(c => c.filter(x => legKey(x.fixtureId, x.market) !== legKey(l.fixtureId, l.market)))}>
-                        <Icon name="trash" size={12} />
-                      </button>
+                  <div key={legKey(l.fixtureId, l.market)} className="cupom-leg">
+                    <div className="cupom-leg-txt">
+                      <div className="cupom-leg-mkt">
+                        <span className="cupom-leg-ko" style={{ background: 'var(--pv-orange)' }}>{LOL_MKT_SHORT[l.market] || l.market}</span>
+                        {' '}{l.home} x {l.away}
+                      </div>
+                      <div className="cupom-leg-pick">
+                        <strong>{nomePick(l.market, l.pick, { home: l.home, away: l.away })}</strong>
+                      </div>
                     </div>
+                    <div className="cupom-leg-odd mono">{l.odd.toFixed(2)}</div>
+                    <button type="button" className="cupom-leg-x"
+                      onClick={() => setCupom(c => c.filter(x => legKey(x.fixtureId, x.market) !== legKey(l.fixtureId, l.market)))}>
+                      <Icon name="x" size={12} />
+                    </button>
                   </div>
                 );
               })}
-            </div>
-            <div className="lol-cupom-tot">
-              <span>{cupom.length > 1 ? 'CASADA' : 'SIMPLES'}</span>
-              <strong className="mono">{combinada.toFixed(2)}x</strong>
-            </div>
-            <div className="lol-cupom-stake">
-              <input type="number" inputMode="numeric" min="1" placeholder="valor em PC"
-                value={stake} onChange={e => setStake(e.target.value)} />
-              <div className="lol-cupom-saldo">saldo {Number(balance || 0).toLocaleString('pt-BR')} PC</div>
-            </div>
-            {retorno > 0 && (
-              <div className="lol-cupom-ret">retorno <strong className="mono">{retorno.toLocaleString('pt-BR')} PC</strong></div>
-            )}
-            <button type="button" className="lol-cupom-go" disabled={busy || valor <= 0 || valor > (balance || 0)}
-              onClick={confirmar}>
-              {busy ? 'CONFIRMANDO...' : valor > (balance || 0) ? 'SALDO INSUFICIENTE' : 'APOSTAR'}
-            </button>
-          </>
-        )}
-        {msg && <div className={'lol-cupom-msg ' + msg.t}>{msg.m}</div>}
-      </div>
+              <div className="modal-row" style={{ marginTop: 10 }}>
+                <span className="lab">ODDS TOTAL</span>
+                <span className="mono" style={{ color: 'var(--pv-orange)', fontWeight: 800 }}>{combinada.toFixed(2)}x</span>
+              </div>
+              <div className="modal-row"><span className="lab">SALDO</span><span className="mono">{compactPC(balance || 0)} PC</span></div>
+              <div style={{ marginTop: 10 }} className="small-label">QUANTO APOSTAR (PC)</div>
+              <input type="number" min="1" className="stake-input" value={stake}
+                onChange={e => setStake(Math.max(0, Math.min(balance || 1e9, Math.floor(+e.target.value || 0))))} />
+              <div className="quick">
+                <button type="button" onClick={() => setStake(Math.min(50, balance || 50))}>50</button>
+                <button type="button" onClick={() => setStake(Math.min(100, balance || 100))}>100</button>
+                <button type="button" onClick={() => setStake(Math.min(500, balance || 500))}>500</button>
+                <button type="button" onClick={() => setStake(balance || 0)}>MAX</button>
+              </div>
+              <div className="payout-box">
+                <div className="nm">RETORNO POTENCIAL</div>
+                <div className="v">{compactPC(retorno)} <span style={{ fontSize: 12, letterSpacing: '0.3em', fontFamily: 'Space Grotesk' }}>PC</span></div>
+                <div style={{ fontSize: 10, letterSpacing: '0.22em', fontWeight: 800, color: 'var(--pv-orange)', marginTop: 4 }}>
+                  LUCRO: +{compactPC(Math.max(0, retorno - valor))} PC
+                </div>
+              </div>
+              {msg ? (
+                <div style={{ fontSize: 10.5, letterSpacing: '0.04em', color: msg.t === 'err' ? 'var(--pv-red, #b3231a)' : 'var(--pv-green)', fontWeight: 800, marginTop: 10, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                  <Icon name="warning" size={12} /> <span>{msg.m}</span>
+                </div>
+              ) : casada && (
+                <div style={{ fontSize: 10, letterSpacing: '0.12em', color: 'rgba(28,22,18,0.6)', fontWeight: 700, marginTop: 10, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                  <Icon name="warning" size={12} /> <span>CASADA: precisa acertar TODOS os {cupom.length} palpites.</span>
+                </div>
+              )}
+              <div className="modal-btns">
+                <button type="button" className="btn-secondary" onClick={() => { setCupom([]); setMsg(null); }}>LIMPAR</button>
+                <button type="button" className="btn-primary"
+                  disabled={busy || !cupom.length || !(valor > 0) || valor > (balance || 0)}
+                  onClick={confirmar}>
+                  {valor > (balance || 0) ? 'SEM SALDO' : busy ? '...' : 'APOSTAR ' + valor + ' PC'}
+                </button>
+              </div>
+              <div className="cupom-public-note"><Icon name="cards" size={12} /> Toda aposta é pública na MESA DOS CARTOLAS.</div>
+            </>)}
+          </div>
+        </div>
+      </aside>
+
+      {aberto && (
+        <button className="cupom-sheet-backdrop" type="button" aria-label="Fechar cupom" onClick={() => setAberto(false)} />
+      )}
+
+      {/* BARRA DO CUPOM: só aparece quando há palpite e a gaveta está fechada. */}
+      {cupom.length > 0 && !aberto && (
+        <button className="mk-betbar" type="button" onClick={() => setAberto(true)}>
+          <span className="mk-betbar-main">
+            <span className="mk-betbar-badge"><Icon name="ticket" size={16} /> {cupom.length}</span>
+            <span className="mk-betbar-info">
+              <span className="mk-betbar-title">{cupom.length === 1 ? '1 PALPITE' : cupom.length + ' PALPITES'}{casada ? ' · CASADA' : ''}</span>
+              <span className="mk-betbar-sub">retorno ~{compactPC(retorno)} PC</span>
+            </span>
+          </span>
+          <span className="mk-betbar-cta">
+            <span className="mk-betbar-odd">{combinada.toFixed(2)}x</span>
+            <span className="mk-betbar-go">VER CUPOM <Icon name="caret-up" size={14} /></span>
+          </span>
+        </button>
+      )}
     </div>
   );
 }
