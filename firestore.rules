@@ -218,6 +218,10 @@ function notWipingJson(newData, oldData) {
     // incrementa — o commitBetDocUpdate normal nunca o toca, então o caminho
     // do dia a dia continua protegido igual. Um vândalo que tentasse zerar o
     // json teria que incrementar o epoch junto, o que deixa rastro no doc.
-    || (newData.archiveEpoch is number
-        && (!(oldData.archiveEpoch is number) || newData.archiveEpoch > oldData.archiveEpoch));
+    // NB: em rules, ler uma chave que NAO EXISTE no map lanca erro e a regra
+    // inteira falha (nao devolve null). O doc ainda nao tem `archiveEpoch`, entao
+    // `oldData.archiveEpoch` derrubava a avaliacao e o arquivamento levava 403.
+    // Tem que testar a presenca com `in` ANTES de ler.
+    || (('archiveEpoch' in newData) && newData.archiveEpoch is number
+        && (!('archiveEpoch' in oldData) || newData.archiveEpoch > oldData.archiveEpoch));
 }
