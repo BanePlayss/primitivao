@@ -63,6 +63,10 @@ KO. Idempotente: só mexe em `status==='pending'`.
   antes de deployar QUALQUER card novo. No MK rodaram 3+ revisões.
 
 ## 7. Card UI (estilo MK)
+> **A APARÊNCIA tem skill própria: `cupom-ux`.** Markup e classes exatas do
+> card (acordeão), das abas SIMPLES/AVANÇADO, da gaveta e da barra. Ler ANTES
+> de escrever JSX de aposta — aproximar "de memória" já foi refeito 3x.
+
 Reusa a estética do MK: card com header (fixture), corpo com mercado(s) em
 linhas/acordeão, cada opção = botão com foto/nome + chance% + odd; azarão marcado
 (maior prêmio) e favorito. Estados: aberto / travado (FECHA EM Xs) / fechado /
