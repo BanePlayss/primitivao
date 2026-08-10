@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260810-selfbet ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260810-arquivo ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3707,6 +3707,8 @@ function App() {
   const [lolScores, setLolScores] = useState({});
   const [lolKo, setLolKo] = useState(null);
   const [lolLocks, setLolLocks] = useState({}); // { 'R{n}-{gi}': true } — apostas fechadas pelo mod
+  // Agregado das temporadas ARQUIVADAS (json.betStats). Ver seasonBettingRanking.
+  const [betStats, setBetStats] = useState(null);
   // MEU JOGO: escalação por confronto montada pelo MANDANTE (os dois lados das 2
   // partidas). Keyed por gKey: mkLineups[gKey] = { p1:{home,away}, p2:{home,away} }.
   const [mkLineups, setMkLineups] = useState({});
@@ -4414,6 +4416,7 @@ function App() {
         setLolScores(lol.scores && typeof lol.scores === 'object' ? lol.scores : {});
         setLolKo(lol.ko && typeof lol.ko === 'object' ? lol.ko : null);
         setLolLocks(lol.locks && typeof lol.locks === 'object' ? lol.locks : {});
+        setBetStats(remote.betStats && typeof remote.betStats === 'object' ? remote.betStats : null);
         setOfficialDayState(remote.officialDay && typeof remote.officialDay === 'object' ? remote.officialDay : null);
         hasLoadedRef.current = true; setSynced(true);
         // Migração one-shot: promove interests do json pra campo top-level.
@@ -6063,6 +6066,9 @@ function App() {
   const lolPlayers = lolField(interests || {});
   const lolRounds = lolRoundRobin(lolPlayers);
   _lolChampData = { players: lolPlayers, rounds: lolRounds, scores: lolScores || {}, ko: lolKo };
+  // Agregado das seasons arquivadas — lido por seasonBettingRanking/betTotalsOf
+  // sem precisar threadear por toda a arvore (mesmo padrao dos _*ChampData).
+  _betStats = betStats;
   // Idem pro BOLÃO DA COPA: publica worldcup + fixtures pro trophiesForNick / as
   // conquistas de colocação lerem a ordem final (computeCopaStandings) sem threadear.
   _copaChampData = { worldcup, wcFixtures: (wcData && wcData.matches) || [] };
@@ -11972,8 +11978,18 @@ function betKingChamps(nick, cs, bets) {
 // Ranking de apostas de UMA season (champId): por LUCRO (retorno das ganhas menos
 // a aposta das resolvidas). Pendentes contam só no nº de apostas. Apostas sem
 // champId contam como FIFA. Cada season é independente — o "reset" é automático.
+// AGREGADO das temporadas ARQUIVADAS. Quando um campeonato fecha, os cupons
+// saem do doc quente (pesavam 90% do json) e fica só o resultado por jogador:
+//   json.betStats[champId][nick] = { apostas, vit, der, stakeResolvido, retorno,
+//                                    maxAmt, maxOdds, maxLegs, streakV, streakD, first }
+// É o que sustenta REI DAS APOSTAS, o ranking do histórico e as conquistas de
+// aposta depois que os cupons somem. Setado no render do App.
+let _betStats = null;
+const betStatsOf = (champId) => ((_betStats || {})[champId] || {});
+
 function seasonBettingRanking(champId, bets) {
   const stat = {};
+  // 1) o que ainda está no doc quente (temporada em andamento)
   (bets || []).forEach(b => {
     if ((b.champId || 'fifa') !== champId) return;
     if (b.user === 'admin') return;
@@ -11983,9 +11999,51 @@ function seasonBettingRanking(champId, bets) {
     else if (b.status === 'lost') { s.der++; s.stakeResolvido += (b.amount || 0); }
     else { s.pend++; }
   });
+  // 2) soma o arquivado (cupons já removidos). Idempotente: se a temporada
+  //    ainda não foi arquivada, betStats[champId] não existe e isto é no-op.
+  for (const [nick, a] of Object.entries(betStatsOf(champId))) {
+    if (nick === 'admin' || !a) continue;
+    const s = stat[nick] || (stat[nick] = { nick, apostas: 0, vit: 0, der: 0, pend: 0, stakeResolvido: 0, retorno: 0 });
+    s.apostas += a.apostas || 0;
+    s.vit += a.vit || 0;
+    s.der += a.der || 0;
+    s.stakeResolvido += a.stakeResolvido || 0;
+    s.retorno += a.retorno || 0;
+  }
   return Object.values(stat)
     .map(s => ({ ...s, lucro: s.retorno - s.stakeResolvido }))
     .sort((a, b) => b.lucro - a.lucro || b.vit - a.vit || a.apostas - b.apostas);
+}
+
+// Totais de aposta de um nick somando TODAS as seasons (quente + arquivo).
+// As conquistas de volume (grinder50, addict100, whale...) leem daqui — sem
+// isso elas seriam revogadas no dia em que os cupons fossem arquivados.
+function betTotalsOf(nick, bets) {
+  const t = { apostas: 0, vit: 0, der: 0, wagered: 0, maxAmt: 0, maxOdds: 0, maxLegs: 0, streakV: 0, streakD: 0, first: null };
+  (bets || []).forEach(b => {
+    if (b.user !== nick) return;
+    t.apostas++;
+    t.wagered += Number(b.amount) || 0;
+    t.maxAmt = Math.max(t.maxAmt, Number(b.amount) || 0);
+    t.maxLegs = Math.max(t.maxLegs, (b.legs || []).length);
+    if (b.status === 'won') { t.vit++; t.maxOdds = Math.max(t.maxOdds, Number(b.combinedOdds) || 0); }
+    else if (b.status === 'lost') t.der++;
+  });
+  for (const perChamp of Object.values(_betStats || {})) {
+    const a = (perChamp || {})[nick];
+    if (!a) continue;
+    t.apostas += a.apostas || 0;
+    t.vit += a.vit || 0;
+    t.der += a.der || 0;
+    t.wagered += a.wagered || 0;
+    t.maxAmt = Math.max(t.maxAmt, a.maxAmt || 0);
+    t.maxOdds = Math.max(t.maxOdds, a.maxOdds || 0);
+    t.maxLegs = Math.max(t.maxLegs, a.maxLegs || 0);
+    t.streakV = Math.max(t.streakV, a.streakV || 0);
+    t.streakD = Math.max(t.streakD, a.streakD || 0);
+    if (t.first == null && a.first != null) t.first = a.first;
+  }
+  return t;
 }
 
 // HISTÓRICO de um campeonato ENCERRADO dentro da aba APOSTAS (só leitura).
@@ -12069,7 +12127,11 @@ function ChampHistoryPanel({ champId, bets, users, teamPlayers, myNick, onClose,
         {meuPos >= 0 && <span className="hist-mypos">você ficou em {meuPos + 1}º</span>}
       </div>
       {mine.length === 0 ? (
-        <div className="hist-empty">Você não apostou nesta temporada.</div>
+        <div className="hist-empty">
+          {Object.keys(betStatsOf(champId)).length
+            ? 'Os cupons desta temporada foram arquivados — ficou o resultado final acima.'
+            : 'Você não apostou nesta temporada.'}
+        </div>
       ) : (
         <TicketsMini bets={mine} limit={mine.length} />
       )}
@@ -12354,7 +12416,10 @@ function betHour(b) {
 // lugar. Mudar "100k" pra outro valor = mudar 1 linha (não 2+).
 const ACH = {
   betaTester:  ({ nick, teamPlayers }) => Object.values(teamPlayers || {}).map(s => String(s).toLowerCase()).includes(String(nick).toLowerCase()),
-  highRoller:  ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000),
+  // Conquistas de VOLUME leem betTotalsOf (cupons quentes + arquivo). Se
+  // lessem so `bets`, arquivar uma temporada REVOGARIA a conquista de quem ja
+  // tinha ganhado — o dono perderia o distintivo sem ter feito nada.
+  highRoller:  ({ nick, bets }) => betTotalsOf(nick, bets).maxAmt >= 100000,
   brokeBank:   ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000 && b.status === 'won'),
   burned100k:  ({ nick, bets }) => betsOf(bets, nick).some(b => Number(b.amount) >= 100000 && b.status === 'lost'),
   champion:    ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.pos === 1; },
@@ -12363,12 +12428,12 @@ const ACH = {
   penultimo:   ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.isPenult; },
   millionaire: ({ nick, users }) => ((users || {})[nick]?.pc || 0) >= 100000,
   broke:       ({ nick, users, bets }) => ((users || {})[nick]?.pc || 0) <= 0 && betsOf(bets, nick).length >= 3,
-  grinder50:   ({ nick, bets }) => betsOf(bets, nick).length >= 50,
-  addict100:   ({ nick, bets }) => betsOf(bets, nick).length >= 100,
-  prophet:     ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Number(b.combinedOdds) >= 20),
-  parlayKing:  ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Array.isArray(b.legs) && b.legs.length >= 5),
-  hotHand:     ({ nick, bets }) => maxBetStreak(bets, nick, 'won') >= 5,
-  coldFoot:    ({ nick, bets }) => maxBetStreak(bets, nick, 'lost') >= 5,
+  grinder50:   ({ nick, bets }) => betTotalsOf(nick, bets).apostas >= 50,
+  addict100:   ({ nick, bets }) => betTotalsOf(nick, bets).apostas >= 100,
+  prophet:     ({ nick, bets }) => betTotalsOf(nick, bets).maxOdds >= 20,
+  parlayKing:  ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Array.isArray(b.legs) && b.legs.length >= 5) || betTotalsOf(nick, bets).maxLegs >= 5,
+  hotHand:     ({ nick, bets }) => Math.max(maxBetStreak(bets, nick, 'won'), betTotalsOf(nick, bets).streakV) >= 5,
+  coldFoot:    ({ nick, bets }) => Math.max(maxBetStreak(bets, nick, 'lost'), betTotalsOf(nick, bets).streakD) >= 5,
   copaPlayer:  ({ nick, worldcup }) => Object.keys((worldcup && worldcup.picks && worldcup.picks[nick]) || {}).length >= 1,
   copaSeer:    ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 1,
   copaOracle:  ({ nick, worldcup }) => wcExactCount(nick, worldcup) >= 5,
@@ -12378,17 +12443,17 @@ const ACH = {
   copaBronze:  ({ nick }) => copaTrophyForNick(nick, _copaChampData) === 'terceiro',
   copaLast:    ({ nick }) => copaTrophyForNick(nick, _copaChampData) === 'lanterna',
   underdog:    ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Array.isArray(b.legs) && b.legs.length === 1 && Number(b.combinedOdds) >= 5),
-  luckyStart:  ({ nick, bets }) => firstSettledStatus(bets, nick) === 'won',
-  whale:       ({ nick, bets }) => totalWagered(bets, nick) >= 1000000,
-  allIn:       ({ nick, bets }) => betsOf(bets, nick).some(b => Array.isArray(b.legs) && b.legs.length >= 8),
-  ironStreak:  ({ nick, bets }) => maxBetStreak(bets, nick, 'won') >= 10,
-  cursed:      ({ nick, bets }) => maxBetStreak(bets, nick, 'lost') >= 10,
+  luckyStart:  ({ nick, bets }) => (betTotalsOf(nick, bets).first || firstSettledStatus(bets, nick)) === 'won',
+  whale:       ({ nick, bets }) => betTotalsOf(nick, bets).wagered >= 1000000,
+  allIn:       ({ nick, bets }) => betTotalsOf(nick, bets).maxLegs >= 8,
+  ironStreak:  ({ nick, bets }) => Math.max(maxBetStreak(bets, nick, 'won'), betTotalsOf(nick, bets).streakV) >= 10,
+  cursed:      ({ nick, bets }) => Math.max(maxBetStreak(bets, nick, 'lost'), betTotalsOf(nick, bets).streakD) >= 10,
   // Apostas por SEASON encerrada: rei (1º), vice (2º), mico (último no vermelho).
   betKing:     ({ nick, cs, bets, mk }) => bettingSeasonRanks(nick, cs, bets, !!mkKoPodiumOrder((mk || {}).ko)).some(r => r.pos === 1),
   betVice:     ({ nick, cs, bets, mk }) => bettingSeasonRanks(nick, cs, bets, !!mkKoPodiumOrder((mk || {}).ko)).some(r => r.pos === 2 && r.total >= 3),
   betMico:     ({ nick, cs, bets, mk }) => bettingSeasonRanks(nick, cs, bets, !!mkKoPodiumOrder((mk || {}).ko)).some(r => r.pos === r.total && r.total >= 3 && r.lucro < 0 && r.apostas >= 5),
   // ── NOVAS (gamificação 2026-06) ──
-  rookie:      ({ nick, bets }) => betsOf(bets, nick).length >= 1,
+  rookie:      ({ nick, bets }) => betTotalsOf(nick, bets).apostas >= 1,
   centurion:   ({ nick, bets }) => betsOf(bets, nick).length >= 200,
   nightOwl:    ({ nick, bets }) => betsOf(bets, nick).some(b => { const h = betHour(b); return h !== null && h >= 0 && h < 5; }),
   oddInsane:   ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Number(b.combinedOdds) >= 50),
