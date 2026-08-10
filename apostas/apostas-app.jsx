@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260809-lolmk ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260809-lolfix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3893,7 +3893,8 @@ function App() {
     });
   };
   // LoL (mod): lança UM campo de um confronto MD2 da fase de grupo.
-  // `field` = g1|g2|fb1|cs1|ft1|fb2|cs2|ft2, `w` = 'H' | 'A' (null limpa).
+  // `field` = w1|m1|w2|m2. w* recebe 'H'|'A' (quem venceu); m* recebe
+  // 'FB'|'CS'|'FT' (a forma que encerrou a partida). null limpa o campo.
   // Optimistic local + commit transacional, igual aos do golf.
   const setLolResult = (n, gi, field, w) => {
     if (!isMod && !isAdmin) return;
@@ -7014,9 +7015,8 @@ const lolGameKey = (n, gi) => 'R' + n + '-' + gi;
 
 // Campos de um confronto MD2. Cada um é 'H' | 'A' (lado que ganhou/fez) ou ausente.
 //   g1/g2   = quem venceu a partida 1 / 2
-//   fb1/fb2 = FIRST BLOOD de cada partida
-//   cs1/cs2 = 100 MINIONS (quem chega primeiro) de cada partida
-//   ft1/ft2 = FIRST BRICK (primeira torre) de cada partida
+//   w1/w2 = quem venceu cada partida ('H'|'A')
+//   m1/m2 = COMO venceu ('FB' first blood | 'CS' 100 minions | 'FT' first brick)
 // Os objetivos são POR PARTIDA (decisão do dono) — são o que os mercados de
 // aposta liquidam, e por isso NUNCA podem ser derivados/compactados
 // (ver o incidente do leg.odd em [[teto-1mb-doc-apostas]]).
@@ -7823,7 +7823,10 @@ function LolBettingView({ interests, teamPlayers, session, scores, locks, ko,
 
               {[mktAtual].map(mk => {
                 const pr = lolMarketProbs(g.home, g.away, rounds, scores);
-                const grp = mk.k === 'RES' ? pr.RES : mk.k === 'G1' ? pr.G1 : mk.k === 'G2' ? pr.G2 : pr.OBJ;
+                // Indexa pelo PRÓPRIO id do mercado. A versão anterior mapeava
+                // à mão (G1/G2/OBJ) e ficou pra trás quando os mercados viraram
+                // W1/W2/M1/M2 — caía em `undefined` e derrubava a página inteira.
+                const grp = pr[mk.k] || {};
                 const odds = mk.picks.map(p => lolOddFor(mk.k, p, g.home, g.away, rounds, scores));
                 const validas = odds.filter(Boolean);
                 const menor = validas.length ? Math.min(...validas) : null;
