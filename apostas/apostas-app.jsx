@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260810-trilho ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260810-navfix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -6933,9 +6933,16 @@ function ChampSidebar({ value, onChange, cs, interests, mode, histValue, onSelec
                 style={{ '--champ-color': th.color }}
                 onClick={() => {
                   if (disabled) return;
-                  // APOSTAS: encerrado abre o histórico; ativo volta pro modo aposta.
-                  if (apostas && onSelectClosed) { onSelectClosed(g === 'closed' ? c.id : null); }
-                  if (g !== 'closed') onChange(c.id);
+                  // Só em APOSTAS o encerrado tem tratamento especial: abre o
+                  // painel de HISTÓRICO e NÃO mexe no apostasChampId (que carimba
+                  // o champId do cupom — apontar pra um encerrado abriria exploit).
+                  // Em CAMPEONATOS ele é uma seleção normal: tem que trocar a view,
+                  // senão clicar num encerrado não faz nada — que foi o bug.
+                  if (apostas) {
+                    if (onSelectClosed) onSelectClosed(g === 'closed' ? c.id : null);
+                    if (g === 'closed') return;
+                  }
+                  onChange(c.id);
                 }}
                 disabled={disabled}
                 aria-current={sel ? 'true' : undefined}
