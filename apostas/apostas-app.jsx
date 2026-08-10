@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260803-lolcup4 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260803-lolcup5 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -7579,6 +7579,24 @@ const LOL_MKT_SHORT = {
   RES: '1X2', G1: 'P1', G2: 'P2',
   fb1: 'FB1', fb2: 'FB2', cs1: 'CS1', cs2: 'CS2', ft1: 'FT1', ft2: 'FT2',
 };
+// Rótulo curto da ABA de mercado e a linha explicativa embaixo (padrão do golf:
+// golf-tab + golf-tab-desc). Aba curta pra caber; a descrição diz o que é.
+const LOL_MKT_TAB = {
+  RES: 'CONFRONTO', G1: 'PARTIDA 1', G2: 'PARTIDA 2',
+  fb1: 'FIRST BLOOD 1', fb2: 'FIRST BLOOD 2',
+  cs1: '100 MINIONS 1', cs2: '100 MINIONS 2',
+  ft1: 'FIRST BRICK 1', ft2: 'FIRST BRICK 2',
+};
+const LOL_MKT_SUB = {
+  RES: 'quem leva o MD2 — o empate existe porque são 2 partidas',
+  G1: 'quem vence a primeira partida', G2: 'quem vence a segunda partida',
+  fb1: 'quem tira o primeiro abate da partida 1',
+  fb2: 'quem tira o primeiro abate da partida 2',
+  cs1: 'quem chega a 100 minions primeiro na partida 1',
+  cs2: 'quem chega a 100 minions primeiro na partida 2',
+  ft1: 'quem derruba a primeira torre da partida 1',
+  ft2: 'quem derruba a primeira torre da partida 2',
+};
 
 // ─── CARD DE APOSTAS DO LOL ─────────────────────────────────────────────────
 // Estilo MK: cards de confronto + CUPOM lateral com abas SIMPLES/AVANÇADO.
@@ -7598,6 +7616,11 @@ function LolBettingView({ interests, teamPlayers, session, scores, locks, ko,
   const rounds = lolRoundRobin(players);
   const myNick = session && session.nick;
   const mercados = lolMarketsOf(av);
+  // Mercado da aba selecionada. Voltar pro SIMPLES com uma aba do AVANÇADO
+  // aberta cairia num mercado que sumiu — daí o fallback pro primeiro.
+  const [mkt, setMkt] = React.useState('RES');
+  const mktAtual = mercados.find(m => m.k === mkt) || mercados[0];
+  const curMkt = mktAtual.k;
 
   // rodada mostrada = 1ª com confronto ainda aberto (senão a última)
   const pend = rounds.findIndex(r => r.games.some((g, gi) => !lolBetClosed(lolGameKey(r.n, gi), scores, locks)));
@@ -7649,25 +7672,59 @@ function LolBettingView({ interests, teamPlayers, session, scores, locks, ko,
 
   return (
     <div className="lol-bet">
-      <div className="lol-bet-head">
-        <div>
-          <div className="lol-title">APOSTAS · LEAGUE OF LEGENDS</div>
-          <div className="lol-sub">MD2 BLIND PICK · {players.length} JOGADORES</div>
+      {/* Cabeçalho no padrão do golf/MK: faixa da rodada + abas de MODO (com
+          ícone) + abas de MERCADO (uma por mercado, com contador de pernas).
+          Mostra UM mercado por vez — empilhar todos foi o que deixou feio. */}
+      <div className="golf-event">
+        <div className="golf-event-h">
+          <span className="golf-event-t">
+            <span className="golf-event-k">RODADA {String(rodada.n).padStart(2, '0')} · MD2 BLIND PICK</span>
+            <span className="golf-event-m">{rodada.games.length} CONFRONTOS · {players.length} JOGADORES</span>
+          </span>
+          <span className="lol-rnav">
+            <button type="button" onClick={() => setSelR(Math.max(0, vi - 1))} disabled={vi === 0}>
+              <Icon name="caret-up" size={13} />
+            </button>
+            <small>{vi + 1}/{rounds.length}</small>
+            <button type="button" onClick={() => setSelR(Math.min(rounds.length - 1, vi + 1))} disabled={vi >= rounds.length - 1}>
+              <Icon name="caret-down" size={13} />
+            </button>
+          </span>
         </div>
-        <div className="lol-tabs">
-          <button type="button" className={'lol-tab' + (!av ? ' on' : '')} onClick={() => setAv(false)}>SIMPLES</button>
-          <button type="button" className={'lol-tab' + (av ? ' on' : '')} onClick={() => setAv(true)}>AVANÇADO</button>
-        </div>
-      </div>
 
-      <div className="lol-rnav">
-        <button type="button" onClick={() => setSelR(Math.max(0, vi - 1))} disabled={vi === 0}>
-          <Icon name="caret-up" size={14} />
-        </button>
-        <span>RODADA {rodada.n} <small>de {rounds.length}</small></span>
-        <button type="button" onClick={() => setSelR(Math.min(rounds.length - 1, vi + 1))} disabled={vi >= rounds.length - 1}>
-          <Icon name="caret-down" size={14} />
-        </button>
+        <div className="mk-bet-mode" role="tablist" aria-label="Modo de aposta">
+          <div className="mk-bet-mode-tabs">
+            <button type="button" role="tab" aria-selected={!av}
+              className={'mk-bet-mode-btn' + (!av ? ' on' : '')} onClick={() => setAv(false)}>
+              <Icon name="target" size={11} /> SIMPLES
+            </button>
+            <button type="button" role="tab" aria-selected={av}
+              className={'mk-bet-mode-btn' + (av ? ' on' : '')} onClick={() => setAv(true)}>
+              <Icon name="chart" size={11} /> AVANÇADO
+            </button>
+          </div>
+          <span className="mk-bet-mode-hint">
+            {av
+              ? <>AVANÇADO abre os <strong>objetivos</strong> de cada partida: first blood, 100 minions e first brick.</>
+              : <>Casada = <strong>mais de um palpite</strong>, misturando confrontos. As odds multiplicam.</>}
+          </span>
+        </div>
+
+        <div className="golf-tabs" role="tablist" aria-label="Mercados">
+          {mercados.map(m => {
+            const n = cupom.filter(l => l.market === m.k).length;
+            return (
+              <button key={m.k} type="button" role="tab" aria-selected={curMkt === m.k}
+                className={'golf-tab' + (curMkt === m.k ? ' on' : '')} onClick={() => setMkt(m.k)}>
+                <Icon name={m.icon} size={13} /> <span>{LOL_MKT_TAB[m.k] || m.k}</span>
+                {n > 0 && <span className="golf-tab-c">{n}</span>}
+              </button>
+            );
+          })}
+        </div>
+        <div className="golf-tab-desc">
+          <strong>{mktAtual.label}</strong> · {LOL_MKT_SUB[mktAtual.k]}
+        </div>
       </div>
 
       <div className="lol-cards">
@@ -7698,7 +7755,7 @@ function LolBettingView({ interests, teamPlayers, session, scores, locks, ko,
 
               {meu && !fechado && <div className="lol-card-warn">Você joga este confronto — não dá pra apostar nele.</div>}
 
-              {mercados.map(mk => {
+              {[mktAtual].map(mk => {
                 const pr = lolMarketProbs(g.home, g.away, rounds, scores);
                 const grp = mk.k === 'RES' ? pr.RES : mk.k === 'G1' ? pr.G1 : mk.k === 'G2' ? pr.G2 : pr.OBJ;
                 const odds = mk.picks.map(p => lolOddFor(mk.k, p, g.home, g.away, rounds, scores));
