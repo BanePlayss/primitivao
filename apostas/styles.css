@@ -6041,9 +6041,17 @@
 
     /* trilho de rodadas do LoL (padrao das abas do MK) */
     .mk-bet-rounds { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; }
-    .mk-bet-round { position: relative; background: none; border: 1.5px solid rgba(28,22,18,0.25); color: var(--pv-charcoal); font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 6px 10px; cursor: pointer; }
-    .mk-bet-round.on { background: var(--pv-charcoal); color: var(--pv-bone); border-color: var(--pv-charcoal); }
-    .mk-bet-round.done { opacity: 0.45; }
+    /* O trilho fica SOLTO no fundo da pagina (nao dentro de .card), entao nao
+       vale a regra "texto sempre charcoal" — no tema escuro o fundo e escuro e
+       charcoal sumia. Usa currentColor/bone e so escurece o texto quando a aba
+       esta ativa (fundo bone). */
+    .mk-bet-round { position: relative; background: rgba(244,234,215,0.10); border: 1.5px solid rgba(244,234,215,0.30); color: var(--pv-bone); font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 6px 10px; cursor: pointer; }
+    .mk-bet-round:hover { border-color: var(--pv-orange); }
+    .mk-bet-round.on { background: var(--pv-bone); color: var(--pv-charcoal); border-color: var(--pv-bone); }
+    .mk-bet-round.done { opacity: 0.4; }
+    /* No tema CLARO o fundo da pagina e claro: inverte pra charcoal. */
+    html:not(.pv-dark) .mk-bet-round { background: rgba(28,22,18,0.06); border-color: rgba(28,22,18,0.25); color: var(--pv-charcoal); }
+    html:not(.pv-dark) .mk-bet-round.on { background: var(--pv-charcoal); color: var(--pv-bone); border-color: var(--pv-charcoal); }
     .mk-bet-round-c { margin-left: 5px; background: var(--pv-orange); color: #fff; padding: 0 4px; font-size: 9px; }
     .mk-bg-body { padding: 12px 14px 14px; border-top: 1.5px solid rgba(28,22,18,0.12); }
     .lol-lockbtn { cursor: pointer; }
