@@ -6038,3 +6038,12 @@
     .lol-rnav button:disabled { opacity: 0.3; cursor: default; }
 
     .lol-fld-forma .lol-w { min-width: 30px; }
+
+    /* trilho de rodadas do LoL (padrao das abas do MK) */
+    .mk-bet-rounds { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; }
+    .mk-bet-round { position: relative; background: none; border: 1.5px solid rgba(28,22,18,0.25); color: var(--pv-charcoal); font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 6px 10px; cursor: pointer; }
+    .mk-bet-round.on { background: var(--pv-charcoal); color: var(--pv-bone); border-color: var(--pv-charcoal); }
+    .mk-bet-round.done { opacity: 0.45; }
+    .mk-bet-round-c { margin-left: 5px; background: var(--pv-orange); color: #fff; padding: 0 4px; font-size: 9px; }
+    .mk-bg-body { padding: 12px 14px 14px; border-top: 1.5px solid rgba(28,22,18,0.12); }
+    .lol-lockbtn { cursor: pointer; }
