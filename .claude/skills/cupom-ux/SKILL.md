@@ -290,3 +290,36 @@ Confere no preview com `getComputedStyle` — o fundo da página escura é
    ligação-UI: no LoL um `pr.OBJ` órfão derrubou a aba inteira e a suíte de 3123
    asserts continuou verde, porque eu só tinha olhado o mercado que abre por
    padrão.
+
+## 10. PENDENTE — a VIEW DE CAMPEONATO também tem que copiar o MK
+
+Esta skill cobre o card de APOSTA. A **view de campeonato** (aba CAMPEONATOS)
+tem a mesma dívida: a do LoL (`LolView`) está crua perto da do MK
+(`MkChampionshipView`), e o dono pediu que fique igual. Copiar de lá, não
+aproximar de memória.
+
+O que o MK tem e o LoL não:
+
+**Classificação (coluna esquerda)**
+- Cabeçalho com ícone + subtítulo de contexto ("13 INSCRITOS · TOP 8 VAI PRO
+  MATA-MATA")
+- Faixa "Classificação oficial — atualiza sozinha conforme os placares saem"
+- Barra colorida na lateral de cada linha marcando a ZONA (pódio / classificado
+  / eliminado) — no LoL seria top-2 (bye pra semi) / 3º-8º / fora
+- **Sub-linha por jogador** (no MK são os 3 personagens). No LoL cabe o
+  aproveitamento ou as formas de vitória mais usadas.
+
+**Rodadas (coluna direita)**
+- Header "RODADA N" + navegação com setas
+- Pílulas numeradas agrupadas por fase, com cor por estado
+  (encerrada · atual · a vir) e legenda embaixo
+- Contador "N jogos · N lançados"
+
+**Cards de jogo**
+- Destaque **SEU JOGO** com borda
+- MANDANTE / VISITANTE com selo
+- Placar por partida (no LoL: 2-0 / 1-1 / 0-2 + a FORMA de cada vitória)
+- Selo de resultado especial (W.O. no MK)
+
+O `LolView` hoje já tem os dados (`computeLolStandings`, `lolRoundRobin`,
+`lolMatchOutcome`, `lolKoBracket`) — falta só a apresentação.
