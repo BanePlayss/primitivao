@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260810-arquivo ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260810-trilho ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3681,7 +3681,12 @@ function App() {
   // Perfil SÓ DE APOSTAS (clicou no ranking de apostas).
   const [betProfileNick, setBetProfileNick] = useState(null);
   // Barra lateral de campeonatos (em CAMPEONATOS): oculta por padrão, expande na seta.
-  const [champRailOpen, setChampRailOpen] = useState(() => { try { return localStorage.getItem('pv-champrail') === '1'; } catch (e) { return false; } });
+  // Trilho de campeonatos em CAMPEONATOS: ABERTO por padrão. Antes nascia
+  // fechado atrás do "OUTROS CAMPEONATOS" e ninguém achava como chegar nas
+  // temporadas ENCERRADAS — a navegação existia, só estava escondida.
+  // A escolha do usuário continua mandando (localStorage); o default só mudou
+  // pra aberto quando ele ainda não escolheu ('0' = fechou de propósito).
+  const [champRailOpen, setChampRailOpen] = useState(() => { try { return localStorage.getItem('pv-champrail') !== '0'; } catch (e) { return true; } });
   const toggleChampRail = () => setChampRailOpen(o => { const n = !o; try { localStorage.setItem('pv-champrail', n ? '1' : '0'); } catch (e) {} return n; });
   // Pick MANUAL de campeonato (clicar num "em breve"/encerrado dentro da aba
   // CAMPEONATOS) trava a autosseleção do ATIVO — senão, quando o cs carrega, a
