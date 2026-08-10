@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260803-lolcup5 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260809-lolx1 ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3898,11 +3898,13 @@ function App() {
   const setLolResult = (n, gi, field, w) => {
     if (!isMod && !isAdmin) return;
     if (LOL_MATCH_FIELDS.indexOf(field) < 0) return;
+    // w1/w2 aceitam H|A (quem venceu); m1/m2 aceitam FB|CS|FT (a forma).
+    const valido = field[0] === 'w' ? (w === 'H' || w === 'A') : LOL_FORMA_K.indexOf(w) >= 0;
     const apply = (scores) => {
       const s = { ...(scores || {}) };
       const k = lolGameKey(n, gi);
       const cur = { ...(s[k] || {}) };
-      if (w === 'H' || w === 'A') cur[field] = w; else delete cur[field];
+      if (valido) cur[field] = w; else delete cur[field];
       if (Object.keys(cur).length) s[k] = cur; else delete s[k];
       return s;
     };
@@ -7018,23 +7020,31 @@ const lolGameKey = (n, gi) => 'R' + n + '-' + gi;
 // Os objetivos são POR PARTIDA (decisão do dono) — são o que os mercados de
 // aposta liquidam, e por isso NUNCA podem ser derivados/compactados
 // (ver o incidente do leg.odd em [[teto-1mb-doc-apostas]]).
-const LOL_MATCH_FIELDS = ['g1', 'g2', 'fb1', 'cs1', 'ft1', 'fb2', 'cs2', 'ft2'];
-const LOL_OBJETIVOS = [
-  { k: 'fb', label: 'FIRST BLOOD',  icon: 'sword'    },
+// X1 DE LOL — como o jogo funciona (corrigido pelo dono em 2026-08-09):
+// a partida tem TRÊS formas de vencer e ganha quem fizer UMA delas primeiro:
+//   FB = first blood · CS = 100 minions · FT = first brick (primeira torre)
+// Só UMA acontece por partida (a que encerra o jogo), então "quem venceu" e
+// "de que jeito" são a MESMA coisa — não são eventos independentes.
+// Por isso o placar de cada partida é { vencedor, forma }, e não um H/A por
+// objetivo (foi assim que eu modelei errado da primeira vez: dava pra apostar
+// em first blood e em quem ganha como se fossem coisas separadas).
+const LOL_MATCH_FIELDS = ['w1', 'm1', 'w2', 'm2'];
+const LOL_FORMAS = [
+  { k: 'FB', label: 'FIRST BLOOD', icon: 'sword',     sub: 'primeiro abate' },
   // NÃO usar 'coin' aqui: aquele ícone tem "PC" desenhado dentro (é o da moeda
   // do app) e aparecia escrito PC no meio do rótulo do mercado.
-  { k: 'cs', label: '100 MINIONS',  icon: 'chart'    },
-  { k: 'ft', label: 'FIRST BRICK',  icon: 'crosshair' },
+  { k: 'CS', label: '100 MINIONS', icon: 'chart',     sub: 'primeiro a 100 de farm' },
+  { k: 'FT', label: 'FIRST BRICK', icon: 'crosshair', sub: 'primeira torre' },
 ];
+const LOL_FORMA_K = LOL_FORMAS.map(f => f.k);
 
 // Resultado de um confronto MD2. null se as duas partidas ainda não saíram.
 //   winner: 'H' | 'A' | 'D' (empate 1-1)   pvH/pvA: partidas vencidas por lado
 function lolMatchOutcome(sc) {
   if (!sc) return null;
-  const g1 = sc.g1, g2 = sc.g2;
   const ok = (v) => v === 'H' || v === 'A';
-  if (!ok(g1) || !ok(g2)) return null;
-  const pvH = (g1 === 'H' ? 1 : 0) + (g2 === 'H' ? 1 : 0);
+  if (!ok(sc.w1) || !ok(sc.w2)) return null;
+  const pvH = (sc.w1 === 'H' ? 1 : 0) + (sc.w2 === 'H' ? 1 : 0);
   const pvA = 2 - pvH;
   return { winner: pvH === pvA ? 'D' : (pvH > pvA ? 'H' : 'A'), pvH, pvA };
 }
@@ -7097,6 +7107,19 @@ function lolPlayerForm(rounds, scores, nick) {
   return n ? v / n : null;
 }
 
+// Distribuição das FORMAS de vencer já observadas no grupo. Sem histórico é
+// 1/3 pra cada; conforme as partidas saem, a frequência real puxa (suavizada
+// com Laplace pra uma forma rara não zerar a odd das outras).
+function lolFormaProbs(rounds, scores) {
+  const c = { FB: 1, CS: 1, FT: 1 }; // +1 = suavização
+  (rounds || []).forEach(r => (r.games || []).forEach((g, gi) => {
+    const sc = (scores || {})[lolGameKey(r.n, gi)] || {};
+    [sc.m1, sc.m2].forEach(m => { if (c[m] != null) c[m]++; });
+  }));
+  const tot = c.FB + c.CS + c.FT;
+  return { FB: c.FB / tot, CS: c.CS / tot, FT: c.FT / tot };
+}
+
 // P(home vence UMA partida). Sem histórico dos dois → 0.5 (parelho).
 // Com histórico, a diferença de forma desloca a probabilidade, atenuada (0.6)
 // porque MD2 blind pick é volátil — não dá pra confiar demais na amostra.
@@ -7117,39 +7140,37 @@ function lolWinProb(home, away, rounds, scores) {
 function lolMarketProbs(home, away, rounds, scores) {
   const p = lolWinProb(home, away, rounds, scores);
   const q = 1 - p;
-  const obj = lolClampP(0.5 + (p - 0.5) * 0.30);
+  const f = lolFormaProbs(rounds, scores);
   return {
     RES: { H: p * p, D: 2 * p * q, A: q * q },
-    G1:  { H: p, A: q },
-    G2:  { H: p, A: q },
-    OBJ: { H: obj, A: 1 - obj },
+    W1:  { H: p, A: q },
+    W2:  { H: p, A: q },
+    // COMO a partida termina — independe de QUEM vence (são mercados separados)
+    M1:  { FB: f.FB, CS: f.CS, FT: f.FT },
+    M2:  { FB: f.FB, CS: f.CS, FT: f.FT },
   };
 }
 
-// Odd de uma opção de mercado. `market` = RES|G1|G2|FB1|CS1|FT1|FB2|CS2|FT2.
+// Odd de uma opção de mercado. `market` = RES | W1 | W2 | M1 | M2.
 // null = mercado não oferecido (quase-certo).
 function lolOddFor(market, pick, home, away, rounds, scores) {
-  const pr = lolMarketProbs(home, away, rounds, scores);
-  const grp = market === 'RES' ? pr.RES
-            : market === 'G1'  ? pr.G1
-            : market === 'G2'  ? pr.G2
-            : pr.OBJ;
-  const p = grp[pick];
+  const grp = lolMarketProbs(home, away, rounds, scores)[market];
+  const p = grp && grp[pick];
   return p == null ? null : lolOdd(p);
 }
 
-// Mercados de um confronto, na ordem de exibição. `av` = modo AVANÇADO
-// (SIMPLES mostra só o resultado do confronto e quem ganha cada partida).
+// Mercados de um confronto. SIMPLES = resultado do confronto + quem ganha cada
+// partida. AVANÇADO acrescenta COMO cada partida termina (as 3 formas).
 function lolMarketsOf(av) {
   const base = [
     { k: 'RES', label: 'RESULTADO DO CONFRONTO', picks: ['H', 'D', 'A'], icon: 'trophy' },
-    { k: 'G1',  label: 'QUEM GANHA A PARTIDA 1', picks: ['H', 'A'], icon: 'gamepad' },
-    { k: 'G2',  label: 'QUEM GANHA A PARTIDA 2', picks: ['H', 'A'], icon: 'gamepad' },
+    { k: 'W1',  label: 'QUEM GANHA A PARTIDA 1', picks: ['H', 'A'], icon: 'gamepad' },
+    { k: 'W2',  label: 'QUEM GANHA A PARTIDA 2', picks: ['H', 'A'], icon: 'gamepad' },
   ];
   if (!av) return base;
-  return base.concat([1, 2].flatMap(n => LOL_OBJETIVOS.map(ob => ({
-    k: ob.k + n, label: ob.label + ' — PARTIDA ' + n, picks: ['H', 'A'], icon: ob.icon,
-  }))));
+  return base.concat([1, 2].map(n => ({
+    k: 'M' + n, label: 'COMO TERMINA A PARTIDA ' + n, picks: LOL_FORMA_K, icon: 'flag',
+  })));
 }
 
 // Resultado de uma perna do LoL contra o placar real. 'win'|'lose'|'pending'.
@@ -7162,11 +7183,13 @@ function lolLegResult(market, pick, sc) {
     const got = o.winner === 'H' ? 'H' : o.winner === 'A' ? 'A' : 'D';
     return got === pick ? 'win' : 'lose';
   }
-  // O mercado G1/G2 é MAIÚSCULO, mas o campo do placar é g1/g2 minúsculo
-  // (os objetivos fb1/cs1/... já batem). Sem este mapa a perna nunca liquidava.
-  const campo = market === 'G1' ? 'g1' : market === 'G2' ? 'g2' : market;
-  const v = s[campo];         // g1/g2/fb1/cs1/ft1/fb2/cs2/ft2
-  if (v !== 'H' && v !== 'A') return 'pending';
+  // W1/W2 -> campo w1/w2 (vencedor) · M1/M2 -> campo m1/m2 (forma)
+  const campo = market === 'W1' ? 'w1' : market === 'W2' ? 'w2'
+              : market === 'M1' ? 'm1' : market === 'M2' ? 'm2' : null;
+  if (!campo) return 'pending';
+  const v = s[campo];
+  const valido = campo[0] === 'w' ? (v === 'H' || v === 'A') : LOL_FORMA_K.indexOf(v) >= 0;
+  if (!valido) return 'pending';
   return v === pick ? 'win' : 'lose';
 }
 
@@ -7177,7 +7200,7 @@ function lolBetClosed(key, scores, locks) {
   if ((locks || {})[key]) return true;
   const sc = (scores || {})[key];
   if (!sc) return false;
-  return LOL_MATCH_FIELDS.some(f => sc[f] === 'H' || sc[f] === 'A');
+  return LOL_MATCH_FIELDS.some(f => sc[f] != null && sc[f] !== '');
 }
 
 // ANTI-CORRELAÇÃO (obrigatória — ver golfCasadaReject).
@@ -7196,8 +7219,7 @@ function lolCasadaReject(legs) {
   L.forEach(l => { (porJogo[l.fixtureId] = porJogo[l.fixtureId] || []).push(l.market); });
   for (const fid of Object.keys(porJogo)) {
     const ms = porJogo[fid];
-    const temRes = ms.indexOf('RES') >= 0;
-    if (temRes && (ms.indexOf('G1') >= 0 || ms.indexOf('G2') >= 0)) {
+    if (ms.indexOf('RES') >= 0 && (ms.indexOf('W1') >= 0 || ms.indexOf('W2') >= 0)) {
       return 'RESULTADO DO CONFRONTO já é decidido pelas partidas 1 e 2 — não dá pra casar os dois.';
     }
   }
@@ -7575,27 +7597,19 @@ function golfLegResult(market, pick, side, mapN, scores, props, players, finaliz
 
 // Rótulo curto do mercado pro selo colorido da perna no cupom (o MK usa o
 // número da rodada ali; aqui o mercado identifica melhor).
-const LOL_MKT_SHORT = {
-  RES: '1X2', G1: 'P1', G2: 'P2',
-  fb1: 'FB1', fb2: 'FB2', cs1: 'CS1', cs2: 'CS2', ft1: 'FT1', ft2: 'FT2',
-};
+const LOL_MKT_SHORT = { RES: '1X2', W1: 'P1', W2: 'P2', M1: 'COMO 1', M2: 'COMO 2' };
 // Rótulo curto da ABA de mercado e a linha explicativa embaixo (padrão do golf:
 // golf-tab + golf-tab-desc). Aba curta pra caber; a descrição diz o que é.
 const LOL_MKT_TAB = {
-  RES: 'CONFRONTO', G1: 'PARTIDA 1', G2: 'PARTIDA 2',
-  fb1: 'FIRST BLOOD 1', fb2: 'FIRST BLOOD 2',
-  cs1: '100 MINIONS 1', cs2: '100 MINIONS 2',
-  ft1: 'FIRST BRICK 1', ft2: 'FIRST BRICK 2',
+  RES: 'CONFRONTO', W1: 'PARTIDA 1', W2: 'PARTIDA 2',
+  M1: 'COMO TERMINA 1', M2: 'COMO TERMINA 2',
 };
 const LOL_MKT_SUB = {
   RES: 'quem leva o MD2 — o empate existe porque são 2 partidas',
-  G1: 'quem vence a primeira partida', G2: 'quem vence a segunda partida',
-  fb1: 'quem tira o primeiro abate da partida 1',
-  fb2: 'quem tira o primeiro abate da partida 2',
-  cs1: 'quem chega a 100 minions primeiro na partida 1',
-  cs2: 'quem chega a 100 minions primeiro na partida 2',
-  ft1: 'quem derruba a primeira torre da partida 1',
-  ft2: 'quem derruba a primeira torre da partida 2',
+  W1: 'quem vence a primeira partida (por qualquer uma das 3 formas)',
+  W2: 'quem vence a segunda partida (por qualquer uma das 3 formas)',
+  M1: 'por qual das 3 formas a partida 1 é decidida',
+  M2: 'por qual das 3 formas a partida 2 é decidida',
 };
 
 // ─── CARD DE APOSTAS DO LOL ─────────────────────────────────────────────────
@@ -7662,9 +7676,17 @@ function LolBettingView({ interests, teamPlayers, session, scores, locks, ko,
     setMsg({ t: 'ok', m: 'Aposta confirmada!' });
   };
 
-  const nomePick = (mk, pick, g) =>
-    mk === 'RES' ? (pick === 'H' ? g.home : pick === 'A' ? g.away : 'EMPATE')
-                 : (pick === 'H' ? g.home : g.away);
+  // Rótulo de uma opção: nos mercados de VENCEDOR é o nick (ou EMPATE no 1X2);
+  // nos de FORMA (M1/M2) é o nome da forma, não um jogador.
+  const nomePick = (mk, pick, g) => {
+    if (mk === 'M1' || mk === 'M2') {
+      const f = LOL_FORMAS.find(x => x.k === pick);
+      return f ? f.label : pick;
+    }
+    if (mk === 'RES') return pick === 'H' ? g.home : pick === 'A' ? g.away : 'EMPATE';
+    return pick === 'H' ? g.home : g.away;
+  };
+  const pickEhJogador = (mk, pick) => !(mk === 'M1' || mk === 'M2') && !(mk === 'RES' && pick === 'D');
 
   if (!rodada) {
     return <div className="lol-view"><div className="lol-empty">Ainda não há confrontos — faltam inscritos.</div></div>;
@@ -7779,7 +7801,7 @@ function LolBettingView({ interests, teamPlayers, session, scores, locks, ko,
                         const fav = odd && menor !== maior && odd === menor && nMenor === 1;
                         const zebra = odd && menor !== maior && odd === maior && nMaior === 1;
                         const nome = nomePick(mk.k, pick, g);
-                        const ehJogador = !(mk.k === 'RES' && pick === 'D');
+                        const ehJogador = pickEhJogador(mk.k, pick);
                         return (
                           <button
                             key={pick}
@@ -7815,20 +7837,26 @@ function LolBettingView({ interests, teamPlayers, session, scores, locks, ko,
                   {[1, 2].map(p => (
                     <div key={p} className="lol-mod-p">
                       <span className="lol-mod-ph">PARTIDA {p}</span>
-                      {[{ k: 'g', l: 'VENCEU' }].concat(LOL_OBJETIVOS.map(o => ({ k: o.k, l: o.label }))).map(f => {
-                        const campo = f.k + p;
-                        return (
-                          <span key={campo} className="lol-fld">
-                            <span className="lol-fld-l">{f.l}</span>
-                            <button type="button" className={'lol-w' + (sc[campo] === 'H' ? ' on' : '')}
-                              onClick={() => onResult(rodada.n, gi, f.k === 'g' ? 'g' + p : campo, sc[campo] === 'H' ? null : 'H')}
-                              title={g.home}>{g.home.slice(0, 3)}</button>
-                            <button type="button" className={'lol-w' + (sc[campo] === 'A' ? ' on' : '')}
-                              onClick={() => onResult(rodada.n, gi, f.k === 'g' ? 'g' + p : campo, sc[campo] === 'A' ? null : 'A')}
-                              title={g.away}>{g.away.slice(0, 3)}</button>
-                          </span>
-                        );
-                      })}
+                      {/* QUEM venceu */}
+                      <span className="lol-fld">
+                        <span className="lol-fld-l">VENCEU</span>
+                        <button type="button" className={'lol-w' + (sc['w' + p] === 'H' ? ' on' : '')}
+                          onClick={() => onResult(rodada.n, gi, 'w' + p, sc['w' + p] === 'H' ? null : 'H')}
+                          title={g.home}>{g.home.slice(0, 3)}</button>
+                        <button type="button" className={'lol-w' + (sc['w' + p] === 'A' ? ' on' : '')}
+                          onClick={() => onResult(rodada.n, gi, 'w' + p, sc['w' + p] === 'A' ? null : 'A')}
+                          title={g.away}>{g.away.slice(0, 3)}</button>
+                      </span>
+                      {/* COMO venceu — só UMA das 3 (é a que encerra a partida) */}
+                      <span className="lol-fld lol-fld-forma">
+                        <span className="lol-fld-l">COMO</span>
+                        {LOL_FORMAS.map(f => (
+                          <button key={f.k} type="button"
+                            className={'lol-w' + (sc['m' + p] === f.k ? ' on' : '')}
+                            onClick={() => onResult(rodada.n, gi, 'm' + p, sc['m' + p] === f.k ? null : f.k)}
+                            title={f.label + ' — ' + f.sub}>{f.k}</button>
+                        ))}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -8100,10 +8128,16 @@ function LolView({ interests, teamPlayers, session, onToggleInterest, scores, ko
                             {[1, 2].map(p => (
                               <div key={p} className="lol-mod-p">
                                 <span className="lol-mod-ph">PARTIDA {p}</span>
-                                <Par field={'g' + p} curto="VENCEU" />
-                                {LOL_OBJETIVOS.map(ob => (
-                                  <Par key={ob.k} field={ob.k + p} curto={ob.label} />
-                                ))}
+                                <Par field={'w' + p} curto="VENCEU" />
+                                <span className="lol-fld lol-fld-forma">
+                                  <span className="lol-fld-l">COMO</span>
+                                  {LOL_FORMAS.map(f => (
+                                    <button key={f.k} type="button"
+                                      className={'lol-w' + (sc['m' + p] === f.k ? ' on' : '')}
+                                      onClick={() => onResult(r.n, gi, 'm' + p, sc['m' + p] === f.k ? null : f.k)}
+                                      title={f.label + ' — ' + f.sub}>{f.k}</button>
+                                  ))}
+                                </span>
                               </div>
                             ))}
                           </div>
