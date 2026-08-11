@@ -5,6 +5,10 @@ description: Como abrir, rodar, ENCERRAR e PREMIAR um campeonato no Primitivão 
 
 # Ciclo de vida de um campeonato — Primitivão
 
+> **A TELA do campeonato tem estrutura padrao: skill `campeonato-ux`.**
+> Duas colunas (classificacao | rodadas), trilho de rodadas, cards de confronto
+> e mata-mata. Ler antes de criar a view de um campeonato novo.
+
 > Fonte de verdade pra "abrir / rodar / encerrar / premiar" qualquer campeonato.
 > Toda mudança de código segue a skill **build-deploy** (validar → bump `?v=` →
 > esbuild → commit → rebase-sobre-o-bot → push). Escrita ao vivo segue a skill

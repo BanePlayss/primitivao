@@ -291,12 +291,13 @@ Confere no preview com `getComputedStyle` — o fundo da página escura é
    asserts continuou verde, porque eu só tinha olhado o mercado que abre por
    padrão.
 
-## 10. PENDENTE — a VIEW DE CAMPEONATO também tem que copiar o MK
+## 10. A VIEW DE CAMPEONATO tem skill própria: `campeonato-ux`
 
-Esta skill cobre o card de APOSTA. A **view de campeonato** (aba CAMPEONATOS)
-tem a mesma dívida: a do LoL (`LolView`) está crua perto da do MK
-(`MkChampionshipView`), e o dono pediu que fique igual. Copiar de lá, não
-aproximar de memória.
+Esta skill cobre o card de APOSTA (aba APOSTAS). A tela do CAMPEONATO em si —
+classificação, rodadas, chaveamento — virou a skill **campeonato-ux**, com a
+`LolView` como implementação de referência. FEITO em 2026-08-11.
+
+O que segue abaixo é o resumo do que aquela skill cobre.
 
 O que o MK tem e o LoL não:
 
