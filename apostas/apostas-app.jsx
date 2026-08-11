@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260811-lolview ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260811-lolgrid ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -8131,7 +8131,13 @@ function LolView({ interests, teamPlayers, session, onToggleInterest, scores, ko
   };
 
   return (
-    <div className="mk-champ">
+    // `grid mk-grid` é o que põe CLASSIFICAÇÃO | RODADAS lado a lado (o CSS de
+    // .champ-main .mk-grid dá 1fr / 1.35fr e empilha abaixo de 1180px).
+    // Eu tinha inventado uma classe `mk-champ` que não existe no CSS — por isso
+    // as duas colunas ficavam empilhadas e a página virava um scroll longo.
+    <>
+      {/* Banner do campeão fica FORA do grid — dentro, virava célula e jogava a
+          classificação pra coluna da direita. */}
       {finalOrder && (
         <div className="lol-champ-banner">
           <Icon name="trophy" size={20} />
@@ -8140,6 +8146,7 @@ function LolView({ interests, teamPlayers, session, onToggleInterest, scores, ko
         </div>
       )}
 
+      <div className="grid mk-grid">
       {/* ───────── CLASSIFICAÇÃO ───────── */}
       <div className="card mk-card">
         <div className="card-head">
@@ -8386,7 +8393,8 @@ function LolView({ interests, teamPlayers, session, onToggleInterest, scores, ko
           </div>
         </div>
       </aside>
-    </div>
+      </div>
+    </>
   );
 }
 
