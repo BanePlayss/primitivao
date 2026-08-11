@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260810-navfix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260811-lolview ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -8059,11 +8059,13 @@ function LolBettingView({ interests, teamPlayers, session, scores, locks, ko,
 }
 
 // ─── VIEW DO CAMPEONATO DE LOL ──────────────────────────────────────────────
-// CLASSIFICAÇÃO do grupo + RODADAS (todos-x-todos) + MATA-MATA.
-// A tabela sai do lolRoundRobin(inscritos) — determinística, não persistida.
+// Mesma estrutura da MkChampionshipView (o dono comparou as duas e pediu igual):
+// coluna esquerda = CLASSIFICAÇÃO num `.card mk-card` com `.std-table
+// mk-std-table` e barra de ZONA na posição; coluna direita = `.mk-rodada-card`
+// com navegador `.mk-rnav` + trilho `.mk-rstrip` de pílulas por estado + os
+// confrontos em `.mk-fixtures`/`.mk-fx`. Não inventar classe nova (ver cupom-ux).
 function LolView({ interests, teamPlayers, session, onToggleInterest, scores, ko,
                    onResult, onPublishKo, onKoResult, isMod, users, mode }) {
-  const emApostas = mode === 'apostas';
   const players = lolField(interests || {});
   const rounds = lolRoundRobin(players);
   const stand = computeLolStandings(players, rounds, scores);
@@ -8071,14 +8073,27 @@ function LolView({ interests, teamPlayers, session, onToggleInterest, scores, ko
   const inscrito = !!(interests && interests.lol && session && interests.lol[session.nick]);
   const br = ko && ko.published ? lolKoBracket(ko.seeds, ko.scores) : null;
   const finalOrder = lolFinalOrder(players, rounds, scores, ko);
-  const jogados = rounds.reduce((s, r) => s + r.games.filter((g, gi) => !!(scores || {})[lolGameKey(r.n, gi)]).length, 0);
-  const totalJogos = rounds.reduce((s, r) => s + r.games.length, 0);
+  const myNick = session && session.nick;
+  const isMine = (g) => !!(myNick && (g.home === myNick || g.away === myNick));
 
-  const Nome = ({ nick, vencedor }) => (
-    <span className={'lol-p' + (vencedor === true ? ' win' : vencedor === false ? ' lose' : '')}>
-      <Avatar nick={nick} teamPlayers={teamPlayers} size={20} noBadge /> {nick || '—'}
-    </span>
-  );
+  const totalJogos = rounds.reduce((s, r) => s + r.games.length, 0);
+  const jogados = rounds.reduce((s, r) => s + r.games.filter((g, gi) => !!lolMatchOutcome((scores || {})[lolGameKey(r.n, gi)])).length, 0);
+
+  // rodada exibida: a 1ª com jogo pendente (encerrada cai na última)
+  const pendIdx = rounds.findIndex(r => r.games.some((g, gi) => !lolMatchOutcome((scores || {})[lolGameKey(r.n, gi)])));
+  const [selRound, setSelRound] = React.useState(null);
+  const viewRound = selRound != null ? selRound : (pendIdx === -1 ? Math.max(0, rounds.length - 1) : pendIdx);
+  const curRound = rounds[viewRound];
+
+  // estado de cada rodada pro trilho de pílulas
+  const roundsMeta = rounds.map((r, idx) => {
+    const total = r.games.length;
+    const doneN = r.games.reduce((a, g, gi) => a + (lolMatchOutcome((scores || {})[lolGameKey(r.n, gi)]) ? 1 : 0), 0);
+    const allDone = total > 0 && doneN >= total;
+    return { idx, n: r.n, total, doneN, st: allDone ? 'done' : ((idx === pendIdx || doneN > 0) ? 'live' : 'future') };
+  });
+
+  const formaLabel = (k) => (LOL_FORMAS.find(f => f.k === k) || {}).label || k;
 
   const KoCard = ({ m, titulo }) => {
     if (!m) return null;
@@ -8086,53 +8101,37 @@ function LolView({ interests, teamPlayers, session, onToggleInterest, scores, ko
     const w = sc && (sc.w === 'H' ? m.home : sc.w === 'A' ? m.away : null);
     const pronto = !!m.home && !!m.away;
     return (
-      <div className={'lol-ko-card' + (w ? ' done' : '')}>
-        <div className="lol-ko-t">{titulo}</div>
-        <div className="lol-ko-row">
-          <Nome nick={m.home} vencedor={w ? w === m.home : undefined} />
-          {isMod && pronto && (
-            <button type="button" className={'lol-w' + (sc && sc.w === 'H' ? ' on' : '')}
-              onClick={() => onKoResult(m.id, sc && sc.w === 'H' ? null : 'H')}>VENCEU</button>
-          )}
+      <div className={'mk-fx lol-ko-fx' + (w ? ' done' : '')}>
+        <div className="mk-fx-top">
+          <span className="mk-fx-jogo">{titulo}</span>
+          {w && <span className="mk-fx-done"><Icon name="check" size={11} /> {w}</span>}
         </div>
-        <div className="lol-ko-row">
-          <Nome nick={m.away} vencedor={w ? w === m.away : undefined} />
-          {isMod && pronto && (
-            <button type="button" className={'lol-w' + (sc && sc.w === 'A' ? ' on' : '')}
-              onClick={() => onKoResult(m.id, sc && sc.w === 'A' ? null : 'A')}>VENCEU</button>
-          )}
+        <div className="mk-fx-body">
+          <div className="mk-fx-side home">
+            <Avatar nick={m.home} teamPlayers={teamPlayers} size={28} noBadge />
+            <span className={'mk-fx-nick' + (w && w === m.home ? ' win' : w ? ' lose' : '')}>{m.home || '—'}</span>
+            {isMod && pronto && (
+              <button type="button" className={'lol-w' + (sc && sc.w === 'H' ? ' on' : '')}
+                onClick={() => onKoResult(m.id, sc && sc.w === 'H' ? null : 'H')}>VENCEU</button>
+            )}
+          </div>
+          <span className="mk-fx-vs">×</span>
+          <div className="mk-fx-side away">
+            <Avatar nick={m.away} teamPlayers={teamPlayers} size={28} noBadge />
+            <span className={'mk-fx-nick' + (w && w === m.away ? ' win' : w ? ' lose' : '')}>{m.away || '—'}</span>
+            {isMod && pronto && (
+              <button type="button" className={'lol-w' + (sc && sc.w === 'A' ? ' on' : '')}
+                onClick={() => onKoResult(m.id, sc && sc.w === 'A' ? null : 'A')}>VENCEU</button>
+            )}
+          </div>
         </div>
-        {!pronto && <div className="lol-ko-wait">aguardando</div>}
+        {!pronto && <div className="mk-fx-foot">aguardando o jogo anterior</div>}
       </div>
     );
   };
 
   return (
-    <div className="lol-view">
-      <div className="lol-head">
-        <div>
-          <div className="lol-title">LEAGUE OF LEGENDS</div>
-          <div className="lol-sub">
-            FASE DE GRUPO · TODOS CONTRA TODOS · {players.length} JOGADORES · {jogados}/{totalJogos} JOGOS
-          </div>
-        </div>
-        {session && !done && (
-          <button type="button" className={'lol-insc' + (inscrito ? ' on' : '')} onClick={onToggleInterest}>
-            <Icon name={inscrito ? 'check' : 'flag'} size={14} /> {inscrito ? 'INSCRITO' : 'QUERO JOGAR'}
-          </button>
-        )}
-      </div>
-
-      {emApostas && !finalOrder && (
-        <div className="lol-aviso">
-          <Icon name="warning" size={14} />
-          <span>
-            Os <strong>mercados de aposta</strong> do LoL ainda estão sendo construídos.
-            {isMod ? ' Enquanto isso, lance os resultados dos confrontos aqui mesmo.' : ' Os confrontos do grupo já estão definidos abaixo.'}
-          </span>
-        </div>
-      )}
-
+    <div className="mk-champ">
       {finalOrder && (
         <div className="lol-champ-banner">
           <Icon name="trophy" size={20} />
@@ -8141,129 +8140,252 @@ function LolView({ interests, teamPlayers, session, onToggleInterest, scores, ko
         </div>
       )}
 
-      {players.length < 2 ? (
-        <div className="lol-empty">Ainda não há inscritos suficientes pra montar a tabela.</div>
-      ) : (
-        <div className="lol-grid">
-          <div className="lol-col">
-            <div className="lol-sec">CLASSIFICAÇÃO DO GRUPO</div>
-            <div className="lol-table">
-              <div className="lol-tr lol-th">
-                <span className="lol-pos">#</span><span className="lol-nick">JOGADOR</span>
-                <span className="lol-num">J</span><span className="lol-num">V</span>
-                <span className="lol-num">E</span><span className="lol-num">D</span>
-                <span className="lol-num" title="saldo de partidas">SP</span>
-                <span className="lol-num lol-pts">PTS</span>
+      {/* ───────── CLASSIFICAÇÃO ───────── */}
+      <div className="card mk-card">
+        <div className="card-head">
+          <div className="title"><Icon name="sword" size={16} /> CLASSIFICAÇÃO · LEAGUE OF LEGENDS</div>
+          <div className="sub">{players.length} INSCRITOS · TOP 8 VAI PRO MATA-MATA</div>
+        </div>
+        <div className="card-body">
+          <div className="mk-admin-row">
+            <div className="mk-admin-note">
+              <Icon name="sword" size={12} /> {isMod
+                ? 'MODERADOR — lance o vencedor e a forma de cada partida nos confrontos ao lado.'
+                : 'Classificação oficial — atualiza sozinha conforme os placares saem.'}
+            </div>
+            {session && !done && (
+              <div className="mk-admin-actions">
+                <button type="button" className={'lol-insc' + (inscrito ? ' on' : '')} onClick={onToggleInterest}>
+                  <Icon name={inscrito ? 'check' : 'flag'} size={13} /> {inscrito ? 'INSCRITO' : 'QUERO JOGAR'}
+                </button>
               </div>
-              {stand.map((r, i) => (
-                <div key={r.nick} className={'lol-tr' + (i < 8 ? ' q' : '') + (r.nick === (session && session.nick) ? ' me' : '')}>
-                  <span className="lol-pos mono">{i + 1}</span>
-                  <span className="lol-nick"><Avatar nick={r.nick} teamPlayers={teamPlayers} size={20} noBadge /> {r.nick}</span>
-                  <span className="lol-num mono">{r.j}</span>
-                  <span className="lol-num mono">{r.v}</span>
-                  <span className="lol-num mono">{r.e}</span>
-                  <span className="lol-num mono">{r.d}</span>
-                  <span className="lol-num mono">{r.pv - r.pp > 0 ? '+' : ''}{r.pv - r.pp}</span>
-                  <span className="lol-num lol-pts mono">{r.p}</span>
-                </div>
-              ))}
-            </div>
-            <div className="lol-legend">
-              <span className="lol-dot q" /> os 8 primeiros vão pro mata-mata · 1º e 2º entram direto na semifinal
-            </div>
+            )}
           </div>
 
-          <div className="lol-col">
-            <div className="lol-sec">RODADAS</div>
-            <div className="lol-rounds">
-              {rounds.map(r => (
-                <div key={r.n} className="lol-round">
-                  <div className="lol-round-h">RODADA {r.n}</div>
-                  {r.games.map((g, gi) => {
-                    const sc = (scores || {})[lolGameKey(r.n, gi)] || {};
-                    const o = lolMatchOutcome(sc);
-                    const vH = o ? (o.winner === 'H') : undefined;
-                    const vA = o ? (o.winner === 'A') : undefined;
-                    // par de botões H/A pra um campo do confronto
-                    const Par = ({ field, curto }) => (
-                      <span className="lol-fld">
-                        <span className="lol-fld-l">{curto}</span>
-                        <button type="button" className={'lol-w' + (sc[field] === 'H' ? ' on' : '')}
-                          onClick={() => onResult(r.n, gi, field, sc[field] === 'H' ? null : 'H')}
-                          title={g.home}>{g.home.slice(0, 3)}</button>
-                        <button type="button" className={'lol-w' + (sc[field] === 'A' ? ' on' : '')}
-                          onClick={() => onResult(r.n, gi, field, sc[field] === 'A' ? null : 'A')}
-                          title={g.away}>{g.away.slice(0, 3)}</button>
-                      </span>
-                    );
+          {players.length === 0 ? (
+            <div className="empty"><div className="e1">SEM INSCRITOS</div><div className="e2">Ninguém inscrito no LoL ainda.</div></div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="std-table mk-std-table">
+                <thead>
+                  <tr><th>#</th><th style={{ textAlign: 'left' }}>JOGADOR</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SP</th><th>P</th></tr>
+                </thead>
+                <tbody>
+                  {stand.map((s, i) => {
+                    const sp = s.pv - s.pp;
+                    const top8 = i < 8;
+                    const col = top8 ? MK_TOP8_COLORS[i] : undefined;
+                    const bye = i < 2;
                     return (
-                      <div key={gi} className={'lol-game' + (o ? ' done' : '')}>
-                        <div className="lol-game-top">
-                          <Nome nick={g.home} vencedor={o && o.winner !== 'D' ? vH : undefined} />
-                          <span className="lol-vs">{o ? o.pvH + ' x ' + o.pvA : 'x'}</span>
-                          <Nome nick={g.away} vencedor={o && o.winner !== 'D' ? vA : undefined} />
-                          {o && o.winner === 'D' && <span className="lol-emp">EMPATE</span>}
-                        </div>
-                        {isMod && (
-                          <div className="lol-mod">
-                            {[1, 2].map(p => (
-                              <div key={p} className="lol-mod-p">
-                                <span className="lol-mod-ph">PARTIDA {p}</span>
-                                <Par field={'w' + p} curto="VENCEU" />
-                                <span className="lol-fld lol-fld-forma">
-                                  <span className="lol-fld-l">COMO</span>
-                                  {LOL_FORMAS.map(f => (
-                                    <button key={f.k} type="button"
-                                      className={'lol-w' + (sc['m' + p] === f.k ? ' on' : '')}
-                                      onClick={() => onResult(r.n, gi, 'm' + p, sc['m' + p] === f.k ? null : f.k)}
-                                      title={f.label + ' — ' + f.sub}>{f.k}</button>
-                                  ))}
-                                </span>
-                              </div>
-                            ))}
+                      <tr key={s.nick} className={top8 ? 'mk-top8' : 'mk-out'}>
+                        <td className="std-pos mk-pos-cell" style={top8 ? { borderLeftColor: col, color: col } : undefined}>{String(i + 1).padStart(2, '0')}</td>
+                        <td>
+                          <div className="tnm" style={{ flexWrap: 'wrap' }}>
+                            <Avatar nick={s.nick} teamPlayers={teamPlayers} size={24} />
+                            <span>{s.nick}</span>
+                            <span className="mk-row-chars">
+                              {s.j === 0 ? 'ainda não jogou'
+                                : (bye ? 'BYE NA SEMIFINAL · ' : top8 ? 'classificado · ' : '')
+                                  + s.pv + '/' + (s.pv + s.pp) + ' partidas'}
+                            </span>
                           </div>
-                        )}
-                      </div>
+                        </td>
+                        <td>{s.j}</td><td style={{ fontWeight: 800 }}>{s.v}</td><td>{s.e}</td>
+                        <td style={{ color: 'rgba(28,22,18,0.45)' }}>{s.d}</td>
+                        <td>{sp > 0 ? '+' + sp : sp}</td>
+                        <td style={{ fontFamily: 'Anton, Impact', fontSize: 16 }}>{s.p}</td>
+                      </tr>
                     );
                   })}
-                </div>
-              ))}
+                </tbody>
+              </table>
             </div>
-          </div>
-        </div>
-      )}
-
-      <div className="lol-sec lol-sec-ko">MATA-MATA</div>
-      {!br ? (
-        <div className="lol-empty">
-          {done
-            ? 'Fase de grupo encerrada. O mod precisa PUBLICAR o mata-mata pra congelar os 8 classificados.'
-            : 'O mata-mata abre quando a fase de grupo terminar (todos os jogos com vencedor).'}
-          {isMod && done && (
-            <button type="button" className="lol-pub" onClick={onPublishKo}>
-              <Icon name="lock" size={13} /> PUBLICAR MATA-MATA
-            </button>
           )}
-        </div>
-      ) : (
-        <div className="lol-bracket">
-          <div className="lol-brk-col">
-            <div className="lol-brk-h">QUARTAS</div>
-            <KoCard m={br.qf1} titulo="3º v 6º" />
-            <KoCard m={br.qf2} titulo="4º v 5º" />
-          </div>
-          <div className="lol-brk-col">
-            <div className="lol-brk-h">SEMIFINAL</div>
-            <KoCard m={br.sf1} titulo="1º entra aqui" />
-            <KoCard m={br.sf2} titulo="2º entra aqui" />
-          </div>
-          <div className="lol-brk-col">
-            <div className="lol-brk-h">DECISÃO</div>
-            <KoCard m={br.f} titulo="FINAL" />
-            <KoCard m={br.t3} titulo="3º LUGAR" />
+          <div className="mk-legend">
+            <strong>SP</strong> = saldo de partidas. Confronto = <strong>MD2 blind pick</strong>: 2×0 vence, <strong>1×1 empata</strong>, 0×2 perde. Vitória 3, empate 1, derrota 0.
+            <br />A partida acaba quando alguém faz <strong>primeiro</strong> uma das 3: {LOL_FORMAS.map(f => f.label).join(' · ')}.
+            <br /><strong>TOP 8 vai pro mata-mata</strong>: <strong>1º e 2º</strong> entram direto na <strong>semifinal</strong> (não podem terminar abaixo de 4º); <strong>3º×6º</strong> e <strong>4º×5º</strong> jogam as quartas. 7º e 8º classificam mas não jogam o mata-mata.
           </div>
         </div>
-      )}
+      </div>
+
+      {/* ───────── RODADAS ───────── */}
+      <aside>
+        <div className="card mk-card mk-rodada-card">
+          <div className="card-head">
+            <div className="title">{curRound ? 'RODADA ' + String(curRound.n).padStart(2, '0') : 'RODADAS'}</div>
+            <div className="sub">{curRound ? 'TODOS CONTRA TODOS' : 'AGUARDANDO'}</div>
+          </div>
+          <div className="card-body">
+            {!curRound ? (
+              <div className="mk-sorteio-empty">
+                <div className="mk-sorteio-ic"><Icon name="dice" size={30} /></div>
+                <p>A tabela sai sozinha dos inscritos — <strong>todos contra todos</strong>. Faltam jogadores pra montar os confrontos.</p>
+              </div>
+            ) : (
+              <>
+                <div className="mk-rnav">
+                  <button className="mk-rnav-btn" onClick={() => setSelRound(Math.max(0, viewRound - 1))} disabled={viewRound === 0} aria-label="Rodada anterior">
+                    <Icon name="chevron-left" size={18} />
+                  </button>
+                  <div className="mk-rnav-mid">
+                    <div className="mk-rnav-phase">FASE DE GRUPO</div>
+                    <div className="mk-rnav-count">{viewRound + 1} <span>/ {rounds.length}</span></div>
+                  </div>
+                  <button className="mk-rnav-btn" onClick={() => setSelRound(Math.min(rounds.length - 1, viewRound + 1))} disabled={viewRound === rounds.length - 1} aria-label="Próxima rodada">
+                    <Icon name="chevron-right" size={18} />
+                  </button>
+                </div>
+
+                {rounds.length > 1 && (
+                  <div className="mk-rstrip" role="tablist" aria-label="Todas as rodadas">
+                    <div className="mk-rstrip-grp">
+                      <span className="mk-rstrip-lab">RODADAS</span>
+                      <div className="mk-rstrip-chips">
+                        {roundsMeta.map(rm => (
+                          <button key={rm.idx} type="button" role="tab" aria-selected={rm.idx === viewRound}
+                            className={'mk-rchip mk-rchip-' + rm.st + (rm.idx === viewRound ? ' sel' : '')}
+                            onClick={() => setSelRound(rm.idx)}
+                            title={'Rodada ' + String(rm.n).padStart(2, '0') + ' · ' + rm.doneN + '/' + rm.total + ' jogos'}>
+                            <span className="mk-rchip-n">{String(rm.n).padStart(2, '0')}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {rounds.length > 1 && (
+                  <div className="mk-rstrip-leg">
+                    <span><i className="mk-lg-dot done" /> encerrada</span>
+                    <span><i className="mk-lg-dot live" /> atual</span>
+                    <span><i className="mk-lg-dot future" /> a vir</span>
+                    <span className="mk-rstrip-leg-c">{jogados}/{totalJogos} jogos</span>
+                  </div>
+                )}
+
+                <div className="mk-fixtures">
+                  {curRound.games
+                    .map((g, gi) => ({ g, gi }))
+                    .sort((a, b) => (isMine(b.g) ? 1 : 0) - (isMine(a.g) ? 1 : 0)) // SEU JOGO no topo
+                    .map(({ g, gi }) => {
+                      const key = lolGameKey(curRound.n, gi);
+                      const sc = (scores || {})[key] || {};
+                      const out = lolMatchOutcome(sc);
+                      const mine = isMine(g);
+                      return (
+                        <div key={gi} className={'mk-fx' + (out ? ' done' : '') + (mine ? ' mine' : '')}>
+                          <div className="mk-fx-top">
+                            <span className="mk-fx-jogo">
+                              JOGO {String(gi + 1).padStart(2, '0')}
+                              {mine && <span className="mk-fx-mine"><Icon name="sword" size={10} /> SEU JOGO</span>}
+                            </span>
+                            {out && (
+                              <span className="mk-fx-done">
+                                <Icon name="check" size={11} /> {out.pvH}×{out.pvA}{out.winner === 'D' ? ' · EMPATE' : ''}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mk-fx-body">
+                            <div className="mk-fx-side home">
+                              <Avatar nick={g.home} teamPlayers={teamPlayers} size={28} noBadge />
+                              <span className={'mk-fx-nick' + (out && out.winner === 'H' ? ' win' : out && out.winner === 'A' ? ' lose' : '')}>{g.home}</span>
+                            </div>
+                            <span className="mk-fx-vs">×</span>
+                            <div className="mk-fx-side away">
+                              <Avatar nick={g.away} teamPlayers={teamPlayers} size={28} noBadge />
+                              <span className={'mk-fx-nick' + (out && out.winner === 'A' ? ' win' : out && out.winner === 'H' ? ' lose' : '')}>{g.away}</span>
+                            </div>
+                          </div>
+
+                          {/* as 2 partidas: quem venceu e por qual forma */}
+                          <div className="lol-fx-partidas">
+                            {[1, 2].map(p => {
+                              const w = sc['w' + p], m = sc['m' + p];
+                              return (
+                                <div key={p} className={'lol-fx-p' + (w ? ' done' : '')}>
+                                  <span className="lol-fx-pn">P{p}</span>
+                                  {w ? (
+                                    <span className="lol-fx-res">
+                                      <strong>{w === 'H' ? g.home : g.away}</strong>
+                                      {m && <em>{formaLabel(m)}</em>}
+                                    </span>
+                                  ) : <span className="lol-fx-res vazio">a jogar</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {isMod && (
+                            <div className="lol-mod">
+                              {[1, 2].map(p => (
+                                <div key={p} className="lol-mod-p">
+                                  <span className="lol-mod-ph">PARTIDA {p}</span>
+                                  <span className="lol-fld">
+                                    <span className="lol-fld-l">VENCEU</span>
+                                    <button type="button" className={'lol-w' + (sc['w' + p] === 'H' ? ' on' : '')}
+                                      onClick={() => onResult(curRound.n, gi, 'w' + p, sc['w' + p] === 'H' ? null : 'H')}
+                                      title={g.home}>{g.home.slice(0, 3)}</button>
+                                    <button type="button" className={'lol-w' + (sc['w' + p] === 'A' ? ' on' : '')}
+                                      onClick={() => onResult(curRound.n, gi, 'w' + p, sc['w' + p] === 'A' ? null : 'A')}
+                                      title={g.away}>{g.away.slice(0, 3)}</button>
+                                  </span>
+                                  <span className="lol-fld lol-fld-forma">
+                                    <span className="lol-fld-l">COMO</span>
+                                    {LOL_FORMAS.map(f => (
+                                      <button key={f.k} type="button"
+                                        className={'lol-w' + (sc['m' + p] === f.k ? ' on' : '')}
+                                        onClick={() => onResult(curRound.n, gi, 'm' + p, sc['m' + p] === f.k ? null : f.k)}
+                                        title={f.label + ' — ' + f.sub}>{f.k}</button>
+                                    ))}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* ───────── MATA-MATA ───────── */}
+        <div className="card mk-card mk-rodada-card">
+          <div className="card-head">
+            <div className="title"><Icon name="trophy" size={15} /> MATA-MATA</div>
+            <div className="sub">{br ? 'TOP 8' : done ? 'AGUARDANDO PUBLICAÇÃO' : 'ABRE NO FIM DO GRUPO'}</div>
+          </div>
+          <div className="card-body">
+            {!br ? (
+              <div className="mk-sorteio-empty">
+                <div className="mk-sorteio-ic"><Icon name="trophy" size={30} /></div>
+                <p>{done
+                  ? 'Fase de grupo encerrada. O mod precisa PUBLICAR o mata-mata pra congelar os 8 classificados.'
+                  : 'O mata-mata abre quando a fase de grupo terminar (todos os jogos com vencedor).'}</p>
+                {isMod && done && (
+                  <button className="tp-btn-go" onClick={onPublishKo}>
+                    <Icon name="lock" size={15} /> PUBLICAR MATA-MATA
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="mk-fixtures">
+                <div className="mk-rstrip-lab" style={{ marginBottom: 6 }}>QUARTAS</div>
+                <KoCard m={br.qf1} titulo="3º × 6º" />
+                <KoCard m={br.qf2} titulo="4º × 5º" />
+                <div className="mk-rstrip-lab" style={{ margin: '10px 0 6px' }}>SEMIFINAL</div>
+                <KoCard m={br.sf1} titulo="1º entra aqui" />
+                <KoCard m={br.sf2} titulo="2º entra aqui" />
+                <div className="mk-rstrip-lab" style={{ margin: '10px 0 6px' }}>DECISÃO</div>
+                <KoCard m={br.f} titulo="FINAL" />
+                <KoCard m={br.t3} titulo="3º LUGAR" />
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }

@@ -6064,3 +6064,17 @@
     html.pv-dark .mk-bet-mode-btn { color: rgba(244,234,215,0.75); border-color: rgba(244,234,215,0.28); }
     html.pv-dark .mk-bet-mode-btn.on { background: var(--pv-bone); color: var(--pv-charcoal); border-color: var(--pv-bone); }
     html.pv-dark .mk-bet-mode-tabs { border-color: rgba(244,234,215,0.35); }
+
+    /* LoL — as 2 partidas do MD2 dentro do card de confronto (padrao .mk-fx) */
+    .lol-fx-partidas { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+    .lol-fx-p { display: flex; align-items: center; gap: 7px; border: 1px solid rgba(28,22,18,0.14); padding: 5px 8px; min-width: 0; }
+    .lol-fx-p.done { background: rgba(28,22,18,0.04); }
+    .lol-fx-pn { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700; color: rgba(28,22,18,0.45); flex-shrink: 0; }
+    .lol-fx-res { display: flex; flex-direction: column; min-width: 0; }
+    .lol-fx-res strong { font-size: 11.5px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lol-fx-res em { font-style: normal; font-size: 8.5px; font-weight: 700; letter-spacing: 0.1em; color: var(--pv-orange); }
+    .lol-fx-res.vazio { font-size: 10px; color: rgba(28,22,18,0.4); }
+    .lol-ko-fx .mk-fx-side { flex-direction: row; align-items: center; gap: 7px; }
+    .lol-ko-fx .lol-w { margin-left: auto; }
+    .mk-rstrip-leg-c { margin-left: auto; font-family: 'JetBrains Mono', monospace; opacity: 0.6; }
+    @media (max-width: 560px) { .lol-fx-partidas { grid-template-columns: 1fr; } }
