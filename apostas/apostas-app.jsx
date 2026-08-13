@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260811-lolgrid ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260813-copa-encerrada ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -182,15 +182,22 @@ const tabloidTheme = (champId) => TABLOID_THEMES[champId] || TABLOID_THEMES.fifa
 // (O campo `season` segue "Season N" e continua por extenso fora daqui.)
 function champShort(c) {
   if (!c) return '';
+  if (c.short) return c.short;
   return (c.tag || '') + ' ' + String(c.season || '').replace(/^Season\s+/i, 'S');
 }
 
-// Opções do picker de campeonato no tabloide = os campeonatos + a COPA DO MUNDO
-// (bolão separado, não vive em CHAMPIONSHIPS, mas tem tabloide próprio).
-const TABLOID_CHAMP_OPTS = [
-  ...CHAMPIONSHIPS,
-  { id: 'copa', tag: 'COPA', season: 'Copa do Mundo 2026', name: 'Copa do Mundo', status: 'active' },
-];
+// COPA DO MUNDO 2026 — ENCERRADA. APARECE SIM na aba CAMPEONATOS: entra no
+// grupo ENCERRADOS e, no clique, leva pra view 'copa' (o bolão continua
+// inteiro lá). O que ela NÃO faz é entrar no array CHAMPIONSHIPS — e só por um
+// motivo técnico: os loops de troféu/rei-das-apostas iteram aquele array e já
+// contam a copa à parte, então entrar lá duplicaria troféu.
+const COPA_CHAMP_ENTRY = {
+  id: 'copa', tag: 'COPA', season: 'Copa do Mundo 2026',
+  name: 'Copa do Mundo 2026', short: 'COPA DO MUNDO 2026', status: 'closed',
+};
+
+// Opções do picker de campeonato no tabloide = os campeonatos + a COPA DO MUNDO.
+const TABLOID_CHAMP_OPTS = [...CHAMPIONSHIPS, COPA_CHAMP_ENTRY];
 
 // ─── COPA DO MUNDO (bolão separado, sem PC) ────────────────────────────────
 // Dados completos carregados de apostas/world-cup/*.json (104 jogos + 48 times).
@@ -3632,6 +3639,7 @@ class ViewBoundary extends React.Component {
 
 // Views navegáveis via hash (#/apostas, #/ranking...). Tem que casar com os
 // ids de getTabItems + 'admin'. Hash desconhecido cai em 'apostas'.
+// 'copa' não tem mais aba própria na navegação — acessível via CAMPEONATOS → ENCERRADOS ou hash #/copa.
 const VALID_VIEWS = ['apostas', 'campeonatos', 'copa', 'estatisticas', 'hall', 'inicio', 'loja', 'perfil', 'tickets', 'ranking', 'admin', 'mod'];
 
 // Telas/recursos escondidos POR ENQUANTO. O código continua TODO no lugar — só
@@ -6494,14 +6502,14 @@ function App() {
               <div className={'champ-layout champ-layout--camp' + (champRailOpen ? '' : ' rail-collapsed')}>
                 {/* lista de CAMPEONATOS oculta por padrão — abre na seta. */}
                 {champRailOpen && (
-                  <ChampSidebar value={championship} onChange={pickChampionship} cs={cs} interests={interests || {}} mode="campeonatos" />
+                  <ChampSidebar value={championship} onChange={pickChampionship} cs={cs} interests={interests || {}} mode="campeonatos" onOpenCopa={() => setView('copa')} />
                 )}
                 <div className="champ-main">
                   <button type="button" className="champ-rail-toggle" onClick={toggleChampRail}
                           title={champRailOpen ? 'Esconder lista de campeonatos' : 'Ver outros campeonatos'}>
                     <Icon name={champRailOpen ? 'x' : 'menu'} size={13} /> {champRailOpen ? 'ESCONDER LISTA' : 'OUTROS CAMPEONATOS'}
                   </button>
-                  <ChampHeader value={championship} onChange={pickChampionship} interests={interests || {}} bare />
+                  <ChampHeader value={championship} onChange={pickChampionship} interests={interests || {}} bare onOpenCopa={() => setView('copa')} />
                   {active.id === 'mk' ? (
                     // MK: CLASSIFICACAO (centro) + RODADAS (direita), grid de 2 colunas.
                     <MkChampionshipView
@@ -6730,7 +6738,6 @@ function TopBar({ nick, pc, cc, isAdmin, isMod, onLogout, view, onView, teamPlay
       <nav className="primary-nav" aria-label="Navegação principal">
         <button className={'pnav ' + (view === 'apostas' ? 'active' : '')} onClick={() => onView && onView('apostas')}>APOSTAS/JOGOS</button>
         <button className={'pnav ' + (view === 'campeonatos' ? 'active' : '')} onClick={() => onView && onView('campeonatos')}>CAMPEONATOS</button>
-        <button className={'pnav ' + (view === 'copa' ? 'active' : '')} onClick={() => onView && onView('copa')}>COPA DO MUNDO</button>
         <button className={'pnav ' + (view === 'estatisticas' ? 'active' : '')} onClick={() => onView && onView('estatisticas')}>ESTATÍSTICAS</button>
         {!HIDDEN_VIEWS.has('hall') && <button className={'pnav ' + (view === 'hall' ? 'active' : '')} onClick={() => onView && onView('hall')}>VITRINE</button>}
         {!HIDDEN_VIEWS.has('inicio') && <button className={'pnav ' + (view === 'inicio' ? 'active' : '')} onClick={() => onView && onView('inicio')}>NEWS</button>}
@@ -6782,11 +6789,11 @@ function TopBar({ nick, pc, cc, isAdmin, isMod, onLogout, view, onView, teamPlay
 // em cima e a identidade do campeonato (FIFA · SEASON 1) embaixo, com um
 // dropdown "TROCAR" pra alternar entre campeonatos (ativo e os EM BREVE).
 // `bare` = variante leve (sem caixa escura), usada na classificação e no EM BREVE.
-function ChampHeader({ value, onChange, interests, title, tag, stats, bare, activeOnly }) {
+function ChampHeader({ value, onChange, interests, title, tag, stats, bare, activeOnly, onOpenCopa }) {
   const active = CHAMP_BY_ID[value] || CHAMPIONSHIPS[0];
   // activeOnly: usado na aba APOSTAS — o switcher só lista campeonatos ATIVOS
   // (não dá pra "trocar" pra um EM BREVE no meio das apostas).
-  const switcherList = activeOnly ? CHAMPIONSHIPS.filter(c => c.status === 'active') : CHAMPIONSHIPS;
+  const switcherList = activeOnly ? CHAMPIONSHIPS.filter(c => c.status === 'active') : [...CHAMPIONSHIPS, COPA_CHAMP_ENTRY];
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -6804,7 +6811,7 @@ function ChampHeader({ value, onChange, interests, title, tag, stats, bare, acti
     };
   }, [open]);
 
-  const pick = (id) => { onChange(id); setOpen(false); };
+  const pick = (id) => { if (id === 'copa') { if (onOpenCopa) onOpenCopa(); setOpen(false); return; } onChange(id); setOpen(false); };
   const hasContext = !!(title || stats);
 
   return (
@@ -6833,7 +6840,8 @@ function ChampHeader({ value, onChange, interests, title, tag, stats, bare, acti
             <div className="champ-switcher-menu" role="menu">
               {switcherList.map(c => {
                 const isSel = c.id === value;
-                const isComing = c.status !== 'active';
+                const isClosed = c.status === 'closed';
+                const isComing = !isClosed && c.status !== 'active';
                 const count = Object.keys(interests?.[c.id] || {}).length;
                 return (
                   <button
@@ -6844,7 +6852,7 @@ function ChampHeader({ value, onChange, interests, title, tag, stats, bare, acti
                   >
                     <span className="csi-name">{champShort(c)}</span>
                     <span className="csi-status">
-                      {isComing ? 'EM BREVE' : 'ATIVO'}
+                      {isClosed ? 'ENCERRADO' : isComing ? 'EM BREVE' : 'ATIVO'}
                       {isComing && count > 0 ? ' · ' + count : ''}
                       {isSel && <Icon name="check" size={13} />}
                     </span>
@@ -6898,9 +6906,12 @@ function champStatusFor(c, cs) {
 // dourada). Cada item usa a cor/ícone do tabloide. `mode='apostas'` esconde os
 // "em breve" (não dá pra apostar) e deixa os encerrados só pra referência (sem
 // clique). No mobile o sidebar some (CSS) e o ChampHeader vira o switcher.
-function ChampSidebar({ value, onChange, cs, interests, mode, histValue, onSelectClosed }) {
+function ChampSidebar({ value, onChange, cs, interests, mode, histValue, onSelectClosed, onOpenCopa }) {
   const withStatus = CHAMPIONSHIPS.map(c => ({ c, g: champStatusFor(c, cs) }));
   const apostas = mode === 'apostas';
+  // A COPA entra como item VIRTUAL só em CAMPEONATOS (em APOSTAS não: o bolão da
+  // copa não usa PC e o painel de histórico não sabe lidar com ela).
+  if (!apostas) withStatus.push({ c: COPA_CHAMP_ENTRY, g: 'closed' });
   const groups = [
     { key: 'active', label: 'ATIVOS' },
     { key: 'soon',   label: 'EM BREVE' },
@@ -6922,7 +6933,8 @@ function ChampSidebar({ value, onChange, cs, interests, mode, histValue, onSelec
             // Encerrado agora é CLICÁVEL em APOSTAS: abre o histórico (só leitura).
             // Continua bloqueado o "em breve" — nele não há nada pra ver.
             const disabled = apostas && g === 'soon';
-            const sub = g === 'closed' ? (apostas ? 'ver histórico' : 'encerrado')
+            const sub = c.id === 'copa' ? 'ver o bolão'
+                      : g === 'closed' ? (apostas ? 'ver histórico' : 'encerrado')
                       : g === 'soon' ? (count > 0 ? count + ' inscritos' : 'em breve')
                       : 'em andamento';
             return (
@@ -6933,6 +6945,8 @@ function ChampSidebar({ value, onChange, cs, interests, mode, histValue, onSelec
                 style={{ '--champ-color': th.color }}
                 onClick={() => {
                   if (disabled) return;
+                  // COPA: não é seleção de campeonato — é navegação pra view do bolão.
+                  if (c.id === 'copa') { if (onOpenCopa) onOpenCopa(); return; }
                   // Só em APOSTAS o encerrado tem tratamento especial: abre o
                   // painel de HISTÓRICO e NÃO mexe no apostasChampId (que carimba
                   // o champId do cupom — apontar pra um encerrado abriria exploit).
@@ -8976,7 +8990,6 @@ function getTabItems(isAdmin, mkInscrito, isMod) {
   const sectionItems = [
     { id: 'apostas',     label: 'APOSTAS/JOGOS', icon: 'ticket' },
     { id: 'campeonatos', label: 'CAMPEONATOS',   icon: 'chart' },
-    { id: 'copa',        label: 'COPA DO MUNDO', icon: 'globe' },
     { id: 'estatisticas',label: 'ESTATÍSTICAS',  icon: 'medal' },
     { id: 'hall',        label: 'VITRINE',       icon: 'trophy' },
     { id: 'inicio',      label: 'NEWS',          icon: 'newspaper' },
@@ -17716,9 +17729,6 @@ function TrophyShowcase({ champ, items, theme, status, sideRanking, myNick, side
     </div>
   );
 }
-
-// Champ "virtual" da Copa pra reusar o TrophyShowcase.
-const COPA_CHAMP = { id: 'copa', name: 'Copa do Mundo · Bolão', season: '2026' };
 
 // Ranking de apostadores por LUCRO nas apostas (retorno das ganhas − o valor
 // apostado nas resolvidas), de todos os tempos. NÃO usa o saldo PC, que muda
