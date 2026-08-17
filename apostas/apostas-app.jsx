@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260813-copa-encerrada ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260817-reifix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -12116,16 +12116,13 @@ function betKingChamps(nick, cs, bets) {
                  : c.id === 'lol'  ? lolIsClosed(_lolChampData)
                  : computeChampStandings(c.id, cs).status === 'closed';
     if (!closed) continue;
-    const profit = {};
-    (bets || []).forEach(b => {
-      if ((b.champId || 'fifa') !== c.id) return;
-      if (b.status !== 'won' && b.status !== 'lost') return; // só apostas resolvidas
-      const net = (b.status === 'won' ? (b.payout || 0) : 0) - (b.amount || 0);
-      if (b.user === 'admin') return;
-      profit[b.user] = (profit[b.user] || 0) + net;
-    });
-    const ranked = Object.entries(profit).sort((a, b) => b[1] - a[1]);
-    if (ranked.length && ranked[0][0] === nick) out.push({ champId: c.id });
+    // USA seasonBettingRanking — que já soma os cupons quentes COM o agregado
+    // das temporadas arquivadas (json.betStats). Antes esta função fazia a
+    // PRÓPRIA varredura em `bets`; no dia em que os cupons foram arquivados ela
+    // ficou vazia e o REI DAS APOSTAS sumiu de quem tinha ganhado.
+    // Uma fonte só pro lucro da season — não duplicar a conta aqui.
+    const rank = seasonBettingRanking(c.id, bets);
+    if (rank.length && rank[0].nick === nick) out.push({ champId: c.id });
   }
   return out;
 }
@@ -12305,8 +12302,23 @@ function betProfileStats(nick, bets) {
     else pend++;
     if (b.copyOf) copies++;
   });
+  // Soma as temporadas ARQUIVADAS (json.betStats) — sem isto o perfil zerava
+  // no dia do arquivamento e todo mundo aparecia com "0 apostas".
+  for (const perChamp of Object.values(_betStats || {})) {
+    const a = (perChamp || {})[nick];
+    if (!a) continue;
+    won += a.vit || 0;
+    lost += a.der || 0;
+    wagered += a.wagered || 0;
+    retorno += a.retorno || 0;
+    stakeResolvido += a.stakeResolvido || 0;
+  }
+  const arquivadas = Object.values(_betStats || {}).reduce((s, g) => s + (((g || {})[nick] || {}).apostas || 0), 0);
   const resolved = won + lost;
-  return { total: mine.length, won, lost, pend, wagered, lucro: retorno - stakeResolvido, winRate: resolved ? Math.round(won / resolved * 100) : 0, biggest, copies, bestStreak: maxBetStreak(bets, nick, 'won') };
+  // `biggest` (maior lucro num cupom só) e `copies` não existem no agregado —
+  // contam só o que ainda está no doc quente. Perda aceitável: são vitrine,
+  // não título. Se um dia importarem, viram campo do betStats.
+  return { total: mine.length + arquivadas, won, lost, pend, wagered, lucro: retorno - stakeResolvido, winRate: resolved ? Math.round(won / resolved * 100) : 0, biggest, copies, bestStreak: Math.max(maxBetStreak(bets, nick, 'won'), betTotalsOf(nick, bets).streakV) };
 }
 // Posição do nick no ranking de apostas de cada SEASON ENCERRADA. Base dos
 // títulos de apostas (rei/vice/mico). Retorna [{ champId, pos, total, lucro,
@@ -12582,7 +12594,7 @@ const ACH = {
   lanterna:    ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.isLast; },
   penultimo:   ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.isPenult; },
   millionaire: ({ nick, users }) => ((users || {})[nick]?.pc || 0) >= 100000,
-  broke:       ({ nick, users, bets }) => ((users || {})[nick]?.pc || 0) <= 0 && betsOf(bets, nick).length >= 3,
+  broke:       ({ nick, users, bets }) => ((users || {})[nick]?.pc || 0) <= 0 && betTotalsOf(nick, bets).apostas >= 3,
   grinder50:   ({ nick, bets }) => betTotalsOf(nick, bets).apostas >= 50,
   addict100:   ({ nick, bets }) => betTotalsOf(nick, bets).apostas >= 100,
   prophet:     ({ nick, bets }) => betTotalsOf(nick, bets).maxOdds >= 20,
@@ -12609,9 +12621,9 @@ const ACH = {
   betMico:     ({ nick, cs, bets, mk }) => bettingSeasonRanks(nick, cs, bets, !!mkKoPodiumOrder((mk || {}).ko)).some(r => r.pos === r.total && r.total >= 3 && r.lucro < 0 && r.apostas >= 5),
   // ── NOVAS (gamificação 2026-06) ──
   rookie:      ({ nick, bets }) => betTotalsOf(nick, bets).apostas >= 1,
-  centurion:   ({ nick, bets }) => betsOf(bets, nick).length >= 200,
+  centurion:   ({ nick, bets }) => betTotalsOf(nick, bets).apostas >= 200,
   nightOwl:    ({ nick, bets }) => betsOf(bets, nick).some(b => { const h = betHour(b); return h !== null && h >= 0 && h < 5; }),
-  oddInsane:   ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Number(b.combinedOdds) >= 50),
+  oddInsane:   ({ nick, bets }) => betTotalsOf(nick, bets).maxOdds >= 50,
   bigPayout:   ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Number(b.payout) >= 50000),
   minimalist:  ({ nick, bets }) => betsOf(bets, nick).some(b => b.status === 'won' && Array.isArray(b.legs) && b.legs.length === 1),
   bronze:      ({ nick, cs, teamPlayers }) => { const p = champStandingPos(nick, cs, teamPlayers); return !!p && p.pos === 3; },
