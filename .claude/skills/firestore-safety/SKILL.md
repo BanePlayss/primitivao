@@ -48,3 +48,30 @@ O doc é de leitura pública; dá pra ler via REST com a apiKey:
 curl -s "https://firestore.googleapis.com/v1/projects/primitivao/databases/(default)/documents/primitivao/apostas?key=AIzaSyB4Tu-OIAfBUfzdtY-wF9tSoBwP_36hdRg"
 ```
 Útil pra confirmar se houve perda de dado (updateTime + contagem de users/bets).
+
+## COTA — regra permanente (2026-08-18)
+
+O plano gratuito dá **50k leituras/dia e 20k escritas/dia**. Em 2026-08-17 isso
+estourou e o site + PRIMICORD ficaram fora por horas. Não há degradação suave:
+passou do teto, tudo para.
+
+**Antes de qualquer leitura de produção, pergunte se ela é necessária.**
+
+- **Diagnóstico NÃO justifica leitura.** Use o backup mais recente em
+  `backups/` (a Action diária grava um por dia). Só leia a produção quando a
+  resposta depender do estado daquele minuto.
+- **Nada de desenvolver contra produção.** `npm run emu` + `npm run emu:seed`
+  sobem uma cópia local com dado real; `npm run emu:rules` testa a rules antes
+  de publicar.
+- **AMPLIFICAÇÃO é o que mata, não o volume.** Cada escrita no doc cobra
+  1 leitura por cliente com listener aberto. Antes de somar um `useEffect` que
+  escreve, pergunte: **isto roda em todo cliente?** Se sim, trave pra mod
+  (ver `isModRef`, commit a538203) ou dê um debounce grande.
+- **Escrita em loop é catastrófica.** O cabo de guerra de 2026-08-17 (cliente
+  velho brigando com o novo) reescreveu o doc a cada 5-9 segundos por horas.
+
+Auto-hospedar (emulador + túnel) foi tentado e revertido no mesmo dia: dependia
+do PC do dono ligado, e quando o túnel caía o site pendurava — o descobridor
+checava se o *gist* respondia, não se o *servidor* estava vivo. Se a cota
+apertar de novo, a saída é o plano **Blaze** (mesma franquia gratuita, cobra só
+o excedente) — decisão do dono.
