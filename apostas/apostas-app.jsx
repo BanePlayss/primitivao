@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260818-cota ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260818-swfix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -3653,6 +3653,27 @@ function viewFromHash() {
   return VALID_VIEWS.indexOf(h) >= 0 ? h : 'apostas';
 }
 
+// RECARGA LIMPA. Tira o service worker e TODO o cache do caminho antes de
+// recarregar. Existe por causa de 18/08/2026: o index.html cacheado apontava o
+// SDK pro Firestore local (túnel já morto) e o app travava no CONECTANDO — o
+// conserto estava no ar, mas o navegador nunca ia buscá-lo. Ctrl+Shift+R nem
+// sempre é suficiente (e ninguém no grupo vai fazer isso pelo DevTools).
+async function hardReload() {
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+    if (window.caches) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch (e) {
+    console.warn('hardReload: limpeza falhou, recarregando assim mesmo', e);
+  }
+  window.location.reload();
+}
+
 function App() {
   const [shared, setShared] = useState({ users: {}, fixtures: DEFAULT_FIXTURES, bets: [], interests: {}, teamPlayers: {}, comments: {}, worldcup: { results: {}, picks: {} } });
   const { users, fixtures, bets, interests, teamPlayers, comments, worldcup } = shared;
@@ -3675,6 +3696,15 @@ function App() {
 
   const [slip, setSlip]     = useState([]); // [{fixtureId='rXgY', market, pick, odds}]
   const [synced, setSynced] = useState(false);
+  // WATCHDOG DO "CONECTANDO". Sem isto, banco fora do ar = spinner eterno sem
+  // uma palavra de explicação (foi o que aconteceu em 18/08/2026). Passados 12s
+  // a tela assume que travou, explica e oferece a recarga limpa.
+  const [connectStuck, setConnectStuck] = useState(false);
+  useEffect(() => {
+    if (synced && cs !== null) { setConnectStuck(false); return; }
+    const t = setTimeout(() => setConnectStuck(true), 12000);
+    return () => clearTimeout(t);
+  }, [synced, cs]);
   const [championship, setChampionship] = useState('fifa');
   // APOSTAS: campeonato ENCERRADO que o usuário está folheando (histórico, só
   // leitura). null = modo aposta normal. É uma seleção SEPARADA do
@@ -6305,6 +6335,17 @@ function App() {
           <div className="pv-spinner" aria-hidden="true"><span /><span /><span /></div>
           <div className="lh1">CONECTANDO</div>
           <div className="lh2">SINCRONIZANDO COM O SERVIDOR</div>
+          {connectStuck && (
+            <div className="loading-stuck">
+              <div className="ls-msg">
+                Isso já passou do normal. Quase sempre é uma versão velha do site
+                presa no cache do navegador.
+              </div>
+              <button type="button" className="senha-submit ls-btn" onClick={hardReload}>
+                LIMPAR CACHE E RECARREGAR
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
