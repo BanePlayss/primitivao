@@ -136,7 +136,7 @@ async function hashPassword(text) {
 // ─── CAMPEONATOS ────────────────────────────────────────────────────────────
 // Por enquanto só FIFA está ativo. MK e RL aceitam só inscrições de interesse.
 // Marker visível no console pra confirmar que tá rodando a versão nova.
-console.log('%c PRIMITIVÃO v=20260817-reifix ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
+console.log('%c PRIMITIVÃO v=20260818-cota ', 'background:#d76414;color:#fff;font-weight:800;padding:4px 8px;');
 
 const CHAMPIONSHIPS = [
   { id: 'fifa', name: 'Primitivão — FIFA 2026',                  season: 'Season 1', tag: 'FIFA', status: 'active' },
@@ -4330,6 +4330,14 @@ function App() {
   }, []);
 
   const hasLoadedRef        = useRef(false);
+  // QUEM LIQUIDA. As liquidações rodavam em TODO cliente: com 10 pessoas online,
+  // um placar lançado virava 10 transações (10 leituras + 10 escritas) e cada
+  // escrita disparava mais 10 leituras de snapshot. Foi o que queimou a cota do
+  // Firestore em 2026-08-17 (e o cabo de guerra multiplicou isso em loop).
+  // Agora só MOD/ADMIN liquida — e é justamente quem lança o resultado, então
+  // está online no momento que importa. Ref porque `isMod` só é calculado bem
+  // depois destes effects (não dá pra usar na lista de dependências: TDZ).
+  const isModRef            = useRef(false);
   const isApplyingRemoteRef = useRef(false);
 
   // ── Firestore: apostas doc ────────────────────────────────────────────────
@@ -4682,6 +4690,7 @@ function App() {
   // (FIFA settle ignora legs 'mk:' porque parseGameId não casa). Idempotente.
   useEffect(() => {
     if (!hasLoadedRef.current) return;
+    if (!isModRef.current) return;   // só mod/admin liquida (ver isModRef)
     const snap = mkScores;
     let cancelled = false;
     const timer = setTimeout(async () => {
@@ -4775,6 +4784,7 @@ function App() {
   // reputação IGUAL à liga (aposta de KO agora é copiável na Mesa dos Cartolas).
   useEffect(() => {
     if (!hasLoadedRef.current) return;
+    if (!isModRef.current) return;   // só mod/admin liquida (ver isModRef)
     let cancelled = false;
     const timer = setTimeout(async () => {
       if (cancelled) return;
@@ -4883,6 +4893,7 @@ function App() {
   // mandou. Idempotente: só grava quando algo muda de fato.
   useEffect(() => {
     if (!hasLoadedRef.current) return;
+    if (!isModRef.current) return;   // só mod/admin liquida (ver isModRef)
     let cancelled = false;
     const timer = setTimeout(async () => {
       if (cancelled) return;
@@ -4924,6 +4935,7 @@ function App() {
 
   useEffect(() => {
     if (!hasLoadedRef.current) return;
+    if (!isModRef.current) return;   // só mod/admin liquida (ver isModRef)
     let cancelled = false;
     const timer = setTimeout(async () => {
       if (cancelled) return;
@@ -5056,6 +5068,7 @@ function App() {
   const [modDisabled, setModDisabled] = useState(() => { try { return localStorage.getItem('pv-mod-off') === '1'; } catch (_) { return false; } });
   const toggleModView = () => setModDisabled(d => { const next = !d; try { localStorage.setItem('pv-mod-off', next ? '1' : '0'); } catch (_) {} return next; });
   const isMod = isAdmin || (isNaturalMod && !modDisabled);
+  isModRef.current = isMod;   // ver isModRef: só mod/admin roda liquidação
   // Se desligar o mod estando na aba ADMIN, volta pra apostas (não fica em tela vazia).
   useEffect(() => { if (view === 'admin') { setView('mod'); return; } if (view === 'mod' && !isMod) setView('apostas'); }, [view, isMod]);
 
