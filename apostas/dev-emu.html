@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>[EMU] [DEV] PRIMITIVÃO 2026 — APOSTAS</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <link rel="icon" type="image/png" href="primitivao-icon.png" />
+  <link rel="apple-touch-icon" href="primitivao-icon.png" />
+  <link rel="shortcut icon" type="image/png" href="primitivao-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Bungee+Inline&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Firebase (compat SDK) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey: "AIzaSyB4Tu-OIAfBUfzdtY-wF9tSoBwP_36hdRg",
+      authDomain: "primitivao.firebaseapp.com",
+      projectId: "primitivao",
+      storageBucket: "primitivao.firebasestorage.app",
+      messagingSenderId: "279022752580",
+      appId: "1:279022752580:web:e5f467d6e2e83bc6cc7d11",
+    });
+    window.db = firebase.firestore();
+    // EMULADOR LOCAL — este arquivo (dev-emu.html) NUNCA fala com producao.
+    // Sem cota, sem risco de estragar dado real. Semeia com:
+    //     npm run emu:seed
+    window.db.useEmulator('127.0.0.1', 8080);
+    console.log('%c EMULADOR LOCAL 127.0.0.1:8080 — nao e producao ', 'background:#1f5f8a;color:#fff;font-weight:800;padding:4px 8px;');
+  </script>
+
+  <!-- DEV MODE: carrega o .jsx direto via Babel standalone. Mais lento
+       (~2-3s parsing), mas dispensa rebuild. Pra produção, use index.html
+       que carrega o apostas-app.compiled.js já minificado. -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="apostas-app.jsx?v=dev"></script>
+</body>
+</html>

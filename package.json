@@ -1,0 +1,12 @@
+{
+  "name": "primitivao",
+  "private": true,
+  "description": "Scripts locais. O app em si e HTML/JS estatico — isto aqui so orquestra emulador e build.",
+  "scripts": {
+    "emu": "firebase emulators:start --only firestore",
+    "emu:seed": "node scripts/seed-emulator.mjs",
+    "build": "esbuild apostas/apostas-app.jsx --loader:.jsx=jsx --target=es2018 --minify --outfile=apostas/apostas-app.compiled.js",
+    "check": "node -e \"require('@babel/parser').parse(require('fs').readFileSync('apostas/apostas-app.jsx','utf8'),{sourceType:'script',plugins:['jsx']});console.log('PARSE OK')\"",
+    "emu:rules": "node scripts/test-rules-emulator.mjs"
+  }
+}

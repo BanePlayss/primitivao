@@ -4,8 +4,26 @@
     {
       "name": "apostas-worktree",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8103", "--directory", "D:/projects/primitivao/.claude/worktrees/affectionate-lovelace-50baae/apostas"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8103",
+        "--directory",
+        "D:/projects/primitivao/.claude/worktrees/affectionate-lovelace-50baae/apostas"
+      ],
       "port": 8103
+    },
+    {
+      "name": "apostas-emulador",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8104",
+        "--directory",
+        "D:/projects/primitivao/.claude/worktrees/affectionate-lovelace-50baae/apostas"
+      ],
+      "port": 8104
     }
   ]
 }

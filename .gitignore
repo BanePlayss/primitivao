@@ -1,3 +1,10 @@
 # Automação pessoal / configs locais do Claude Code
 .claude/settings.local.json
 .claude/auto-commit.sh
+
+# Firebase emulator (dados locais e logs — nao versionar)
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+emulator-data/
