@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Bungee+Inline&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" />
-  <link rel="stylesheet" href="styles.css?v=20260818-cota" />
+  <link rel="stylesheet" href="styles.css?v=20260818-nuvem" />
 </head>
 <body>
   <div id="root"></div>
@@ -33,31 +33,7 @@
       messagingSenderId: "279022752580",
       appId: "1:279022752580:web:e5f467d6e2e83bc6cc7d11",
     });
-    // ─── SERVIDOR: a maquina do dono, nao a nuvem ────────────────────────
-    // O Firestore roda no PC do Lucas (emulador) atras de um tunel HTTPS. O
-    // endereco muda a cada vez que o servidor sobe, entao o site descobre pelo
-    // gist antes de montar o app.
-    // NAO ha fallback pra nuvem de proposito: a nuvem tem dados ANTIGOS
-    // (congelados em 2026-08-17) e cair nela silenciosamente criaria dois
-    // bancos divergentes. Sem servidor, o app avisa e nao finge que esta bom.
-    window.__pvServerPromise = (async () => {
-      const GIST = 'https://gist.githubusercontent.com/BanePlayss/352e8949a15d0969adfaf92e5cc05d06/raw/server.json';
-      try {
-        const r = await fetch(GIST + '?t=' + Date.now(), { cache: 'no-store' });
-        if (!r.ok) throw new Error('gist HTTP ' + r.status);
-        const cfg = await r.json();
-        if (!cfg || !cfg.host) throw new Error('gist sem host');
-        window.db = firebase.firestore();
-        window.db.settings({ host: cfg.host, ssl: cfg.ssl !== false, experimentalForceLongPolling: true });
-        console.log('%c SERVIDOR: ' + cfg.host + ' ', 'background:#1f7a3a;color:#fff;font-weight:800;padding:4px 8px;');
-        return { ok: true, host: cfg.host };
-      } catch (e) {
-        console.warn('nao achei o servidor do Primitivao:', e.message);
-        window.db = firebase.firestore();   // existe pra nao quebrar o app
-        window.__pvServerDown = true;
-        return { ok: false, erro: e.message };
-      }
-    })();
+    window.db = firebase.firestore();
   </script>
 
   <!-- React em modo produção pra performance. Pra debugar em dev, use dev.html. -->
@@ -72,41 +48,7 @@
        O arquivo .compiled.js é gerado pelo GitHub Action `build.yml` a partir
        do apostas-app.jsx — não editar direto. Pra desenvolver localmente
        usa dev.html que carrega o .jsx com Babel standalone. -->
-<<<<<<< Updated upstream
-=======
-  <!-- O app so carrega DEPOIS que sabemos qual servidor usar — ele usa
-       window.db logo de cara, e o db precisa estar configurado antes. -->
-  <template id="pv-offline">
-    <div class="pv-off">
-      <div class="pv-off-box">
-        <div class="pv-off-t">SERVIDOR FORA DO AR</div>
-        <p>O Primitiv&atilde;o roda no PC do Bane. Enquanto a m&aacute;quina dele estiver desligada, o site n&atilde;o carrega.</p>
-        <p class="pv-off-s">Tenta de novo daqui a pouco.</p>
-        <button onclick="location.reload()">TENTAR DE NOVO</button>
-      </div>
-    </div>
-  </template>
-  <style>
-    .pv-off { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; background:#16100b; }
-    .pv-off-box { max-width:440px; border:2px solid #d76414; padding:28px; text-align:center; color:#f4ead7; font-family:'Space Grotesk',system-ui,sans-serif; }
-    .pv-off-t { font-family:'Bungee Inline',system-ui,sans-serif; font-size:22px; color:#d76414; margin-bottom:12px; }
-    .pv-off-box p { font-size:14px; line-height:1.5; opacity:.85; }
-    .pv-off-s { font-size:12px; opacity:.6; margin-top:14px; }
-    .pv-off-box button { margin-top:18px; background:#d76414; color:#fff; border:none; padding:11px 22px; font-weight:800; letter-spacing:.1em; cursor:pointer; }
-  </style>
-  <script>
-    window.__pvServerPromise.then(function (r) {
-      if (!r.ok) {
-        var tpl = document.getElementById('pv-offline');
-        document.getElementById('root').replaceChildren(tpl.content.cloneNode(true));
-        return;
-      }
-      var s = document.createElement('script');
-      s.src = 'apostas-app.compiled.js?v=20260818-cota';
-      document.body.appendChild(s);
-    });
-  </script>
->>>>>>> Stashed changes
+  <script src="apostas-app.compiled.js?v=20260818-nuvem"></script>
 
   <!-- PWA: registra service worker pra cache offline + install no celular.
        Também detecta quando uma versão NOVA do app foi instalada com esta
