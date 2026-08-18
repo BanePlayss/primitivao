@@ -1,0 +1,389 @@
+{
+  "exportedAt": "2026-05-21T03:44:14.400Z",
+  "version": 1,
+  "source": "browser-admin",
+  "apostas": {
+    "users": {
+      "ahnaovitinho": {
+        "senha": "123456",
+        "pc": 70,
+        "joined": 1779323743311,
+        "lastWeekly": 1779323745511
+      },
+      "caco": {
+        "senha": "senha1234",
+        "pc": 70,
+        "joined": 1779323659102,
+        "lastWeekly": 1779323662481
+      },
+      "jucamelero": {
+        "senha": "Luplinda1",
+        "pc": 70,
+        "joined": 1779323599832,
+        "lastWeekly": 1779323601832
+      },
+      "magreza": {
+        "senha": "arthurbr1999",
+        "pc": 70,
+        "joined": 1779323721156,
+        "lastWeekly": 1779323740542
+      },
+      "'or '1'='1''": {
+        "senha": "'OR '1'='1''",
+        "pc": 50,
+        "joined": 1779330015653,
+        "lastWeekly": 0
+      },
+      "bane": {
+        "senha": "seligaian45",
+        "pc": 70,
+        "joined": 1779330969078,
+        "lastWeekly": 1779331966095
+      },
+      "mohamed": {
+        "senha": "45114576",
+        "pc": 50,
+        "joined": 1779331393627,
+        "lastWeekly": 0
+      }
+    },
+    "fixtures": [
+      {
+        "id": "r1g1",
+        "round": 1,
+        "home": "bane",
+        "away": "mohamed",
+        "day": "SEG",
+        "date": "04/05",
+        "time": "21:00",
+        "oddsH": 2,
+        "oddsD": 3,
+        "oddsA": 2.2,
+        "oddsBY": 1.8,
+        "oddsBN": 2,
+        "result": null,
+        "locked": false
+      },
+      {
+        "id": "r1g2",
+        "round": 1,
+        "home": "potato",
+        "away": "magreza",
+        "day": "TER",
+        "date": "05/05",
+        "time": "21:00",
+        "oddsH": 2.3,
+        "oddsD": 3,
+        "oddsA": 2,
+        "oddsBY": 1.8,
+        "oddsBN": 2,
+        "result": null,
+        "locked": false
+      },
+      {
+        "id": "r1g3",
+        "round": 1,
+        "home": "celin",
+        "away": "juca",
+        "day": "QUA",
+        "date": "06/05",
+        "time": "21:00",
+        "oddsH": 2.1,
+        "oddsD": 3,
+        "oddsA": 2.1,
+        "oddsBY": 1.8,
+        "oddsBN": 2,
+        "result": null,
+        "locked": false
+      },
+      {
+        "id": "r1g4",
+        "round": 1,
+        "home": "caco",
+        "away": "vitinho",
+        "day": "QUI",
+        "date": "07/05",
+        "time": "21:00",
+        "oddsH": 2.5,
+        "oddsD": 3,
+        "oddsA": 1.9,
+        "oddsBY": 1.8,
+        "oddsBN": 2,
+        "result": null,
+        "locked": false
+      }
+    ],
+    "bets": []
+  },
+  "classificacao": {
+    "currentRound": 3,
+    "rounds": [
+      [
+        {
+          "home": "caco",
+          "away": "juca",
+          "day": "SEG",
+          "date": "11/05",
+          "time": "22:00",
+          "gh": "2",
+          "ga": "6"
+        },
+        {
+          "home": "vitinho",
+          "away": "mohamed",
+          "day": "SEG",
+          "date": "11/05",
+          "time": "21:30",
+          "gh": "4",
+          "ga": "3"
+        },
+        {
+          "home": "potato",
+          "away": "bane",
+          "day": "SEG",
+          "date": "11/05",
+          "time": "21:40",
+          "gh": "3",
+          "ga": "0"
+        },
+        {
+          "home": "magreza",
+          "away": "celin",
+          "day": "SEG",
+          "date": "11/05",
+          "time": "23:00",
+          "gh": "1",
+          "ga": "2"
+        }
+      ],
+      [
+        {
+          "home": "mohamed",
+          "away": "juca",
+          "day": "SEG",
+          "date": "11/05",
+          "time": "21:00",
+          "gh": "0",
+          "ga": "8"
+        },
+        {
+          "home": "potato",
+          "away": "magreza",
+          "day": "TER",
+          "date": "12/05",
+          "time": "21:30",
+          "gh": "2",
+          "ga": "2"
+        },
+        {
+          "home": "vitinho",
+          "away": "bane",
+          "day": "TER",
+          "date": "12/05",
+          "time": "23:00",
+          "gh": "1",
+          "ga": "1"
+        },
+        {
+          "home": "celin",
+          "away": "caco",
+          "day": "TER",
+          "date": "12/05",
+          "time": "23:30",
+          "gh": "1",
+          "ga": "3"
+        }
+      ],
+      [
+        {
+          "home": "bane",
+          "away": "juca",
+          "day": "SEG",
+          "date": "18/05",
+          "time": "21:00",
+          "gh": "0",
+          "ga": "7"
+        },
+        {
+          "home": "caco",
+          "away": "mohamed",
+          "day": "SEG",
+          "date": "18/05",
+          "time": "22:00",
+          "gh": "4",
+          "ga": "0"
+        },
+        {
+          "home": "vitinho",
+          "away": "magreza",
+          "day": "SEG",
+          "date": "18/05",
+          "time": "20:30",
+          "gh": "0",
+          "ga": "5"
+        },
+        {
+          "home": "potato",
+          "away": "celin",
+          "day": "SEG",
+          "date": "18/05",
+          "time": "21:30",
+          "gh": "4",
+          "ga": "2"
+        }
+      ],
+      [
+        {
+          "home": "mohamed",
+          "away": "bane",
+          "day": "SEG",
+          "date": "25/05",
+          "time": "21:00",
+          "gh": "1",
+          "ga": "6"
+        },
+        {
+          "home": "celin",
+          "away": "vitinho",
+          "day": "TER",
+          "date": "26/05",
+          "time": "21:30",
+          "gh": "4",
+          "ga": "2"
+        },
+        {
+          "home": "juca",
+          "away": "potato",
+          "day": "QUA",
+          "date": "27/05",
+          "time": "21:00",
+          "gh": "8",
+          "ga": "0"
+        },
+        {
+          "home": "magreza",
+          "away": "caco",
+          "day": "QUI",
+          "date": "28/05",
+          "time": "21:30",
+          "gh": "",
+          "ga": ""
+        }
+      ],
+      [
+        {
+          "home": "juca",
+          "away": "vitinho",
+          "day": "SEG",
+          "date": "01/06",
+          "time": "21:00",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "caco",
+          "away": "potato",
+          "day": "TER",
+          "date": "02/06",
+          "time": "21:30",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "bane",
+          "away": "magreza",
+          "day": "QUA",
+          "date": "03/06",
+          "time": "21:00",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "celin",
+          "away": "mohamed",
+          "day": "QUI",
+          "date": "04/06",
+          "time": "21:30",
+          "gh": "",
+          "ga": ""
+        }
+      ],
+      [
+        {
+          "home": "potato",
+          "away": "bane",
+          "day": "SEG",
+          "date": "08/06",
+          "time": "21:00",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "mohamed",
+          "away": "magreza",
+          "day": "TER",
+          "date": "09/06",
+          "time": "21:30",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "vitinho",
+          "away": "celin",
+          "day": "QUA",
+          "date": "10/06",
+          "time": "21:00",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "caco",
+          "away": "juca",
+          "day": "QUI",
+          "date": "11/06",
+          "time": "21:30",
+          "gh": "",
+          "ga": ""
+        }
+      ],
+      [
+        {
+          "home": "bane",
+          "away": "mohamed",
+          "day": "SEG",
+          "date": "15/06",
+          "time": "21:00",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "potato",
+          "away": "vitinho",
+          "day": "TER",
+          "date": "16/06",
+          "time": "21:30",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "magreza",
+          "away": "caco",
+          "day": "QUA",
+          "date": "17/06",
+          "time": "21:00",
+          "gh": "",
+          "ga": ""
+        },
+        {
+          "home": "celin",
+          "away": "juca",
+          "day": "QUI",
+          "date": "18/06",
+          "time": "21:30",
+          "gh": "",
+          "ga": ""
+        }
+      ]
+    ]
+  }
+}
