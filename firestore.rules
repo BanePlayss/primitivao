@@ -117,9 +117,31 @@ service cloud.firestore {
       // (o id é gerado por sessão), e o doc é pequeno e descartável.
       match /peers/{peerId} {
         allow read, delete: if true;
-        allow create, update: if request.resource.data.size() <= 12
+        // 0.9.8 acrescentou version, game, jamJoined e jamLink ao heartbeat.
+        // A presença atual chega a 13 campos; manter folga evita que um campo
+        // opcional novo transforme o heartbeat em PERMISSION_DENIED de novo.
+        allow create, update: if request.resource.data.size() <= 20
           && (!('nick' in request.resource.data)
               || (request.resource.data.nick is string && request.resource.data.nick.size() <= 30));
+      }
+
+      // Sinalização do WebRTC (voz com `webrtc=1`) — um doc por par de
+      // participantes, com SDP e candidatos ICE dos dois lados.
+      match /signal/{par} {
+        allow read, delete: if true;
+        allow create, update: if request.resource.data.size() <= 8
+          && (!('offer' in request.resource.data)
+              || (request.resource.data.offer is string
+                  && request.resource.data.offer.size() <= 20000))
+          && (!('offerCand' in request.resource.data)
+              || (request.resource.data.offerCand is string
+                  && request.resource.data.offerCand.size() <= 20000))
+          && (!('answer' in request.resource.data)
+              || (request.resource.data.answer is string
+                  && request.resource.data.answer.size() <= 20000))
+          && (!('answerCand' in request.resource.data)
+              || (request.resource.data.answerCand is string
+                  && request.resource.data.answerCand.size() <= 20000));
       }
     }
 
